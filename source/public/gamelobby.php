@@ -218,7 +218,9 @@
             gamedata.parseServerData(lobbyData);
             gamedata.parseFactions(<?php print($factions); ?>);
             
-            var customWarningShown = false; // Track if warning has been shown
+            var customWarningShown = false; 
+            var customFactionWarningShown = false;
+            var customShipWarningShown = false;
 
             $('.readybutton').on("click", gamedata.onReadyClicked);
             $('.savebutton').on("click", gamedata.onSaveClicked)            		
@@ -280,19 +282,21 @@
             // ✅ Listen to Tier and Custom Faction checkboxes
             $('.tier-filter').on('change', updateTierFilter);
 
-            /*
-            $('#toggleCustom').on('change', function () {
-                updateTierFilter();
-                gamedata.applyCustomShipFilter();
-            });
-            */
-            $('#toggleCustom').on('change', function () {
-                if ($(this).is(':checked')) {
+            // Combined listener for toggle and dropdown
+            $('#toggleCustom, #customSelect').on('change', function () {
+                var showCustom = $('#toggleCustom').is(':checked');
+                // var mode = $('#customSelect').val(); // Mode no longer needed for specific warnings
+
+                if (showCustom) {
                     $('#customDropdown').show();
                     
-                    if (!customWarningShown && lobbyData.description && lobbyData.description.match(/CUSTOM FACTIONS \/ UNITS:\s*Not Allowed/i)) {
-                        window.confirm.warning("Custom factions/units are not allowed in this scenario!");
-                        customWarningShown = true;
+                    var description = lobbyData.description || "";
+                    // Check if explicit permission is missing (i.e. it does NOT say "Allowed")
+                    var allowed = description.match(/CUSTOM FACTIONS \/ UNITS:\s*Allowed/i);
+
+                    if (!allowed && !customWarningShown) {
+                         window.confirm.warning("Custom Factions and/or Units not allowed in this match. <br>Please check Scenario Description");
+                         customWarningShown = true;
                     }
                 } else {
                     $('#customDropdown').hide();
