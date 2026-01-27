@@ -1168,8 +1168,9 @@ window.weaponManager = {
         if (weapon.ballistic && (!shooter.flight) && !weapon.ignoresLoS) {
             if (!(firecontrol <= 0)) { // No point checking for LoS if FC is 0 or lower
                 var loSBlocked = false;
-                var blockedLosHex = weaponManager.getBlockedHexes(); //Check if there are any hexes that block LoS                   
-                loSBlocked = mathlib.isLoSBlocked(sPosLaunch, sPosTarget, blockedLosHex); // Defaults to false (LoS NOT blocked)
+                var blockedLosHex = weaponManager.getBlockedHexes(); //Check if there are any hexes that block LoS 
+                var shooterPos2 = shipManager.getShipPosition(shooter);                                  
+                loSBlocked = mathlib.isLoSBlocked(shooterPos2, sPosTarget, blockedLosHex); // Defaults to false (LoS NOT blocked)
 
                 if (loSBlocked) { // Line of Sight is blocked!
                     if (weapon instanceof AmmoMissileRackS) {
