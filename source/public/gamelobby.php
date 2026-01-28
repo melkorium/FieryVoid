@@ -571,6 +571,8 @@ $optionsUsed = '';
             // Split into lines
             $lines = preg_split("/\r\n|\n|\r/", trim($desc));
 
+            $inAdditionalInfo = false;
+
             foreach ($lines as $line) {
                 // Trim whitespace for safety
                 $line = trim($line);
@@ -582,17 +584,29 @@ $optionsUsed = '';
                     $label = trim(substr($line, 0, $pos));
                     $value = trim(substr($line, $pos + 1));
 
-                    // Check if ADDITIONAL INFORMATION is blank and set to 'None'
-                    if (strcasecmp($label, 'ADDITIONAL INFORMATION') === 0 && $value === '') {
-                        $value = 'None';
-                    }
+                    $isAdditionalInfo = (strcasecmp($label, 'ADDITIONAL INFORMATION') === 0 || strcasecmp($label, 'ADDITIONAL INFO') === 0);
 
-                    // Bold the label regardless of case (you can add uppercase check if you want)
-                echo '<span class="scenariolabel">' . htmlspecialchars($label) . ':</span>&nbsp; ' .
-                    '<span class="scenariovalue">' . htmlspecialchars($value) . '</span><br>';
+                    if ($isAdditionalInfo) {
+                        $inAdditionalInfo = true;
+                        if ($value === '') {
+                            $value = 'None';
+                        }
+                        
+                        echo '<span class="scenariolabel">' . htmlspecialchars($label) . ':</span><br>' .
+                             '<span class="scenariovalue">' . htmlspecialchars($value) . '</span><br>';
+                    } else {
+                        $inAdditionalInfo = false;
+                        // Bold the label regardless of case (you can add uppercase check if you want)
+                        echo '<span class="scenariolabel">' . htmlspecialchars($label) . ':</span>&nbsp; ' .
+                             '<span class="scenariovalue">' . htmlspecialchars($value) . '</span><br>';
+                    }
                 } else {
                     // Just print line if no colon found
-                    echo htmlspecialchars($line) . '<br>';
+                    if ($inAdditionalInfo) {
+                         echo '<span class="scenariovalue">' . htmlspecialchars($line) . '</span><br>';
+                    } else {
+                         echo htmlspecialchars($line) . '<br>';
+                    }
                 }
             }
             ?>
