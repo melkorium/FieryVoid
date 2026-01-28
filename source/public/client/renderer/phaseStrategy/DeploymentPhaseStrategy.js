@@ -105,7 +105,7 @@ window.DeploymentPhaseStrategy = function () {
     DeploymentPhaseStrategy.prototype.setSelectedShip = function (ship) {
         PhaseStrategy.prototype.setSelectedShip.call(this, ship);
         var depTurn = shipManager.getTurnDeployed(ship);
-        if (depTurn < gamedata.turn && !ship.canPreOrder) return;
+        if (depTurn < gamedata.turn) return;
 
         showDeploymentArea(ship, this.deploymentSprites, this.gamedata);
 
