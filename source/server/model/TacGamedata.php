@@ -410,6 +410,7 @@ class TacGamedata {
     public function checkDeploymentPhaseForPlayer($playerId){
         foreach($this->ships as $ship){
             if ($ship->userid != $playerId) continue; //Not players ship
+            if($ship->isDestroyed()) continue;            
             if(!$ship->canPreOrder) continue; //Can't pre-Order, filters out irreleveant ships and Terrain
             
             //Torvalus Block, other blocks could be added.
