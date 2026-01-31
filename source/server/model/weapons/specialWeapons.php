@@ -2565,7 +2565,8 @@ class RammingAttack extends Weapon{
 	}	
 
     public function getSkinDancingResult($shooter, $target, $gamedata) {
-        if(!empty($shooter->skinDancing)) return 'Success'; //Already skindancing.
+		if($this->designedToRam) return 'Invalid'; //Do full automatic ramming for these units e.g. HKs		
+		if(!empty($shooter->skinDancing)) return 'Success'; //Already skindancing.
 		//Debug::log("Ship name " . $shooter->name);			
 		//Debug::log("before size check " . $shooter->shipSizeClass);	
         //Ship type checks        
