@@ -1531,67 +1531,16 @@ window.weaponManager = {
         if (shipManager.isDestroyed(selectedShip)) return;
         if (ship.Huge > 0) return; //Do not allow targeting of large muti-hex terrain.
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
+        if(!weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.
 
-        //Check for skin-dancing ships, these can't be targeted unless the shooter is also skin-dancing on same target.
+        //Check for skin-dancing ships, these can't be targeted unless the shooter is also skin-dancing on same target, they also have their own rules about firing.
         if (gamedata.gamephase == 3) {
-            // 0. Pre-calculate Shared Skindancing State
-            let sharedSkinDancing = false;
-            if (ship.skinDancing && Object.values(ship.skinDancing).includes(true)) {
-                for (const [targetID, value] of Object.entries(ship.skinDancing)) {
-                    if (value === true && selectedShip.skinDancing && selectedShip.skinDancing[targetID] === true) {
-                        sharedSkinDancing = true;
-                        break;
-                    }
-                }
-            }
-            // 1. Check if SHOOTER has skindanced (Failed OR Success)
-            if (selectedShip.skinDancing) {
-                const statusValues = Object.values(selectedShip.skinDancing);
-                // Case A: Shooter FAILED -> Cannot fire at all.
-                if (statusValues.includes("Failed")) {
-                    confirm.warning("You cannot fire weapons after an unsuccessful attempt to Skin Dance.");
-                    return;
-                }
-                // Case B: Shooter SUCCEEDED -> Restrict targeting
-                if (statusValues.includes(true)) {
-                    var targetCompassHeading = mathlib.getCompassHeadingOfShip(selectedShip, ship);
-                    var shooterFacing = shipManager.getShipHeadingAngle(selectedShip);
-                    var targetBearing = mathlib.getAngleBetween(shooterFacing, targetCompassHeading, true);            
-                    // Allow firing if: Target is Host OR Target is in Side/Rear Arc OR Shared Target
-                    if (selectedShip.skinDancing[ship.id] !== true && (targetBearing < 60 || targetBearing > 300) && !sharedSkinDancing) {
-                        return;
-                    }
-                }
-            }
-            // 2. Check if TARGET is skindancing (Protection from others)
-            // If target is skindancing (and we haven't already confirmed we share it), we can't shoot.
-            if (ship.skinDancing && Object.values(ship.skinDancing).includes(true)) {
-                 if (!sharedSkinDancing) {
-                    return; //Can't target a skin-dancing ship if shooter is not skindancing same Enormous unit
-                 }
-            }
-        }
-
-        if (selectedShip.faction == "Torvalus Speculators") {
-            var shadingField = shipManager.systems.getSystemByName(selectedShip, "ShadingField");
-            if (shadingField.shaded) {
-                var html = "You cannot fire weapons on a turn when your Shading Field was active.";
-                confirm.warning(html);
-                return; //Shading Field active this turn, ship cannot fire.   If one Field active on fighters, all should be.
-            }
+            if(!weaponManager.checkSkindancing(selectedShip, ship)) return;
         }
 
         var blockedLosHex = weaponManager.getBlockedHexes();
         var loSBlocked = false;
-        /*
-        if (blockedLosHex && blockedLosHex.length > 0) {
-            var weapon = gamedata.selectedSystems[0]; // Use the first weapon to get the shooter's position
-            var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);
-            var sPosTarget = shipManager.getShipPosition(ship);
-            
-            loSBlocked = mathlib.isLoSBlocked(sPosShooter, sPosTarget, blockedLosHex);
-        }
-        */
+
         var toUnselect = [];
         var splitTargeted = [];
         for (var i in gamedata.selectedSystems) {
@@ -1825,6 +1774,7 @@ window.weaponManager = {
     targetHex: function targetHex(selectedShip, hexpos) {
         if (shipManager.isDestroyed(selectedShip)) return;
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
+        if(!weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.        
 
         var toUnselect = Array();
         var splitTargeted = [];
@@ -2441,6 +2391,70 @@ window.weaponManager = {
 
         return blockedHexes;
     },
+
+
+    isHidden: function isHidden(ship) {
+        if (ship.faction == "Torvalus Speculators") {
+            var shadingField = shipManager.systems.getSystemByName(ship, "ShadingField");
+            if (shadingField.active) {
+                var html = "You cannot fire weapons on a turn when your Shading Field was active.";
+                confirm.warning(html);
+                return false; //Shading Field active this turn, ship cannot fire.   If one Field active on fighters, all should be.
+            }
+        }    
+
+        if(shipManager.hasSpecialAbility(ship, "Cloaking")){
+            var cloakingDevice = shipManager.systems.getSystemByName(ship, "CloakingDevice");            
+            if (cloakingDevice.active) {
+                var html = "You cannot fire weapons on a turn when your Cloaking Device was active.";
+                confirm.warning(html);
+                return false; //Cloaking Device active this turn, ship cannot fire.
+            }
+        }
+
+        return true;
+    },   
+    
+    checkSkindancing: function checkSkindancing(selectedShip, ship) {
+            // 0. Pre-calculate Shared Skindancing State
+            let sharedSkinDancing = false;
+            if (ship.skinDancing && Object.values(ship.skinDancing).includes(true)) {
+                for (const [targetID, value] of Object.entries(ship.skinDancing)) {
+                    if (value === true && selectedShip.skinDancing && selectedShip.skinDancing[targetID] === true) {
+                        sharedSkinDancing = true;
+                        break;
+                    }
+                }
+            }
+            // 1. Check if SHOOTER has skindanced (Failed OR Success)
+            if (selectedShip.skinDancing) {
+                const statusValues = Object.values(selectedShip.skinDancing);
+                // Case A: Shooter FAILED -> Cannot fire at all.
+                if (statusValues.includes("Failed")) {
+                    confirm.warning("You cannot fire weapons after an unsuccessful attempt to Skin Dance.");
+                    return false;
+                }
+                // Case B: Shooter SUCCEEDED -> Restrict targeting
+                if (statusValues.includes(true)) {
+                    var targetCompassHeading = mathlib.getCompassHeadingOfShip(selectedShip, ship);
+                    var shooterFacing = shipManager.getShipHeadingAngle(selectedShip);
+                    var targetBearing = mathlib.getAngleBetween(shooterFacing, targetCompassHeading, true);            
+                    // Allow firing if: Target is Host OR Target is in Side/Rear Arc OR Shared Target
+                    if (selectedShip.skinDancing[ship.id] !== true && (targetBearing < 60 || targetBearing > 300) && !sharedSkinDancing) {
+                        return false;
+                    }
+                }
+            }
+            // 2. Check if TARGET is skindancing (Protection from others)
+            // If target is skindancing (and we haven't already confirmed we share it), we can't shoot.
+            if (ship.skinDancing && Object.values(ship.skinDancing).includes(true)) {
+                 if (!sharedSkinDancing) {
+                    return false; //Can't target a skin-dancing ship if shooter is not skindancing same Enormous unit
+                 }
+            }
+
+        return true;    
+    },        
 
 
     getAllFireOrdersForAllShipsForTurn: function getAllFireOrdersForAllShipsForTurn(turn, type) {

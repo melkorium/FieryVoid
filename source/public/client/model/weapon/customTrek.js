@@ -228,3 +228,57 @@ var TrekMediumDisabler = function TrekMediumDisabler(json, ship) {
 };
 TrekMediumDisabler.prototype = Object.create(Weapon.prototype);
 TrekMediumDisabler.prototype.constructor = TrekMediumDisabler;
+
+
+var CloakingDevice = function CloakingDevice(json, ship) {
+	ShipSystem.call(this, json, ship);
+};
+CloakingDevice.prototype = Object.create(ShipSystem.prototype);
+CloakingDevice.prototype.constructor = CloakingDevice;
+
+CloakingDevice.prototype.initializationUpdate = function () {
+	if (this.active) {
+		this.outputDisplay = "CLOAK";
+	} else {
+		this.outputDisplay = '-';
+	}
+	var power = this.powerReq;
+	
+	if(power == 0){
+		this.data["Power Used"] = 'None';
+	}else{
+		this.data["Power Used"] = this.powerReq;		
+	}	
+	return this;
+}
+
+CloakingDevice.prototype.canActivate = function () {
+	if(gamedata.gamephase == -1 && !this.active) return true;
+	
+	return false;
+};
+
+CloakingDevice.prototype.canDeactivate = function () {
+	if(gamedata.gamephase == -1 && this.active) return true;
+	
+	return false;
+};
+
+CloakingDevice.prototype.doActivate = function () {
+	this.active = true;
+};
+
+CloakingDevice.prototype.doDeactivate = function () {
+	this.active = false;
+};
+
+CloakingDevice.prototype.doIndividualNotesTransfer = function () {
+
+	if (gamedata.gamephase == -1) {
+		var active = this.active; //Was shaded this turn.		
+		this.individualNotesTransfer = Array();
+		if (active) {
+			this.individualNotesTransfer.push(1);
+		}
+	}
+};

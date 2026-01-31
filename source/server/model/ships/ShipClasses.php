@@ -913,6 +913,12 @@ class BaseShip {
             if($shadingField) $shadingField->checkStealthNextPhase($gamedata);
         }
 
+        //Trek block.
+        if($this->hasSpecialAbility("Cloaking")){           
+            $cloakingDevice = $this->getSystemByName("CloakingDevice");
+            if($cloakingDevice) $cloakingDevice->checkStealthNextPhase($gamedata);
+        } 
+
         return;
     }   
     
