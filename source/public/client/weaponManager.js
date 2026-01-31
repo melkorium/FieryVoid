@@ -1535,7 +1535,7 @@ window.weaponManager = {
 
         //Check for skin-dancing ships, these can't be targeted unless the shooter is also skin-dancing on same target, they also have their own rules about firing.
         if (gamedata.gamephase == 3) {
-            if(!weaponManager.checkSkindancing(selectedShip, ship)) return;
+            if(!weaponManager.checkSkindancing(selectedShip, ship)) return; //Returns false if skin dancing conditions prevent firing at or from a skin dancing unit.
         }
 
         var blockedLosHex = weaponManager.getBlockedHexes();
