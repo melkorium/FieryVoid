@@ -243,7 +243,12 @@ CloakingDevice.prototype.initializationUpdate = function () {
 		this.outputDisplay = '-';
 	}
 	var power = this.powerReq;
-	
+
+    if(gamedata.gamephase == -1){
+        var ship = this.ship;
+        if(shipManager.power.isOfflineOnTurn(ship, this, gamedata.turn)) this.active = false;    
+    }
+    
 	if(power == 0){
 		this.data["Power Used"] = 'None';
 	}else{
@@ -253,7 +258,8 @@ CloakingDevice.prototype.initializationUpdate = function () {
 }
 
 CloakingDevice.prototype.canActivate = function () {
-	if(gamedata.gamephase == -1 && !this.active) return true;
+    var ship = this.ship;
+	if(gamedata.gamephase == -1 && !this.active && !shipManager.power.isOfflineOnTurn(ship, this, gamedata.turn)) return true;
 	
 	return false;
 };

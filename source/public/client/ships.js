@@ -1077,7 +1077,7 @@ window.shipManager = {
         if (ship.faction == "Torvalus Speculators") {
             return shipManager.isDetectedTorvalus(ship, 15);
         }
-        if(shipManager.hasSpecialAbility(ship, "Cloaking")){
+        if(shipManager.getSpecialAbilityStealth(ship, "Cloaking")){
             return shipManager.isDetectedTrek(ship);            
         }
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
@@ -1090,7 +1090,7 @@ window.shipManager = {
             return true; //If so, revealed.
         }
         if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.  
-        if (gamedata.gamephase != 3 || gamedata.gamephase != 5) return false;  //Cannot only try to detect at start of Pre-Firing/Firing Phase
+        if (gamedata.gamephase != 3 && gamedata.gamephase != 5) return false;  //Cannot only try to detect at start of Pre-Firing/Firing Phase
 
         // Check all enemy ships to see if any can detect this ship
         for (const otherShip of gamedata.ships) {
@@ -1152,9 +1152,11 @@ window.shipManager = {
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.  
         if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.        
         var shadingField = shipManager.systems.getSystemByName(ship, "ShadingField");
-        if (shadingField && shadingField.detected) return true; //Already detected.     
+        if (shadingField && shadingField.detected) return true; //Already detected.
+        if (shipManager.systems.isDestroyed(ship, shadingField)) return true; 
+        if (shipManager.power.isOffline(ship, shadingField)) return true;                
 
-        if (gamedata.gamephase != 3) return false;  //Cannot only try to detect at start of Firing Phase (and Initial Phase should be handled on server via detected value).
+        if (gamedata.gamephase != 3 && gamedata.gamephase != 5) return false;  //Cannot only try to detect at start of Firing Phase (and Initial Phase should be handled on server via detected value).
 
         // Check all enemy ships to see if any can detect this ship
         for (const otherShip of gamedata.ships) {
@@ -1186,11 +1188,14 @@ window.shipManager = {
 
     isDetectedTrek: function (ship) {
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.  
-        if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.        
+        if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.      
+        
         var cloakingDevice = shipManager.systems.getSystemByName(ship, "CloakingDevice");  
-        if (cloakingDevice && cloakingDevice.detected) return true; //Already detected.     
+        if (cloakingDevice && cloakingDevice.detected) return true; //Already detected. 
+        if (shipManager.systems.isDestroyed(ship, cloakingDevice)) return true; 
+        if (shipManager.power.isOffline(ship, cloakingDevice)) return true;              
 
-        if (gamedata.gamephase != 3) return false;  //Cannot only try to detect at start of Firing Phase (and Initial Phase should be handled on server via detected value).
+        if (gamedata.gamephase != 3 && gamedata.gamephase != 5) return false;  //Cannot only try to detect at start of Firing Phase (and Initial Phase should be handled on server via detected value).
 
         // Check all enemy ships to see if any can detect this ship
         for (const otherShip of gamedata.ships) {
@@ -1248,6 +1253,21 @@ window.shipManager = {
         return false;
     },
     
+    getSpecialAbilityStealth: function getSpecialAbilityStealth(ship, ability) {
+        for (var i in ship.systems) {
+            var system = ship.systems[i];
+
+            //if (shipManager.systems.isDestroyed(ship, system)) continue; //We will do these checks later, need to skip them to avoid false positives.
+            //if (shipManager.power.isOffline(ship, system)) continue;
+
+            for (var a in system.specialAbilities) {
+                if (system.specialAbilities[a] == ability) return system;
+            }
+        }
+
+        return false;
+    },
+
     markAsDetectedTrek: function (cloakingDevice) {
         if (cloakingDevice) cloakingDevice.detected = true;
     },    
