@@ -248,7 +248,7 @@ CloakingDevice.prototype.initializationUpdate = function () {
         var ship = this.ship;
         if(shipManager.power.isOfflineOnTurn(ship, this, gamedata.turn)) this.active = false;    
     }
-    
+
 	if(power == 0){
 		this.data["Power Used"] = 'None';
 	}else{
@@ -287,4 +287,68 @@ CloakingDevice.prototype.doIndividualNotesTransfer = function () {
 			this.individualNotesTransfer.push(1);
 		}
 	}
+};
+
+CloakingDevice.prototype.isDetectedTrek = function (ship) {
+    if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.  
+    if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.       
+    if (this.detected) return true; //Already detected. 
+    if (shipManager.systems.isDestroyed(ship, this)) return true; 
+    if (shipManager.power.isOffline(ship, this)) return true;              
+
+    if (gamedata.gamephase != 3 && gamedata.gamephase != 5) return false;  //Cannot only try to detect at start of Firing Phase (and Initial Phase should be handled on server via detected value).
+
+    // Check all enemy ships to see if any can detect this ship
+    for (const otherShip of gamedata.ships) {
+        if (otherShip.team === ship.team) continue; // Skip friendly ships
+        if (gamedata.isTerrain(otherShip.shipSizeClass, otherShip.userid)) continue; //Skip Terrain 
+        if (shipManager.isDestroyed(otherShip)) continue; //Skip destroyed
+
+        let totalDetection = 0;
+
+        if (!otherShip.flight) {
+            if (shipManager.isDisabled(otherShip)) continue; //Skip disabled ships               
+            // Not a fighter — use scanner systems for detection
+            const standardScanners = shipManager.systems.getSystemListByName(otherShip, "scanner");
+            const elintScanners = shipManager.systems.getSystemListByName(otherShip, "elintScanner");
+            const scanners = [...standardScanners, ...elintScanners];
+
+            for (const scanner of scanners) {
+                if (!shipManager.systems.isDestroyed(otherShip, scanner) && !shipManager.power.isOfflineOnTurn(otherShip, scanner, gamedata.turn)) {
+                    totalDetection += scanner.output;
+                }
+            }
+
+            // Apply detection multiplier based on ship type
+            if (otherShip.base) {
+                totalDetection = Math.floor(totalDetection * 1.5);
+            } else if (shipManager.hasSpecialAbility(otherShip, "ELINT")) {
+                //Then add any Detect Stealth bonus here.
+                var bonusDSEW = ew.getEWByType("Detect Stealth", otherShip);
+                totalDetection += bonusDSEW;
+            } else {
+                totalDetection = Math.floor(totalDetection * 0.5);
+            }
+        } else {
+            // Fighter unit — use offensive bonus
+            if (otherShip.offensivebonus) totalDetection = Math.ceil(otherShip.offensivebonus / 3);
+        }
+
+        // Get distance to the stealth ship and check line of sight
+        const distance = parseFloat(mathlib.getDistanceBetweenShipsInHex(ship, otherShip));
+        var loSBlocked = false;
+        var blockedLosHex = weaponManager.getBlockedHexes(); //Check if there are any hexes that block LoS
+        var shipPos = shipManager.getShipPosition(ship);
+        var otherShipPos = shipManager.getShipPosition(otherShip);
+        loSBlocked = mathlib.isLoSBlocked(shipPos, otherShipPos, blockedLosHex); // Defaults to false (LoS NOT blocked)            
+
+        // If within detection range, the ship is revealed
+        if (totalDetection >= distance && !loSBlocked) { //In range and LoS not blocked.
+            this.detected = true;
+            return true; //Just return, if one ship can see the stealthed ship then all can.
+        }
+    }
+
+    // No one detected the ship
+    return false;
 };

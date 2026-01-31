@@ -1018,6 +1018,11 @@ window.shipManager = {
         return resultTxt;
     },
 
+    //Called in various places to identify a ship as having ability to be invisible to enemy.
+    isStealthShip: function (ship) {
+        return ship.trueStealth;
+    },   
+
     //Generic function called from various front end functions.  Checks if ships should be shown/interactable or not.
     shouldBeHidden: function (ship) {
         if (!gamedata.replay && shipManager.isDestroyed(ship)) return true; //Prevents lots of things from happening when a ship collides and dies to Terrain.
@@ -1025,7 +1030,6 @@ window.shipManager = {
         if (!gamedata.isMyorMyTeamShip(ship) && shipManager.isStealthShip(ship) && !shipManager.isDetected(ship)) return true; //Enemy, stealth ship and not currently detected
         return false;
     },
-
 
     getTurnDeployed: function getTurnDeployed(ship) {
 
@@ -1058,28 +1062,57 @@ window.shipManager = {
         return hasDeployed;
     },
 
-    //Called in various places to identify a ship as having ability to be invisible to enemy.
-    isStealthShip: function (ship) {
-        //if(shipManager.hasSpecialAbility(ship, "Stealth") && (!ship.flight)) return true;
-        //return false;
-        return ship.trueStealth;
-    },
-
-
-    markAsDetected: function (ship, stealthSystem) {
+    /*
+    markAsDetected: function (stealthSystem) {
         //var stealthSystem = shipManager.systems.getSystemByName(ship, "stealth");
         if (stealthSystem) stealthSystem.detected = true;
     },
+    */
 
+    //Need abridged version of this to prevent false positive returns from main function when a system is offline e.g. cloaking devices
+    getSpecialAbilityStealth: function getSpecialAbilityStealth(ship, ability) {
+        for (var i in ship.systems) {
+            var system = ship.systems[i];
 
-    //Main Front End check on whether a stealth ship is detected or not, called in various places.
+            for (var a in system.specialAbilities) {
+                if (system.specialAbilities[a] == ability) return system;
+            }
+        }
+
+        return false;
+    },
+
+    //Main Front End check on whether a stealth ship is detected or not, called in various places and diverts to appropriate systems.
     isDetected: function (ship) {
         if (ship.faction == "Torvalus Speculators") {
-            return shipManager.isDetectedTorvalus(ship, 15);
+            var shadingField = shipManager.systems.getSystemByName(ship, "ShadingField");            
+            if(shadingField){
+                return shadingField.isDetectedTorvalus(ship, 15);
+            }else{
+                return true; //Torvalus with no Shading field, is detected I guess.
+            }
         }
         if(shipManager.getSpecialAbilityStealth(ship, "Cloaking")){
-            return shipManager.isDetectedTrek(ship);            
+            var cloakingDevice = shipManager.systems.getSystemByName(ship, "CloakingDevice");             
+            if(cloakingDevice){
+                return cloakingDevice.isDetectedTrek(ship);
+            }else{
+                return true; //No cloak, is detected I guess.
+            }                       
         }
+
+        if(shipManager.getSpecialAbilityStealth(ship, "Stealth")){
+            var stealthSystem = shipManager.systems.getSystemByName(ship, "Stealth");             
+            if(stealthSystem){
+                return stealthSystem.isDetectedStealth(ship);
+            }else{
+                return true; //No stealth system, is detected I guess.
+            }                       
+        }
+
+        return true; //No one had any stealth systems, shouldn't reach here but just in case.
+
+        /*
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
         var stealthSystem = shipManager.systems.getSystemByName(ship, "stealth");
         if (stealthSystem && stealthSystem.detected) return true; //Already detected.
@@ -1146,8 +1179,11 @@ window.shipManager = {
 
         // No one detected the ship
         return false;
+        */
+        
     },
 
+    /*
     isDetectedTorvalus: function (ship, detection = 15) {
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.  
         if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.        
@@ -1184,8 +1220,8 @@ window.shipManager = {
         // No one detected the ship
         return false;
     },
-
-
+    */
+    /*
     isDetectedTrek: function (ship) {
         if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.  
         if (shipManager.isDestroyed(ship)) return true;//It's blown up, assume revealed.      
@@ -1244,7 +1280,7 @@ window.shipManager = {
 
             // If within detection range, the ship is revealed
             if (totalDetection >= distance && !loSBlocked) { //In range and LoS not blocked.
-                shipManager.markAsDetectedTrek(cloakingDevice);
+                shipManager.markAsDetected(cloakingDevice);
                 return true; //Just return, if one ship can see the stealthed ship then all can.
             }
         }
@@ -1252,24 +1288,6 @@ window.shipManager = {
         // No one detected the ship
         return false;
     },
-    
-    getSpecialAbilityStealth: function getSpecialAbilityStealth(ship, ability) {
-        for (var i in ship.systems) {
-            var system = ship.systems[i];
-
-            //if (shipManager.systems.isDestroyed(ship, system)) continue; //We will do these checks later, need to skip them to avoid false positives.
-            //if (shipManager.power.isOffline(ship, system)) continue;
-
-            for (var a in system.specialAbilities) {
-                if (system.specialAbilities[a] == ability) return system;
-            }
-        }
-
-        return false;
-    },
-
-    markAsDetectedTrek: function (cloakingDevice) {
-        if (cloakingDevice) cloakingDevice.detected = true;
-    },    
+    */
 
 };
