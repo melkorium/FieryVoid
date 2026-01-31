@@ -2039,7 +2039,7 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 	}
 
 	protected $possibleCriticals = array(
-		//26=>array("OutputReduced1")
+		16=>array("ForcedOfflineOneTurn")
 	);
 
 	public function setSystemDataWindow($turn){							
