@@ -515,7 +515,7 @@ class SystemInfoButtons extends React.Component {
 	render() {
 		const { ship, selectedShip, system } = this.props;
 
-		if (!canDoAnything) {
+		if (!canDoAnything(ship, system)) {
 			return null;
 		}
 
@@ -707,7 +707,7 @@ const canChangeFiringMode = (ship, system) => system.weapon && ((gamedata.gameph
 
 //can declare eligibility for interception: charged, recharge time >1 turn, intercept rating >0, no firing order
 const canSelfIntercept = (ship, system) => system.weapon && weaponManager.canSelfInterceptSingle(ship, system);
-const canRemIntercept = (ship, system) => system.weapon && system.canSplitShots && weaponManager.canRemInterceptSingle(ship, system);
+const canRemIntercept = (ship, system) => system.weapon && weaponManager.canRemInterceptSingle(ship, system);
 
 const canActivate = (ship, system) => system.canActivate(); //Used to manually fire weapons/systems that don't need to target e.g. Second Sight/Thoughwave
 const canDeactivate = (ship, system) => system.canDeactivate();

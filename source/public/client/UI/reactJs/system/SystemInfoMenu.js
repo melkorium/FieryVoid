@@ -1,6 +1,6 @@
 import * as React from "react";
 import styled from "styled-components"
-import SystemInfoButtons from "./SystemInfoButtons";
+import SystemInfoButtons, { canDoAnything } from "./SystemInfoButtons";
 import { Tooltip, TooltipHeader, TooltipEntry } from '../common'
 
 const InfoHeader = styled(TooltipHeader)`
@@ -35,7 +35,11 @@ class SystemInfoMenu extends React.Component {
 
     render() {
 
-        const { boundingBox } = this.props;
+        const { ship, system, boundingBox } = this.props;
+
+        if (!canDoAnything(ship, system)) {
+            return null;
+        }
 
         return (
             <SystemInfoTooltip position={getPosition(boundingBox)}>

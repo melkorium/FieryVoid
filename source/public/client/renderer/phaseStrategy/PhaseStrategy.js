@@ -73,6 +73,7 @@ window.PhaseStrategy = function () {
 
         if (menu) {
             if (!this.uiManager.canShowSystemInfoMenu(ship, system)) {
+                this.hideSystemInfo(true);                
                 return;
             }
             this.uiManager.showSystemInfoMenu({ ship: ship, selectedShip: this.selectedShip, system: system, boundingBox: boundingBox });
