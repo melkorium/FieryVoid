@@ -715,7 +715,7 @@ const canDeactivate = (ship, system) => system.canDeactivate();
 
 export default SystemInfoButtons;
 
-/*
+/* //Replaced with FiringModeSelecter component - DK 1.2.26
 const getFiringModes = (ship, system, changeFiringMode, allChangeFiringMode) => {
 	if (system.parentId >= 0) {
 		let parentSystem = shipManager.systems.getSystem(ship, system.parentId);
