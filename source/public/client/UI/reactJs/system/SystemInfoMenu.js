@@ -15,7 +15,7 @@ const SystemInfoTooltip = styled(Tooltip)`
 }, '')}
     max-width: 600px;
     text-align: left;
-    opacity:0.8;
+    opacity: ${props => props.opacity || 0.8};
     border: 1px solid #496791;
     padding-bottom: 3px;
 `;
@@ -42,7 +42,7 @@ class SystemInfoMenu extends React.Component {
         }
 
         return (
-            <SystemInfoTooltip position={getPosition(boundingBox)}>
+            <SystemInfoTooltip position={getPosition(boundingBox)} opacity={system.name === 'SelfRepair' ? 0.95 : 0.8}>
                 <SystemInfoButtons {...this.props} />
             </SystemInfoTooltip>
         )

@@ -3,6 +3,7 @@ import styled from "styled-components"
 import { Clickable } from "../styled";
 
 import FiringModeSelector from "./FiringModeSelector";
+import SelfRepairList from "./SelfRepairList";
 
 const Container = styled.div`
     display:flex;
@@ -485,32 +486,7 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 
-	/*Self Repair - display next system in need of repairs*/
-	nextSRsystem(e) {
-		e.stopPropagation(); e.preventDefault();
-		const { ship, system } = this.props;
-		system.getNextSystem();
-		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
-	}
-	/*Self Repair - change system priority*/
-	SRPriorityUp(e) {
-		e.stopPropagation(); e.preventDefault();
-		const { ship, system } = this.props;
-		system.setRepairPriority(20);
-		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
-	}
-	SRPriorityDown(e) {
-		e.stopPropagation(); e.preventDefault();
-		const { ship, system } = this.props;
-		system.setRepairPriority(0);
-		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
-	}
-	SRPriorityCancel(e) {
-		e.stopPropagation(); e.preventDefault();
-		const { ship, system } = this.props;
-		system.setRepairPriority(-1);
-		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
-	}
+
 
 	render() {
 		const { ship, selectedShip, system } = this.props;
@@ -587,11 +563,8 @@ class SystemInfoButtons extends React.Component {
 				{canThoughtShieldGenSelect(ship, system) && <Button onClick={this.TSShieldGenSelect.bind(this)} img="./img/systemicons/Specialistclasses/select.png"></Button>}
 
 
-				{canSRdisplayCurrSystem(ship, system) && <Button title="Next" onClick={this.nextSRsystem.bind(this)} img="./img/systemicons/AAclasses/iconNext.png"></Button>}
-				{canSRdisplayCurrSystem(ship, system) && <Button title={getSRdescription(ship, system)} img={getSRicon(ship, system)}></Button>}
-				{canSRdisplayCurrSystem(ship, system) && <Button title="Highest priority" onClick={this.SRPriorityUp.bind(this)} img="./img/iconSRHigh.png"></Button>}
-				{canSRdisplayCurrSystem(ship, system) && <Button title="Disable repair" onClick={this.SRPriorityDown.bind(this)} img="./img/iconSRLow.png"></Button>}
-				{canSRdisplayCurrSystem(ship, system) && <Button title="Default priority" onClick={this.SRPriorityCancel.bind(this)} img="./img/iconSRCancel.png"></Button>}
+				{canSelfRepairList(ship, system) && <SelfRepairList ship={ship} system={system} />}
+
 
 			</Container>
 		)
@@ -650,9 +623,7 @@ const getThoughtShieldGencurrClassName = (ship, system) => system.getCurrClass()
 const canThoughtShieldGenSelect = (ship, system) => canThoughtShieldGen(ship, system) && system.canSelect() != '';
 
 //can do something with Self Repair...
-const canSRdisplayCurrSystem = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'SelfRepair') && (system.getCurrSystem() >= 0);
-const getSRdescription = (ship, system) => system.getCurrSystemDescription();
-const getSRicon = (ship, system) => system.getCurrSystemIcon();
+const canSelfRepairList = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'SelfRepair');
 
 export const canDoAnything = (ship, system) => canOffline(ship, system) || canOnline(ship, system)
 	|| canOverload(ship, system) || canStopOverload(ship, system) || canBoost(ship, system)
@@ -660,7 +631,7 @@ export const canDoAnything = (ship, system) => canOffline(ship, system) || canOn
 	|| canRemoveFireOrder(ship, system) || canChangeFiringMode(ship, system)
 	|| canSelfIntercept(ship, system) || canRemIntercept(ship, system) || canAA(ship, system) || canBFCP(ship, system) || canSpec(ship, system) || canTSShield(ship, system)
 	|| canThoughtShield(ship, system) || canTSShieldGen(ship, system) || canThoughtShieldGen(ship, system)
-	|| canSRdisplayCurrSystem(ship, system) || canActivate(ship, system) || canDeactivate(ship, system);
+	|| canSelfRepairList(ship, system) || canActivate(ship, system) || canDeactivate(ship, system);
 
 const canOffline = (ship, system) => gamedata.gamephase === 1 && (system.canOffLine || system.powerReq > 0) && !shipManager.power.isOffline(ship, system) && !shipManager.power.getBoost(system) && !weaponManager.hasFiringOrder(ship, system);
 
