@@ -314,10 +314,10 @@ class SelfRepairList extends React.Component {
                                 )}
                             </ItemInfo>
                             <ActionButtons>
-                                <ActionButton title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
+                                <ActionButton title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />                                    
+                                <ActionButton title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />                                    
                                 <ActionButton title="Increase Priority" onClick={(e) => this.handleUp(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconPlus.png" />
-                                <ActionButton title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />
-                                <ActionButton title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />
+                                <ActionButton title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
                             </ActionButtons>
                         </ListItem>
                     ))}
