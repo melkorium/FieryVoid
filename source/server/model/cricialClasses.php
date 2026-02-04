@@ -148,7 +148,7 @@ class PartialBurnout extends Critical{
 }
 
 class SevereBurnout extends Critical{
-    public $description = "System non functional";
+    public $description = "System non-functional";
     public $outputMod = -1;
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
@@ -179,7 +179,7 @@ class ForcedOfflineForTurns extends Critical{
 }
 
 class FirstThrustIgnored extends Critical{
-    public $description = "First point of channeled thrust is ignored";
+    public $description = "First point of channeled thrust lost";
     public $outputMod = -1;
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend);
@@ -187,7 +187,7 @@ class FirstThrustIgnored extends Critical{
 }
 
 class FirstThrustIgnoredOneTurn extends Critical{
-    public $description = "First point of channeled thrust is ignored";
+    public $description = "First point of channeled thrust lost";
     public $outputMod = -1;    
     public $oneturn = true;
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
@@ -196,7 +196,7 @@ class FirstThrustIgnoredOneTurn extends Critical{
 }
 
 class HalfEfficiency extends Critical{
-    public $description = "Two points of thrust required to channel one through";
+    public $description = "Double thrust required";
     public $outputMod = 0;
     public $priority = 3; //nastiest of Thruster crits, so should be removed first!
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
@@ -212,14 +212,14 @@ class OSATThrusterCrit extends Critical{
 }
 
 class AmmoExplosion extends Critical{
-    public $description = "Stored ammunition did explode";
+    public $description = "Stored ammunition exploded";
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
     }
 }
 
 class CommunicationsDisruptedOneTurn extends Critical{
-    public $description = "Communications disrupted. -5 Initiative";
+    public $description = "Comms disrupted. -5 Initiative";
     public $oneturn = true;
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
@@ -227,7 +227,7 @@ class CommunicationsDisruptedOneTurn extends Critical{
 }
 
 class CommunicationsDisrupted extends Critical{
-    public $description = "Communications disrupted. -5 Initiative";
+    public $description = "Comms disrupted. -5 Initiative";
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
     }
@@ -249,7 +249,7 @@ class PenaltyToHit extends Critical{
 }
 
 class RestrictedEWOneTurn extends Critical{
-    public $description = "-2 EW. May use no more than half of its EW offensively";
+    public $description = "-2 EW. Only up to half EW offensively";
     public $oneturn = true;
 //	public $priority = 1; //probably the nastiest C&C crit, to be fixed at first priority
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
@@ -258,7 +258,7 @@ class RestrictedEWOneTurn extends Critical{
 }
 
 class RestrictedEW extends Critical{
-    public $description = "-2 EW. May use no more than half of its EW offensively";
+    public $description = "-2 EW. Only up to half EW offensively";
 	public $priority = 1; //probably the nastiest C&C crit, to be fixed at first priority
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );

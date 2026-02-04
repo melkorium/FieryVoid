@@ -36,7 +36,7 @@ const ListItem = styled.div`
     padding: 3px 5px;
     border-bottom: 1px solid #2b3e51;
     font-size: 11px;
-    color: #aec3e0;
+    color: #b5c8e3;
 
     &:last-child {
         border-bottom: none;
@@ -55,13 +55,14 @@ const ItemName = styled.span`
 
 const ItemStatus = styled.span`
     font-size: 9px;
-    color: #7a8a99;
+    color: #7d8d9b;
     margin-top: 2px;
     margin-left: 1px;
 `;
 
 const CriticalItemName = styled(ItemName)`
     color: #ffb833;
+    font-weight: normal;    
 `;
 
 const ActionButtons = styled.div`
@@ -75,7 +76,7 @@ const ActionButton = styled.div`
     background-image: url(${props => props.img});
     background-size: cover;
     cursor: pointer;
-    opacity: 0.8;
+    opacity: 0.9;
     margin-left: 3px;
     &:hover {
         opacity: 1;
@@ -301,14 +302,14 @@ class SelfRepairList extends React.Component {
                                     <>
                                         <CriticalItemName>{item.sys.displayName} ({item.crit.description || item.crit.phpclass})</CriticalItemName>
                                         <ItemStatus>
-                                            Cost: {item.cost} | Prio: {item.priority}
+                                            Cost: {item.cost}  |  Id: {item.sys.id}  |  Prio: {item.priority}
                                         </ItemStatus>
                                     </>
                                 ) : (
                                     <>
                                         <ItemName>{item.sys.displayName}</ItemName>
                                         <ItemStatus>
-                                            HP: {shipManager.systems.getRemainingHealth(item.sys)}/{item.sys.maxhealth} | Prio: {item.priority}
+                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth}  |  Prio: {item.priority}
                                         </ItemStatus>
                                     </>
                                 )}
@@ -329,19 +330,3 @@ class SelfRepairList extends React.Component {
 
 export default SelfRepairList;
 
-/*
-    // Legacy Sorting Logic (Pre-Unified Queue) - Removed 2026-02-03
-    // Sort Criticals: Priority DESC, Cost DESC, ID ASC
-    criticals.sort((a, b) => {
-        if (a.priority !== b.priority) return b.priority - a.priority;
-        if (a.cost !== b.cost) return b.cost - a.cost;
-        return a.id - b.id;
-    });
-
-    // Sort Systems: Priority DESC, MaxHealth ASC, ID ASC
-    systems.sort((a, b) => {
-        if (a.priority !== b.priority) return b.priority - a.priority;
-        if (a.maxHealth !== b.maxHealth) return a.maxHealth - b.maxHealth;
-        return a.id - b.id;
-    });
-*/
