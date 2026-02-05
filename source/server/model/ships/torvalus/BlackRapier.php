@@ -14,7 +14,6 @@ class BlackRapier extends BaseShip{
         $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
         $this->agile = true;
-		$this->notes .= "Can skin dance"; 
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;   
@@ -34,7 +33,8 @@ class BlackRapier extends BaseShip{
 		$this->canPreOrder = true;		
 		//$this->fighters = array("normal"=>6);
 		$this->notes = "Can control 6 fighters";		
-        
+		$this->notes .= '<br>Can skin dance'; 
+
 		/*Torvalus use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'TorvalusShip');
 		
