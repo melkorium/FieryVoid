@@ -663,8 +663,14 @@ class DBManager
                              $this->update("UPDATE tac_playeringame SET points = " . ($basePoints + $bonusPoints) . " WHERE gameid = $gameid AND slot = $slotid");
                         } else if ($myRating > $oppRating) {
                              // Joiner is Stronger: Joiner gets PENALTY (-)
-                             //error_log("Applying PENALTY: " . ($basePoints - $bonusPoints));
-                             $this->update("UPDATE tac_playeringame SET points = " . ($basePoints - $bonusPoints) . " WHERE gameid = $gameid AND slot = $slotid");
+                             // OLD WAY: $points = $basePoints - $bonusPoints; // effective: Base * (1 - diff/100)
+                             // NEW WAY: Base / (1 + diff/100)
+                             
+                             $factor = 1 + ($diff / 100);
+                             $newPoints = round($basePoints / $factor);
+                             
+                             //error_log("Applying PENALTY: " . $newPoints);
+                             $this->update("UPDATE tac_playeringame SET points = " . $newPoints . " WHERE gameid = $gameid AND slot = $slotid");
                         } else {
                              // Equal ratings: Joiner gets Base
                              //error_log("Applying BASE: " . $basePoints);
