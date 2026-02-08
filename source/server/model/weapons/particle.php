@@ -681,11 +681,11 @@
             parent::setSystemDataWindow($turn);
         } 
 
-        public function beforeTurn($ship, $turn, $phase){
-            parent::beforeTurn($ship, $turn, $phase);
-            $this->shotsFiredSoFar = 0;
-            $this->hitChanceMod = 0;
-        }
+    public function beforeTurn($ship, $turn, $phase){
+        parent::beforeTurn($ship, $turn, $phase);
+        $this->shotsFiredSoFar = 0;
+        $this->hitChanceMod = 0;
+    }
 	    
 	protected function applyCooldown($gamedata){
 		$currBoostlevel = $this->getBoostLevel($gamedata->turn);
@@ -719,6 +719,12 @@
 			}
 
             parent::fire($gamedata, $fireOrder);
+            
+            //If a shot misses, all subsequent shots miss automatically.
+            //We flag this by setting hitChanceMod to a high value, which getShotHitChanceMod checks against.
+            if ($this->canSplitShots && $fireOrder->shotshit < $fireOrder->shots){
+                $this->hitChanceMod = 10000;
+            }
             
             $this->shotsFiredSoFar += $fireOrder->shots;
             $this->applyCooldown($gamedata);
