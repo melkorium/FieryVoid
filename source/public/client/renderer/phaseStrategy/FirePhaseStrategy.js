@@ -161,5 +161,17 @@ window.FirePhaseStrategy = function () {
         PhaseStrategy.prototype.onSystemDataChanged.call(this, {ship: ship});
     };
 
+    FirePhaseStrategy.prototype.onShowTargetedHexagonInArc = function(payload){ //When a gravity designates a target add a hexagon equal to move range around target ship.              
+        var shooterIcon = this.shipIconContainer.getByShip(payload.shooter);
+        var targetIcon = this.shipIconContainer.getByShip(payload.target);
+        targetIcon.showTargetedHexagonInArc(payload.shooter, shooterIcon, payload.system, payload.size, payload.color, payload.opacity);
+    };  
+
+    FirePhaseStrategy.prototype.onRemoveTargetedHexagonInArc = function(payload){ //When a gravity designates a move target location for its target, remove the hexgon(equal to move range)
+        var targetIcon = this.shipIconContainer.getByShip(payload.target);        
+        targetIcon.removeTargetedHexagonInArc(payload.system);
+    };
+
+
     return FirePhaseStrategy;
 }();

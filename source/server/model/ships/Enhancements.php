@@ -154,6 +154,51 @@ class Enhancements{
 		  //technical ID, human readable name, number taken, maximum number to take, price for one, price increase for each further, is an option (rather than enhancement)
 	  }	 
 
+
+	  //Elite Marines for Grappling Claws, cost: 40% craft price (round up), limit: 1	  	
+	  $enhID = 'ELT_MRN';	  
+	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+		  $enhName = 'Elite Marines';
+		  $enhLimit = 1;	
+		  $enhPrice = ceil($ship->pointCost * 0.4); //40% ship cost  
+		  $enhPriceStep = 0;
+		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+	  }  
+	  
+	  //Extra Marines for Grappling Claws, cost: 10 per unit, limit: 3	  	
+	  $enhID = 'EXT_MRN';	  
+	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+		  $enhName = 'Extra Marine Units';
+		  $enhLimit = 3;	
+		  $enhPrice = 0; //fixed.		  
+		  foreach ($ship->systems as $system){
+			if ($system instanceof GrapplingClaw){
+		  	$enhPrice += 10;
+		    }
+		  } 	  
+		  $enhPriceStep = 0;
+		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);
+	  } 
+
+	  
+	  $enhID = 'GUNSIGHT';
+	  if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //option is not disabled
+		  $enhName = 'Gunsights';
+		  $count = 0;	 
+		  foreach ($ship->systems as $system){
+			if ($system instanceof ParticleRepeater){
+				$count++;
+			}
+		  }  
+		  if($count > 0){ //ship is actually equipped with a Particle Repeater(s)	  
+			  $enhPrice = 12 * $count;	
+			  $enhPriceStep = 0; 
+			  $enhLimit = 1;	  
+			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);
+		  }
+	  }	 
+
+
 	  //To convert Assault Shuttles hangar slots to Fighter Slots
 	  if (array_key_exists("assault shuttles", $ship->fighters)) { //Only add if ship has Assault Shuttle hangar space! 	  
 	    $enhID = 'HANG_F';
@@ -181,31 +226,6 @@ class Enhancements{
 		}
 	  }
 
-	  //Elite Marines for Grappling Claws, cost: 40% craft price (round up), limit: 1	  	
-	  $enhID = 'ELT_MRN';	  
-	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
-		  $enhName = 'Elite Marines';
-		  $enhLimit = 1;	
-		  $enhPrice = ceil($ship->pointCost * 0.4); //40% ship cost  
-		  $enhPriceStep = 0;
-		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
-	  }  
-	  
-	  //Extra Marines for Grappling Claws, cost: 10 per unit, limit: 3	  	
-	  $enhID = 'EXT_MRN';	  
-	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
-		  $enhName = 'Extra Marine Units';
-		  $enhLimit = 3;	
-		  $enhPrice = 0; //fixed.		  
-		  foreach ($ship->systems as $system){
-			if ($system instanceof GrapplingClaw){
-		  	$enhPrice += 10;
-		    }
-		  } 	  
-		  $enhPriceStep = 0;
-		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);
-	  } 
-	  	   
 	  $enhID = 'IFF_SYS';
 	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		  $enhName = 'Identify Friend or Foe (IFF) System';
@@ -1656,6 +1676,17 @@ class Enhancements{
 						}
 						break;	
 
+					case 'GUNSIGHT'://Split fire: allows Particle Repeaters to split their shots.
+						foreach ($ship->systems as $system){
+							if ($system instanceof ParticleRepeater){
+								$damageTaken = $system->maxhealth - ($system->getRemainingHealth()); //Check for damge taken.    
+								if($damageTaken > 0) break; //Lose gunsights if even 1 point of damage taken.								
+								$system->specialHitChanceCalculation = true;
+								$system->canSplitShots = true;
+							}
+						}
+						break;	
+
 					case 'HANG_F'://Hangar Conversion to Fighter slot, no actual need to change anything here.  
 						break;	
 
@@ -2200,6 +2231,12 @@ class Enhancements{
 								$strippedSystem->output = $system->output;
 							}
 							break;
+						case 'GUNSIGHT': //improved Thought Shield
+							if ($system instanceof ParticleRepeater){
+								$strippedSystem->canSplitShots = $system->canSplitShots ;
+								$strippedSystem->specialHitChanceCalculation = $system->specialHitChanceCalculation ;						
+							}													
+							break;								
 						case 'IMPR_PSY': //Spark Curtain - affects output of Spark Field
 							if($system instanceof PsychicField){
 								$strippedSystem->range = $system->range;
