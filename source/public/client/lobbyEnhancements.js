@@ -123,7 +123,7 @@ window.lobbyEnhancements = {
 
 					case 'GUNSIGHT'://Gunsights: allows Particle Repeaters to split their shots.  
 						if (!ship.gunsightEnh) {
-							ship.notes += "<br>Gunsights";
+							ship.notes += "<br>Repeater Gunsights";
 						}
 						ship.gunsightEnh = true;
 						break;

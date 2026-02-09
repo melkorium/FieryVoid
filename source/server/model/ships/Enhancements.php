@@ -183,7 +183,7 @@ class Enhancements{
 	  
 	  $enhID = 'GUNSIGHT';
 	  if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //option is not disabled
-		  $enhName = 'Gunsights';
+		  $enhName = 'Repeater Gunsights';
 		  $count = 0;	 
 		  foreach ($ship->systems as $system){
 			if ($system instanceof ParticleRepeater){

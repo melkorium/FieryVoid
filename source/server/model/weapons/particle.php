@@ -702,17 +702,57 @@
 		 }
 	}
         
+        public function beforeFiringOrderResolution($gamedata){
+            if(!$this->canSplitShots) return; //Only relevant for split shots.
+        
+            //Gather all valid fire orders for this turn
+            $validOrders = array();
+            foreach($this->fireOrders as $fireOrder){
+                if($fireOrder->turn != $gamedata->turn) continue;
+                if($fireOrder->type == 'intercept' || $fireOrder->type == 'selfIntercept') continue;
+                $validOrders[] = $fireOrder;
+            }
+            
+            $count = count($validOrders);
+            if($count == 0) return;
+            
+            $maxShots = $this->getMaxShots($gamedata->turn);
+            
+            //Distribute shots: 1 per valid order, remainder to last order.
+            //We reset shots here, so fire() doesn't need to guess.
+            $shotsUsed = 0;
+            for($i=0; $i<$count; $i++){
+                $order = $validOrders[$i];
+                $order->shots = 1; //Base 1 shot per target
+                $shotsUsed++;
+                
+                if($i == ($count-1)){ //Last order gets the rest
+                    $remaining = $maxShots - $shotsUsed;
+                    if($remaining > 0){
+                        $order->shots += $remaining;
+                    }
+                }
+            }
+        }
+
         public function fire($gamedata, $fireOrder){ 
             // If this order was already handled (e.g. by a previous call in the same turn resolving the whole volley), skip it.
             if ($fireOrder->rolled > 0) return;
 
             $currBoostlevel = $this->getBoostLevel($gamedata->turn);
 
+
             // If we can't split shots, then this is a fresh volley every time we enter fire (standard behavior).
             if (!$this->canSplitShots) {
                 $this->shotsFiredSoFar = 0;
                 $this->hitChanceMod = 0;
-				$fireOrder->shots = 1 + $currBoostlevel;
+				$fireOrder->shots = 1 + $currBoostlevel; 
+                
+                $shooter = $this->getUnit();
+                $target = $gamedata->getShipById($fireOrder->targetid);
+                $oew = $shooter->getOEW($target, $gamedata->turn);                                 
+                if ($oew < 1) $fireOrder->shots = 1; //Only 1 shot if no OEW lock.
+                
                 parent::fire($gamedata, $fireOrder);
                 
                 $this->shotsFiredSoFar += $fireOrder->shots;
@@ -720,7 +760,7 @@
             } else {
                 // Split shots / Gunsight logic
                 // We resolve ALL shots for this weapon/turn NOW, to ensure correct sequence.
-                
+
                 // 1. Gather all valid fire orders for this weapon, this turn.
                 $allOrders = array();
                 foreach($this->fireOrders as $fo){
@@ -770,39 +810,6 @@
                 
                 // 5. Apply cooldown once for the volley
                 $this->applyCooldown($gamedata);
-            }
-        }
-    
-        public function beforeFiringOrderResolution($gamedata){
-            if(!$this->canSplitShots) return; //Only relevant for split shots.
-            
-            //Gather all valid fire orders for this turn
-            $validOrders = array();
-            foreach($this->fireOrders as $fireOrder){
-                if($fireOrder->turn != $gamedata->turn) continue;
-                if($fireOrder->type == 'intercept' || $fireOrder->type == 'selfIntercept') continue;
-                $validOrders[] = $fireOrder;
-            }
-            
-            $count = count($validOrders);
-            if($count == 0) return;
-            
-            $maxShots = $this->getMaxShots($gamedata->turn);
-            
-            //Distribute shots: 1 per valid order, remainder to last order.
-            //We reset shots here, so fire() doesn't need to guess.
-            $shotsUsed = 0;
-            for($i=0; $i<$count; $i++){
-                $order = $validOrders[$i];
-                $order->shots = 1; //Base 1 shot per target
-                $shotsUsed++;
-                
-                if($i == ($count-1)){ //Last order gets the rest
-                    $remaining = $maxShots - $shotsUsed;
-                    if($remaining > 0){
-                        $order->shots += $remaining;
-                    }
-                }
             }
         }
 	    
