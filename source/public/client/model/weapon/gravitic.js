@@ -186,10 +186,9 @@ GravityNet.prototype.initializationUpdate = function() {
                 webglScene.customEvent("RemoveTargetedHexagonInArc", { target: this.target, system: this });
             } else if (weaponManager.isSelectedWeapon(this) && this.target) {
                 webglScene.customEvent("RemoveTargetedHexagonInArc", { target: this.target, system: this });//Remove any old sprites to prevent duplication.
-                webglScene.customEvent("ShowTargetedHexagonInArc", { shooter: this.ship, target: this.target, system: this, size: 1, color: 'orange', opacity: 0.15 });
+                webglScene.customEvent("ShowTargetedHexagonInArc", { shooter: this.ship, target: this.target, system: this});
             }
         }
-        
     }else{
         this.hextarget = false;
         this.ignoresLoS = false; 
@@ -236,6 +235,7 @@ GravityNet.prototype.doMultipleFireOrders = function (shooter, target, system) {
         }; 
         this.target = target; //store current target to this gravity net object.       
         fireOrdersArray.push(fire); // Store each fire order
+        
         webglScene.customEvent("ShowTargetedHexagonInArc", {shooter: shooter, target: target, system: this});
         this.hextarget = true; //switch gravNet from shipTarget mode to hexTarget mode.        
     }
