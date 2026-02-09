@@ -385,8 +385,12 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 
     <h4 id="drazi" style="">DRAZI FREEHOLD</h4>
-    <p>Drazi are a very solid, beginner-friendly faction which uses an assortment of fast recharging particle weapons to pummel their enemies.  
-        Their distinctive HCV layout with outer hulls on port and starboard instead of the traditional front and aft layout, is very notable for producing surprisingly resilient ships.</p>            
+        <p>Drazi are a very solid, beginner-friendly faction which uses an assortment of fast recharging particle weapons to pummel their enemies.  
+        Their distinctive HCV layout with outer hulls on port and starboard instead of the traditional front and aft layout, is very notable for producing surprisingly resilient ships.</p>
+       <h5>Repeater Gunsights</h5>
+            <li>Ships equipped with Particle Repeaters can purchased this option in Fleet Selection.  Repeaters armed with gunsights are able to split their shots between different enemy units within a 1 hex radius of their original target,
+                and different fighters within the same flights.  If the Particle Repeater takes any damage at all, it loses its gunsight ability.  All other rules relating to the Particle Repeater remain the same.</li>
+                           
     <a class="back-to-top" href="#top">↩ Back to Top</a>
 
 
