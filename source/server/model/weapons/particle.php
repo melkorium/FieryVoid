@@ -680,13 +680,13 @@
             
             parent::setSystemDataWindow($turn);
         } 
-
+    /*                
     public function beforeTurn($ship, $turn, $phase){
         parent::beforeTurn($ship, $turn, $phase);
         $this->shotsFiredSoFar = 0;
         $this->hitChanceMod = 0;
     }
-	    
+    */                    
 	protected function applyCooldown($gamedata){
 		$currBoostlevel = $this->getBoostLevel($gamedata->turn);
 		//if boosted, cooldown (1 per 2 extra shots above first 2)
@@ -703,31 +703,74 @@
 	}
         
         public function fire($gamedata, $fireOrder){ 
+            // If this order was already handled (e.g. by a previous call in the same turn resolving the whole volley), skip it.
+            if ($fireOrder->rolled > 0) return;
+
             $currBoostlevel = $this->getBoostLevel($gamedata->turn);
 
             // If we can't split shots, then this is a fresh volley every time we enter fire (standard behavior).
-            // If we CAN split shots, we rely on shotsFiredSoFar correctly accumulating across multiple calls.
             if (!$this->canSplitShots) {
                 $this->shotsFiredSoFar = 0;
                 $this->hitChanceMod = 0;
 				$fireOrder->shots = 1 + $currBoostlevel;
-            }else{
-				//If splitting shots, calculate modifier for this specific shot and apply it to fire order
-				//This ensures the "final to hit" note in DB reflects the penalty
-				$mod = $this->getPrevShotHitChanceMod($this->shotsFiredSoFar);
-				$fireOrder->needed -= $mod;
-			}
+                parent::fire($gamedata, $fireOrder);
+                
+                $this->shotsFiredSoFar += $fireOrder->shots;
+                $this->applyCooldown($gamedata);
+            } else {
+                // Split shots / Gunsight logic
+                // We resolve ALL shots for this weapon/turn NOW, to ensure correct sequence.
+                
+                // 1. Gather all valid fire orders for this weapon, this turn.
+                $allOrders = array();
+                foreach($this->fireOrders as $fo){
+                    if($fo->turn == $gamedata->turn && $fo->type != 'intercept' && $fo->type != 'selfIntercept'){
+                         $allOrders[] = $fo;
+                    }
+                }
+                
+                // 2. Sort by ID to ensure creation order (user click order).
+                usort($allOrders, function($a, $b){
+                    return $a->id - $b->id;
+                });
 
-            parent::fire($gamedata, $fireOrder);
-            
-            //If a shot misses, all subsequent shots miss automatically.
-            //We flag this by setting hitChanceMod to a high value, which getShotHitChanceMod checks against.
-            if ($this->canSplitShots && $fireOrder->shotshit < $fireOrder->shots){
-                $this->hitChanceMod = 10000;
+                // 3. Reset state
+                $this->shotsFiredSoFar = 0;
+                $this->hitChanceMod = 0;
+
+                // 4. Iterate and fire
+                foreach($allOrders as $currOrder){
+                     // Skip if somehow already rolled
+                     if($currOrder->rolled > 0) continue;
+
+                     // Calculate mod logic same as before but inside loop
+                     // If splitting shots, calculate modifier for this specific shot and apply it to fire order
+				     $mod = $this->getPrevShotHitChanceMod($this->shotsFiredSoFar);
+				     $currOrder->needed -= $mod;
+
+                     // Check broken chain
+                     if($this->hitChanceMod >= 10000){
+                         $currOrder->needed = 0;
+                         $currOrder->totalIntercept = 0; //Prevent weird log entries
+                         $currOrder->numInterceptors = 0;
+                         $currOrder->pubnotes .= "<br>Automatic miss due to previous miss in chain.";
+                     }
+
+                     // Execute
+                     parent::fire($gamedata, $currOrder);
+
+                     // Check if miss occurred to break chain
+                     if ($currOrder->shotshit < $currOrder->shots){
+                        $this->hitChanceMod = 10000;
+                     }
+
+                     // Update accumulator
+                     $this->shotsFiredSoFar += $currOrder->shots;
+                }
+                
+                // 5. Apply cooldown once for the volley
+                $this->applyCooldown($gamedata);
             }
-            
-            $this->shotsFiredSoFar += $fireOrder->shots;
-            $this->applyCooldown($gamedata);
         }
     
         public function beforeFiringOrderResolution($gamedata){

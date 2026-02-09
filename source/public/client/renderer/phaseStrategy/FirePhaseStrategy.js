@@ -30,6 +30,9 @@ window.FirePhaseStrategy = function () {
 
     FirePhaseStrategy.prototype.deactivate = function () {
         PhaseStrategy.prototype.deactivate.call(this);
+        this.shipIconContainer.getArray().forEach(function (icon) {
+            icon.removeHexagonArcs();
+        });        
     };
 
     FirePhaseStrategy.prototype.onHexClicked = function (payload) {
