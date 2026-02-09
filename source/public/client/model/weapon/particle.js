@@ -563,11 +563,6 @@ ParticleRepeater.prototype.doMultipleFireOrders = function (shooter, target, sys
         fireOrdersArray.push(fire); // Store each fire order
     }
 
-    //Always show targeted hexagon on initial target (this.target)
-    if (this.target) {
-        //webglScene.customEvent("ShowTargetedHexagonInArc", { shooter: shooter, target: this.target, system: this, size: 1, color: 'orange', opacity: 0.15 });
-    }
-
     return fireOrdersArray; // Return all fire orders
 };
 
