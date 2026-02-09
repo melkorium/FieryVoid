@@ -672,21 +672,14 @@
         
         public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
-	    $this->data["Special"] = "Standard power: 1 shot, intercept -5.";
-	    $this->data["Special"] .= "<br>Each additional +1 Power adds -5 intercept or 1 shot in offensive mode.";
-	    $this->data["Special"] .= "<br>Each pair of shots above 2 forces a turn of cooldown (round up).";
-	    $this->data["Special"] .= "<br>All shots hit the same target. If a shot misses, further ones miss automatically. Otherwise they have cumulative to hit penalty.";
-            //$this->defaultShots = 1+$this->getBoostLevel(TacGamedata::$currentTurn); //default shots is 1, so interception is correct!
-            
+            $this->data["Special"] = "Standard power: 1 shot, intercept -5.";
+            $this->data["Special"] .= "<br>Each additional +1 Power adds -5 intercept or 1 shot in offensive mode providing you have a OEW lock.";
+            $this->data["Special"] .= "<br>Each pair of shots above 2 forces a turn of cooldown (rounded up).";
+            $this->data["Special"] .= "<br>Shots can target different units with a cumulative to hit penalty. However, once a shot misses, all further ones miss automatically.";
+            $this->data["Special"] .= "<br>If equipped with gunsights, this weapon may split it's shots to different tagets in a 1 hex radius.";
             parent::setSystemDataWindow($turn);
         } 
-    /*                
-    public function beforeTurn($ship, $turn, $phase){
-        parent::beforeTurn($ship, $turn, $phase);
-        $this->shotsFiredSoFar = 0;
-        $this->hitChanceMod = 0;
-    }
-    */                    
+                   
 	protected function applyCooldown($gamedata){
 		$currBoostlevel = $this->getBoostLevel($gamedata->turn);
 		//if boosted, cooldown (1 per 2 extra shots above first 2)
