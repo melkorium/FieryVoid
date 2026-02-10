@@ -7,6 +7,7 @@ import SelfRepairList from "./SelfRepairList";
 import AdaptiveArmorList from "./AdaptiveArmorList";
 import HyachComputerList from "./HyachComputerList";
 import HyachSpecialistsList from "./HyachSpecialistsList";
+import ShieldGeneratorList from "./ShieldGeneratorList";
 
 const Container = styled.div`
     display:flex;
@@ -246,7 +247,7 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 
-	
+
 	//switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class
 	nextCurrClass(e) {
 		e.stopPropagation(); e.preventDefault();
@@ -261,7 +262,7 @@ class SystemInfoButtons extends React.Component {
 		system.prevCurrClass();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	
+
 
 	/*
 	//Adaptive Armor increase rating for current class
@@ -426,9 +427,9 @@ class SystemInfoButtons extends React.Component {
 		system.doDecrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	*/	
+	*/
 
-	/*Thirdspace Shield increase health*/
+	/*Thirdspace Shield increase health
 	TSShieldIncrease25(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -453,7 +454,7 @@ class SystemInfoButtons extends React.Component {
 		system.doIncrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Thirdspace Shield decrease health*/
+
 	TSShieldDecrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -478,7 +479,7 @@ class SystemInfoButtons extends React.Component {
 		system.doDecrease25();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Thirdspace Shield Generator Presets*/
+
 	TSShieldGenSelect(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -486,14 +487,14 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 
-	/*Thought Shield Generator Presets*/
+
 	ThoughtShieldGenSelect(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doSelect();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-
+	*/
 
 
 	render() {
@@ -556,6 +557,8 @@ class SystemInfoButtons extends React.Component {
 				{canSpecdecrease(ship, system) && <Button onClick={this.Specdecrease.bind(this)} img="./img/systemicons/Specialistclasses/iconMinus.png"></Button>}
 				*/}
 
+				{(canTSShield(ship, system) || canTSShieldGen(ship, system)) && <ShieldGeneratorList system={system} ship={ship} />}
+				{/*
 				{canTSShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease25.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus25.png"></Button>}
 				{canTSShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease10.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus10.png"></Button>}
 				{canTSShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease5.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus5.png"></Button>}
@@ -568,7 +571,10 @@ class SystemInfoButtons extends React.Component {
 				{canTSShieldGendisplayCurrClass(ship, system) && <Button title="Previous" onClick={this.prevCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconPrev.png"></Button>}
 				{canTSShieldGendisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconNext.png"></Button>}
 				{canTSShieldGenSelect(ship, system) && <Button onClick={this.TSShieldGenSelect.bind(this)} img="./img/systemicons/Specialistclasses/select.png"></Button>}
+				*/}
 
+				{(canThoughtShield(ship, system) || canThoughtShieldGen(ship, system)) && <ShieldGeneratorList system={system} ship={ship} />}
+				{/*
 				{canThoughtShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease25.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus25.png"></Button>}
 				{canThoughtShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease10.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus10.png"></Button>}
 				{canThoughtShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease5.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus5.png"></Button>}
@@ -581,6 +587,7 @@ class SystemInfoButtons extends React.Component {
 				{canThoughtShieldGendisplayCurrClass(ship, system) && <Button title="Previous" onClick={this.prevCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconPrev.png"></Button>}
 				{canThoughtShieldGendisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconNext.png"></Button>}
 				{canThoughtShieldGenSelect(ship, system) && <Button onClick={this.TSShieldGenSelect.bind(this)} img="./img/systemicons/Specialistclasses/select.png"></Button>}
+				*/}
 
 
 				{canSelfRepairList(ship, system) && <SelfRepairList ship={ship} system={system} />}
@@ -616,35 +623,35 @@ const canBFCPpropagate = (ship, system) => canBFCP(ship, system) && system.canPr
 //can do something with Hyach Specialists
 //const canSpec = (ship, system) => (gamedata.gamephase === 1) && system.name === 'hyachSpecialists';
 const canSpec = (ship, system) => system.name === 'hyachSpecialists';
-const canSpecdisplayCurrClass = (ship, system) => canSpec(ship, system) && system.getCurrClass() != '';
+/*const canSpecdisplayCurrClass = (ship, system) => canSpec(ship, system) && system.getCurrClass() != '';
 const getSpeccurrClassImg = (ship, system) => './img/systemicons/Specialistclasses/' + system.getCurrClass() + '.png';
 const getSpeccurrClassName = (ship, system) => system.getCurrClass();
 const canSpecselect = (ship, system) => canSpec(ship, system) && system.canSelect() != '';
 const canSpecunselect = (ship, system) => canSpec(ship, system) && system.canUnselect() != '';
 const canSpecincrease = (ship, system) => canSpec(ship, system) && system.canUse() != '';
-const canSpecdecrease = (ship, system) => canSpec(ship, system) && system.canDecrease() != '';
+const canSpecdecrease = (ship, system) => canSpec(ship, system) && system.canDecrease() != '';*/
 
 //can do something with Thirdspace Shields
 const canTSShield = (ship, system) => (gamedata.gamephase === 1) && system.name === 'ThirdspaceShield';
-const canTSShieldIncrease = (ship, system) => canTSShield(ship, system) && system.canIncrease() != '';
-const canTSShieldDecrease = (ship, system) => canTSShield(ship, system) && system.canDecrease() != '';
+/*const canTSShieldIncrease = (ship, system) => canTSShield(ship, system) && system.canIncrease() != '';
+const canTSShieldDecrease = (ship, system) => canTSShield(ship, system) && system.canDecrease() != '';*/
 //can do something with Thirdspace Shield Generator
 const canTSShieldGen = (ship, system) => (gamedata.gamephase === 1) && system.name === 'ThirdspaceShieldGenerator';
-const canTSShieldGendisplayCurrClass = (ship, system) => canTSShieldGen(ship, system) && system.getCurrClass() != '';
+/*const canTSShieldGendisplayCurrClass = (ship, system) => canTSShieldGen(ship, system) && system.getCurrClass() != '';
 const getTSShieldGencurrClassImg = (ship, system) => './img/systemicons/ShieldGenclasses/' + system.getCurrClass() + '.png';
 const getTSShieldGencurrClassName = (ship, system) => system.getCurrClass();
-const canTSShieldGenSelect = (ship, system) => canTSShieldGen(ship, system) && system.canSelect() != '';
+const canTSShieldGenSelect = (ship, system) => canTSShieldGen(ship, system) && system.canSelect() != '';*/
 
 //can do something with Thought Shields
 const canThoughtShield = (ship, system) => (gamedata.gamephase === 1) && system.name === 'ThoughtShield';
-const canThoughtShieldIncrease = (ship, system) => canThoughtShield(ship, system) && system.canIncrease() != '';
-const canThoughtShieldDecrease = (ship, system) => canThoughtShield(ship, system) && system.canDecrease() != '';
+/*const canThoughtShieldIncrease = (ship, system) => canThoughtShield(ship, system) && system.canIncrease() != '';
+const canThoughtShieldDecrease = (ship, system) => canThoughtShield(ship, system) && system.canDecrease() != '';*/
 //can do something with Thirdspace Shield Generator
 const canThoughtShieldGen = (ship, system) => (gamedata.gamephase === 1) && system.name === 'ThoughtShieldGenerator';
-const canThoughtShieldGendisplayCurrClass = (ship, system) => canThoughtShieldGen(ship, system) && system.getCurrClass() != '';
+/*const canThoughtShieldGendisplayCurrClass = (ship, system) => canThoughtShieldGen(ship, system) && system.getCurrClass() != '';
 const getThoughtShieldGencurrClassImg = (ship, system) => './img/systemicons/ShieldGenclasses/' + system.getCurrClass() + '.png';
 const getThoughtShieldGencurrClassName = (ship, system) => system.getCurrClass();
-const canThoughtShieldGenSelect = (ship, system) => canThoughtShieldGen(ship, system) && system.canSelect() != '';
+const canThoughtShieldGenSelect = (ship, system) => canThoughtShieldGen(ship, system) && system.canSelect() != '';*/
 
 //can do something with Self Repair...
 const canSelfRepairList = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'SelfRepair');
@@ -666,9 +673,9 @@ const canOverload = (ship, system) => gamedata.gamephase === 1 && !shipManager.p
 
 const canStopOverload = (ship, system) => gamedata.gamephase === 1 && system.weapon && system.overloadable && shipManager.power.isOverloading(ship, system) && (system.overloadshots >= system.extraoverloadshots || system.overloadshots == 0);
 
-const canBoost = (ship, system) => system.boostable && gamedata.gamephase === 1 && shipManager.power.canBoost(ship, system) && (!system.isScanner() || system.id == shipManager.power.getHighestSensorsId(ship));
+const canBoost = (ship, system) => system.boostable && gamedata.gamephase === 1 && shipManager.power.canBoost(ship, system) && (!system.isScanner() || system.id == shipManager.power.getHighestSensorsId(ship)) && system.name !== 'ThirdspaceShieldGenerator';
 
-const canDeBoost = (ship, system) => gamedata.gamephase === 1 && Boolean(shipManager.power.getBoost(system));
+const canDeBoost = (ship, system) => gamedata.gamephase === 1 && Boolean(shipManager.power.getBoost(system)) && system.name !== 'ThirdspaceShieldGenerator';
 /* Code for boosting systems in other phases.  Not longer need anymore since Shading Field got converted to notes
 const isBoostPhase = (system) => {
 	// If boostOtherPhases is an array, check if the current gamephase is included

@@ -5527,7 +5527,7 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 		
     public function setSystemDataWindow($turn){
         parent::setSystemDataWindow($turn);
-		$this->data["Special"] = "Regenerates " . $this->getRegenforNotes($turn) . " health split eqaully amongst all Thirdspace Shields at the end of each turn.";
+		$this->data["Special"] = "Regenerates " . $this->getRegenforNotes($turn) . " health split equally amongst all Thirdspace Shields at the end of each turn.";
 		$this->data["Special"] .= "<br>Shields will not regenerate above their Base Rating, instead any excess will be allocate to another shield where possible.";
 		$this->data["Special"] .= "<br>Current Shield Power CANNOT be regenerated above Maximum Shield Power.";		       
         $this->data["Special"] .= "<br>Regeneration can be boosted " . $this->maxBoostLevel  . " times at " . $this->boostEfficiency ." power for " . $this->boostEfficiency ." extra output.";  

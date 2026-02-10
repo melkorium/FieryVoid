@@ -46,7 +46,11 @@ class SystemInfoMenu extends React.Component {
                 system.name === 'SelfRepair' ||
                 system.name === 'adaptiveArmorController' ||
                 system.name === 'hyachComputer' ||
-                system.name === 'hyachSpecialists') ? 0.9 : 0.8}>
+                system.name === 'hyachSpecialists' ||
+                system.name === 'ThoughtShield' ||
+                system.name === 'ThirdspaceShield'||
+                system.name === 'ThoughtShieldGenerator' ||
+                system.name === 'ThirdspaceShieldGenerator') ? 0.9 : 0.8}>
                 <SystemInfoButtons {...this.props} />
             </SystemInfoTooltip>
         )

@@ -1694,7 +1694,7 @@ ThirdspaceShieldGenerator.prototype.initializationUpdate = function () {
 
 	var boostCount = shipManager.power.getBoost(this); //Find any boost.
 	if (shieldCount > 0) boostCount = boostCount * shieldCount; //Multiply boost count by number of shields.
-	var totalOutput = this.output + boostCount; // Get total output. 		
+	this.totalOutput = this.output + boostCount; // Get total output. 		
 
 	if (gamedata.gamephase == 1) {
 		this.outputDisplay = this.storedCapacity;
@@ -1702,7 +1702,7 @@ ThirdspaceShieldGenerator.prototype.initializationUpdate = function () {
 		if (this.storedCapacity == 0) {
 			this.outputDisplay = '-'; //'0' is not shown!
 		}
-		this.data["Current Output "] = totalOutput;	//Update this to help show player how much they've boosted, since outputDisplay used for transferring.
+		this.data["Current Output "] = this.totalOutput;	//Update this to help show player how much they've boosted, since outputDisplay used for transferring.
 		this.data["Current Shield Power "] = currentShieldHealth;
 		this.data["Boosted by "] = boostCount;
 	} else {
