@@ -116,6 +116,17 @@ const PropagateButton = styled.div`
     }
 `;
 
+const Divider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    background-color: #496791;
+    margin: 0 4px;
+    font-weight: bold;     
+    vertical-align: middle;
+    opacity: 0.7;
+`;
+
 const CenteredListItem = styled(ListItem)`
     justify-content: center;
     font-style: italic;
@@ -367,7 +378,7 @@ class SelfRepairList extends React.Component {
                                     <>
                                         <CriticalItemName>{item.sys.displayName} ({item.crit.description || item.crit.phpclass})</CriticalItemName>
                                         <ItemStatus>
-                                            Cost: {item.cost}  |  Id: {item.sys.id}  |  Prio: {item.priority}
+                                            Cost: {item.cost} <Divider /> Id: {item.sys.id} <Divider /> Prio: {item.priority}
                                         </ItemStatus>
                                     </>
                                 ) : (
@@ -378,7 +389,7 @@ class SelfRepairList extends React.Component {
                                             <ItemName>{item.sys.displayName}</ItemName>
                                         )}
                                         <ItemStatus>
-                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth} | Id: {item.sys.id} | Prio: {item.priority}
+                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth} <Divider /> Id: {item.sys.id} <Divider /> Prio: {item.priority}
                                         </ItemStatus>
                                     </>
                                 )}
