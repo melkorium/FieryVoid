@@ -6,6 +6,7 @@ import FiringModeSelector from "./FiringModeSelector";
 import SelfRepairList from "./SelfRepairList";
 import AdaptiveArmorList from "./AdaptiveArmorList";
 import HyachComputerList from "./HyachComputerList";
+import HyachSpecialistsList from "./HyachSpecialistsList";
 
 const Container = styled.div`
     display:flex;
@@ -245,7 +246,7 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 
-	/*
+	
 	//switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class
 	nextCurrClass(e) {
 		e.stopPropagation(); e.preventDefault();
@@ -260,7 +261,7 @@ class SystemInfoButtons extends React.Component {
 		system.prevCurrClass();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	*/
+	
 
 	/*
 	//Adaptive Armor increase rating for current class
@@ -397,8 +398,8 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 	*/
-	
-	/*Hyach Specialists increase rating for current class*/
+
+	/*
 	Specselect(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -418,13 +419,14 @@ class SystemInfoButtons extends React.Component {
 		system.doUse();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Hyach Specialists decrease rating for current class*/
+
 	Specdecrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doDecrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
+	*/	
 
 	/*Thirdspace Shield increase health*/
 	TSShieldIncrease25(e) {
@@ -543,6 +545,8 @@ class SystemInfoButtons extends React.Component {
 				{canBFCPpropagate(ship, system) && <Button title="Propagate setting" onClick={this.BFCPpropagate.bind(this)} img="./img/systemicons/BFCPclasses/iconPropagate.png"></Button>}
 				*/}
 
+				{canSpec(ship, system) && <HyachSpecialistsList system={system} ship={ship} />}
+				{/*
 				{canSpecdisplayCurrClass(ship, system) && <Button title={getSpeccurrClassName(ship, system)} img={getSpeccurrClassImg(ship, system)}></Button>}
 				{canSpecdisplayCurrClass(ship, system) && <Button title="Previous" onClick={this.prevCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconPrev.png"></Button>}
 				{canSpecdisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconNext.png"></Button>}
@@ -550,6 +554,7 @@ class SystemInfoButtons extends React.Component {
 				{canSpecunselect(ship, system) && <Button onClick={this.Specunselect.bind(this)} img="./img/systemicons/Specialistclasses/unselect.png"></Button>}
 				{canSpecincrease(ship, system) && <Button onClick={this.Specincrease.bind(this)} img="./img/systemicons/Specialistclasses/iconPlus.png"></Button>}
 				{canSpecdecrease(ship, system) && <Button onClick={this.Specdecrease.bind(this)} img="./img/systemicons/Specialistclasses/iconMinus.png"></Button>}
+				*/}
 
 				{canTSShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease25.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus25.png"></Button>}
 				{canTSShieldIncrease(ship, system) && <Button onClick={this.TSShieldIncrease10.bind(this)} img="./img/systemicons/ShieldGenclasses/iconPlus10.png"></Button>}
