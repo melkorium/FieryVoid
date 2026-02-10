@@ -18,7 +18,7 @@ const Header = styled.div`
     text-align: center;
     font-size: 12px;
     margin-bottom: 2px;
-    font-weight: normal;
+    font-weight: bold;
 `;
 
 const ListContainer = styled.div`

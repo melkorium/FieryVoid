@@ -673,7 +673,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     text-align: center;
     font-size: 12px;
     margin-bottom: 2px;
-    font-weight: normal;
+    font-weight: bold;
 `,yD=re.div`
     background-color: rgba(0, 0, 0, 0.9);
     border: 1px solid #496791;
@@ -767,7 +767,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     border-bottom: 1px solid #808080;    
     color: #ffffff;
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     margin-bottom: 2px;
     opacity: 1 !important;    
     font-weight: bold;
@@ -843,7 +843,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     border-bottom: 1px solid #5d3564;    
     color: #f2f2f2;
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     margin-bottom: 2px;
     opacity: 1 !important;     
     font-weight: bold;
