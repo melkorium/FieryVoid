@@ -34,6 +34,7 @@ const ListItem = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 3px 5px;
+    margin-right: 2px;      
     border-bottom: 1px solid #2b3e51;
     font-size: 11px;
     color: #e6e6e6;
@@ -89,6 +90,30 @@ const ActionButton = styled.div`
     }
     
      ${Clickable}
+`;
+
+const Footer = styled.div`
+    padding: 4px;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid #496791;
+    border-top: none;
+    text-align: center;
+`;
+
+const PropagateButton = styled.div`
+    cursor: pointer;
+    background-color: #2b3e51;
+    border: 1px solid #496791;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #f2f2f2;
+    font-weight: normal;       
+    display: inline-block;
+    
+    &:hover {
+        background-color: #496791;
+        color: #ffffff;
+    }
 `;
 
 const CenteredListItem = styled(ListItem)`
@@ -279,20 +304,53 @@ class SelfRepairList extends React.Component {
         const { ship, system } = this.props;
 
         system.setOverride(targetId, newPriority);
+        webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
+    }
 
-        // Propagate
+    handlePropagate(e) {
+        e.stopPropagation();
+        const { ship, system } = this.props;
+
+        // Propagate current system's priority changes to all other SelfRepair systems
         for (const sys of ship.systems) {
             if (sys.name === 'SelfRepair' && sys.id !== system.id) {
-                sys.setOverride(targetId, newPriority);
+
+                // 1. Clear overrides on target that are NOT in source (or are unset in source)
+                // We iterate target's priorityChanges to find what to remove
+                if (sys.priorityChanges) {
+                    for (const key in sys.priorityChanges) {
+                        // If source doesn't have it, or source has it as -1 (though source should just not have it if -1)
+                        // But let's be safe: if key not in source.priorityChanges, unset it on target
+                        if (!system.priorityChanges || !(key in system.priorityChanges)) {
+                            sys.setOverride(key, -1);
+                        }
+                    }
+                }
+
+                // 2. Copy all valid overrides from source to target
+                if (system.priorityChanges) {
+                    for (const key in system.priorityChanges) {
+                        const prio = system.priorityChanges[key];
+                        if (prio >= 0) {
+                            sys.setOverride(key, prio);
+                        }
+                    }
+                }
             }
         }
-
         webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
     }
 
     render() {
         const { ship } = this.props;
         const repairableSystems = this.getRepairableSystems();
+
+        // Count number of SelfRepair systems
+        let selfRepairCount = 0;
+        const shipSystems = Array.isArray(ship.systems) ? ship.systems : Object.values(ship.systems);
+        for (const sys of shipSystems) {
+            if (sys.name === 'SelfRepair') selfRepairCount++;
+        }
 
         return (
             <Container>
@@ -334,10 +392,16 @@ class SelfRepairList extends React.Component {
                         </ListItem>
                     ))}
                 </ListContainer>
+                {selfRepairCount > 1 && (
+                    <Footer>
+                        <PropagateButton onClick={(e) => this.handlePropagate(e)}>Set all Self Repair systems</PropagateButton>
+                    </Footer>
+                )}
             </Container>
         );
     }
 }
 
 export default SelfRepairList;
+
 
