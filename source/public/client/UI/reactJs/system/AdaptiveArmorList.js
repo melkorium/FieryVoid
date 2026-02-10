@@ -7,6 +7,7 @@ const Container = styled.div`
     margin-top: 5px;
     width: 100%;
     min-width: 200px;
+    opacity: 0.95;
     background-color: rgba(0, 0, 0, 0.9);
     border: 1px solid #808080;
 `;
@@ -14,7 +15,8 @@ const Container = styled.div`
 const Header = styled.div`
     padding: 3px;
     background-color: #4d4d4d;
-    border: 1px solid #808080;
+    border: 1px solid #4d4d4d;
+    border-bottom: 1px solid #808080;    
     color: #ffffff;
     text-align: center;
     font-size: 11px;
@@ -36,11 +38,8 @@ const Row = styled.div`
     padding: 3px 5px;
     border-bottom: 1px solid #808080;
     font-size: 11px;
-    color: #f2f2f2;
+    color: #e6e6e6;
 
-    &:last-child {
-        border-bottom: none;
-    }
     &:hover {
         background-color: rgba(43, 62, 81, 0.6);
     }
@@ -256,7 +255,7 @@ class AdaptiveArmorList extends Component {
                     {armorTypes.length === 0 && <Row>No armor types available</Row>}
                 </ListContainer>
                 <div style={{ padding: '5px', textAlign: 'center', fontSize: '10px', color: '#f2f2f2' }}>
-                    Total: {system.AAtotal_used} / {system.AAtotal} | Per Type Max: {system.AApertype}
+                    Total: {system.AAtotal_used} / {system.AAtotal} | Max Per Type: {system.AApertype}
                 </div>
             </Container>
         );

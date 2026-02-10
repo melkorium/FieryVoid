@@ -14,11 +14,11 @@ const Header = styled.div`
     padding: 3px;
     background-color: #2b3e51;
     border: 1px solid #496791;
-    color: #aec3e0;
+    color: #f2f2f2;
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     margin-bottom: 2px;
-    font-weight: bold;
+    font-weight: normal;
 `;
 
 const ListContainer = styled.div`
@@ -36,7 +36,7 @@ const ListItem = styled.div`
     padding: 3px 5px;
     border-bottom: 1px solid #2b3e51;
     font-size: 11px;
-    color: #b5c8e3;
+    color: #e6e6e6;
 
     &:last-child {
         border-bottom: none;
@@ -55,7 +55,7 @@ const ItemName = styled.span`
 
 const ItemStatus = styled.span`
     font-size: 9px;
-    color: #7d8d9b;
+    color: #a3badc;
     margin-top: 2px;
     margin-left: 1px;
 `;
@@ -63,6 +63,11 @@ const ItemStatus = styled.span`
 const CriticalItemName = styled(ItemName)`
     color: #ffb833;
     font-weight: normal;    
+`;
+
+const DestroyedItemName = styled(ItemName)`
+    color: #ff1a1a;
+    font-weight: bold;    
 `;
 
 const ActionButtons = styled.div`
@@ -285,6 +290,7 @@ class SelfRepairList extends React.Component {
     }
 
     render() {
+        const { ship } = this.props;
         const repairableSystems = this.getRepairableSystems();
 
         return (
@@ -307,7 +313,11 @@ class SelfRepairList extends React.Component {
                                     </>
                                 ) : (
                                     <>
-                                        <ItemName>{item.sys.displayName}</ItemName>
+                                        {shipManager.systems.isDestroyed(ship, item.sys) ? (
+                                            <DestroyedItemName>{item.sys.displayName}</DestroyedItemName>
+                                        ) : (
+                                            <ItemName>{item.sys.displayName}</ItemName>
+                                        )}
                                         <ItemStatus>
                                             HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth}  |  Prio: {item.priority}
                                         </ItemStatus>
@@ -315,8 +325,8 @@ class SelfRepairList extends React.Component {
                                 )}
                             </ItemInfo>
                             <ActionButtons>
-                                <ActionButton title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />                                    
-                                <ActionButton title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />                                    
+                                <ActionButton title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />
+                                <ActionButton title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />
                                 <ActionButton title="Increase Priority" onClick={(e) => this.handleUp(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconPlus.png" />
                                 <ActionButton title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
                             </ActionButtons>
