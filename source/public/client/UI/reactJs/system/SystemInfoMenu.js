@@ -42,7 +42,7 @@ class SystemInfoMenu extends React.Component {
         }
 
         return (
-            <SystemInfoTooltip position={getPosition(boundingBox)} opacity={system.name === 'SelfRepair' ? 0.95 : 0.8}>
+            <SystemInfoTooltip position={getPosition(boundingBox)} opacity={(system.name === 'SelfRepair' || system.name === 'adaptiveArmorController' || system.name === 'hyachComputer') ? 0.9 : 0.8}>
                 <SystemInfoButtons {...this.props} />
             </SystemInfoTooltip>
         )

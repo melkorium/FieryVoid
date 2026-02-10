@@ -5,6 +5,7 @@ import { Clickable } from "../styled";
 import FiringModeSelector from "./FiringModeSelector";
 import SelfRepairList from "./SelfRepairList";
 import AdaptiveArmorList from "./AdaptiveArmorList";
+import HyachComputerList from "./HyachComputerList";
 
 const Container = styled.div`
     display:flex;
@@ -278,8 +279,8 @@ class SystemInfoButtons extends React.Component {
 	}
 	*/
 	/*Adaptive Armor propagate setting for current damage type*/
-	//DEPRECATED
-	deprecated_AApropagate(e) {
+	/*
+	AApropagate(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		var dmgType = system.getCurrDmgType();
@@ -328,23 +329,24 @@ class SystemInfoButtons extends React.Component {
 
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-
+	*/
 
 	/*Hyach Computer increase rating for current class*/
+	/*
 	BFCPincrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doIncrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Hyach Computer decrease rating for current class*/
+
 	BFCPdecrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doDecrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Hyach Computer propagate setting for current damage type*/
+
 	BFCPpropagate(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -394,7 +396,8 @@ class SystemInfoButtons extends React.Component {
 
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-
+	*/
+	
 	/*Hyach Specialists increase rating for current class*/
 	Specselect(e) {
 		e.stopPropagation(); e.preventDefault();
@@ -531,11 +534,14 @@ class SystemInfoButtons extends React.Component {
 				{canAApropagate(ship, system) && <Button title="Propagate setting" onClick={this.AApropagate.bind(this)} img="./img/systemicons/AAclasses/iconPropagate.png"></Button>}
                 */}
 
+				{canBFCP(ship, system) && <HyachComputerList system={system} ship={ship} />}
+				{/*
 				{canBFCPdisplayCurrClass(ship, system) && <Button title={getBFCPcurrClassName(ship, system)} img={getBFCPcurrClassImg(ship, system)}></Button>}
 				{canBFCPdisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/BFCPclasses/iconNext.png"></Button>}
 				{canBFCPincrease(ship, system) && <Button onClick={this.BFCPincrease.bind(this)} img="./img/systemicons/BFCPclasses/iconPlus.png"></Button>}
 				{canBFCPdecrease(ship, system) && <Button onClick={this.BFCPdecrease.bind(this)} img="./img/systemicons/BFCPclasses/iconMinus.png"></Button>}
 				{canBFCPpropagate(ship, system) && <Button title="Propagate setting" onClick={this.BFCPpropagate.bind(this)} img="./img/systemicons/BFCPclasses/iconPropagate.png"></Button>}
+				*/}
 
 				{canSpecdisplayCurrClass(ship, system) && <Button title={getSpeccurrClassName(ship, system)} img={getSpeccurrClassImg(ship, system)}></Button>}
 				{canSpecdisplayCurrClass(ship, system) && <Button title="Previous" onClick={this.prevCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconPrev.png"></Button>}
@@ -594,11 +600,13 @@ const canAApropagate = (ship, system) => canAA(ship, system) && system.canPropag
 //can do something with Hyach Computer
 const canBFCP = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'hyachComputer');
 const canBFCPdisplayCurrClass = (ship, system) => canBFCP(ship, system) && system.getCurrClass() != '';
+/*
 const getBFCPcurrClassImg = (ship, system) => './img/systemicons/BFCPclasses/' + system.getCurrClass() + '.png';
 const getBFCPcurrClassName = (ship, system) => system.getCurrClass();
 const canBFCPincrease = (ship, system) => canBFCP(ship, system) && system.canIncrease() != '';
 const canBFCPdecrease = (ship, system) => canBFCP(ship, system) && system.canDecrease() != '';
 const canBFCPpropagate = (ship, system) => canBFCP(ship, system) && system.canPropagate() != '';
+*/
 
 //can do something with Hyach Specialists
 //const canSpec = (ship, system) => (gamedata.gamephase === 1) && system.name === 'hyachSpecialists';
