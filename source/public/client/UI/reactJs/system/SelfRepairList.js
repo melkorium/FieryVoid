@@ -57,6 +57,7 @@ const ItemStatus = styled.span`
     font-size: 9px;
     color: #a3badc;
     margin-top: 2px;
+    margin-right: 8px;    
     margin-left: 1px;
 `;
 
@@ -319,7 +320,7 @@ class SelfRepairList extends React.Component {
                                             <ItemName>{item.sys.displayName}</ItemName>
                                         )}
                                         <ItemStatus>
-                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth}  |  Prio: {item.priority}
+                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth} | Id: {item.sys.id} | Prio: {item.priority}
                                         </ItemStatus>
                                     </>
                                 )}
