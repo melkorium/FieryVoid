@@ -4,6 +4,7 @@ import { Clickable } from "../styled";
 
 import FiringModeSelector from "./FiringModeSelector";
 import SelfRepairList from "./SelfRepairList";
+import AdaptiveArmorList from "./AdaptiveArmorList";
 
 const Container = styled.div`
     display:flex;
@@ -22,6 +23,9 @@ const Button = styled.div`
 `;
 
 class SystemInfoButtons extends React.Component {
+	constructor(props) {
+		super(props);
+	}
 
 	online(e) {
 		e.stopPropagation(); e.preventDefault();
@@ -240,7 +244,8 @@ class SystemInfoButtons extends React.Component {
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
 
-	/*switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class*/
+	/*
+	//switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class
 	nextCurrClass(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -254,23 +259,27 @@ class SystemInfoButtons extends React.Component {
 		system.prevCurrClass();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
+	*/
 
-	/*Adaptive Armor increase rating for current class*/
+	/*
+	//Adaptive Armor increase rating for current class
 	AAincrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doIncrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
-	/*Adaptive Armor decrease rating for current class*/
+	//Adaptive Armor decrease rating for current class
 	AAdecrease(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		system.doDecrease();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
+	*/
 	/*Adaptive Armor propagate setting for current damage type*/
-	AApropagate(e) {
+	//DEPRECATED
+	deprecated_AApropagate(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
 		var dmgType = system.getCurrDmgType();
@@ -293,13 +302,7 @@ class SystemInfoButtons extends React.Component {
 						}
 					}
 				}
-				/*
-				
-				
-				allOwnAA = ship.systems
-					.map(fighter => fighter.systems)
-					.filter(system => system.displayName = "Adaptive Armor Controller");
-					*/
+
 			} else {
 				for (var iSys = 0; iSys < otherUnit.systems.length; iSys++) {
 					var ctrl = otherUnit.systems[iSys];
@@ -515,12 +518,18 @@ class SystemInfoButtons extends React.Component {
 				{canActivate(ship, system) && <Button title="Activate" onClick={this.activate.bind(this)} img="./img/systemicons/Specialistclasses/select.png"></Button>}
 				{canDeactivate(ship, system) && <Button title="Deactivate" onClick={this.deactivate.bind(this)} img="./img/systemicons/Specialistclasses/unselect.png"></Button>}
 
+				{/* Adaptive Armor List Integration */}
+				{/* Adaptive Armor List Integration */}
+				{canAA(ship, system) && <AdaptiveArmorList ship={ship} system={system} />}
+
+				{/* Legacy AA Controls - Commented out for revamp
 				{canAAdisplayCurrClass(ship, system) && <Button title={getAAcurrClassName(ship, system)} img={getAAcurrClassImg(ship, system)}></Button>}
 				{canAAdisplayCurrClass(ship, system) && <Button title="Previous" onClick={this.prevCurrClass.bind(this)} img="./img/systemicons/Specialistclasses/iconPrev.png"></Button>}
 				{canAAdisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/AAclasses/iconNext.png"></Button>}
 				{canAAincrease(ship, system) && <Button onClick={this.AAincrease.bind(this)} img="./img/systemicons/AAclasses/iconPlus.png"></Button>}
 				{canAAdecrease(ship, system) && <Button onClick={this.AAdecrease.bind(this)} img="./img/systemicons/AAclasses/iconMinus.png"></Button>}
 				{canAApropagate(ship, system) && <Button title="Propagate setting" onClick={this.AApropagate.bind(this)} img="./img/systemicons/AAclasses/iconPropagate.png"></Button>}
+                */}
 
 				{canBFCPdisplayCurrClass(ship, system) && <Button title={getBFCPcurrClassName(ship, system)} img={getBFCPcurrClassImg(ship, system)}></Button>}
 				{canBFCPdisplayCurrClass(ship, system) && <Button title="Next" onClick={this.nextCurrClass.bind(this)} img="./img/systemicons/BFCPclasses/iconNext.png"></Button>}
@@ -574,11 +583,13 @@ class SystemInfoButtons extends React.Component {
 //can do something with Adaptive Armor Controller
 const canAA = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'adaptiveArmorController');
 const canAAdisplayCurrClass = (ship, system) => canAA(ship, system) && system.getCurrClass() != '';
+/*
 const getAAcurrClassImg = (ship, system) => './img/systemicons/AAclasses/' + system.getCurrClass() + '.png';
 const getAAcurrClassName = (ship, system) => system.getCurrClass();
 const canAAincrease = (ship, system) => canAA(ship, system) && system.canIncrease() != '';
 const canAAdecrease = (ship, system) => canAA(ship, system) && system.canDecrease() != '';
 const canAApropagate = (ship, system) => canAA(ship, system) && system.canPropagate() != '';
+*/
 
 //can do something with Hyach Computer
 const canBFCP = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'hyachComputer');
