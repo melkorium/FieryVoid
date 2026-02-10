@@ -27,7 +27,8 @@ class TacGamedata {
         $this->setPhase($phase);
         $this->setActiveship($activeship);
         $this->setForPlayer($forPlayer);
-        $this->setBlockedHexes();
+        $this->setForPlayer($forPlayer);
+        //$this->setBlockedHexes();
         $this->name = $name;
         $this->status = $status;
         $this->points = (int)$points;
@@ -93,11 +94,13 @@ class TacGamedata {
         $strippedGamedata->changed = $this->changed;
         $strippedGamedata->rules = $this->rules;
         $strippedGamedata->forPlayer = $this->forPlayer;
+        $strippedGamedata->blockedHexes = $this->blockedHexes;
 
         return $strippedGamedata;
     }
 
     public function onConstructed(){
+        $this->setBlockedHexes();
         $this->waitingForThisPlayer = $this->getIsWaitingForThisPlayer();
         $this->doSortShips();
 
@@ -878,31 +881,39 @@ private function setWaiting() {
     public function setBlockedHexes() {
         $blockedHexes = [];
 
-        foreach ($this->ships as $ship) {
-            if($ship->isDestroyed()) continue;
+        try {
+            foreach ($this->ships as $ship) {
+                if($ship->isDestroyed()) continue;
 
-            if ($ship->Enormous) { // Only enormous units block LoS
-                $position = $ship->getHexPos();
-                $blockedHexes[] = $position;
+                if ($ship->Enormous) { // Only enormous units block LoS
+                    $position = $ship->getHexPos();
+                    if (!$position) continue; // Skip if no position (e.g. in lobby/initialization)
 
-                // Check for custom hex offsets (non-circular terrain)
-                if (property_exists($ship, 'hexOffsets') && !empty($ship->hexOffsets)) {
+                    $blockedHexes[] = $position;
 
-                    $move = $ship->getLastMovement();
-                    $facing = $move->facing;
-                    foreach ($ship->hexOffsets as $offset) {
-                        // Use accurate pixel-based rotation
-                        $newHex = Mathlib::getRotatedHex($position, $offset, $facing);
-                        $blockedHexes[] = $newHex;
-                    }
-                } elseif ($ship->Huge > 0) { // Standard circular Huge terrain
-                    $neighbourHexes = Mathlib::getNeighbouringHexes($position, $ship->Huge);
+                    // Check for custom hex offsets (non-circular terrain)
+                    if (property_exists($ship, 'hexOffsets') && !empty($ship->hexOffsets)) {
 
-                    foreach ($neighbourHexes as $hex) {
-                        $blockedHexes[] = new OffsetCoordinate($hex); // Ensure hexes are objects
+                        $move = $ship->getLastMovement();
+                        if (!$move) continue; // Skip if no movement data
+
+                        $facing = $move->facing;
+                        foreach ($ship->hexOffsets as $offset) {
+                            // Use accurate pixel-based rotation
+                            $newHex = Mathlib::getRotatedHex($position, $offset, $facing);
+                            $blockedHexes[] = $newHex;
+                        }
+                    } elseif ($ship->Huge > 0) { // Standard circular Huge terrain
+                        $neighbourHexes = Mathlib::getNeighbouringHexes($position, $ship->Huge);
+
+                        foreach ($neighbourHexes as $hex) {
+                            $blockedHexes[] = new OffsetCoordinate($hex); // Ensure hexes are objects
+                        }
                     }
                 }
             }
+        } catch (Exception $e) {
+            // Ignore exceptions during blocked hex calculation (e.g. in Lobby)
         }
 
         $this->blockedHexes = $blockedHexes;
