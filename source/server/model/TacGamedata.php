@@ -846,6 +846,8 @@ private function setWaiting() {
 		return false; //this ship was not found
 	}//endof function shipBelongs
 
+    
+    //Replaced by setBlockedHexes() below, but I've left in in case there's any calls I miss - DK 10.2.26
     public function getBlockedHexes() {
         $blockedHexes = [];
 
@@ -877,6 +879,7 @@ private function setWaiting() {
         }
         return $blockedHexes;
     } //endof function getBlockedHexes
+
 
     public function setBlockedHexes() {
         $blockedHexes = [];

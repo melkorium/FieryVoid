@@ -235,7 +235,8 @@ class Stealth extends ShipSystem implements SpecialAbility{
 		}
 
 		// Check all enemy ships to see if any can detect this ship at end of turn
-		$blockedHexes = $gameData->getBlockedHexes(); //Just do this once outside loop
+		//$blockedHexes = $gameData->getBlockedHexes(); //Just do this once outside loop
+		$blockedHexes = $gameData->blockedHexes; //Just do this once outside loop			
 		$pos = $ship->getHexPos(); //Just do this once outside loop		
 
 		foreach ($gameData->ships as $otherShip) {
@@ -287,7 +288,8 @@ class Stealth extends ShipSystem implements SpecialAbility{
 
 
 	private function isUndetected($ship, $gameData) {		
-		$blockedHexes = $gameData->getBlockedHexes(); //Save outside loop as this won't change.
+		//$blockedHexes = $gameData->getBlockedHexes(); //Save outside loop as this won't change.
+		$blockedHexes = $gameData->blockedHexes; //Just do this once outside loop			
 		$shipPosition = $ship->getHexPos(); //Save outside loop as this won't change.
 		$canStealth = true; //Default to being able to stealth again, then prove if it can't below.
 
@@ -6141,7 +6143,8 @@ class MindriderHangar extends ShipSystem{
 
 		private function isDetected($ship, $gameData, $range) {
 	
-			$blockedHexes = $gameData->getBlockedHexes(); //Just do this once outside loop
+			//$blockedHexes = $gameData->getBlockedHexes(); //Just do this once outside loop
+			$blockedHexes = $gameData->blockedHexes; //Just do this once outside loop				
 			$pos = $ship->getHexPos(); //Just do this once outside loop	
 
 			foreach ($gameData->ships as $otherShip) {
