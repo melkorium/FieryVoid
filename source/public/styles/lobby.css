@@ -65,14 +65,14 @@
 
 
 .scenario-description {
-    margin-top: 10px;    
+    margin-top: 10px;
     font-size: 14px;
 }
 
 .scenariolabel {
     margin: 2px 0px;
     color: #DEEBFF;
-    font-weight: 525;    
+    font-weight: 525;
 }
 
 .scenariovalue {
@@ -129,6 +129,12 @@
     display: none;
 }
 
+.points-bracket-style,
+.remaining,
+.remaining-points-units {
+    color: #578bec;
+}
+
 .store span {
     padding-left: 5px;
 
@@ -157,7 +163,8 @@
 }
 
 .store .ship {
-    color: #90b1ee; /* previous value #81a7ec */
+    color: #90b1ee;
+    /* previous value #81a7ec */
     /*color:#8080FF;old purple*/
     margin-right: 5px;
     font-size: 13px;
@@ -172,7 +179,8 @@
 
 .store .storeship {
     /*color:#a3c0f5;*/
-    color: #90b1ee; /* previous value #81a7ec */
+    color: #90b1ee;
+    /* previous value #81a7ec */
     margin-right: 5px;
     margin-left: 20px;
     font-size: 13px;
@@ -186,14 +194,74 @@
     font-size: 13px;
 }
 
-.shipname {
-    color: #DEEBFF;
+/* Container for the whole ship entry */
+.ship.bought {
+    border: 1px solid #215a7a;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 3px;
+    margin-bottom: 1px;
+    margin-left: 5px;
+    /* Aligns with store ships */
+    margin-right: 5px;
 }
 
-.store .clickable {
+.shipname {
+    color: #90b1ee;
+    font-size: 14px;
+    font-weight: bold;
+    display: inline-block;
+    min-width: 150px;
+}
+
+.boughtShiptype {
+    color: #578bec;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.boughtPointCost {
+    color: #578bec;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+/* Ship Enhancements List in Lobby */
+.ship-enhancements {
+    display: block;
+    font-size: 12px;
+    color: #90b1ee;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    padding-left: 10px;
+    border-top: 1px solid rgba(33, 90, 122, 0.3);
+    padding-top: 2px;
+    clear: both;
+}
+
+.ship-enhancement-entry {
+    line-height: 1.3;
+}
+
+/* Action Bar */
+.ship-actions {
+    text-align: right;
+    margin-top: 0px;
+    border-top: 1px solid rgba(33, 90, 122, 0.3);
+    padding-top: 4px;
+}
+
+.ship-actions .clickable {
     cursor: pointer;
     color: #DEEBFF;
     font-size: 13px;
+    margin-left: 10px;
+    text-decoration: none;
+}
+
+.ship-actions .clickable:hover {
+    text-decoration: underline;
+    color: white;
 }
 
 .store .ship .clickable {
@@ -276,7 +344,8 @@
 
 .value {
     /*color:#6e9cdc; Original value  #496791 */
-    color: #90b1ee;  /* previous value #81a7ec */
+    color: #90b1ee;
+    /* previous value #81a7ec */
 }
 
 .selectslot {
@@ -407,7 +476,8 @@
 }
 
 .fleet-test-text {
-    color: #ffbf00d0 !important; /* Gold for Fleet Test */
+    color: #ffbf00d0 !important;
+    /* Gold for Fleet Test */
 }
 
 .rules-info-header {
@@ -570,7 +640,7 @@
 }
 
 .store-left-col {
-    width: 45%;
+    width: 50%;
 }
 
 .store-right-col {
@@ -640,7 +710,8 @@
 
 /* Specific spacing for Fleet Test mode to reduce gaps */
 .rules-info-container.fleet-test {
-    margin-bottom: 0px; /* Reduced margin for Fleet Test */
+    margin-bottom: 0px;
+    /* Reduced margin for Fleet Test */
 }
 
 .lobby-description-column {
@@ -673,7 +744,7 @@
 .lobby-leave-container .lobby-leave-button {
     /* Add custom styles here */
     margin-right: 0px;
-    margin-top: 3px;    
+    margin-top: 3px;
 }
 
 .mapPreviewContainer {
@@ -694,19 +765,4 @@
 #mapPreview {
     display: block;
     min-width: 480px;
-}
-
-/* Ship Enhancements List in Lobby */
-.ship-enhancements {
-    display: block;
-    font-size: 11px;
-    color: #90b1ee;
-    margin-top: 2px;
-    margin-bottom: 2px;
-    padding-left: 10px;
-    clear: both;
-}
-
-.ship-enhancement-entry {
-    line-height: 1.3;
 }

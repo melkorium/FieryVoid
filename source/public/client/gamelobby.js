@@ -361,13 +361,15 @@ window.gamedata = {
 
 		var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 			'<span class="shipname name">' + ship.name + '</span>' +
-			'<span class="shiptype">' + ship.shipClass + '</span>' +
-			'<span class="pointcost">' + ship.pointCost + 'p</span>' +
+			'<span class="boughtShiptype">' + ship.shipClass + '</span>' +
+			'<span class="boughtPointCost">' + ship.pointCost + 'p</span>' +
+			enhancementHtml +
+			'<div class="ship-actions">' +
 			' <span class="showship clickable">Details</span> ' +
 			' -<span class="editship clickable">Edit</span> ' +
 			' -<span class="copyship clickable">Copy</span> ' +
 			' -<span class="remove clickable">Remove</span> ' +
-			enhancementHtml +
+			'</div>' +
 			'</div>');
 
 		$(".remove", h).bind("click", function () {
@@ -1246,22 +1248,50 @@ window.gamedata = {
 
 			var ship = gamedata.ships[i];
 			if (ship.slot != slotid) continue;
+			var enhancementHtml = "";
+			if (ship.enhancementOptions) {
+				var hasEnhancements = false;
+				var listHtml = "";
 
+				for (var enhId in ship.enhancementOptions) {
+					var enhancement = ship.enhancementOptions[enhId];
+					// enhancement is an array: [id, readableName, numberTaken, limit, price, priceStep]
+					var count = enhancement[2];
+					var name = enhancement[1];
+					name = name.replace(/^(\(AMMO\)|\(LIGHT AMMO\)|\(MEDIUM AMMO\)|\(HEAVY AMMO\)|\(Option\))\s*/, '');
+
+					if (count > 0) {
+						hasEnhancements = true;
+						listHtml += '<div class="ship-enhancement-entry">- ' + name;
+						if (count > 1) {
+							listHtml += ' (' + count + ')';
+						}
+						listHtml += '</div>';
+					}
+				}
+
+				if (hasEnhancements) {
+					enhancementHtml = '<div class="ship-enhancements">' + listHtml + '</div>';
+				}
+			}
 			var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 				'<span class="shipname name">' + ship.name + '</span>' +
-				'<span class="shiptype">' + ship.shipClass + '</span>' +
-				'<span class="pointcost">' + ship.pointCost + 'p</span>' +
+				'<span class="boughtShiptype">' + ship.shipClass + '</span>' +
+				'<span class="boughtPointCost">' + ship.pointCost + 'p</span>' +
+				enhancementHtml +
+				'<div class="ship-actions">' +
 				' <span class="showship clickable">Details</span> ' +
 				' -<span class="editship clickable">Edit</span> ' +
 				' -<span class="copyship clickable">Copy</span> ' +
 				' -<span class="remove clickable">Remove</span> ' +
+				'</div>' +
 				'</div>');
 
 			h.appendTo("#fleet");
 		}
 
 		$(".ship.bought .remove").bind("click", function (e) {
-			var id = $(this).parent().data('shipindex');
+			var id = $(this).closest(".ship").data('shipindex');
 
 			for (var i in gamedata.ships) {
 				if (gamedata.ships[i].id == id) {
@@ -1278,7 +1308,7 @@ window.gamedata = {
 		});
 
 		$("#fleet").off("click", ".showship").on("click", ".showship", function (e) {
-			var id = $(this).parent().data("shipindex");
+			var id = $(this).closest(".ship").data("shipindex");
 			for (var i in gamedata.ships) {
 				if (gamedata.ships[i].id == id) {
 					gamedata.onShipContextMenu(gamedata.ships[i].phpclass, gamedata.ships[i].faction, gamedata.ships[i].id, true);
@@ -1288,7 +1318,7 @@ window.gamedata = {
 		});
 
 		$("#fleet").off("click", ".editship").on("click", ".editship", function (e) {
-			var id = $(this).parent().data("shipindex");
+			var id = $(this).closest(".ship").data("shipindex");
 			for (var i in gamedata.ships) {
 				if (gamedata.ships[i].id == id) {
 					gamedata.editShip(gamedata.ships[i]);
@@ -1298,7 +1328,7 @@ window.gamedata = {
 		});
 
 		$("#fleet").off("click", ".copyship").on("click", ".copyship", function (e) {
-			var id = $(this).parent().data("shipindex");
+			var id = $(this).closest(".ship").data("shipindex");
 			for (var i in gamedata.ships) {
 				if (gamedata.ships[i].id == id) {
 					gamedata.copyShip(gamedata.ships[i]);
