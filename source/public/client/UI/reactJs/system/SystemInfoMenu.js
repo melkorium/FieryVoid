@@ -50,7 +50,8 @@ class SystemInfoMenu extends React.Component {
                 system.name === 'ThoughtShield' ||
                 system.name === 'ThirdspaceShield'||
                 system.name === 'ThoughtShieldGenerator' ||
-                system.name === 'ThirdspaceShieldGenerator') ? 0.9 : 0.8}>
+                system.name === 'ThirdspaceShieldGenerator'||
+                system.name === 'powerCapacitor') ? 0.9 : 0.8}>
                 <SystemInfoButtons {...this.props} />
             </SystemInfoTooltip>
         )

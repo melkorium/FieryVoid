@@ -8,6 +8,7 @@ import AdaptiveArmorList from "./AdaptiveArmorList";
 import HyachComputerList from "./HyachComputerList";
 import HyachSpecialistsList from "./HyachSpecialistsList";
 import ShieldGeneratorList from "./ShieldGeneratorList";
+import PowerCapacitor from "./PowerCapacitor";
 
 const Container = styled.div`
     display:flex;
@@ -592,6 +593,7 @@ class SystemInfoButtons extends React.Component {
 
 				{canSelfRepairList(ship, system) && <SelfRepairList ship={ship} system={system} />}
 
+				{canPowerCapacitor(ship, system) && <PowerCapacitor ship={ship} system={system} />}
 
 			</Container>
 		)
@@ -662,7 +664,7 @@ export const canDoAnything = (ship, system) => canOffline(ship, system) || canOn
 	|| canRemoveFireOrder(ship, system) || canChangeFiringMode(ship, system)
 	|| canSelfIntercept(ship, system) || canRemIntercept(ship, system) || canAA(ship, system) || canBFCP(ship, system) || canSpec(ship, system) || canTSShield(ship, system)
 	|| canThoughtShield(ship, system) || canTSShieldGen(ship, system) || canThoughtShieldGen(ship, system)
-	|| canSelfRepairList(ship, system) || canActivate(ship, system) || canDeactivate(ship, system);
+	|| canSelfRepairList(ship, system) || canActivate(ship, system) || canDeactivate(ship, system) || canPowerCapacitor(ship, system);
 
 const canOffline = (ship, system) => gamedata.gamephase === 1 && (system.canOffLine || system.powerReq > 0) && !shipManager.power.isOffline(ship, system) && !shipManager.power.getBoost(system) && !weaponManager.hasFiringOrder(ship, system);
 
@@ -673,9 +675,9 @@ const canOverload = (ship, system) => gamedata.gamephase === 1 && !shipManager.p
 
 const canStopOverload = (ship, system) => gamedata.gamephase === 1 && system.weapon && system.overloadable && shipManager.power.isOverloading(ship, system) && (system.overloadshots >= system.extraoverloadshots || system.overloadshots == 0);
 
-const canBoost = (ship, system) => system.boostable && gamedata.gamephase === 1 && shipManager.power.canBoost(ship, system) && (!system.isScanner() || system.id == shipManager.power.getHighestSensorsId(ship)) && system.name !== 'ThirdspaceShieldGenerator';
+const canBoost = (ship, system) => system.boostable && gamedata.gamephase === 1 && shipManager.power.canBoost(ship, system) && (!system.isScanner() || system.id == shipManager.power.getHighestSensorsId(ship)) && system.name !== 'ThirdspaceShieldGenerator' && system.name !== 'powerCapacitor' && system.name !== 'PowerCapacitor';
 
-const canDeBoost = (ship, system) => gamedata.gamephase === 1 && Boolean(shipManager.power.getBoost(system)) && system.name !== 'ThirdspaceShieldGenerator';
+const canDeBoost = (ship, system) => gamedata.gamephase === 1 && Boolean(shipManager.power.getBoost(system)) && system.name !== 'ThirdspaceShieldGenerator' && system.name !== 'powerCapacitor' && system.name !== 'PowerCapacitor';
 /* Code for boosting systems in other phases.  Not longer need anymore since Shading Field got converted to notes
 const isBoostPhase = (system) => {
 	// If boostOtherPhases is an array, check if the current gamephase is included
@@ -711,8 +713,17 @@ const canChangeFiringMode = (ship, system) => system.weapon && ((gamedata.gameph
 const canSelfIntercept = (ship, system) => system.weapon && weaponManager.canSelfInterceptSingle(ship, system);
 const canRemIntercept = (ship, system) => system.weapon && weaponManager.canRemInterceptSingle(ship, system);
 
-const canActivate = (ship, system) => system.canActivate(); //Used to manually fire weapons/systems that don't need to target e.g. Second Sight/Thoughwave
-const canDeactivate = (ship, system) => system.canDeactivate();
+const canActivate = (ship, system) => system.canActivate() && system.name !== 'powerCapacitor' && system.name !== 'PowerCapacitor'; //Used to manually fire weapons/systems that don't need to target e.g. Second Sight/Thoughwave
+const canDeactivate = (ship, system) => system.canDeactivate() && system.name !== 'powerCapacitor' && system.name !== 'PowerCapacitor';
+
+const canPowerCapacitor = (ship, system) => {
+	if (system.name === 'powerCapacitor' || system.name === 'PowerCapacitor') {
+		//console.log("canPowerCapacitor TRUE");
+		return true;
+	}
+	//console.log("canPowerCapacitor FALSE: ", system.name);
+	return false;
+}
 
 
 export default SystemInfoButtons;

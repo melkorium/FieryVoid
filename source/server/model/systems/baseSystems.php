@@ -5065,9 +5065,9 @@ capacitor is completely emptied.
 		$this->data["Power Stored / Max"] =  $this->powerCurr . '/' . $this->powerMax;
 		$this->data["Power regeneration"] =  'Initial phase only';
         $this->data["Special"] = "This system is responsible for generating and storing power (Reactor is nearby for technical purposes).";
-        $this->data["Special"] = "You can double power generation (and self-repair) by clicking 'Select', at the cost of deactivating all weapons and shields this turn.";	  			   
+        $this->data["Special"] = "You can double power recharge (and Self-Repair), at the cost of deactivating all weapons and shields this turn.";	  			   
 		if ($this->boostable){
-			$this->data["Special"] .= "<br>In addition, you may open ship petals by boosting this system with '+', increasing generation by 50% on the following turn - however all primary systems lose 2 Armour and Defence Profiles increase 5% for the current turn.";
+			$this->data["Special"] .= "<br>In addition, you may open ship petals increasing generation by 50% on the following turn - however all primary systems lose 2 Armour and Defence Profiles increase 5% for the current turn.";
 		}
 		$this->data["Special"] .= "<br>You cannot generate more power than the Capacitor Max value, any excess is lost.";		
 		$this->data["Special"] .= "<br>Destroying Capacitor disables (but does not destroy) the ship.";
