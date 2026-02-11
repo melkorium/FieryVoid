@@ -332,6 +332,33 @@ window.gamedata = {
 
 		ship.slot = gamedata.selectedSlot;
 		gamedata.ships[a] = ship;
+		var enhancementHtml = "";
+		if (ship.enhancementOptions) {
+			var hasEnhancements = false;
+			var listHtml = "";
+
+			for (var enhId in ship.enhancementOptions) {
+				var enhancement = ship.enhancementOptions[enhId];
+				// enhancement is an array: [id, readableName, numberTaken, limit, price, priceStep]
+				var count = enhancement[2];
+				var name = enhancement[1];
+				name = name.replace(/^(\(AMMO\)|\(LIGHT AMMO\)|\(MEDIUM AMMO\)|\(HEAVY AMMO\)|\(Option\))\s*/, '');
+
+				if (count > 0) {
+					hasEnhancements = true;
+					listHtml += '<div class="ship-enhancement-entry">- ' + name;
+					if (count > 1) {
+						listHtml += ' (' + count + ')';
+					}
+					listHtml += '</div>';
+				}
+			}
+
+			if (hasEnhancements) {
+				enhancementHtml = '<div class="ship-enhancements">' + listHtml + '</div>';
+			}
+		}
+
 		var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 			'<span class="shipname name">' + ship.name + '</span>' +
 			'<span class="shiptype">' + ship.shipClass + '</span>' +
@@ -340,6 +367,7 @@ window.gamedata = {
 			' -<span class="editship clickable">Edit</span> ' +
 			' -<span class="copyship clickable">Copy</span> ' +
 			' -<span class="remove clickable">Remove</span> ' +
+			enhancementHtml +
 			'</div>');
 
 		$(".remove", h).bind("click", function () {
