@@ -132,7 +132,7 @@
 .points-bracket-style,
 .remaining,
 .remaining-points-units {
-    color: #578bec;
+    color: #90b1ee;
 }
 
 .store span {
@@ -146,8 +146,8 @@
 
 .factiongroup-header {
     font-weight: bold;
-    font-size: 16px;
-    margin: 8px 5px;
+    font-size: 18px;
+    margin: 12px 5px 8px 5px;
     color: #6495ED;
     font-family: "Bruno Ace SC", sans-serif;
 }
@@ -157,7 +157,7 @@
 }
 
 .store .factionname {
-    font-size: 15px;
+    font-size: 16px;
     color: #f2f7ff;
     font-weight: 525;
 }
@@ -167,14 +167,14 @@
     /* previous value #81a7ec */
     /*color:#8080FF;old purple*/
     margin-right: 5px;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .store .shipsizehdr {
     color: #d0dbec;
     margin-left: 6px;
     margin-top: 2px;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .store .storeship {
@@ -183,7 +183,7 @@
     /* previous value #81a7ec */
     margin-right: 5px;
     margin-left: 20px;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .store .variant {
@@ -191,7 +191,7 @@
     color: #578bec;
     margin-right: 15px;
     margin-left: 20px;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 /* Container for the whole ship entry */
@@ -207,7 +207,7 @@
 }
 
 .shipname {
-    color: #90b1ee;
+    color: #DEEBFF;
     font-size: 14px;
     font-weight: bold;
     display: inline-block;
@@ -215,13 +215,13 @@
 }
 
 .boughtShiptype {
-    color: #578bec;
+    color: #90b1ee;
     font-size: 14px;
     margin-left: 10px;
 }
 
 .boughtPointCost {
-    color: #578bec;
+    color: #90b1ee;
     font-size: 14px;
     margin-left: 10px;
 }
@@ -230,9 +230,9 @@
 .ship-enhancements {
     display: block;
     font-size: 12px;
-    color: #90b1ee;
-    margin-top: 1px;
-    margin-bottom: 1px;
+    color: #d0dbec;
+    margin-top: 4px;
+    margin-bottom: 4px;
     padding-left: 10px;
     border-top: 1px solid rgba(33, 90, 122, 0.3);
     padding-top: 2px;
@@ -253,7 +253,7 @@
 
 .ship-actions .clickable {
     cursor: pointer;
-    color: #DEEBFF;
+    color: #578bec;
     font-size: 13px;
     margin-left: 10px;
     text-decoration: none;
@@ -261,7 +261,7 @@
 
 .ship-actions .clickable:hover {
     text-decoration: underline;
-    color: white;
+    color: #DEEBFF;
 }
 
 .store .ship .clickable {
@@ -644,7 +644,7 @@
 }
 
 .store-right-col {
-    width: 55%;
+    width: 50%;
     vertical-align: top;
 }
 

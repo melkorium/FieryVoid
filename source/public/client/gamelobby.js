@@ -346,11 +346,12 @@ window.gamedata = {
 
 				if (count > 0) {
 					hasEnhancements = true;
-					listHtml += '<div class="ship-enhancement-entry">- ' + name;
+					var entryHtml = '<div class="ship-enhancement-entry">- ' + name;
 					if (count > 1) {
-						listHtml += ' (' + count + ')';
+						entryHtml += ' (' + count + ')';
 					}
-					listHtml += '</div>';
+					entryHtml += '</div>';
+					listHtml = entryHtml + listHtml; // Prepend to reverse order
 				}
 			}
 
@@ -1262,11 +1263,12 @@ window.gamedata = {
 
 					if (count > 0) {
 						hasEnhancements = true;
-						listHtml += '<div class="ship-enhancement-entry">- ' + name;
+						var entryHtml = '<div class="ship-enhancement-entry">- ' + name;
 						if (count > 1) {
-							listHtml += ' (' + count + ')';
+							entryHtml += ' (' + count + ')';
 						}
-						listHtml += '</div>';
+						entryHtml += '</div>';
+						listHtml = entryHtml + listHtml; // Prepend to reverse order
 					}
 				}
 
