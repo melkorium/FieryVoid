@@ -203,7 +203,7 @@ class Enhancements{
 	  if (array_key_exists("assault shuttles", $ship->fighters)) { //Only add if ship has Assault Shuttle hangar space! 	  
 	    $enhID = 'HANG_F';
 		if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
-				$enhName = 'Convert Assault Shuttle slot to Fighter slot';
+				$enhName = 'Assault Shuttle to Fighter slot';
 				$enhLimit = $ship->fighters["assault shuttles"]; //The number of assault shuttle slots ship has is max conversion amount.
 				$enhPrice = 5; //Flat 5 pts per slot converted	  
 				$enhPriceStep = 0; //flat rate
@@ -218,7 +218,7 @@ class Enhancements{
 	  if ($totalCount > 0) { 	  
 	    $enhID = 'HANG_AS';
 		if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
-				$enhName = 'Convert Fighter slot to Assault Shuttle slot';
+				$enhName = 'Fighter to Assault Shuttle slot';
 				$enhLimit = $totalCount; //The number of assault shuttle slots ship has is max conversion amount.
 				$enhPrice = 5; //Flat 5 pts per slot converted	  
 				$enhPriceStep = 0; //flat rate
