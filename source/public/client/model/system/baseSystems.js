@@ -1706,8 +1706,8 @@ ThirdspaceShieldGenerator.prototype.initializationUpdate = function () {
 		this.data["Current Shield Power "] = currentShieldHealth;
 		this.data["Boosted by "] = boostCount;
 	} else {
-		this.outputDisplay = totalOutput;
-		this.data["Current Output"] = totalOutput;
+		this.outputDisplay = this.totalOutput;
+		this.data["Current Output"] = this.totalOutput;
 		this.data["Current Shield Power "] = currentShieldHealth;
 	}
 
