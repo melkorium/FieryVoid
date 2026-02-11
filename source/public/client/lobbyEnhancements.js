@@ -44,7 +44,7 @@ window.lobbyEnhancements = {
 							let strongestEScan = null;
 							let strongestEScanValue = -1;
 							for (let system of ship.systems) {
-								if (system.name == "scanner") {
+								if (system.name == "scanner" || system.name == "elintScanner") {
 									if (system.output > strongestEScanValue) {
 										strongestEScanValue = system.output;
 										strongestEScan = system;
@@ -327,7 +327,7 @@ window.lobbyEnhancements = {
 							let strongestPScan = null;
 							let strongestPScanValue = -1;
 							for (let system of ship.systems) {
-								if (system.name == "scanner") {
+								if (system.name == "scanner" || system.name == "elintScanner") {
 									if (system.output > strongestPScanValue) {
 										strongestPScanValue = system.output;
 										strongestPScan = system;
