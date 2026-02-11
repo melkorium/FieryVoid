@@ -661,9 +661,9 @@ $optionsUsed = '';
         </div> 
                 <div>
                     <span class="remaining-points-container">
-                        <span class="panelsmall points-bracket-style">(</span>
+                        <!--<span class="panelsmall points-bracket-style">(</span>-->
                         <span class="panelsmall remaining">0</span><span class="panelsmall remaining-points-units">pts left</span>
-                        <span class="panelsmall">)</span>
+                        <!--<span class="panelsmall points-bracket-style">)</span>-->
                     </span>
                 </div>             
     </div>
