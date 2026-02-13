@@ -3208,7 +3208,7 @@ class DBManager
             ON
                 p.gameid = g.id
             WHERE
-                DATE_ADD(p.lastactivity, INTERVAL 2 MONTH) < NOW()
+                DATE_ADD(p.lastactivity, INTERVAL 3 MONTH) < NOW()
             OR
                 (DATE_ADD(p.lastactivity, INTERVAL 5 DAY) < NOW() 
                 AND
@@ -3788,6 +3788,14 @@ public function setLastTimeChatChecked($userid, $gameid)
                 (SELECT COUNT(*) FROM tac_ladder_games g WHERE g.playerid = r.playerid AND g.status = 'LOSS') as losses
                 FROM tac_ladder_rankings r
                 LEFT JOIN player p ON r.playerid = p.id
+                WHERE 
+                    (SELECT COUNT(*) FROM tac_ladder_games lg WHERE lg.playerid = r.playerid) = 0
+                    OR
+                    EXISTS (
+                        SELECT 1 FROM tac_ladder_games lg 
+                        JOIN tac_game g ON lg.gameid = g.id 
+                        WHERE lg.playerid = r.playerid
+                    )
                 ORDER BY r.rating DESC";
                 
         return $this->query($sql);
