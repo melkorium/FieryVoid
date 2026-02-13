@@ -1621,6 +1621,12 @@ class DBManager
             $stmt->execute();
 			while ($stmt->fetch()) {
 				$nm = $gameName;
+
+				if (strpos($rules, 'ladder')!==false){
+				    $nm = '<span style="font-weight:bold; color:gold; padding-right: 0px;">LADDER: </span>' . $gameName;
+                } else {                                    
+				    $nm = $gameName;
+                }                
                 /*$nm .= ' <br><span class="gameRules">(';
 			    //gamespace and rules: add to name!    
 				if ($gamespace == '-1x-1'){ //open map
