@@ -3730,6 +3730,26 @@ public function setLastTimeChatChecked($userid, $gameid)
         $this->insert($sql);
     }
 
+    public function removeLadderPlayer($playerid)
+    {
+        $playerid = (int)$playerid;
+        // Delete from rankings
+        $sql = "DELETE FROM tac_ladder_rankings WHERE playerid = $playerid";
+        $this->update($sql);
+
+        // Delete from games history
+        $sql = "DELETE FROM tac_ladder_games WHERE playerid = $playerid";
+        $this->update($sql);
+    }
+
+    public function isLadderPlayer($playerid)
+    {
+        $playerid = (int)$playerid;
+        $sql = "SELECT playerid FROM tac_ladder_rankings WHERE playerid = $playerid";
+        $result = $this->query($sql);
+        return ($result && sizeof($result) > 0);
+    }
+
     public function registerLadderResult($gameid, $playerid, $status)
     {
         $sql = "INSERT INTO tac_ladder_games (gameid, playerid, status) VALUES ($gameid, $playerid, '$status')";
