@@ -95,6 +95,17 @@ const ActionButton = styled.div`
     `}
 `;
 
+const Divider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    background-color: #f2f2f2;
+    margin: 0 4px;
+    font-weight: bold;     
+    vertical-align: middle;
+    opacity: 0.7;
+`;
+
 class AdaptiveArmorList extends Component {
     constructor(props) {
         super(props);
@@ -255,7 +266,7 @@ class AdaptiveArmorList extends Component {
                     {armorTypes.length === 0 && <Row>No armor types available</Row>}
                 </ListContainer>
                 <div style={{ padding: '5px', textAlign: 'center', fontSize: '10px', color: '#f2f2f2' }}>
-                    Total: {system.AAtotal_used} / {system.AAtotal} | Max Per Type: {system.AApertype}
+                    Total: {system.AAtotal_used} / {system.AAtotal} <Divider /> Max Per Type: {system.AApertype}
                 </div>
             </Container>
         );
