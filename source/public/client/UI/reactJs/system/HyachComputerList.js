@@ -94,6 +94,17 @@ const ActionButton = styled.div`
     `}
 `;
 
+const Divider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    background-color: #f2f2f2;
+    margin: 0 4px;
+    font-weight: bold;     
+    vertical-align: middle;
+    opacity: 0.7;
+`;
+
 class HyachComputerList extends Component {
     constructor(props) {
         super(props);
@@ -248,7 +259,7 @@ class HyachComputerList extends Component {
                     {fcTypes.length === 0 && <Row>No FC types available</Row>}
                 </ListContainer>
                 <div style={{ padding: '5px', textAlign: 'center', fontSize: '10px', color: '#f2f2f2' }}>
-                    Total: {system.BFCPtotal_used} / {system.output} | Max Per Type: {system.BFCPpertype}
+                    Total: {system.BFCPtotal_used} / {system.output} <Divider /> Max Per Type: {system.BFCPpertype}
                 </div>
             </Container>
         );
