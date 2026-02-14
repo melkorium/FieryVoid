@@ -8,6 +8,7 @@ const Container = styled.div`
     margin-top: 5px;
     width: 100%;
     min-width: 200px;
+    vertical-align: center;
 `;
 
 const Header = styled.div`
@@ -49,7 +50,7 @@ const ListItem = styled.div`
     padding: 3px 5px;
     margin-right: 2px;      
     border-bottom: 1px solid #2b3e51;
-    font-size: 11px;
+    font-size: 12px;
     color: #e6e6e6;
 
     &:last-child {
@@ -68,7 +69,7 @@ const ItemName = styled.span`
 `;
 
 const ItemStatus = styled.span`
-    font-size: 9px;
+    font-size: 10px;
     color: #a3badc;
     margin-top: 2px;
     margin-right: 8px;    
@@ -81,8 +82,8 @@ const CriticalItemName = styled(ItemName)`
 `;
 
 const DestroyedItemName = styled(ItemName)`
-    color: #ff1a1a;
-    font-weight: bold;    
+    color: #ff3333;
+    font-weight: normal;    
 `;
 
 const ActionButtons = styled.div`
@@ -91,8 +92,8 @@ const ActionButtons = styled.div`
 `;
 
 const ActionButton = styled.div`
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     background-image: url(${props => props.img});
     background-size: cover;
     cursor: pointer;
@@ -118,7 +119,7 @@ const PropagateButton = styled.div`
     background-color: #2b3e51;
     border: 1px solid #496791;
     padding: 3px 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: #f2f2f2;
     font-weight: normal;       
     display: inline-block;
@@ -153,7 +154,7 @@ const InputField = styled.input`
     border: 1px solid #496791;
     color: #e6e6e6;
     text-align: center;
-    font-size: 10px; 
+    font-size: 11px; 
     margin: 0 2px;
     
     // Hide spinner

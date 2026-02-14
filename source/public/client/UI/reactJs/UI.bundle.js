@@ -665,6 +665,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     margin-top: 5px;
     width: 100%;
     min-width: 200px;
+    vertical-align: center;
 `,SD=G.div`
     padding: 3px;
     background-color: #2b3e51;
@@ -700,7 +701,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     padding: 3px 5px;
     margin-right: 2px;      
     border-bottom: 1px solid #2b3e51;
-    font-size: 11px;
+    font-size: 12px;
     color: #e6e6e6;
 
     &:last-child {
@@ -713,7 +714,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
 `,Hy=G.span`
     font-weight: bold;
 `,Nb=G.span`
-    font-size: 9px;
+    font-size: 10px;
     color: #a3badc;
     margin-top: 2px;
     margin-right: 8px;    
@@ -722,14 +723,14 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     color: #ffb833;
     font-weight: normal;    
 `,wD=G(Hy)`
-    color: #ff1a1a;
-    font-weight: bold;    
+    color: #ff3333;
+    font-weight: normal;    
 `,ED=G.div`
     display: flex;
     gap: 2px;
 `,vv=G.div`
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     background-image: url(${c=>c.img});
     background-size: cover;
     cursor: pointer;
@@ -751,7 +752,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-color: #2b3e51;
     border: 1px solid #496791;
     padding: 3px 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: #f2f2f2;
     font-weight: normal;       
     display: inline-block;
@@ -780,7 +781,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     border: 1px solid #496791;
     color: #e6e6e6;
     text-align: center;
-    font-size: 10px; 
+    font-size: 11px; 
     margin: 0 2px;
     
     // Hide spinner
