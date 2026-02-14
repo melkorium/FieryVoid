@@ -27,6 +27,19 @@ const ListContainer = styled.div`
     max-height: 200px;
     overflow-y: auto;
     display: block;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: #0d1620; 
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #2b3e51; 
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: #5a7ea8; 
+    }
 `;
 
 const ListItem = styled.div`
@@ -133,9 +146,31 @@ const CenteredListItem = styled(ListItem)`
     opacity: 0.7;
 `;
 
+const InputField = styled.input`
+    width: 20px;
+    height: 16px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #496791;
+    color: #e6e6e6;
+    text-align: center;
+    font-size: 10px; 
+    margin: 0 2px;
+    
+    // Hide spinner
+    &::-webkit-inner-spin-button, 
+    &::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+    }
+    -moz-appearance: textfield;
+`;
+
 class SelfRepairList extends React.Component {
     constructor(props) {
         super(props);
+        this.state = {
+            priorityInputs: {}
+        };
     }
 
     getRepairableSystems() {
@@ -260,6 +295,90 @@ class SelfRepairList extends React.Component {
         });
 
         return allItems;
+    }
+
+    handleInputChange(e, targetId, currentPriority) {
+        const value = e.target.value;
+
+        // Allow empty string for typing
+        if (value === '') {
+            this.setState(prevState => ({
+                priorityInputs: {
+                    ...prevState.priorityInputs,
+                    [targetId]: ''
+                }
+            }));
+            return;
+        }
+
+        const newValue = parseInt(value, 10);
+        if (isNaN(newValue)) return;
+
+        // Update state to reflect input immediately (for smooth typing)
+        this.setState(prevState => ({
+            priorityInputs: {
+                ...prevState.priorityInputs,
+                [targetId]: newValue
+            }
+        }));
+
+        this.setPriority(targetId, newValue);
+    }
+
+    handleWheel(e, targetId, currentPriority) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        const newPrio = currentPriority + delta;
+
+        if (newPrio < 1) return; // Minimum priority 1?
+
+        this.setPriority(targetId, newPrio);
+    }
+
+    componentDidUpdate(prevProps) {
+        // Sync state with props if they change externally (e.g. from server or other components)
+        // We only want to update state if the PROP value is different from the STATE value
+        // AND the user is not currently editing this specific input (optional, but good for UX)
+
+        // For simplicity, we can just clear inputs that match the prop value to save memory, 
+        // or ensure they match. 
+        // Let's iterate repairable systems? No, that's expensive.
+        // We can just check if any priority changed. 
+        // Re-calculating repairable systems in componentDidUpdate might be heavy?
+        // Let's just rely on render to pass `value` effectively.
+
+        // Actually, for a controlled input that allows temporary deviation while typing (like "1" then "0" for "10"),
+        // we need local state.
+
+        // Let's refresh our idea of "current" priorities
+        // We can't easily get "all current priorities" without calling getRepairableSystems.
+        // Let's try to match ShieldGeneratorList's approach of syncing in componentDidUpdate.
+
+        const systems = this.getRepairableSystems();
+        const currentInputs = this.state.priorityInputs;
+        const newInputs = {};
+        let changed = false;
+
+        systems.forEach(item => {
+            const id = item.keyId;
+            const prio = item.priority;
+
+            // If state doesn't match prop, and we aren't focused?
+            // Or just always sync if different?
+            if (currentInputs[id] !== undefined && currentInputs[id] !== prio && document.activeElement !== document.getElementById(`prio-input-${id}`)) {
+                newInputs[id] = prio;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            this.setState(prevState => ({
+                priorityInputs: {
+                    ...prevState.priorityInputs,
+                    ...newInputs
+                }
+            }));
+        }
     }
 
     handleTop(e, targetId) {
@@ -397,6 +516,14 @@ class SelfRepairList extends React.Component {
                             <ActionButtons>
                                 <ActionButton title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />
                                 <ActionButton title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />
+                                <InputField
+                                    id={`prio-input-${item.keyId}`}
+                                    type="number"
+                                    value={this.state.priorityInputs[item.keyId] !== undefined ? this.state.priorityInputs[item.keyId] : item.priority}
+                                    onChange={(e) => this.handleInputChange(e, item.keyId, item.priority)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onWheel={(e) => this.handleWheel(e, item.keyId, item.priority)}
+                                />
                                 <ActionButton title="Increase Priority" onClick={(e) => this.handleUp(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconPlus.png" />
                                 <ActionButton title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
                             </ActionButtons>
