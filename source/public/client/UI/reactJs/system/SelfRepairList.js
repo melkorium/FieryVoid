@@ -48,7 +48,7 @@ const ListItem = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 3px 5px;
-    margin-right: 2px;      
+    margin-right: 3px;      
     border-bottom: 1px solid #2b3e51;
     font-size: 12px;
     color: #e6e6e6;
@@ -70,7 +70,7 @@ const ItemName = styled.span`
 
 const ItemStatus = styled.span`
     font-size: 10px;
-    color: #a3badc;
+    color: #c8d5ea;
     margin-top: 2px;
     margin-right: 8px;    
     margin-left: 1px;
@@ -498,7 +498,7 @@ class SelfRepairList extends React.Component {
                                     <>
                                         <CriticalItemName>{item.sys.displayName} ({item.crit.description || item.crit.phpclass})</CriticalItemName>
                                         <ItemStatus>
-                                            Cost: {item.cost} <Divider /> Id: {item.sys.id} <Divider /> Prio: {item.priority}
+                                            Cost: {item.cost} <Divider /> Id: {item.sys.id}
                                         </ItemStatus>
                                     </>
                                 ) : (
@@ -509,7 +509,7 @@ class SelfRepairList extends React.Component {
                                             <ItemName>{item.sys.displayName}</ItemName>
                                         )}
                                         <ItemStatus>
-                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth} <Divider /> Id: {item.sys.id} <Divider /> Prio: {item.priority}
+                                            HP: {shipManager.systems.getRemainingHealth(item.sys)} / {item.sys.maxhealth} <Divider /> Id: {item.sys.id}
                                         </ItemStatus>
                                     </>
                                 )}
