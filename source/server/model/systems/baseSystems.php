@@ -551,7 +551,7 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 			break;
 
 			case 4: //Post-Firing phase Advance(), always called even if phase not needed in game.
-				if($this->isMineDetectedFire($mine, $gameData)){ //Now check if ship just been detected this turn?		
+				if($this->isMineDetectedFire($mine, $gameData)){ //Now check if mine just been detected by firing this turn		
 					foreach($enemyTeams as $team) {
 						if (!is_array($this->detected)) $this->detected = array();
 						if (!in_array($team, $this->detected)) {
@@ -561,6 +561,13 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$noteValue);
 						}
 					}
+					//DEW Mines need a separate note to show they are activated when they first fire and then use their lower signature
+					if($mine->detectedSignature !== -1 && !$mine->activated){
+							$notekey = 'activated';
+							$noteHuman = 'Mine Activated';
+							$noteValue = 1;
+							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$noteValue);
+					}					
 				}
 			break;			
 					
@@ -579,7 +586,6 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 					if(!is_array($this->detected)) $this->detected = array();
 					if(!in_array($currNote->notevalue, $this->detected)) {
 						$this->detected[] = $currNote->notevalue;
-						if ($mine->detectedSignature !== -1) $mine->signature = $mine->detectedSignature; 
 					}
 				break;
 				case 'infoRevealed': 
@@ -587,7 +593,15 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 					if(!in_array($currNote->notevalue, $this->revealInfo)) {
 						$this->revealInfo[] = $currNote->notevalue;
 					}
-				break;													
+				break;	
+
+				//DEW mine has fired, use lower signature
+				case 'activated': 
+					if ($mine->detectedSignature !== -1){
+						$mine->signature = $mine->detectedSignature;
+						$mine->activated = true;
+					}  
+				break;																	
 			}
 		}
 		//and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
@@ -6885,14 +6899,16 @@ class MineControllerDEW extends ShipSystem{
     public $mineSet = false; //For front end, to confirm mine ranges have been manually set.
 	public $rangeSetting = 0;
 	private $accuracy = 0;
+	private $ballisticWeapon = false; //To mark if mine has ballistic weapons
 
-    function __construct($armour, $maxhealth, $powerReq, $output, $accuracy){
+    function __construct($armour, $maxhealth, $powerReq, $output, $accuracy, $ballistic = false){
 	//maxhealth and power reqirement are fixed; left option to override with hand-written values
         if ( $maxhealth == 0 ) $maxhealth = 1;
         if ( $powerReq == 0 ) $powerReq = 0;  
         $this->rangeSetting = $output;
 		$this->accuracy = $accuracy;
 		$this->outputDisplay = '-';
+		$this->ballisticWeapon = $ballistic;
 
         parent::__construct($armour, $maxhealth, $powerReq, $output);
     }
@@ -6948,8 +6964,16 @@ class MineControllerDEW extends ShipSystem{
 							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey,$noteHuman,$notevalue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue         
 						}			
 					}								
-						break;				
-					}
+				break;	
+				
+				case 1: //Need to add some method for ballistic DEW mines to fire here if they have been activated (e.g. already fired once).
+					//if($this->ballisticWeapon){
+					
+					
+					
+					//}
+				break;
+		}
 	} //endof function generateIndividualNotes
 	
 
@@ -7036,7 +7060,7 @@ class MineControllerDEW extends ShipSystem{
 				if($weapon instanceof Weapon && $weapon->name !== "RammingAttack"){
 //Debug::log("weaponName " . $weapon->name); 
  					
-					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad()){ //is Loaded
+					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad()){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
 //Debug::log("passedLoadedCheck " . $weapon->name); 
 
 //Debug::log("effectiveRange1 " . $effectiveRange);
