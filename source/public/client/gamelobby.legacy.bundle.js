@@ -872,7 +872,7 @@ window.gamedata = {
 		checkResult += "<br>";
 
 		checkResult += "Capital ships: " + capitalShips + ": "; //Capital Ship present?
-		//var capsRequired = Math.floor(scalcPoints/3000);//1 per 3000, round down; so 1 at 3000, 2 at 6000, 3 at 9000, 10 at 30000
+		//var capsRequired = Math.floor(calcPoints/3000);//1 per 3000, round down; so 1 at 3000, 2 at 6000, 3 at 9000, 10 at 30000
 		//let's decrease the requirement at larger battles: 1 per 4000, round up, with first 2499 not counted; so 1 at 2500, 2 at 6500, 3 at 10500, 10 at 42500
 		var capsRequired = 0;
 		if (!ancientUnitPresent) { //regular limit: one per 5000 points, starting at 3000
