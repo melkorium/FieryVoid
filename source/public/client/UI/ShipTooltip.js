@@ -291,6 +291,13 @@ window.ShipTooltip = function () {
         if (ship.mine) {
             if (gamedata.isMyorMyTeamShip(ship)) toDisplay = 'Signature: ' + ship.signature;
             this.addEntryElement(toDisplay);
+
+            if (this.selectedShip) {
+                if (!gamedata.isMyShip(ship)) {
+                    this.addEntryElement('OEW: ' + ew.getOffensiveEW(this.selectedShip, ship), this.selectedShip !== ship && ship.flight !== true && this.selectedShip.flight !== true);
+                }
+            }    
+
         } else {
             //this.addEntryElement("Iniative Order: " + shipManager.getIniativeOrder(ship) + "    (D100 + " + ship.iniativebonus + ")");
             this.addEntryElement("Ini Order: " + shipManager.getIniativeOrder(ship) + " (total " + ship.iniative + "): base " + ship.iniativebonus + "; mod " + ship.iniativeadded);
