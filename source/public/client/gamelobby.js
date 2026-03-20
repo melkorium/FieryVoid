@@ -1469,28 +1469,28 @@ window.gamedata = {
 
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var minePoints = 0;
-		var uniqueMineClasses = [];
+		var unitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 
-			if (gamedata.ships[i].mine) {
+			if (gamedata.ships[i].unit) {
 				let mCount = gamedata.ships[i].bulkBuy || 1;
-				minePoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+				unitPoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
+					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		if (minePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (unitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			let totalMineCost = (100 + minePoints) * surchargeMultiplier;
-			points += Math.round(totalMineCost);
+			let totalUnitCost = (100 + unitPoints) * surchargeMultiplier;
+			points += Math.round(totalUnitCost);
 		}
 
 		var maxPoints = selectedSlot.points;
@@ -1946,7 +1946,7 @@ window.gamedata = {
 						+ shipDisplayName + '</span><span class="pointcost">'
 						+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-					let buyHandler = ship.mine ? this.buyMine.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
+					let buyHandler = ship.mine ? this.buyBulk.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
 					$(".addship", h).on("click", buyHandler);
 					$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, ship.phpclass, faction, ship.id, false));
 
@@ -1970,7 +1970,7 @@ window.gamedata = {
 							+ shipDisplayName + '</span><span class="pointcost">'
 							+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-						let buyHandlerV = shipV.mine ? this.buyMine.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
+						let buyHandlerV = shipV.unit ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
 						$(".addship", h).on("click", buyHandlerV);
 						$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, shipV.phpclass, faction, ship.id, false));
 
@@ -2261,7 +2261,7 @@ window.gamedata = {
 		}
 	},
 
-	buyMine: function buyMine(shipclass) {
+	buyBulk: function buyBulk(shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		var slotid = gamedata.selectedSlot;
@@ -2273,10 +2273,10 @@ window.gamedata = {
 
 		$(".confirm").remove();
 
-		window.confirm.showBuyMine(ship, gamedata.doBuyMine);
+		window.confirm.showBuyBulk(ship, gamedata.doBuyBulk);
 	},
 
-	doBuyMine: function doBuyMine(results, shipclass) {
+	doBuyBulk: function doBuyBulk(results, shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		ship.userid = gamedata.thisplayer;
@@ -2285,7 +2285,7 @@ window.gamedata = {
 		ship.bulkBuy = parseInt(results.quantity);
 
 		// Calculate total cost stringently to afford check
-		let totalMineCost = ship.pointCost * ship.bulkBuy;
+		let totalUnitCost = ship.pointCost * ship.bulkBuy;
 
 		ship.pointCostEnh = 0;
 		ship.pointCostEnh2 = 0;
@@ -2310,44 +2310,44 @@ window.gamedata = {
 			target = $(".selectAmount.shpenh" + enhNo);
 		}
 
-		totalMineCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
+		totalUnitCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
 
-		// Calculate cost of the fleet WITH this new mine order
+		// Calculate cost of the fleet WITH this new Unit order
 		var slotid = gamedata.selectedSlot;
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var existingMinePoints = 0;
-		var uniqueMineClasses = [];
+		var existingUnitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
-			if (gamedata.ships[i].mine) {
-				existingMinePoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+			if (gamedata.ships[i].unit) {
+				existingUnitPoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
+					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		// Add new mine to totals
-		existingMinePoints += totalMineCost;
-		if (!uniqueMineClasses.includes(ship.shipClass)) {
-			uniqueMineClasses.push(ship.shipClass);
+		// Add new unit to totals
+		existingUnitPoints += totalUnitCost;
+		if (!uniqueUnitClasses.includes(ship.shipClass)) {
+			uniqueUnitClasses.push(ship.shipClass);
 		}
 
-		if (existingMinePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (existingUnitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			points += Math.round((100 + existingMinePoints) * surchargeMultiplier);
+			points += Math.round((100 + existingUnitPoints) * surchargeMultiplier);
 		}
 
 		var maxPoints = selectedSlot.points;
 
 		if (maxPoints != -1 && points > maxPoints) {
 			$(".confirm").remove();
-			window.confirm.error("You cannot afford that Mine purchase!", function () { });
+			window.confirm.error("You cannot afford that Unit purchase!", function () { });
 			return;
 		}
 
@@ -2356,7 +2356,7 @@ window.gamedata = {
 		$(".confirm").remove();
 		gamedata.updateFleet(ship);
 		gamedata.calculateFleet();
-		gamedata.drawMapPreview(); // Redraw map to show minefields
+		gamedata.drawMapPreview(); // Redraw map to show unitfields
 	},
 
 	buyShip: function buyShip(shipclass) {
