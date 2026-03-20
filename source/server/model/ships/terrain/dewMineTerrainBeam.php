@@ -1,14 +1,14 @@
 <?php
-class dewMineTerrain extends Mine{
+class dewMineTerrainBeam extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 18;
 		$this->faction = "Terrain";
-        $this->phpclass = "dewMineTerrain";
+        $this->phpclass = "dewMineTerrainBeam";
         $this->imagePath = "img/ships/korlyan_mine.png";
-        $this->shipClass = "DEW Mine";
+        $this->shipClass = "DEW Mine (Beam)";
 		$this->occurence = "common";
 		//$this->variantOf = 'NONE';
         $this->isd = 2200;
@@ -28,11 +28,11 @@ class dewMineTerrain extends Mine{
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
 
-        $this->addPrimarySystem(new OSATCnC(1, 1, 0, 0));
-        $this->addPrimarySystem(new MagGravReactorTechnical(1, 1, 0, 2));
-        $this->addPrimarySystem(new mineStealth(1, 1, 1));
-        $this->addPrimarySystem(new MineControllerDEW(1, 1, 0, 5, 8)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new StdParticleBeam(1, 4, 0, 0, 360));
+        $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
+        $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
+        $this->addPrimarySystem(new mineStealth(0, 1, 1));
+        $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 5, 8)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
+        $this->addPrimarySystem(new StdParticleBeam(0, 4, 0, 0, 360));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(1, 8));
