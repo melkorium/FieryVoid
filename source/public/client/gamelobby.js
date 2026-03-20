@@ -1475,7 +1475,7 @@ window.gamedata = {
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 
-			if (gamedata.ships[i].unit) {
+			if (gamedata.ships[i].mine) {
 				let mCount = gamedata.ships[i].bulkBuy || 1;
 				unitPoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
 				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
@@ -1970,7 +1970,7 @@ window.gamedata = {
 							+ shipDisplayName + '</span><span class="pointcost">'
 							+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-						let buyHandlerV = shipV.unit ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
+						let buyHandlerV = shipV.mine ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
 						$(".addship", h).on("click", buyHandlerV);
 						$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, shipV.phpclass, faction, ship.id, false));
 
@@ -2321,7 +2321,7 @@ window.gamedata = {
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
-			if (gamedata.ships[i].unit) {
+			if (gamedata.ships[i].mine) {
 				existingUnitPoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
 				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
 					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
