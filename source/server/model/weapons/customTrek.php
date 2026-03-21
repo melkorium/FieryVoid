@@ -1113,6 +1113,7 @@ class TrekShieldProjection extends Shield implements DefensiveSystem { //defensi
 	public $isPrimaryTargetable = false; //shouldn't be targetable at all, in fact!
 	public $isTargetable = false; //cannot be targeted ever!
     public $iconPath = "TrekShieldProjectionF.png"; //overridden anyway - to indicate proper direction
+	public $isCloaked = false;
 	protected $doCountForCombatValue = false; //don't count when estimating remaining combat value - shields are overloaded and regenerating all the time, do not represent permanent loss of combat ability
     
 	protected $possibleCriticals = array(); //no criticals possible
@@ -1191,7 +1192,9 @@ class TrekShieldProjection extends Shield implements DefensiveSystem { //defensi
 	
 	//decision whether this system can protect from damage - value used only for choosing strongest shield to balance load.
 	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false) {
+		$ship = $this->getUnit(); //GTS
 		if($damageWasDealt || $isUnderShield) return 0; //does not protect from overkill damage, just first impact. Also does not protect from internal damage.
+		if($ship->isCloaked) return 0; //shield is not active when cloaked    GTS
 		
 		$remainingCapacity = $this->getRemainingCapacity();
 		$protectionValue = 0;
@@ -1202,6 +1205,10 @@ class TrekShieldProjection extends Shield implements DefensiveSystem { //defensi
 	}
 	//actual protection
 	public function doProtect($gamedata, $fireOrder, $target, $shooter, $weapon, $systemProtected, $effectiveDamage,$effectiveArmor){ //hook for actual effect of protection - return modified values of damage and armor that should be used in further calculations
+
+		$ship = $this->getUnit(); //GTS
+		if($ship->isCloaked) return 0; //shield is not active when cloaked    GTS
+
 		$returnValues=array('dmg'=>$effectiveDamage, 'armor'=>$effectiveArmor);
 		$damageToAbsorb=$effectiveDamage; //shield works BEFORE armor
 		$damageAbsorbed=0;
@@ -2048,7 +2055,8 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 	public $primary = true;
 	public $detected = true;
 	public $detectedNew = array(); // New multi-team array logic
-	protected $active = false; //To track in Front End whether system was ever activate this turn during Deployment/PreOrders.			
+	protected $active = false; //To track in Front End whether system was ever activate this turn during Deployment/PreOrders.		
+//	public $isCloaked = false;
 		
 	function __construct($armour, $maxhealth, $powerReq, $output){
 		parent::__construct($armour, $maxhealth, $powerReq, $output);
@@ -2080,7 +2088,8 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 			$this->data["Special"] .= '<br>';
 		}
 		$this->data["Special"] = "Detection is tested at the start of the turn and before the firing phase.";
-		$this->data["Special"] .= "<br>No weapons are functionl while the cloak is engaged.";
+		$this->data["Special"] .= "<br>No weapons are functional while the cloak is engaged.";
+		$this->data["Special"] .= "<br>No shields are functional while the cloak is engaged.";
 		$this->data["Special"] .= "<br>Bases and ELINT units detect cloaked units at 1.5 their EW rating.";
 		$this->data["Special"] .= "<br>All other units use their sensor rating. Fighters get half their offensive bonus.";
 	}
@@ -2127,6 +2136,7 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 
 		public function onIndividualNotesLoaded($gamedata){
 			//Sort notes by turn, and then phase so latest detection note is always last.
+			$ship = $this->getUnit();  //GTS
 			$this->sortNotes();
 			if (!is_array($this->detectedNew)) $this->detectedNew = array();
 
@@ -2151,12 +2161,14 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 					case 'Cloaked': 
 						if($currNote->turn == $gamedata->turn || $gamedata->phase == -1 && $currNote->turn == $gamedata->turn-1){					
 							$this->active = true;
-						}								
+						}	
+						$ship->isCloaked = true;  //GTS
 					break;	
 					case 'Decloaked': 
 						if($currNote->turn == $gamedata->turn || $gamedata->phase == -1 && $currNote->turn == $gamedata->turn-1){					
 							$this->active = false;
-						}								
+						}		
+						$ship->isCloaked = false;  //GTS
 					break;																				
 				}
 			}
@@ -2496,7 +2508,7 @@ class TrekLightDisruptor extends Pulse{
             }else{
                 $this->data["Special"] .= '<br>';
             } 
-			$this->data["Special"] .= "-1 armor to every system hit.";
+			$this->data["Special"] .= "-1 armor to every system hit as long as at least 1 damage scored on the system.";
             $this->data["Special"] .= '<br>Structure armor unaffected.';
         }
         
@@ -2592,7 +2604,7 @@ class TrekMedDisruptor extends Pulse{
             }else{
                 $this->data["Special"] .= '<br>';
             } 
-			$this->data["Special"] .= "-1 armor to every system hit.";
+			$this->data["Special"] .= "-1 armor to every system hit as long as at least one damage scored on the system.";
             $this->data["Special"] .= '<br>If 12 or more damage strike the facing structure, the facing structure armor loses 1 point.';
         }
 
