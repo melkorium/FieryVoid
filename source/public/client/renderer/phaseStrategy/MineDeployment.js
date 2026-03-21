@@ -210,28 +210,63 @@ window.MineDeployment = (function () {
     }
 
     /**
-     * Show a minimal styled dialog asking how many mines to deploy.
+     * Show a dialog asking how many of each mine class to deploy.
      */
     function _showCountDialog(mines, validHexes) {
-        var maxCount = mines.length;
-
-        // Remove any existing dialog
         var existing = document.getElementById('mineDeployDialog');
         if (existing) existing.parentNode.removeChild(existing);
+
+        // Group mines by class
+        var groups = {};
+        for (var i = 0; i < mines.length; i++) {
+            var m = mines[i];
+            var c = m.shipClass;
+            if (!groups[c]) groups[c] = { name: c, mines: [], max: 0, current: 0 };
+            groups[c].mines.push(m);
+            groups[c].max++;
+        }
+
+        var classNames = Object.keys(groups);
+        classNames.sort();
+
+        // Default: 1 per class, up to validHexes limit
+        var initialTotal = 0;
+        for (var j = 0; j < classNames.length; j++) {
+            var g = groups[classNames[j]];
+            if (initialTotal < validHexes.length && g.max > 0) {
+                g.current = 1;
+                initialTotal++;
+            } else {
+                g.current = 0; // Area too small, starts at 0
+            }
+        }
 
         var dialog = document.createElement('div');
         dialog.id = 'mineDeployDialog';
 
-        dialog.innerHTML =
+        var html =
             '<div class="mine-deploy-dialog-inner">' +
-            '<p class="mine-deploy-title">DEPLOY MINES</p>' +
+            '<p class="mine-deploy-title">DEPLOY MINEFIELD</p>' +
             '<p class="mine-deploy-sub">Valid hexes in area: <strong>' + validHexes.length + '</strong></p>' +
-            '<p class="mine-deploy-sub">Available mines: <strong>' + maxCount + '</strong></p>' +
-            '<p class="mine-deploy-sub">How many to place?</p>' +
-            '<div class="mine-deploy-controls">' +
-            '<button id="mineDeployMinus" class="mine-deploy-btn-sm">&#8722;</button>' +
-            '<span id="mineDeployCount" class="mine-deploy-count">' + Math.min(maxCount, validHexes.length) + '</span>' +
-            '<button id="mineDeployPlus"  class="mine-deploy-btn-sm">&#43;</button>' +
+            '<p class="mine-deploy-sub">Total available mines: <strong>' + mines.length + '</strong></p>' +
+            '<div class="mine-deploy-group-list">';
+
+        for (var k = 0; k < classNames.length; k++) {
+            var gName = classNames[k];
+            var grp = groups[gName];
+            var safeId = gName.replace(/[^a-zA-Z0-9]/g, '');
+            html +=
+                '<div class="mine-deploy-row">' +
+                    '<div class="mine-deploy-name">' + gName + '</div>' +
+                    '<div class="mine-deploy-controls-sm">' +
+                        '<button class="mine-deploy-btn-sm btn-minus" data-class="' + gName + '">&#8722;</button>' +
+                        '<input type="text" class="mine-deploy-count" id="count_' + safeId + '" data-class="' + gName + '" value="' + grp.current + '">' +
+                        '<button class="mine-deploy-btn-sm btn-plus" data-class="' + gName + '">&#43;</button>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        html +=
             '</div>' +
             '<div class="mine-deploy-actions">' +
             '<button id="mineDeployConfirm" class="mine-deploy-btn">Confirm</button>' +
@@ -239,26 +274,115 @@ window.MineDeployment = (function () {
             '</div>' +
             '</div>';
 
+        dialog.innerHTML = html;
         document.body.appendChild(dialog);
 
-        var countEl = document.getElementById('mineDeployCount');
-        var cap = Math.min(maxCount, validHexes.length);
-        var currentCount = cap;
-        countEl.textContent = currentCount;
+        // Bind events
+        var minusBtns = dialog.querySelectorAll('.btn-minus');
+        var plusBtns = dialog.querySelectorAll('.btn-plus');
+        var countInputs = dialog.querySelectorAll('.mine-deploy-count');
 
-        document.getElementById('mineDeployMinus').addEventListener('click', function () {
-            if (currentCount > 1) { currentCount--; countEl.textContent = currentCount; }
-        });
-        document.getElementById('mineDeployPlus').addEventListener('click', function () {
-            if (currentCount < cap) { currentCount++; countEl.textContent = currentCount; }
-        });
+        function _getTotalCurrent() {
+            var t = 0;
+            for (var c in groups) t += groups[c].current;
+            return t;
+        }
+
+        function _updateDisplay(className) {
+            var safeId = className.replace(/[^a-zA-Z0-9]/g, '');
+            document.getElementById('count_' + safeId).value = groups[className].current;
+        }
+
+        for (var mIdx = 0; mIdx < minusBtns.length; mIdx++) {
+            minusBtns[mIdx].addEventListener('click', function(e) {
+                var cName = e.target.getAttribute('data-class');
+                if (groups[cName].current > 0) {
+                    groups[cName].current--;
+                    _updateDisplay(cName);
+                }
+            });
+        }
+
+        for (var pIdx = 0; pIdx < plusBtns.length; pIdx++) {
+            plusBtns[pIdx].addEventListener('click', function(e) {
+                var cName = e.target.getAttribute('data-class');
+                if (groups[cName].current < groups[cName].max && _getTotalCurrent() < validHexes.length) {
+                    groups[cName].current++;
+                    _updateDisplay(cName);
+                }
+            });
+        }
+        
+        for (var iIdx = 0; iIdx < countInputs.length; iIdx++) {
+            var countEl = countInputs[iIdx];
+            
+            // Handle free-typing
+            countEl.addEventListener('input', function(e) {
+                var cName = e.target.getAttribute('data-class');
+                var val = parseInt(e.target.value, 10);
+                
+                if (isNaN(val) || val < 0) val = 0;
+                
+                // Clamp to the max available for this type
+                if (val > groups[cName].max) val = groups[cName].max;
+                
+                // Clamp to the remaining valid hexes (excluding this type's old contribution)
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = validHexes.length - currentTotalExceptThis;
+                
+                if (val > maxAllowed) val = Math.max(0, maxAllowed);
+                
+                groups[cName].current = val;
+                _updateDisplay(cName); // Restores properly formatted/clamped value
+            });
+            
+            // Auto-select text on focus or double-click to easily overwrite
+            function selectAll(e) {
+                e.target.select();
+            }
+            countEl.addEventListener('focus', selectAll);
+            countEl.addEventListener('dblclick', selectAll);
+            
+            // Handle mouse wheel
+            countEl.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                var cName = e.target.getAttribute('data-class');
+                
+                if (e.deltaY < 0) {
+                    // Scroll up = plus
+                    if (groups[cName].current < groups[cName].max && _getTotalCurrent() < validHexes.length) {
+                        groups[cName].current++;
+                        _updateDisplay(cName);
+                    }
+                } else if (e.deltaY > 0) {
+                    // Scroll down = minus
+                    if (groups[cName].current > 0) {
+                        groups[cName].current--;
+                        _updateDisplay(cName);
+                    }
+                }
+            }, { passive: false });
+        }
+
         document.getElementById('mineDeployCancel').addEventListener('click', function () {
             _closeDialog();
         });
+
         document.getElementById('mineDeployConfirm').addEventListener('click', function () {
-            var n = parseInt(countEl.textContent, 10);
             _closeDialog();
-            _deployMines(mines, validHexes, n);
+            
+            // Build the final array of exact mines to deploy
+            var minesToDeploy = [];
+            for (var c in groups) {
+                var count = groups[c].current;
+                var list = groups[c].mines;
+                for (var i = 0; i < count; i++) {
+                    minesToDeploy.push(list[i]);
+                }
+            }
+            if (minesToDeploy.length > 0) {
+                _deployMines(minesToDeploy, validHexes);
+            }
         });
     }
 
@@ -268,9 +392,11 @@ window.MineDeployment = (function () {
     }
 
     /**
-     * Place `count` mines randomly across `validHexes`, respecting no-stack preference.
+     * Place `minesToDeploy` randomly across `validHexes`, respecting no-stack preference.
      */
-    function _deployMines(mines, validHexes, count) {
+    function _deployMines(minesToDeploy, validHexes) {
+        var count = minesToDeploy.length;
+
         // Shuffle validHexes (Fisher-Yates)
         var shuffled = validHexes.slice();
         for (var i = shuffled.length - 1; i > 0; i--) {
@@ -303,8 +429,7 @@ window.MineDeployment = (function () {
             hexAssignments.push(assigned);
         }
 
-        // Deploy each mine; mines without an existing deploy move are used first (already sorted)
-        var minesToDeploy = mines.slice(0, count);
+        // Deploy each mine
         for (var k = 0; k < minesToDeploy.length; k++) {
             var mine = minesToDeploy[k];
             var hex  = hexAssignments[k];

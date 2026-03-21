@@ -1380,9 +1380,9 @@ body {
     background: #0a2d3d;
     border: 1px solid #3a6080;
     border-radius: 5px;
-    color: #a8cadf;
+    color: #deebff;
     font-family: arial, sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     text-align: center;
     cursor: pointer;
     letter-spacing: 0.04em;
@@ -1394,7 +1394,7 @@ body {
 #mineDeployBtn:hover {
     background: #133e56;
     border-color: #5a9abf;
-    color: #d0e8f5;
+    color: #deebff;
 }
 
 #mineDeployBtn.active {
@@ -1427,13 +1427,13 @@ body {
     border: 1px solid #3a6080;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-    min-width: 260px;
-    max-width: 340px;
+    min-width: 300px;
+    max-width: 500px;
     color: #b8d8ee;
 }
 
 .mine-deploy-dialog-inner {
-    padding: 18px 22px 16px;
+    padding: 12px 18px 14px;
     text-align: center;
 }
 
@@ -1446,7 +1446,7 @@ body {
 }
 
 .mine-deploy-sub {
-    font-size: 12px;
+    font-size: 13px;
     margin: 3px 0;
     color: #8ab4cc;
 }
@@ -1463,24 +1463,63 @@ body {
     margin: 12px 0;
 }
 
+.mine-deploy-group-list {
+    margin: 10px 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.mine-deploy-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(58, 96, 128, 0.4);
+}
+
+.mine-deploy-row:last-child {
+    border-bottom: none;
+    margin-bottom: 4px;
+    padding-bottom: 0;
+}
+
+.mine-deploy-name {
+    flex-grow: 1;
+    text-align: left;
+    font-size: 13px;
+    color: #b8d8ee;
+    margin-right: 10px;
+}
+
+.mine-deploy-controls-sm {
+    display: flex;
+    align-items: center;
+    gap: 0px;
+}
+
 .mine-deploy-count {
-    font-size: 22px;
+    font-size: 13px;
     font-weight: bold;
     color: #d0ecff;
-    min-width: 36px;
+    width: 36px;
     display: inline-block;
     text-align: center;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
 }
 
 .mine-deploy-btn-sm {
-    width: 28px;
-    height: 28px;
+    width: 23px;
+    height: 23px;
     padding: 0;
     background: #133e5a;
     border: 1px solid #3a6080;
     border-radius: 4px;
     color: #a8cadf;
-    font-size: 18px;
+    font-size: 13px;
     cursor: pointer;
     line-height: 1;
 }
@@ -1493,18 +1532,19 @@ body {
 
 .mine-deploy-actions {
     display: flex;
-    gap: 10px;
+    gap: 20px;
     justify-content: center;
     margin-top: 8px;
 }
 
 .mine-deploy-btn {
     padding: 6px 18px;
-    background: #1a5c3a;
-    border: 1px solid #4aad74;
+    min-width: 100px;
+    background: #2e5c2e;    
+    border: 1px solid #66b266;
     border-radius: 4px;
-    color: #80f0b0;
-    font-size: 12px;
+    color: #deebff;
+    font-size: 13px;
     cursor: pointer;
     font-family: arial, sans-serif;
     letter-spacing: 0.04em;
@@ -1512,23 +1552,24 @@ body {
 }
 
 .mine-deploy-btn:hover {
-    background: #237a4e;
+    background: #3c7a3c;
 }
 
 .mine-deploy-btn-cancel {
-    background: #3a1a1a;
-    border-color: #a04040;
-    color: #f08080;
+    background: #562020;    
+    min-width: 100px;
+    border-color: #a77272;
+    color: #deebff;
 }
 
 .mine-deploy-btn-cancel:hover {
-    background: #562020;
+    background: #7a2121;
 }
 
 /* Brief toast notification */
 #mineDeployToast {
     position: fixed;
-    bottom: 170px;
+    bottom: 200px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 20010;
@@ -1537,7 +1578,7 @@ body {
     border-radius: 6px;
     color: #a8cadf;
     font-family: arial, sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     padding: 8px 18px;
     pointer-events: none;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
