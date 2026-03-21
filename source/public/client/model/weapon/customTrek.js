@@ -406,11 +406,11 @@ CombatTransporter.prototype.constructor = CombatTransporter;
 
 var MicroJumpSystem = function MicroJumpSystem(json, ship) {
     Weapon.call(this, json, ship);
-    this.defensiveType = "Blink";
+    //this.defensiveType = "Blink";
 };
 MicroJumpSystem.prototype = Object.create(Weapon.prototype);
 MicroJumpSystem.prototype.constructor = MicroJumpSystem;
-
+/*
 MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, weapon) {
     if (weapon.ballistic && this.fireOrders.length > 0 && gamedata.gamephase == 3) {
         var fireOrder = this.fireOrders[0];
@@ -434,7 +434,7 @@ MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, 
     }
 
 };
-
+*/
 MicroJumpSystem.prototype.isPosOnSpecialArc = function (shooter, target) {
     var shooterPos = shipManager.getShipPosition(shooter);
     var targetCompassHeading = mathlib.getCompassHeadingOfPoint(shooterPos, target);
