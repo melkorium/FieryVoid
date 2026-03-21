@@ -184,7 +184,7 @@ class Firing
                 $gamedata->turn, $interceptor->firingMode, 0, 0, $interceptor->defaultShots, 0, 0, null, null
             );
             $interceptFire->addToDB = true;
-			checkForSelfInterceptFire::setFired($interceptor->id, $gamedata->turn);
+			checkForSelfInterceptFire::setFired($interceptor->getUnit()->id, $interceptor->id, $gamedata->turn);
             $interceptor->fireOrders[] = $interceptFire;
         }
 	    

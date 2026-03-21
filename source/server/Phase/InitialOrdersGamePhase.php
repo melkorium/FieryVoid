@@ -143,6 +143,26 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
                 if ($ship->mine) {
                     $ship->generateIndividualNotes($gd, $dbManager);
                     $ship->saveIndividualNotes($dbManager);
+					
+					if (isset($ship->detectedSignature) && $ship->detectedSignature !== -1) {
+						$mineController = $ship->getSystemByName("MineControllerDEW");
+						if ($mineController && $mineController->ballisticWeapon) {
+							$newFireOrders = array();
+							$fireOrders = $ship->getAllFireOrders();
+							foreach($fireOrders as $fo) {
+								if($fo->addToDB) {
+									$newFireOrders[] = $fo;
+								}
+							}
+							if(count($newFireOrders) > 0) {
+								if (Firing::validateFireOrders($newFireOrders, $gd)){
+									$dbManager->submitFireorders($gameData->id, $newFireOrders, $gameData->turn, $gameData->phase);
+								}else{
+									throw new Exception("Failed to validate Mine firing orders");
+								}
+							}
+						}
+					}					
                 }
             }
         } 

@@ -2950,7 +2950,10 @@ class Mine extends OSAT{
 
     public function stripForJson() {
         $strippedShip = parent::stripForJson();
-        if($this->detectedSignature !== -1) $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+        if($this->detectedSignature !== -1){
+            $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->activated = $this->activated; //Need to send updated activated values for DEW mine weapons.            
+        } 
         return $strippedShip;
     }    
 

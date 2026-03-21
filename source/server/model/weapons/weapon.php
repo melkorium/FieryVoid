@@ -585,7 +585,7 @@ class Weapon extends ShipSystem
         foreach ($this->fireOrders as $fire) {
             if ($fire->type != "selfIntercept" && $fire->weaponid == $this->id && $fire->turn == $turn) {
                 return true;
-            } else if ($fire->type == "selfIntercept" && checkForSelfInterceptFire::checkFired($this->id, $turn)) {
+            } else if ($fire->type == "selfIntercept" && checkForSelfInterceptFire::checkFired($this->getUnit()->id, $this->id, $turn)) {
                 return true;
             }
         }
@@ -841,6 +841,8 @@ public function getStartLoading()
         } else if ($phase == 3) {
             if ($this->preFires && $this->firedOnTurn(TacGamedata::$currentTurn)) {
                 return new WeaponLoading(0, 0, $this->getLoadedAmmo(), 0, $this->getLoadingTime(), $this->firingMode);
+            }else if ($this->ballistic && $this->firedOnTurn(TacGamedata::$currentTurn)) {
+                return new WeaponLoading(0, 0, $this->getLoadedAmmo(), 0, $this->getLoadingTime(), $this->firingMode);
             }
         } else if ($phase == -1) {
             $weaponLoading = $this->calculateLoadingFromLastTurn($gamedata);                   
@@ -872,8 +874,25 @@ public function getStartLoading()
 
     private function calculateLoadingFromLastTurn($gamedata)
     {
-        if ($this->ballistic && !(checkForSelfInterceptFire::checkFired($this->id, $gamedata->turn -1)))
-            return null;
+        if ($this->ballistic && !(checkForSelfInterceptFire::checkFired($this->getUnit()->id, $this->id, $gamedata->turn -1))) {
+            $ship = $this->getUnit();              
+            if ($ship instanceof Mine) {
+                $firedNormal = false;
+               
+                foreach ($this->fireOrders as $fire) {
+                    if ($fire->type == "normal" && $fire->weaponid == $this->id && $fire->turn == ($gamedata->turn - 1)) {
+                        $firedNormal = true;
+                        break;
+                    }
+                }
+                
+                if (!$firedNormal) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
 
 
         if ($this->firedOnTurn($gamedata->turn -1)) {
@@ -2253,21 +2272,21 @@ class checkForSelfInterceptFire
 {
     private static $fired = array();
 
-    public static function setFired($id, $turn)
+    public static function setFired($shipid, $weaponid, $turn)
     {
         if ($turn != TacGamedata::$currentTurn) {
-            $fired = array();
+            checkForSelfInterceptFire::$fired = array();
         }
-        checkForSelfInterceptFire::$fired[] = $id;
+        checkForSelfInterceptFire::$fired[] = array('shipid' => $shipid, 'weaponid' => $weaponid);
     }
 
-    public static function checkFired($id, $turn)
+    public static function checkFired($shipid, $weaponid, $turn)
     {
         if ($turn != TacGamedata::$currentTurn) {
-            $fired = array();
+            checkForSelfInterceptFire::$fired = array();
         }
         foreach (checkForSelfInterceptFire::$fired as $weapon) {
-            if ($weapon == $id) {
+            if ($weapon['shipid'] == $shipid && $weapon['weaponid'] == $weaponid) {
                 return true;
             }
         }

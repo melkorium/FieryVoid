@@ -506,19 +506,21 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 
         switch($gameData->phase){
 			case 1: //Initial Orders - Check for any ballistic launches
-				$ballisticOrEWOrOffline = $this->isMineDetectedInitial($mine, $gameData);
-			
-				if($ballisticOrEWOrOffline){ //There was a ballistic launch this turn.  Create note for ship to be marked detected.
-					foreach($enemyTeams as $team) {
-						if (!is_array($this->detected)) $this->detected = array();
-						if (!in_array($team, $this->detected)) {
-							$notekey = 'detected';
-							$noteHuman = 'Mine detected';
-							$noteValue = $team;
-							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$noteValue);
-						}
+				if($mine->detectedSignature !== -1){
+					$ballisticOrEWOrOffline = $this->isMineDetectedInitial($mine, $gameData);
+				
+					if($ballisticOrEWOrOffline){ //There was a ballistic launch this turn.  Create note for ship to be marked detected.
+						foreach($enemyTeams as $team) {
+							if (!is_array($this->detected)) $this->detected = array();
+							if (!in_array($team, $this->detected)) {
+								$notekey = 'detected';
+								$noteHuman = 'Mine detected';
+								$noteValue = $team;
+								$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$noteValue);
+							}
+						}					
 					}
-				}
+				}	
 
 				$detailsRevealed = $this->isMineRevealedInitial($mine, $gameData);										
 				if(!empty($detailsRevealed)){ //Someone has locked Mine with OEW to reveal it's info e.g. type. 
@@ -531,7 +533,7 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 							$noteValue = $revealed; //Should be integer of team that knows mine info.
 							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$noteValue);
 						}							
-					}
+					}					
 				}
 			break;
 
@@ -596,10 +598,10 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 				break;	
 
 				//DEW mine has fired, use lower signature
-				case 'activated': 
+				case 'activated': 				
 					if ($mine->detectedSignature !== -1){
 						$mine->signature = $mine->detectedSignature;
-						$mine->activated = true;
+						$mine->activated = true;						
 					}  
 				break;																	
 			}
@@ -620,7 +622,7 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 		});
 	}
 
-	//DEW mines can fire and use EW I think.
+	//DEW mines can fire.
 	private function isMineDetectedInitial($mine, $gameData) {
         if($this->isOfflineOnTurn()) return true; //Stealth deactivated voluntarily.		
 
@@ -6871,46 +6873,28 @@ class MineControllerDEW extends ShipSystem{
     public $name = "MineControllerDEW";
     public $displayName = "Mine Controller";
 	public $iconPath = "Computer.png";
-    public $outputType = "settings";	
-    //public $animation = "torpedo";
-    //public $animationColor = array(141, 240, 255);
-    //public $animationExplosionScale = 0.25;        
-    public $isTargetable = false; //cannot be targeted ever!        
-    //public $loadingtime = 1;
-    //public $ballistic = true;
-    //public $hidetarget = true;
+    public $outputType = "settings";	    
+    public $isTargetable = false; //cannot be targeted ever!
+	public $isPrimaryTargetable = false;        
     public $canOffline = true;
-    //public $fireControlMod = array(0, 0, 0); //MODIFIER for weapon fire control!        
-    //public $damageType = 'Standard';//mode of dealing damage
-    //public $doNotIntercept = false; //for attacks that are not subject to interception at all - like fields and ramming
-    //public $uninterceptable = false;
-    //public $priority = 6;
-    //public $priorityAF = 5;
-    //public $firingModes = array(1 => "Captor");
-    //public $range = 0;
-    //public $distanceRange = 60; //So that shots don't cancel if target moves far away after triggering a mine.    
-    //private $diceType = 1; //What type of dice are used.
-    //private $dice = 1; //How many damage dice are there
-    //private $damageBonus = 0; //What is flat damage bonus
-    //public $autoFireOnly = true; // for weapons that should never be fired manually 
 	public $currClass = '';//for front end.       
     public $allocatedRanges = array('Capitals-HCVs' => null, 'LCVs-MCVs' => null, 'Fighters' => null); //Ranges allocated for given ship type 
     public $setRanges = array(); //Ranges allocated for given ship type     
     public $mineSet = false; //For front end, to confirm mine ranges have been manually set.
 	public $rangeSetting = 0;
 	private $accuracy = 0;
-	private $ballisticWeapon = false; //To mark if mine has ballistic weapons
+	public $ballisticWeapon = false; //To mark if mine has ballistic weapons
 
-    function __construct($armour, $maxhealth, $powerReq, $output, $accuracy, $ballistic = false){
+    function __construct($armour, $maxhealth, $powerReq, $range, $accuracy, $ballistic = false){
 	//maxhealth and power reqirement are fixed; left option to override with hand-written values
         if ( $maxhealth == 0 ) $maxhealth = 1;
         if ( $powerReq == 0 ) $powerReq = 0;  
-        $this->rangeSetting = $output;
+        $this->rangeSetting = $range;
 		$this->accuracy = $accuracy;
 		$this->outputDisplay = '-';
 		$this->ballisticWeapon = $ballistic;
 
-        parent::__construct($armour, $maxhealth, $powerReq, $output);
+        parent::__construct($armour, $maxhealth, $powerReq, $range);
     }
 
     public function setSystemDataWindow($turn){
@@ -6939,13 +6923,13 @@ class MineControllerDEW extends ShipSystem{
 	}	    
 
     public function generateIndividualNotes($gameData, $dbManager){ //dbManager is necessary for Initial phase only
-		$ship = $this->getUnit();
-//Debug::log("reached " . $ship->name);            
+		$mine = $this->getUnit();
+//Debug::log("reached " . $mine->name);            
 		switch($gameData->phase){
 						
 				case -1: //Deployment/Pre-Turn phase
 					//data returned as allocatedBFCP table, with one value passed per BFCP point in each FCType e.g. 'Fighter' mean +1 in allocatedBFCP['Fighter']
-					if($ship->userid == $gameData->forPlayer){ //only own ships, otherwise bad things may happen!
+					if($mine->userid == $gameData->forPlayer){ //only own mines, otherwise bad things may happen!
 //Debug::log("reached " . "3");    							
 						//$shipTypes = array_keys($this->allocatedRanges); //Extract keys Fighter, MCV, Capital.
 						//$rangeValues = array_values($this->allocatedRanges);//Extract values for those keys.																	
@@ -6961,17 +6945,18 @@ class MineControllerDEW extends ShipSystem{
 							$notekey = $shipType;
 							$noteHuman = 'Mine Range set';
 							$notevalue = $rangeValue;
-							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey,$noteHuman,$notevalue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue         
+							$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$mine->id,$this->id,$notekey,$noteHuman,$notevalue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue         
 						}			
 					}								
 				break;	
 				
 				case 1: //Need to add some method for ballistic DEW mines to fire here if they have been activated (e.g. already fired once).
-					//if($this->ballisticWeapon){
-					
-					
-					
-					//}
+
+//Debug::log("this->ballisticWeapon " . $this->ballisticWeapon); 	
+//Debug::log("mine->activated " . $mine->activated); 	
+					if($this->ballisticWeapon && $mine->activated){
+						$this->checkAndCreateMineAttacks($gameData, $mine);					
+					}
 				break;
 		}
 	} //endof function generateIndividualNotes
@@ -7009,10 +6994,17 @@ class MineControllerDEW extends ShipSystem{
 
 
     public function beforeFiringOrderResolution($gamedata){
+        $mine = $this->getUnit();		
+		if($this->ballisticWeapon && $mine->activated)	return; //Ballistic weapon mines fire in Initial Orders after their first activation	
+		$this->checkAndCreateMineAttacks($gamedata, $mine);			
+	}
+
+
+    public function checkAndCreateMineAttacks($gamedata, $mine){
         
         if($this->isOfflineOnTurn()) return; //Mine weapon deactivated.
 
-        $mine = $this->getUnit();
+        //$mine = $this->getUnit();
         if($mine->isDestroyed()) return; //Mine is destroyed.
 		$deployTurn = $mine->getTurnDeployed($gamedata);
 		if($deployTurn > $gamedata->turn) return;  //Ship not deployed yet, don't fire weapon!
@@ -7048,7 +7040,7 @@ class MineControllerDEW extends ShipSystem{
 			if ($ship->getTurnDeployed($gamedata) > $gamedata->turn) continue;  //Ignore units that are not deployed yet!			
 			$relevantUnits[] = $ship;			
 		}
-	
+//Debug::log("mineName " . $mine->name); 	
         $mineTarget = null;
 		//Now check if any enemy units entered range and attack first one
 		$mineTarget = $this->checkForValidTargets($relevantUnits, $mine, $minePosition, $gamedata);	        	
@@ -7060,25 +7052,40 @@ class MineControllerDEW extends ShipSystem{
 				if($weapon instanceof Weapon && $weapon->name !== "RammingAttack"){
 //Debug::log("weaponName " . $weapon->name); 
  					
-					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad()){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
+					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
 //Debug::log("passedLoadedCheck " . $weapon->name); 
 
-//Debug::log("effectiveRange1 " . $effectiveRange);
-						if($weapon->ballistic){
+//Debug::log("gamedata->phase " . $gamedata->phase);
+						if($gamedata->phase == 1){
 							$type = "ballistic";
 						}else{
 							$type = "normal";
 						}
 //Debug::log("type " . $type);  
+
+						if($weapon instanceof AmmoMissileRackS){
+							$magazine =  $mine->getSystemByName("AmmoMagazine");
+							$modeName = $weapon->firingModes[$weapon->firingMode];
+									
+							if($magazine){ //else something is wrong - weapon is put on a ship without Ammo Magazine!
+								if($magazine->ammoCountArray[$modeName] > 0){ //Has ammunition available for mode.
+									$magazine->doDrawAmmo($gamedata, $modeName);
+								}else{
+									return;
+								}	
+							}
+						}	
+						//Now create fireorder
 						$newFireOrder = new FireOrder(
 							-1, $type, $mine->id, $mineTarget->id,
-							$weapon->id, -1, $gamedata->turn, 1, 
+							$weapon->id, -1, $gamedata->turn, $weapon->firingMode, 
 							0, 0, 1, 0, 0, //needed, rolled, shots, shotshit, intercepted
 							0,0,$weapon->weaponClass,-1 //X, Y, damageclass, resolutionorder
 						);		
 
 						$newFireOrder->addToDB = true;
-						$weapon->fireOrders[] = $newFireOrder;	
+						$weapon->fireOrders[] = $newFireOrder;							
+
 					}
 				}
 			}        
@@ -7100,30 +7107,32 @@ class MineControllerDEW extends ShipSystem{
 										    
 			$unitStartLoc = $unit->getLastTurnMovement($gamedata->turn);
             if($unitStartLoc == null) continue;
-								
+//Debug::log("unitName1 " . $unit->name); 								
 			//Check if unit can be attacked in its starting position	
-			if($this->checkTargetConditions( $minePosition, $unitStartLoc->position,$gamedata, $mine, $unit)){
+			if($this->checkTargetConditions( $minePosition, $unitStartLoc->position, $gamedata, $mine, $unit)){
                 return $unit;                   
-			}	
+			}
+//Debug::log("unitName2 " . $unit->name); 
+			if($gamedata->phase != 1){ //Don't need to do this check for ballistic weapons in Phase 1 (Initial Orders).
+				//Now check other movements in turn	
+				foreach($unit->movement as $unitMove){
+					if($unitMove->turn == $gamedata->turn){
+						// Only interested in moves where unit enters a NEW hex!
+						if ($unitMove->type == "move" || $unitMove->type == "slipleft" || $unitMove->type == "slipright") {
 
-			//Now check other movements in turn	
-    		foreach($unit->movement as $unitMove){
-				if($unitMove->turn == $gamedata->turn){
-	                // Only interested in moves where unit enters a NEW hex!
-	                if ($unitMove->type == "move" || $unitMove->type == "slipleft" || $unitMove->type == "slipright") {
+							if($this->checkTargetConditions($minePosition, $unitMove->position, $gamedata,  $mine, $unit)) {
+							//get bearing / location and return that too		    			
+								return $unit;
+						}else{
+								continue;
+							}
+						} else {
 
-                        if($this->checkTargetConditions($minePosition, $unitMove->position, $gamedata,  $mine, $unit)) {
-                           //get bearing / location and return that too		    			
-                            return $unit;
-                       }else{
-                            continue;
-                        }
-                    } else {
-
-                    }    		 		 		
-				}
-			}					
-		}			
+						}    		 		 		
+					}
+				}					
+			}
+		}				
 
 	    return null; 		
 		
@@ -7134,7 +7143,7 @@ class MineControllerDEW extends ShipSystem{
 		
 		$distance =	mathlib::getDistanceHex($minePosition, $targetPostion);//Compare starting positions.						
         $effectiveRange = $this->rangeSetting; //Start with max range.
-
+//Debug::log("distance " . $distance); 
         $shipType = 'Capitals-HCVs'; //Default as Captials.
         $FCIndex = $target->getFireControlIndex(); //Get FC array index of potential target.
         if($FCIndex == 0){ //Fighters
@@ -7298,7 +7307,7 @@ class AmmoMagazine extends ShipSystem {
 	}
 
 	//Called when Interceptor missile is attempting to intercept, to check missiles are available.
-	public function canDrawAmmo($modeName){
+	public function canDrawInterceptor($modeName){
 		
 	    // Check if ammo count has a value of 1 or more after ammo used this turn deducted
 	    	if(($this->remainingAmmo > 0) && (($this->ammoCountArray[$modeName] - $this->interceptorUsed) >= 1)){    	
@@ -7308,7 +7317,7 @@ class AmmoMagazine extends ShipSystem {
 	    }
 	}
 	
-	//Reduce number of Interceptor missile when one is ordered to intercept.
+	//Reduce number of Interceptor missile when one is ordered to intercept but can be used for other modes.
 	public function doDrawAmmo($gameData, $modeName){
         $ship = $this->getUnit();		
 		//PREPARE APPROPRIATE NOTES FOR AMMO USED TO INTERCEPT	
