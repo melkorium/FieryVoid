@@ -20,7 +20,7 @@ class TacGamedata {
     public $rules;
     public $blockedHexes;
     public $isStealthPresent = false;
-    public $areMinesPresent = false;
+    public $areMinesPresent = false; //Marks that ENEMY mines are present.
     
     
     function __construct($id, $turn, $phase, $activeship, $forPlayer, $name, $status, $points, $background, $creator, $description='', $gamespace = null, $rules = null){
@@ -153,7 +153,7 @@ class TacGamedata {
 
     public function markUnavailableSetMarkers()
     {
-        if ($this->phase < 0)
+        if ($this->phase < -1)
             return;
         
         foreach ($this->ships as $ship)
@@ -167,7 +167,7 @@ class TacGamedata {
             //Just a convenient place to set Stealth/Mine variable since we're already going through ships in the game.
             if($ship->userid !== $this->forPlayer){
                 if($ship->trueStealth && !$ship instanceof Mine  && !$ship->isDestroyed()) $this->isStealthPresent = true;
-                if($ship instanceof Mine && !$ship->isDestroyed()) $this->areMinesPresent = true;
+                if($ship instanceof Mine && !$ship->isDestroyed()) $this->areMinesPresent = true; //Marks that ENEMY mines are present.
             }                
         }
     }
