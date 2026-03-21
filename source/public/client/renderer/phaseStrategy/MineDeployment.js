@@ -229,12 +229,12 @@ window.MineDeployment = (function () {
         var classNames = Object.keys(groups);
         classNames.sort();
 
-        // Default: 1 per class, up to validHexes limit
+        // Default: 0 per class, up to validHexes limit
         var initialTotal = 0;
         for (var j = 0; j < classNames.length; j++) {
             var g = groups[classNames[j]];
             if (initialTotal < validHexes.length && g.max > 0) {
-                g.current = 1;
+                g.current = 0;
                 initialTotal++;
             } else {
                 g.current = 0; // Area too small, starts at 0
