@@ -1471,28 +1471,28 @@ window.gamedata = {
 
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var minePoints = 0;
-		var uniqueMineClasses = [];
+		var unitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 
 			if (gamedata.ships[i].mine) {
 				let mCount = gamedata.ships[i].bulkBuy || 1;
-				minePoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+				unitPoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
+					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		if (minePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (unitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			let totalMineCost = (100 + minePoints) * surchargeMultiplier;
-			points += Math.round(totalMineCost);
+			let totalUnitCost = (100 + unitPoints) * surchargeMultiplier;
+			points += Math.round(totalUnitCost);
 		}
 
 		var maxPoints = selectedSlot.points;
@@ -1948,7 +1948,7 @@ window.gamedata = {
 						+ shipDisplayName + '</span><span class="pointcost">'
 						+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-					let buyHandler = ship.mine ? this.buyMine.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
+					let buyHandler = ship.mine ? this.buyBulk.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
 					$(".addship", h).on("click", buyHandler);
 					$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, ship.phpclass, faction, ship.id, false));
 
@@ -1972,7 +1972,7 @@ window.gamedata = {
 							+ shipDisplayName + '</span><span class="pointcost">'
 							+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-						let buyHandlerV = shipV.mine ? this.buyMine.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
+						let buyHandlerV = shipV.mine ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
 						$(".addship", h).on("click", buyHandlerV);
 						$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, shipV.phpclass, faction, ship.id, false));
 
@@ -2263,7 +2263,7 @@ window.gamedata = {
 		}
 	},
 
-	buyMine: function buyMine(shipclass) {
+	buyBulk: function buyBulk(shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		var slotid = gamedata.selectedSlot;
@@ -2275,10 +2275,10 @@ window.gamedata = {
 
 		$(".confirm").remove();
 
-		window.confirm.showBuyMine(ship, gamedata.doBuyMine);
+		window.confirm.showBuyBulk(ship, gamedata.doBuyBulk);
 	},
 
-	doBuyMine: function doBuyMine(results, shipclass) {
+	doBuyBulk: function doBuyBulk(results, shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		ship.userid = gamedata.thisplayer;
@@ -2287,7 +2287,7 @@ window.gamedata = {
 		ship.bulkBuy = parseInt(results.quantity);
 
 		// Calculate total cost stringently to afford check
-		let totalMineCost = ship.pointCost * ship.bulkBuy;
+		let totalUnitCost = ship.pointCost * ship.bulkBuy;
 
 		ship.pointCostEnh = 0;
 		ship.pointCostEnh2 = 0;
@@ -2312,44 +2312,44 @@ window.gamedata = {
 			target = $(".selectAmount.shpenh" + enhNo);
 		}
 
-		totalMineCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
+		totalUnitCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
 
-		// Calculate cost of the fleet WITH this new mine order
+		// Calculate cost of the fleet WITH this new Unit order
 		var slotid = gamedata.selectedSlot;
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var existingMinePoints = 0;
-		var uniqueMineClasses = [];
+		var existingUnitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 			if (gamedata.ships[i].mine) {
-				existingMinePoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+				existingUnitPoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
+					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		// Add new mine to totals
-		existingMinePoints += totalMineCost;
-		if (!uniqueMineClasses.includes(ship.shipClass)) {
-			uniqueMineClasses.push(ship.shipClass);
+		// Add new unit to totals
+		existingUnitPoints += totalUnitCost;
+		if (!uniqueUnitClasses.includes(ship.shipClass)) {
+			uniqueUnitClasses.push(ship.shipClass);
 		}
 
-		if (existingMinePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (existingUnitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			points += Math.round((100 + existingMinePoints) * surchargeMultiplier);
+			points += Math.round((100 + existingUnitPoints) * surchargeMultiplier);
 		}
 
 		var maxPoints = selectedSlot.points;
 
 		if (maxPoints != -1 && points > maxPoints) {
 			$(".confirm").remove();
-			window.confirm.error("You cannot afford that Mine purchase!", function () { });
+			window.confirm.error("You cannot afford that Unit purchase!", function () { });
 			return;
 		}
 
@@ -2358,7 +2358,7 @@ window.gamedata = {
 		$(".confirm").remove();
 		gamedata.updateFleet(ship);
 		gamedata.calculateFleet();
-		gamedata.drawMapPreview(); // Redraw map to show minefields
+		gamedata.drawMapPreview(); // Redraw map to show unitfields
 	},
 
 	buyShip: function buyShip(shipclass) {
@@ -12627,8 +12627,8 @@ window.confirm = {
 
     getTotalCost: function getTotalCost() {
 
-        if ($(".confirm #mineQuantity").length > 0) {
-            return confirm.getTotalCostMine();
+        if ($(".confirm #bulkQuantity").length > 0) {
+            return confirm.getTotalCostBulk();
         }
 
         var flightSize = $(".fighterAmount").html();
@@ -12680,9 +12680,9 @@ window.confirm = {
         totalCostSpan.html(totalCost);
     },
 
-    getTotalCostMine: function getTotalCostMine() {
+    getTotalCostBulk: function getTotalCostBulk() {
         // Fallback to generic .totalUnitCostAmount for safety if the class isn't strictly defined
-        var baseCostTarget = $(".confirm .totalMineCostAmount").length ? $(".confirm .totalMineCostAmount") : $(".confirm .totalUnitCostAmount");
+        var baseCostTarget = $(".confirm .totalBulkCostAmount").length ? $(".confirm .totalBulkCostAmount") : $(".confirm .totalUnitCostAmount");
         var baseCost = parseFloat(baseCostTarget.data("baseCost")) || parseFloat(baseCostTarget.first().data("value"));
 
         //add enhancement cost	   
@@ -12696,23 +12696,23 @@ window.confirm = {
             target = $(".confirm .selectAmount.shpenh" + enhNo);
         }
 
-        var costPerMine = baseCost + enhCost;
-        var totalCost = costPerMine;
+        var costPerUnit = baseCost + enhCost;
+        var totalCost = costPerUnit;
 
-        // If buying mines, multiply final total by designated quantity
-        var mineQuantity = parseInt($(".confirm #mineQuantity").val());
-        if (!isNaN(mineQuantity) && mineQuantity > 0) {
-            totalCost *= mineQuantity;
+        // If buying units in bulk, multiply final total by designated quantity
+        var bulkQuantity = parseInt($(".confirm #bulkQuantity").val());
+        if (!isNaN(bulkQuantity) && bulkQuantity > 0) {
+            totalCost *= bulkQuantity;
         }
 
-        // Update specifically the "Cost Per Mine" and "Total Unit Cost"
-        var costPerMineSpan = $(".confirm .costPerMineAmount");
-        if (costPerMineSpan.length) {
-            costPerMineSpan.data("value", costPerMine);
-            costPerMineSpan.html(costPerMine);
+        // Update specifically the "Cost Per Unit" and "Total Unit Cost"
+        var costPerUnitSpan = $(".confirm .costPerUnitSpan");
+        if (costPerUnitSpan.length) {
+            costPerUnitSpan.data("value", costPerUnit);
+            costPerUnitSpan.html(costPerUnit);
         }
 
-        var totalCostSpan = $(".confirm .totalMineCostAmount");
+        var totalCostSpan = $(".confirm .totalBulkCostAmount");
         if (totalCostSpan.length) {
             totalCostSpan.data("value", totalCost); // This updates the DOM data
             totalCostSpan.html(totalCost);
@@ -13736,7 +13736,7 @@ window.confirm = {
         a.fadeIn(250);
     },
 
-    showBuyMine: function showBuyMine(ship, callback) {
+    showBuyBulk: function showBuyBulk(ship, callback) {
         var e = $(this.whtml);
 
         var totalTemplate = $(".totalUnitCost");
@@ -13744,11 +13744,11 @@ window.confirm = {
 
         var pointCost = ship.pointCost;
 
-        $(".totalUnitCostText", totalItem).html("Cost Per Mine");
-        var perMineAmountSpan = $(".totalUnitCostAmount", totalItem);
-        perMineAmountSpan.html(pointCost);
-        perMineAmountSpan.data("value", pointCost);
-        perMineAmountSpan.addClass("costPerMineAmount");
+        $(".totalUnitCostText", totalItem).html("Cost Per Unit");
+        var perUnitAmountSpan = $(".totalUnitCostAmount", totalItem);
+        perUnitAmountSpan.html(pointCost);
+        perUnitAmountSpan.data("value", pointCost);
+        perUnitAmountSpan.addClass("costPerUnitSpan");
 
         $(totalItem).show();
 
@@ -13808,32 +13808,32 @@ window.confirm = {
         }
 
         if (ship.enhancementOptions && ship.enhancementOptions.length > 0) {
-            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL mines in this purchase).</label></div>').prependTo(e);
+            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL units in this purchase).</label></div>').prependTo(e);
         }
 
         // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Mine Purchase Cost");
+        $(".totalUnitCostText", totalItem).html("Total Unit Purchase Cost");
         var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
         totalCostAmountSpan.html(ship.pointCost);
         totalCostAmountSpan.data("value", ship.pointCost);
         totalCostAmountSpan.data("baseCost", ship.pointCost);
-        totalCostAmountSpan.addClass("totalMineCostAmount");
+        totalCostAmountSpan.addClass("totalBulkCostAmount");
         $(totalItem).show();
 
 
-        // Mine Settings Fields
-        var html = '<div class="mineSettings">';
-        html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
-        html += '<label>Quantity: <input type="number" id="mineQuantity" value="10" min="1" style="width: 50px; text-align: center;"></label><br>';
+        // Unit Settings Fields
+        var html = '<div class="unitSettings">';
+        //html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
+        html += '<label>Quantity: <input type="number" id="bulkQuantity" value="1" min="1" style="width: 50px; text-align: center;"></label><br>';
         html += '</div>';
 
         var settingsBlock = $(html).prependTo(e);
 
         // Add mousewheel scroll support to the input field
-        $('#mineQuantity', settingsBlock).on('wheel', function (e) {
+        $('#bulkQuantity', settingsBlock).on('wheel', function (e) {
             e.preventDefault();
             var step = parseInt($(this).attr('step')) || 1;
             var val = parseInt($(this).val()) || 1;
@@ -13849,14 +13849,14 @@ window.confirm = {
             confirm.getTotalCost();
         });
 
-        $('#mineQuantity', settingsBlock).on('input', function () {
+        $('#bulkQuantity', settingsBlock).on('input', function () {
             confirm.getTotalCost();
         });
 
         $('<label>Configure ' + ship.shipClass + ' Purchase:</label><br>').prependTo(e);
 
         $(".confirmok", e).on("click", function () {
-            var q = parseInt($('#mineQuantity', e).val());
+            var q = parseInt($('#bulkQuantity', e).val());
 
             if (isNaN(q) || q < 1) q = 1;
 
@@ -29975,11 +29975,11 @@ CombatTransporter.prototype.constructor = CombatTransporter;
 
 var MicroJumpSystem = function MicroJumpSystem(json, ship) {
     Weapon.call(this, json, ship);
-    this.defensiveType = "Blink";
+    //this.defensiveType = "Blink";
 };
 MicroJumpSystem.prototype = Object.create(Weapon.prototype);
 MicroJumpSystem.prototype.constructor = MicroJumpSystem;
-
+/*
 MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, weapon) {
     if (weapon.ballistic && this.fireOrders.length > 0 && gamedata.gamephase == 3) {
         var fireOrder = this.fireOrders[0];
@@ -30003,7 +30003,7 @@ MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, 
     }
 
 };
-
+*/
 MicroJumpSystem.prototype.isPosOnSpecialArc = function (shooter, target) {
     var shooterPos = shipManager.getShipPosition(shooter);
     var targetCompassHeading = mathlib.getCompassHeadingOfPoint(shooterPos, target);

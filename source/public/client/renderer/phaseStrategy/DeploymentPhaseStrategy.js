@@ -18,6 +18,9 @@ window.DeploymentPhaseStrategy = function () {
 
         this.deploymentSprites = createSlotSprites(gamedata, webglScene.scene);
 
+        // Give MineDeployment access to deployment sprites for validation
+        if (window.MineDeployment) window.MineDeployment.setDeploymentSprites(this.deploymentSprites);
+
         combatLog.onTurnStart();
         infowindow.informPhase(5000, null);
         this.selectFirstOwnShipOrActiveShip();
@@ -47,6 +50,11 @@ window.DeploymentPhaseStrategy = function () {
 
     DeploymentPhaseStrategy.prototype.deactivate = function () {
         PhaseStrategy.prototype.deactivate.call(this);
+        // Clean up mine deployment mode and clear sprite reference
+        if (window.MineDeployment) {
+            window.MineDeployment.deactivate();
+            window.MineDeployment.setDeploymentSprites(null);
+        }
         this.deploymentSprites.forEach(function (icon) {
             icon.ownSprite.hide();
             icon.enemySprite.hide();
@@ -467,6 +475,16 @@ window.DeploymentPhaseStrategy = function () {
         return false;
         */
     }
+
+    // Expose mine deployment validation globally for MineDeployment.js
+    window.validateMineDeploymentHex = function(hex, deploymentSprites) {
+        return validateMineDeployment(hex, null, deploymentSprites);
+    };
+
+    // Expose full-deployment validation so MineDeployment.js can gate the commit button correctly
+    window.validateAllDeploymentGlobal = function(gamedataRef, deploymentSprites) {
+        return validateAllDeployment(gamedataRef, deploymentSprites);
+    };
 
     return DeploymentPhaseStrategy;
 }();
