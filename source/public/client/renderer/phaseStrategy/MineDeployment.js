@@ -61,7 +61,7 @@ window.MineDeployment = (function () {
 
         // Prevent native browser scrolling/selecting (which causes inverted drags)
         e.preventDefault();
-        
+
         // Do NOT stopPropagation here! We want the canvas to register the initially 'down' 
         // in case this ends up being a tiny click on a ship rather than a drag.
     }
@@ -480,6 +480,11 @@ window.MineDeployment = (function () {
         }
 
         _showToast(minesToDeploy.length + ' mine(s) deployed. You can still move them individually.');
+
+        // Unselect the currently selected mine (as requested)
+        if (strategy && strategy.selectedShip && typeof strategy.deselectShip === 'function') {
+            strategy.deselectShip(strategy.selectedShip);
+        }
     }
 
     /**
