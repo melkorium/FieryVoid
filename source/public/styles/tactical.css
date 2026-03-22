@@ -1400,7 +1400,7 @@ body {
 }
 
 #mineDeployBtn.active {
-    background: rgb(50, 205, 50, 0.40);
+    background: rgb(50, 205, 50, 0.30);
     border-color: limegreen;
     color: white;
     box-shadow: 0 0 8px rgba(60, 200, 110, 0.35);
