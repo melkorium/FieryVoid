@@ -25,6 +25,7 @@ class dewMineTerrainMissile extends Mine{
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
         $this->notes = 'Has IFF System';
+        $this->mineType = 'DEW';         
 
         $this->IFFSystem = true; //Comes with IFF as standard
        		    	    	    	    

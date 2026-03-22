@@ -2927,6 +2927,7 @@ class Mine extends OSAT{
     public $mine = true;
     public $canvasSize = 80;  
     public $trueStealth = true;
+    public $mineType = ''; //Captor, DEW or Proximity
     public $signature = 0;
     public $activated = false;
     public $detectedSignature = -1; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
