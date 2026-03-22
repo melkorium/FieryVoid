@@ -315,22 +315,34 @@ window.gamedata = {
                     }
                 }
 
-                var unsetMines = false;
-                if (mines) {
+                if (mines && mines.length > 0) {
+                    var unsetClasses = {};
+
                     for (var i = 0; i < mines.length; i++) {
                         var mine = mines[i];
+                        var hasUnset = false;
                         for (var j in mine.systems) {
                             var sys = mine.systems[j];
                             if (sys.name == "CaptorMine" || sys.name == "ProximityMine" || sys.name == "MineControllerDEW") {
-
                                 if (!sys.mineSet) {
-                                    unsetMines = true;
-                                    html += "You have not set ranges for all your Mines, they will default to their maximum range.<br>"
+                                    hasUnset = true;
                                     break;
                                 }
                             }
                         }
-                        if (unsetMines) break; // break outer loop                    
+
+                        if (hasUnset) {
+                            unsetClasses[mine.shipClass] = true;
+                        }
+                    }
+
+                    var classList = Object.keys(unsetClasses);
+                    if (classList.length > 0) {
+                        html += "You have not set ranges for the following types of mine:";
+                        for (var c = 0; c < classList.length; c++) {
+                            html += "<br><span class='ship-name'>" + classList[c] + "</span>";
+                        }
+                        html += "<br>They will default to their maximum range.<br>";
                     }
                 }
             }
@@ -1564,7 +1576,7 @@ getActiveShipName: function getActiveShipName() {
                 var mineBtn = document.createElement('button');
                 mineBtn.id = 'mineDeployBtn';
                 //mineBtn.textContent = '💣  Deploy Minefield  💣';
-                mineBtn.textContent = 'Deploy Minefield';                
+                mineBtn.textContent = 'Deploy Minefield';
                 if (window.MineDeployment && window.MineDeployment.isActive()) {
                     mineBtn.classList.add('active');
                 }

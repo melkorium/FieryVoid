@@ -59,8 +59,11 @@ window.MineDeployment = (function () {
         _rectEl.style.display = 'block';
         _updateRect();
 
+        // Prevent native browser scrolling/selecting (which causes inverted drags)
         e.preventDefault();
-        e.stopPropagation();
+        
+        // Do NOT stopPropagation here! We want the canvas to register the initially 'down' 
+        // in case this ends up being a tiny click on a ship rather than a drag.
     }
 
     function _onPointerMove(e) {
@@ -75,6 +78,7 @@ window.MineDeployment = (function () {
         _updateRect();
 
         e.preventDefault();
+        e.stopPropagation(); // Stop propagation on move so the WebGL map doesn't pan under us.
     }
 
     function _onPointerUp(e) {
@@ -89,12 +93,17 @@ window.MineDeployment = (function () {
         var dy = Math.abs(_currentY - _startY);
 
         // Ignore accidental tiny drags (treat as clicks — don't open dialog)
-        if (dx < 8 && dy < 8) return;
-
-        _onAreaSelected();
+        if (dx < 8 && dy < 8) {
+            // It's a click! Deactivate mine deployment so they can naturally click off to a ship.
+            // Do NOT stop propagation so the game canvas 'hears' the pointerup and interprets the click!
+            deactivate();
+            return;
+        }
 
         e.preventDefault();
-        e.stopPropagation();
+        e.stopPropagation(); // Stop propagation on a real drag so the map ignores it completely.
+
+        _onAreaSelected();
     }
 
     function _updateRect() {
@@ -262,6 +271,7 @@ window.MineDeployment = (function () {
                 '<button class="mine-deploy-btn-sm btn-minus" data-class="' + gName + '">&#8722;</button>' +
                 '<input type="text" class="mine-deploy-count" id="count_' + safeId + '" data-class="' + gName + '" value="' + grp.current + '">' +
                 '<button class="mine-deploy-btn-sm btn-plus" data-class="' + gName + '">&#43;</button>' +
+                '<button class="mine-deploy-btn-sm btn-max" data-class="' + gName + '">Max (' + grp.max + ')</button>' +
                 '</div>' +
                 '</div>';
         }
@@ -310,6 +320,17 @@ window.MineDeployment = (function () {
                     groups[cName].current++;
                     _updateDisplay(cName);
                 }
+            });
+        }
+
+        var maxBtns = dialog.querySelectorAll('.btn-max');
+        for (var maxIdx = 0; maxIdx < maxBtns.length; maxIdx++) {
+            maxBtns[maxIdx].addEventListener('click', function (e) {
+                var cName = e.target.getAttribute('data-class');
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = Math.min(groups[cName].max, validHexes.length - currentTotalExceptThis);
+                groups[cName].current = Math.max(0, maxAllowed);
+                _updateDisplay(cName);
             });
         }
 
