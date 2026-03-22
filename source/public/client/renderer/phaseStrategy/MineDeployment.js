@@ -95,8 +95,29 @@ window.MineDeployment = (function () {
         // Ignore accidental tiny drags (treat as clicks — don't open dialog)
         if (dx < 8 && dy < 8) {
             // It's a click! Deactivate mine deployment so they can naturally click off to a ship.
-            // Do NOT stop propagation so the game canvas 'hears' the pointerup and interprets the click!
             deactivate();
+
+            // Fire the click artificially straight into the Strategy pipeline as gracefully requested!
+            var strategy = window.webglScene && window.webglScene.phaseDirector && window.webglScene.phaseDirector.phaseStrategy;
+            if (strategy && typeof strategy.onClickEvent === 'function') {
+                var pageContainer = document.getElementById('pagecontainer');
+                var rect = pageContainer.getBoundingClientRect();
+                var viewPos = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                var gamePos = window.coordinateConverter.fromViewPortToGame(viewPos);
+                var hexPos = window.coordinateConverter.fromGameToHex(gamePos, true);
+
+                var payload = {
+                    view: viewPos,
+                    game: gamePos,
+                    hex: hexPos,
+                    button: e.button !== undefined ? e.button : 0
+                };
+
+                strategy.onClickEvent(payload);
+            }
             return;
         }
 
@@ -578,7 +599,9 @@ window.MineDeployment = (function () {
             window.webglScene.phaseDirector &&
             window.webglScene.phaseDirector.phaseStrategy;
 
-        strategy.deselectShip(strategy.selectedShip);
+        if (strategy && strategy.selectedShip && typeof strategy.deselectShip === 'function') {
+            strategy.deselectShip(strategy.selectedShip);
+        }
     }
 
     function isActive() {
