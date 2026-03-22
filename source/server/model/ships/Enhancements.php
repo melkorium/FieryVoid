@@ -262,7 +262,7 @@ class Enhancements{
   	$enhID = 'IMP_ACC';
   	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		$enhName = 'Improved Accuracy';
-		$enhLimit = 1; //Only ever need 1
+		$enhLimit = 5; 
 		$enhPrice = 0;
 		if($ship->mineType && $ship->mineType == 'Captor'){
 			$enhPrice = ceil($ship->pointCost * 0.1);		
@@ -378,7 +378,7 @@ class Enhancements{
   	$enhID = 'IMP_SIGN';
   	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		$enhName = 'Improved Signature';
-		$enhLimit = 1; //Only ever need 1
+		$enhLimit = 5; 
 		$enhPrice = max(4, $ship->signature + 2); //New sign (+1) +1.	Minimum 4pts.	  
 		$enhPriceStep = 0; //flat rate
 		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
