@@ -90,10 +90,10 @@ class Enhancements{
 		case 'Mines':
 			Enhancements::blockStandardEnhancements($unit);
 			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';
-			$unit->enhancementOptionsEnabled[] = 'IMP_SIGN';
+			$unit->enhancementOptionsEnabled[] = 'IMPR_SIGN';
 			
 			if($unit->mineType && $unit->mineType == 'Captor' || $unit->mineType == 'DEW'){
-				$unit->enhancementOptionsEnabled[] = 'IMP_ACC';				
+				$unit->enhancementOptionsEnabled[] = 'IMPR_ACC';				
 			}			
 
 			break;	  			
@@ -259,7 +259,7 @@ class Enhancements{
 		}
 
   	//Improve Accuracy rating of Mines		
-  	$enhID = 'IMP_ACC';
+  	$enhID = 'IMPR_ACC';
   	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		$enhName = 'Improved Accuracy';
 		$enhLimit = 5; 
@@ -375,7 +375,7 @@ class Enhancements{
 	  }	  
 	  
   	//Improve Signature rating of Mines		
-  	$enhID = 'IMP_SIGN';
+  	$enhID = 'IMPR_SIGN';
   	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		$enhName = 'Improved Signature';
 		$enhLimit = 5; 
@@ -1770,7 +1770,7 @@ class Enhancements{
 						$ship->setIFFSystem();
 						break;
 
-					case 'IMP_ACC': //Improved Accuracy for Mines
+					case 'IMPR_ACC': //Improved Accuracy for Mines
 						foreach ($ship->systems as $system){
 							if ($system instanceof Weapon){
 								if($system->fireControl[0] !== null) $system->fireControl[0] += 1;
@@ -1843,7 +1843,7 @@ class Enhancements{
 						}
 						break;
 
-					case 'IMP_SIGN': //Improved Signature for Mines
+					case 'IMPR_SIGN': //Improved Signature for Mines
 						//Mark true
 						$ship->signature += 1;
 						if($ship->detectedSignature !== -1) $ship->detectedSignature += 1;

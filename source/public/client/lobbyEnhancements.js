@@ -151,7 +151,7 @@ window.lobbyEnhancements = {
 						ship.iffEnh = true;
 						break;
 
-					case 'IMP_ACC':
+					case 'IMPR_ACC':
 						if (!ship.impAccEnh) {
 							/*for (let system of ship.systems) {
 								if(system.weapon){
@@ -241,7 +241,7 @@ window.lobbyEnhancements = {
 						ship.sensEnh = true;
 						break;
 
-					case 'IMP_SIGN':
+					case 'IMPR_SIGN':
 						if (!ship.signEnh) {
 							ship.signature += 1;
 							if(ship.detectedSignature !== -1) ship.detectedSignature += 1;
