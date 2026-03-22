@@ -476,8 +476,8 @@ class MineStealth extends ShipSystem implements SpecialAbility{
     
     public function setSystemDataWindow($turn){
 			$ship = $this->getUnit();	
-			//$this->data["Special"] = "<br>Mine signature: " . $ship->signature;
-            $this->data["Special"] = "<br>Ship is invisible to enemies until reveals itself by attacking or is detected.";
+			$this->data["Special"] = "<br>Mine signature: " . $ship->signature;
+            $this->data["Special"] .= "<br>Ship is invisible to enemies until reveals itself by attacking or is detected.";
             $this->data["Special"] .= "<br>Once detected you can scan the mine to reveal information about its type etc.";			
 			$this->data["Special"] .= "<br>Can be detected by enemy ships during Movement Phase if they have greater Detect Mines EW than Distance + Signature.";
 			$this->data["Special"] .= "<br>See Fiery Void FAQ for more details on Mine detection.";														

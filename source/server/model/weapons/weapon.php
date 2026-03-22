@@ -298,7 +298,7 @@ class Weapon extends ShipSystem
 			$strippedSystem->overloadshots = $this->overloadshots;
 			$strippedSystem->extraoverloadshots = $this->extraoverloadshots;
 			$strippedSystem->extraoverloadshotsArray = $this->extraoverloadshotsArray;
-			$strippedSystem->fireOrders = $this->fireOrders;
+			$strippedSystem->fireOrders = $this->fireOrders;         
 			
 			if(isset($this->ammunition)){
 				$strippedSystem->ammunition = $this->ammunition;
@@ -343,7 +343,8 @@ class Weapon extends ShipSystem
 		}
         if($ship instanceof Mine && $ship->detectedSignature !== -1){ //Need to send updated Fire Control values for DEW mine weapons.
 			$strippedSystem->fireControl = $this->fireControl;
-			$strippedSystem->fireControlArray = $this->fireControlArray;            
+			$strippedSystem->fireControlArray = $this->fireControlArray;  
+			$strippedSystem->autoFireOnly = $this->autoFireOnly;                         
         }				
 			
 		}
