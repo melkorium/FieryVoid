@@ -4,7 +4,7 @@ class dewMineTerrainMissile extends Mine{
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 30;
+		$this->pointCost = 35;
 		$this->faction = "Terrain";
         $this->phpclass = "dewMineTerrainMissile";
         $this->imagePath = "img/ships/korlyan_mine.png";
@@ -24,11 +24,18 @@ class dewMineTerrainMissile extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
-        $this->IFFSystem = true;
+        $this->notes = 'Has IFF System';
+
+        $this->IFFSystem = true; //Comes with IFF as standard
        		    	    	    	    
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	
-		$this->enhancementOptionsDisabled[] = 'IFF_SYS'; //Already comes equipped with one.
+		
+		// Remove IFF_SYS from enabled array because it's added by the 'Mines' set, but this unit already has one.
+		$iffIndex = array_search('IFF_SYS', $this->enhancementOptionsEnabled);
+		if ($iffIndex !== false) {
+			unset($this->enhancementOptionsEnabled[$iffIndex]);
+		}
         
 	    //ammo magazine itself (AND its missile options)
 	    $ammoMagazine = new AmmoMagazine(4); //pass magazine capacity 
