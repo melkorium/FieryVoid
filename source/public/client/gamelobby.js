@@ -137,6 +137,9 @@ window.gamedata = {
 			/*case 'Orieni Imperium (defenses)':
 			  powerRating = 'Tier 1; Major Faction';
 			  break;*/
+			/*case 'Great Crusade Orieni Imperium':
+				powerRating = 'Tier 1; Custom Faction';
+				break;*/
 			case "Pak'ma'ra Confederacy":
 				powerRating = 'Tier 2; League Faction';
 				break;

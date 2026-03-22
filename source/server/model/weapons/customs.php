@@ -3032,6 +3032,7 @@ class GromeHvyRailgun extends Weapon{
         public $name = "WarLance";
         public $displayName = "War Lance";
         public $animationColor = array(220, 100, 11);
+        public $iconPath = "WarLance.png";
 
         public $loadingtime = 4;
 
@@ -3065,6 +3066,7 @@ class GromeHvyRailgun extends Weapon{
         public $name = "LightLaserLance";
         public $displayName = "Light Laaser Lance";
         public $animationColor = array(220, 100, 11);
+        public $iconPath = "LightLaserLance.png";
 
         public $loadingtime = 2;
 
@@ -3155,6 +3157,7 @@ class GromeHvyRailgun extends Weapon{
     {
         public $name = "HeavyGaussRifle";
         public $displayName = "Heavy Gauss Rifle";
+        public $iconPath = "HeavyGaussRifle.png";
 
         public $loadingtime = 3;        
         public $rangePenalty = 0.33;

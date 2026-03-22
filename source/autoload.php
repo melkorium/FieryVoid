@@ -3584,6 +3584,11 @@ spl_autoload_register(
 						'gquan_wi' => '/server/model/ships/whatif/gquan_WI.php',	
 						'vorchan_wi' => '/server/model/ships/whatif/vorchan_WI.php',
 
+
+                        //Great Crusade Orieni
+//						'prophetgcam' => '/server/model/ships/GreatCrusadeOrieni/prophetGCAM.php',	
+
+
 						
 				// For the future
 				'hvyassaultlaser' => '/server/model/weapons/lasers.php',
