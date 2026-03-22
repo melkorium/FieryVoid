@@ -130,6 +130,8 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data["Max Range"] = this.range;			
 	}
 
+	this.data["Fire control (fighter/med/cap)"] = this.fireControl[0]*5 + '/' + this.fireControl[1]*5 + '/' + this.fireControl[2]*5;
+
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
 		range = this.allocatedRanges[currType];

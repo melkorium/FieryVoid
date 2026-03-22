@@ -6895,7 +6895,7 @@ class MineControllerDEW extends ShipSystem{
 		$this->ballisticWeapon = $ballistic;
 
         parent::__construct($armour, $maxhealth, $powerReq, $range);
-    }
+    }				
 
     public function setSystemDataWindow($turn){
             $this->data["Max Range"] = $this->rangeSetting;
@@ -6978,9 +6978,9 @@ class MineControllerDEW extends ShipSystem{
 
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon  && $weapon->name !== "RammingAttack"){
-					$weapon->fireControl[0] = $this->accuracy;
-					$weapon->fireControl[1] = $this->accuracy;
-					$weapon->fireControl[2] = $this->accuracy;
+					if($weapon->fireControl[0] !== null) $weapon->fireControl[0] = $this->accuracy;
+					if($weapon->fireControl[1] !== null) $weapon->fireControl[1] = $this->accuracy;
+					if($weapon->fireControl[2] !== null) $weapon->fireControl[2] = $this->accuracy;
 					$weapon->range = $this->rangeSetting;
 					$weapon->autoFireOnly = true;									
 				}

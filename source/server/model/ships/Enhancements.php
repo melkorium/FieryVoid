@@ -90,7 +90,12 @@ class Enhancements{
 		case 'Mines':
 			Enhancements::blockStandardEnhancements($unit);
 			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';
-			$unit->enhancementOptionsEnabled[] = 'IMP_SIGN';								
+			$unit->enhancementOptionsEnabled[] = 'IMP_SIGN';
+			
+			if($unit->mineType && $unit->mineType == 'Captor' || $unit->mineType == 'DEW'){
+				$unit->enhancementOptionsEnabled[] = 'IMP_ACC';				
+			}			
+
 			break;	  			
 	
 		case 'ThirdspaceShip':
@@ -252,7 +257,22 @@ class Enhancements{
 		  $enhPriceStep = 0; //flat rate
 		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		}
-		
+
+  	//Improve Accuracy rating of Mines		
+  	$enhID = 'IMP_ACC';
+  	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+		$enhName = 'Improved Accuracy';
+		$enhLimit = 1; //Only ever need 1
+		$enhPrice = 0;
+		if($ship->mineType && $ship->mineType == 'Captor'){
+			$enhPrice = ceil($ship->pointCost * 0.1);		
+		}else{
+			$enhPrice = ceil($ship->pointCost * 0.2);	//DEW mines	
+		}		
+		$enhPriceStep = 0; //flat rate
+		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+	}			
+
 		    
 	  //Improved Engine: +1 Thrust, cost: 12+4/turn cost, round up, limit: up to +50%
 	  $enhID = 'IMPR_ENG';
@@ -1749,7 +1769,18 @@ class Enhancements{
 						//Mark true
 						$ship->setIFFSystem();
 						break;
-								
+
+					case 'IMP_ACC': //Improved Accuracy for Mines
+						foreach ($ship->systems as $system){
+							if ($system instanceof Weapon){
+								if($system->fireControl[0] !== null) $system->fireControl[0] += 1;
+								if($system->fireControl[1] !== null) $system->fireControl[1] += 1;
+								if($system->fireControl[2] !== null) $system->fireControl[2] += 1;							
+							}
+						}								
+
+						break;								
+
 					case 'IMPR_ENG': //Improved Engine: +1 Engine output (strongest Engine), may be taken multiple times
 						$strongestSystem = null;
 						$strongestValue = -1;	  

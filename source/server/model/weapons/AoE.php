@@ -271,7 +271,7 @@ class CaptorMine extends Weapon{
     public $ballistic = true;
     public $hidetarget = true;
     public $canOffline = true;
-    public $fireControlMod = array(0, 0, 0); //MODIFIER for weapon fire control!        
+    public $fireControl = array(0, 0, 0); //MODIFIER for weapon fire control!        
     public $damageType = 'Standard';//mode of dealing damage
     public $doNotIntercept = false; //for attacks that are not subject to interception at all - like fields and ramming
     public $uninterceptable = false;
@@ -306,7 +306,7 @@ class CaptorMine extends Weapon{
     }
 
     public function setSystemDataWindow($turn){
-            $this->data["Max Range"] = $this->range;
+            $this->data["Max Range"] = $this->range;        
             foreach($this->allocatedRanges as $shipType=>$range){
                 $this->data[' - '.$shipType.' range'] =  $range;
             }         
@@ -610,7 +610,8 @@ class CaptorMine extends Weapon{
 
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
-        $strippedSystem->allocatedRanges = $this->allocatedRanges; 			                             
+        $strippedSystem->allocatedRanges = $this->allocatedRanges; 
+        $strippedSystem->range = $this->range; 	 			                             
         return $strippedSystem;
     }
 	    

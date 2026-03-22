@@ -151,6 +151,20 @@ window.lobbyEnhancements = {
 						ship.iffEnh = true;
 						break;
 
+					case 'IMP_ACC':
+						if (!ship.impAccEnh) {
+							/*for (let system of ship.systems) {
+								if(system.weapon){
+									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
+									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
+									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
+								}																	
+							}*/	
+							ship.notes += "<br>Improved Accuracy";
+						}
+						ship.impAccEnh = true;
+						break;						
+
 					case 'IMPR_ENG':
 						if (!ship.engEnh) {
 							let strongestEng = null;
@@ -232,7 +246,7 @@ window.lobbyEnhancements = {
 							ship.signature += 1;
 							if(ship.detectedSignature !== -1) ship.detectedSignature += 1;
 						}
-						ship.iffEnh = true;
+						ship.signEnh = true;
 						break;
 
 					case 'IMPR_SR':

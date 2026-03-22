@@ -341,7 +341,7 @@ class Weapon extends ShipSystem
 				}		
 			}
 		}
-        if($ship instanceof Mine && $ship->detectedSignature !== -1){ //Need to send updated Fire Control values for DEW mine weapons.
+        if($ship instanceof Mine && ($ship->mineType == 'DEW' || $ship->mineType == 'Captor')){ //Need to send updated Fire Control values for DEW/Captor mine weapons.
 			$strippedSystem->fireControl = $this->fireControl;
 			$strippedSystem->fireControlArray = $this->fireControlArray;  
 			$strippedSystem->autoFireOnly = $this->autoFireOnly;                         
