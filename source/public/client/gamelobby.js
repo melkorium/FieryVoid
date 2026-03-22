@@ -373,12 +373,14 @@ window.gamedata = {
 		var displayType = ship.shipClass;
 		var displayName = ship.name;
 
-		if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+		if (ship.mine && ship.bulkBuy) {
 			displayCost = ((ship.pointCost + (ship.pointCostEnh || 0) + (ship.pointCostEnh2 || 0)) * ship.bulkBuy);
-			displayName = ship.name + ' (' + ship.bulkBuy + ')';
+			if (ship.bulkBuy > 1) {
+				displayName = ship.name + ' (' + ship.bulkBuy + ')';
+			}
 		}
 
-		if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+		if (ship.mine && ship.bulkBuy) {
 			var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 				'<span class="shipname name">' + displayName + '</span>' +
 				'<span class="boughtShiptype">' + displayType + '</span>' +
@@ -854,7 +856,7 @@ window.gamedata = {
 
 		var calcPoints = selectedSlot.points;
 		if (calcPoints == -1) { //If unlimited points, assess against points spent so far.
-			calcPoints = totalPointsSpent;			
+			calcPoints = totalPointsSpent;
 		}
 
 		checkResult = "Total fleet limit: " + (calcPoints == -1 ? "Unlimited" : calcPoints) + "<br><br>";
@@ -1380,12 +1382,14 @@ window.gamedata = {
 			var displayType = ship.shipClass;
 			var displayName = ship.name;
 
-			if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+			if (ship.mine && ship.bulkBuy) {
 				displayCost = ((ship.pointCost + (ship.pointCostEnh || 0) + (ship.pointCostEnh2 || 0)) * ship.bulkBuy);
-				displayName = ship.name + ' (' + ship.bulkBuy + ')';
+				if (ship.bulkBuy > 1) {
+					displayName = ship.name + ' (' + ship.bulkBuy + ')';
+				}
 			}
 
-			if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+			if (ship.mine && ship.bulkBuy) {
 				var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 					'<span class="shipname name">' + displayName + '</span>' +
 					'<span class="boughtShiptype">' + displayType + '</span>' +
@@ -1440,6 +1444,7 @@ window.gamedata = {
 			}
 		});
 
+		//if (ship.mine) {
 		$("#fleet").off("click", ".editship").on("click", ".editship", function (e) {
 			var id = $(this).closest(".ship").data("shipindex");
 			for (var i in gamedata.ships) {
@@ -1459,6 +1464,7 @@ window.gamedata = {
 				}
 			}
 		});
+		//}
 
 		gamedata.calculateFleet();
 	},
@@ -2301,7 +2307,7 @@ window.gamedata = {
 				if (!ship.enhancementOptions[enhNo][6]) { //this is an actual enhancement (as opposed to option) - note value!
 					ship.pointCostEnh += target.data("enhCost"); // Cost is per-unit
 				} else { //this is an option - note value!
-					ship.pointCostEnh2 += target.data("enhOptionCost"); // Cost is per-unit
+					ship.pointCostEnh2 += target.data("enhCost"); // Cost is per-unit
 				}
 			}
 
