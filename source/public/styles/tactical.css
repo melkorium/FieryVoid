@@ -396,14 +396,16 @@ body {
 }
 
 .name-value-button-ally {
-    border-top: 1px solid #444;
-    border-bottom: 1px solid #444;
+    /*border-top: 1px solid #444;
+    border-bottom: 1px solid #444;*/
+    border: solid orange 1px;
     background: rgba(20, 79, 128, 0.212);
     font-weight: normal;
     margin-bottom: 4px;
-    color: #33adff;
+    color: orange;
     cursor: pointer;
     font-size: 15px;
+    padding: 2px 4px;
 }
 
 
@@ -1540,7 +1542,7 @@ body {
 .mine-deploy-btn {
     padding: 6px 18px;
     min-width: 100px;
-    background: #2e5c2e;    
+    background: #2e5c2e;
     border: 1px solid #66b266;
     border-radius: 4px;
     color: #deebff;
@@ -1556,7 +1558,7 @@ body {
 }
 
 .mine-deploy-btn-cancel {
-    background: #562020;    
+    background: #562020;
     min-width: 100px;
     border-color: #a77272;
     color: #deebff;

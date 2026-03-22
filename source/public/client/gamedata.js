@@ -27,7 +27,7 @@ window.gamedata = {
     showLoS: false,
     blockedHexes: Array(),
     isStealthPresent: false,
-    areMinesPresent: false,
+    areMinesPresent: false, //Marks that ENEMY mines are present.
 
     mouseOverShipId: -1,
 
@@ -298,7 +298,14 @@ window.gamedata = {
         if (gamedata.gamephase == -1) {
             var mines = [];
             var html = '';
-            if(gamedata.areMinesPresent){
+
+            var playerHasMines = gamedata.ships.some(function (ship) {
+                return ship.mine &&
+                    ship.userid == gamedata.thisplayer &&
+                    !shipManager.isDestroyed(ship) &&
+                    shipManager.getTurnDeployed(ship) <= gamedata.turn;
+            });
+            if (playerHasMines) {
                 for (var i in gamedata.ships) {
                     var ship = gamedata.ships[i];
                     if (ship.userid == gamedata.thisplayer) {
@@ -313,25 +320,25 @@ window.gamedata = {
                     for (var i = 0; i < mines.length; i++) {
                         var mine = mines[i];
                         for (var j in mine.systems) {
-                            var sys = mine.systems[j];                        
-                            if (sys.name == "CaptorMine" || sys.name == "ProximityMine" || sys.name == "MineControllerDEW") {  
+                            var sys = mine.systems[j];
+                            if (sys.name == "CaptorMine" || sys.name == "ProximityMine" || sys.name == "MineControllerDEW") {
 
-                                if(!sys.mineSet){
+                                if (!sys.mineSet) {
                                     unsetMines = true;
                                     html += "You have not set ranges for all your Mines, they will default to their maximum range.<br>"
                                     break;
                                 }
-                            }                       
+                            }
                         }
                         if (unsetMines) break; // break outer loop                    
                     }
                 }
             }
-            confirm.confirm(html + "<br>Are you sure you wish to commit your orders?", gamedata.doCommit);        
-                
+            confirm.confirm(html + "<br>Are you sure you wish to commit your orders?", gamedata.doCommit);
 
-        // CHECK for NO EW
-        }else if (gamedata.gamephase == 1) {
+
+            // CHECK for NO EW
+        } else if (gamedata.gamephase == 1) {
             var myShips = [];
 
             for (var ship in gamedata.ships) {
@@ -1539,7 +1546,43 @@ getActiveShipName: function getActiveShipName() {
         $(backDiv).data("on", isOpen);
 
         backDiv.addEventListener("click", gamedata.sliderToggle);
+
+        // ── Deploy Mines button ───────────────────────────────────────────────────
+        // Only show during deployment phase when the player has un-destroyed mines.
+        var existingMineBtn = document.getElementById('mineDeployBtn');
+        if (existingMineBtn) existingMineBtn.parentNode.removeChild(existingMineBtn);
+
+        if (gamedata.gamephase === -1) {
+            var playerHasMines = gamedata.ships.some(function (ship) {
+                return ship.mine &&
+                    ship.userid == gamedata.thisplayer &&
+                    !shipManager.isDestroyed(ship) &&
+                    shipManager.getTurnDeployed(ship) <= gamedata.turn;
+            });
+
+            if (playerHasMines) {
+                var mineBtn = document.createElement('button');
+                mineBtn.id = 'mineDeployBtn';
+                //mineBtn.textContent = '💣  Deploy Minefield  💣';
+                mineBtn.textContent = 'Deploy Minefield';                
+                if (window.MineDeployment && window.MineDeployment.isActive()) {
+                    mineBtn.classList.add('active');
+                }
+                mineBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (window.MineDeployment) window.MineDeployment.toggle();
+                    if (window.MineDeployment && window.MineDeployment.isActive()) {
+                        mineBtn.classList.add('active');
+                    } else {
+                        mineBtn.classList.remove('active');
+                    }
+                });
+                // Append inside #iniGui so it sits naturally at the bottom of the panel
+                ini_gui.appendChild(mineBtn);
+            }
+        }
     },
+
 
     sliderToggle: function sliderToggle() {
         var backDiv = document.getElementById("backDiv");
