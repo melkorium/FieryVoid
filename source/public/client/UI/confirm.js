@@ -1220,17 +1220,16 @@ window.confirm = {
     showBuyBulk: function showBuyBulk(ship, callback) {
         var e = $(this.whtml);
 
+        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        var pointCost = ship.pointCost;
-
-        $(".totalUnitCostText", totalItem).html("Cost Per Unit");
-        var perUnitAmountSpan = $(".totalUnitCostAmount", totalItem);
-        perUnitAmountSpan.html(pointCost);
-        perUnitAmountSpan.data("value", pointCost);
-        perUnitAmountSpan.addClass("costPerUnitSpan");
-
+        $(".totalUnitCostText", totalItem).html("Total Unit Purchase Cost");
+        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
+        totalCostAmountSpan.html(ship.pointCost);
+        totalCostAmountSpan.data("value", ship.pointCost);
+        totalCostAmountSpan.data("baseCost", ship.pointCost);
+        totalCostAmountSpan.addClass("totalBulkCostAmount");
         $(totalItem).show();
 
         //ship enhancements
@@ -1292,16 +1291,17 @@ window.confirm = {
             $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL units in this purchase).</label></div>').prependTo(e);
         }
 
-        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Unit Purchase Cost");
-        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
-        totalCostAmountSpan.html(ship.pointCost);
-        totalCostAmountSpan.data("value", ship.pointCost);
-        totalCostAmountSpan.data("baseCost", ship.pointCost);
-        totalCostAmountSpan.addClass("totalBulkCostAmount");
+        var pointCost = ship.pointCost;
+
+        $(".totalUnitCostText", totalItem).html("Cost Per Unit");
+        var perUnitAmountSpan = $(".totalUnitCostAmount", totalItem);
+        perUnitAmountSpan.html(pointCost);
+        perUnitAmountSpan.data("value", pointCost);
+        perUnitAmountSpan.addClass("costPerUnitSpan");
+
         $(totalItem).show();
 
 
