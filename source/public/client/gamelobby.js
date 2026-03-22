@@ -1484,8 +1484,8 @@ window.gamedata = {
 			if (gamedata.ships[i].mine) {
 				let mCount = gamedata.ships[i].bulkBuy || 1;
 				unitPoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
-				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].mineType)) {
+					uniqueUnitClasses.push(gamedata.ships[i].mineType);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
@@ -2329,8 +2329,8 @@ window.gamedata = {
 			if (gamedata.ships[i].slot != slotid) continue;
 			if (gamedata.ships[i].mine) {
 				existingUnitPoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
-				if (!uniqueUnitClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueUnitClasses.push(gamedata.ships[i].shipClass);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].mineType)) {
+					uniqueUnitClasses.push(gamedata.ships[i].mineType);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
@@ -2339,8 +2339,8 @@ window.gamedata = {
 
 		// Add new unit to totals
 		existingUnitPoints += totalUnitCost;
-		if (!uniqueUnitClasses.includes(ship.shipClass)) {
-			uniqueUnitClasses.push(ship.shipClass);
+		if (!uniqueUnitClasses.includes(ship.mineType)) {
+			uniqueUnitClasses.push(ship.mineType);
 		}
 
 		if (existingUnitPoints > 0) {
