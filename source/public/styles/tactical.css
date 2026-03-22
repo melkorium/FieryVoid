@@ -452,9 +452,9 @@ body {
     /*color: #e0e7ef;*/
     /* #deebff; */
     background-color: #04161C;
-    border-top: 1px solid #496791;
-    border-right: 1px solid #496791;
-    border-left: 1px solid #496791;
+    border-top: 1px solid #3793c8;
+    border-right: 1px solid #3793c8;
+    border-left: 1px solid #3793c8;
     position: fixed;
     bottom: 0px;
     z-index: 10;
@@ -480,9 +480,9 @@ body {
 .logUiEntry {
     position: absolute;
     top: -26px;
-    border-top: 1px solid #496791;
-    border-right: 1px solid #496791;
-    border-left: 1px solid #496791;
+    border-top: 1px solid #3793c8;
+    border-right: 1px solid #3793c8;
+    border-left: 1px solid #3793c8;
     border-radius: 5px 5px 0px 0px;
     -moz-border-radius: 5px 5px 0px 0px;
     -webkit-border-radius: 5px 5px 0px 0px;
@@ -1377,10 +1377,10 @@ body {
     display: block;
     width: 90%;
     box-sizing: border-box;
-    margin: 8px auto 4px;
+    margin: 10px auto 0px;
     padding: 6px 10px;
-    background: #0a2d3d;
-    border: 1px solid #3a6080;
+    background: #3793c82a;
+    border: 1px solid #3793c8;
     border-radius: 5px;
     color: #deebff;
     font-family: arial, sans-serif;
@@ -1400,7 +1400,7 @@ body {
 }
 
 #mineDeployBtn.active {
-    background: rgb(50, 205, 50, 0.35);
+    background: rgb(50, 205, 50, 0.40);
     border-color: limegreen;
     color: white;
     box-shadow: 0 0 8px rgba(60, 200, 110, 0.35);
