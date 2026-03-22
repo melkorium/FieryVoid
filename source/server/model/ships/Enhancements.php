@@ -359,7 +359,7 @@ class Enhancements{
   	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 		$enhName = 'Improved Signature';
 		$enhLimit = 1; //Only ever need 1
-		$enhPrice = $ship->signature + 1 + 1; //New sign (+1) +1.		  
+		$enhPrice = max(4, $ship->signature + 2); //New sign (+1) +1.	Minimum 4pts.	  
 		$enhPriceStep = 0; //flat rate
 		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 	}	  
