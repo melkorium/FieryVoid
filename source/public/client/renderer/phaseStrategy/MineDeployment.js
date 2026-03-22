@@ -573,6 +573,12 @@ window.MineDeployment = (function () {
         }
 
         _closeDialog();
+
+        var strategy = window.webglScene &&
+            window.webglScene.phaseDirector &&
+            window.webglScene.phaseDirector.phaseStrategy;
+
+        strategy.deselectShip(strategy.selectedShip);
     }
 
     function isActive() {
