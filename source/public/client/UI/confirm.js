@@ -447,6 +447,7 @@ window.confirm = {
         confirm.getTotalCost();
     },
 
+    /*
     showShipBuy: function showShipBuy(ship, callback) {
         var e = $(this.whtml);
 
@@ -530,11 +531,6 @@ window.confirm = {
             if (enhIsOption) enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
             //if(enhIsOption && enhID != 'DEPLOY') enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
 
-            /*if(enhIsOption && enhID == 'DEPLOY'){
-                selectAmountItem.html(deployTurn);
-                selectAmountItem.data('min', deployTurn);
-                enhName = " <span style='color:rgb(95, 206, 95);' >(DEPLOYMENT)</span> " + enhName;
-            } */
 
             const ammoTypes = ['(HEAVY AMMO)', '(MEDIUM AMMO)', '(LIGHT AMMO)', '(AMMO)'];
             for (const type of ammoTypes) {
@@ -653,7 +649,7 @@ window.confirm = {
             $(".fighterSelectItem .selectButtons .minusButton", e).on("click", confirm.decreaseFlightSize);
         }
 
-        /* try to make default unit name other than nameless */
+
         var nameCore = ship.shipClass;
         var nameNumber = gamedata.lastShipNumber + 1;
         var fullName = '';//by default: nameCore + ' #' + number ; name cannot be repeated!
@@ -674,12 +670,10 @@ window.confirm = {
             }
         }
         gamedata.lastShipNumber = nameNumber;
-        /*end of preparing default name*/
+
         $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="' + fullName + '"></input><br>').prependTo(e);
 
-        /* old, with Nameless default
-        $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="Nameless"></input><br>').prependTo(e);
-        */
+
         //$('<div class="message"><span>Name your new '+ship.shipClass+'</span></div>').prependTo(e);
         $(".confirmok", e).on("click", callback);
         $(".confirmcancel", e).on("click", function () {
@@ -691,7 +685,7 @@ window.confirm = {
         var a = e.appendTo("body");
         a.fadeIn(250);
     },
-
+    */
 
     // Helper function to handle input changes (edit mode)
     handleInputChangeEdit: function handleInputChangeEdit(e) {
