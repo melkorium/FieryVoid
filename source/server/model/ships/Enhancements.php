@@ -89,7 +89,8 @@ class Enhancements{
 			
 		case 'Mines':
 			Enhancements::blockStandardEnhancements($unit);
-			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';			
+			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';
+			$unit->enhancementOptionsEnabled[] = 'IMP_SIGN';								
 			break;	  			
 	
 		case 'ThirdspaceShip':
@@ -353,6 +354,15 @@ class Enhancements{
 		  }
 	  }	  
 	  
+  	//Improve Signature rating of Mines		
+  	$enhID = 'IMP_SIGN';
+  	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+		$enhName = 'Improved Signature';
+		$enhLimit = 1; //Only ever need 1
+		$enhPrice = $ship->signature + 1 + 1; //New sign (+1) +1.		  
+		$enhPriceStep = 0; //flat rate
+		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+	}	  
 	  
 	  //Improved Self Repair - +1 Self-Repair rating
 	  $enhID = 'IMPR_SR';	  
@@ -1801,7 +1811,14 @@ class Enhancements{
 							$strongestSystem->output += $enhCount;
 						}
 						break;
-						
+
+					case 'IMP_SIGN': //Improved Signature for Mines
+						//Mark true
+						$ship->signature += 1;
+						if($ship->detectedSignature !== -1) $ship->detectedSignature += 1;
+						break;						
+
+
 					case 'IMPR_SR': //Improved Self Repair: +1 Output for each Self Repair
 						foreach ($ship->systems as $system){
 							if ($system instanceof SelfRepair){

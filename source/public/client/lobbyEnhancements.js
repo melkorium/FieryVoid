@@ -227,6 +227,14 @@ window.lobbyEnhancements = {
 						ship.sensEnh = true;
 						break;
 
+					case 'IMP_SIGN':
+						if (!ship.signEnh) {
+							ship.signature += 1;
+							if(ship.detectedSignature !== -1) ship.detectedSignature += 1;
+						}
+						ship.iffEnh = true;
+						break;
+
 					case 'IMPR_SR':
 						if (!ship.srEnh) {
 							for (let system of ship.systems) {
