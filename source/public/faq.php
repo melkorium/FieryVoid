@@ -267,9 +267,20 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
         <h3 id="mines" >Mines & Minesweeping</h3>
         <ul>
-            <li>Currently only Captor Mines are implemented in Fiery Void, and only when launched by Mine Launcher weapons (e.g. Kor-Lyan and Abbai WotCR factions).</li>
+            <li>There are three types of mines n Fiery Void, Captor, Direct Nergy Weapons (DEW) and Proximity.  These are described in more detail below.</li>
+            <li>Buying & Deploying Mines:
+                <ul class="circle-list">
+                    <li>In game where the 'Mines Allowed' option has been enable in Create Game screen you can purchase mines in Fleet Selection from your Facion's list.</li>
+                    <li>Unlike ships, mines can be bought in batches and when you click 'Add to Fleet' you will be able to choose the number of mines of that type you wish to buy, 
+                        along with any Enhancements you wish to include (see in <a style="font-size: 14px;" href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer">Ammo, Options & Enhancements</a> for more details on Mine Enhancements).</li>
+                    <li>There is a 100 point premium for taking any mines at all, plus an additional +10% to the unit cost of all mines per type of mine taken after the first (e.g. from the three type Captor, DEW and Proximity).</li>  
+                    <li>Once the game starts you can choose to place mines individually or use the 'Deploy Minefield' button to place any number of mines randomly within a selected area.  
+                        You can deploy mines anywhere within the map, so long as it's not withint 10 hexes of an enemy deployment zone.</li>                                                          
+                </ul>
+            </li>              
             <li>Once deployed, mines will initially be stealthed and won't become visible to enemies until they attack, or are detected.  
-                On the turn that they are spawned you will have the opportunity to tailored their ranges for Captials/HCVs, MCV/LCVs, Fighters from 0 up to their maximum range. 
+                On the turn that they are deployed or spawned you will have the opportunity to tailored their ranges for 
+                Captials/HCVs, MCV/LCVs, Fighters from 0 up to their maximum range. 
                 You do this by clicking on the mine weapons system icon during Deployment/Pre-Turn Orders phase.  
                 Once set these ranges will apply for the rest of the game, and if you choose not to set the ranges they will default to their maximum range.  
                 You can set the ranges of all mines of the same type using the propagate buttons in the Mine Settings menu.</li>
@@ -298,29 +309,29 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 </ul>
             </li>                        
             
-            <li>There are several different types of mine in B5 Wars, as Captor Mines are the only ones currently available in FV at this time only their details are listed below.</li>
-            <li>All mines will automatically attack the first unit that comes into their range, even allies unless you have purchases the Identify Friend or Fore enhancement for the mine or mine launcher.</li>
+            <li>All mines will automatically attack the first unit that comes into their range, even allies unless you have purchased the Identify Friend or Foe enhancement for the mine or mine launcher.</li>
             <li>Captor Mines:
                 <ul class="circle-list">
                     <li>These mines a range within which they will launch at the first viable target during movement, 
                         and then resolve the attack as ballistic weapon during Firing Phase.  
                         As such, these type of mines can be intercepted in the same way as other ballistic weapons.</li>
                     <li>Units equipped with Jammers halve the range at which a captor mine will attack them.</li>
-                    <li>A captor mine is destroyed whether it hits or not.</li>                    
+                    <li>A captor mine is destroyed whether it hits or not.</li>  
+                    <li>Both the Kor-Lyan and WotCR Abbai operate ships with Ballistic Mine Launchers, these weapons can leave lingering Captor Mines if they do not immediately find a target.</li>                                                          
                 </ul>
             </li>  
             <li>Proximity Mines:
                 <ul class="circle-list">
                     <li>These mines a range within which they explode and damage the first viable target during movement. They resolve this attack just before the Firing Phase, similar to Terrain collisions.</li>
-                    <li>Proximity mines automaticall hit their target and are destroyed after they attack.</li>                    
+                    <li>Proximity mines automatically hit their target and are destroyed after they attack.</li>                    
                 </ul>
             </li> 
             <li>Direct Energy Weapon (DEW) Mines:
                 <ul class="circle-list">
                     <li>These mines come equipped with weapons and will fire these autoamtically at the first viable target it enoucnters during the movement phase, 
                         these attacks are then resolved normally during the Firing Phase.</li>
-                    <li>DEW mines become detected once they fire, and they must fire all their weapons at the same target.  
-                        They don't not benefit from having a weapon lock, but do get an accuracy bonus to their shot.</li>
+                    <li>DEW mines become detected once they fire, and they must normally fire all their weapons at the same target.  
+                        AS they have no EW of their own, they don't not benefit from having a weapon lock, but do get an accuracy bonus to their shot.</li>
                     <li>Once they have been detected their signature reduces to a lower value.</li>                        
                 </ul>
             </li>                              
