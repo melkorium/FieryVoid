@@ -357,6 +357,12 @@ var MineStealth = function MineStealth(json, ship) {
 MineStealth.prototype = Object.create(ShipSystem.prototype);
 MineStealth.prototype.constructor = MineStealth;
 
+MineStealth.prototype.initializationUpdate = function () {
+	var ship = this.ship;
+	this.data["Mine Signature"] = ship.signature;
+	return this
+}
+
 MineStealth.prototype.isDetectedMine = function (ship) {
 	if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
 
