@@ -93,7 +93,8 @@ class Enhancements{
 			$unit->enhancementOptionsEnabled[] = 'IMPR_SIGN';
 			
 			if($unit->mineType && $unit->mineType == 'Captor' || $unit->mineType == 'DEW'){
-				$unit->enhancementOptionsEnabled[] = 'IMPR_ACC';				
+				$unit->enhancementOptionsEnabled[] = 'IMPR_ACC';	
+				$unit->enhancementOptionsEnabled[] = 'IMPR_RANG';								
 			}			
 
 			break;	  			
@@ -313,7 +314,28 @@ class Enhancements{
 			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
 	  }
-	  
+
+		//Improve Range of Mines		
+		$enhID = 'IMPR_RANG';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Improved Range';
+			$enhLimit = 5; 
+			
+			$mineRange = 0;
+			foreach ($ship->systems as $system) {
+				if ($system instanceof CaptorMine) {
+					$mineRange = max($mineRange, $system->range);
+				} elseif ($system instanceof MineControllerDEW) {
+					$mineRange = max($mineRange, $system->rangeSetting);
+				}
+			}
+			
+			$enhPrice = max(4, $mineRange); //New sign (+1) +1.	Minimum 4pts.	  
+			$enhPriceStep = 1; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}	  	  
+
+
 		//Improved Reactor: +1/2/3/4 Power (depending on unit size), cost: 10 *Power added (double if ship has power deficit to begin with), limit: o1
 	  $enhID = 'IMPR_REA';
 	  if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //option is not disabled
@@ -380,7 +402,7 @@ class Enhancements{
 		$enhName = 'Improved Signature';
 		$enhLimit = 5; 
 		$enhPrice = max(4, $ship->signature + 2); //New sign (+1) +1.	Minimum 4pts.	  
-		$enhPriceStep = 0; //flat rate
+		$enhPriceStep = 1; 
 		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 	}	  
 	  
@@ -1773,9 +1795,9 @@ class Enhancements{
 					case 'IMPR_ACC': //Improved Accuracy for Mines
 						foreach ($ship->systems as $system){
 							if ($system instanceof Weapon){
-								if($system->fireControl[0] !== null) $system->fireControl[0] += 1;
-								if($system->fireControl[1] !== null) $system->fireControl[1] += 1;
-								if($system->fireControl[2] !== null) $system->fireControl[2] += 1;							
+								if($system->fireControl[0] !== null) $system->fireControl[0] += $enhCount;
+								if($system->fireControl[1] !== null) $system->fireControl[1] += $enhCount;
+								if($system->fireControl[2] !== null) $system->fireControl[2] += $enhCount;							
 							}
 						}								
 
@@ -1804,6 +1826,18 @@ class Enhancements{
 							}
 						}  
 						break;
+					case 'IMPR_RANG': //Improved Range for Mines
+						foreach ($ship->systems as $system){
+							if ($system instanceof CaptorMine){
+								$system->range += $enhCount;
+								foreach($system->rangeArray as $mode => $val) {
+									$system->rangeArray[$mode] += $enhCount;
+								}
+							}
+						}								
+
+						break;	
+
 
 					case 'IMPR_REA': //Improved Reactor: more power output (depending on ship size
 						$strongestSystem = null;
@@ -1846,7 +1880,7 @@ class Enhancements{
 					case 'IMPR_SIGN': //Improved Signature for Mines
 						//Mark true
 						$ship->signature += 1;
-						if($ship->detectedSignature !== -1) $ship->detectedSignature += 1;
+						if($ship->detectedSignature !== -1) $ship->detectedSignature += $enhCount;
 						break;						
 
 

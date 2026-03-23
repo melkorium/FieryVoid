@@ -2438,8 +2438,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
 			weapon.data["Fire control (fighter/med/cap)"] = weapon.translateFCtoD100txt(weapon.fireControl);
-			weapon.range = this.rangeSetting;
-			//weapon.data["Range"] = this.rangeSetting;					
+			weapon.range = this.rangeSetting;				
 		}
 	}
 

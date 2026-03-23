@@ -165,6 +165,41 @@ window.lobbyEnhancements = {
 						ship.impAccEnh = true;
 						break;						
 
+					case 'IMPR_RANG':
+						if (!ship.impRangEnh) {
+							for (let system of ship.systems) {
+								if (system.weapon) {
+									system.range += enhCount;
+									if (system.rangeArray) {
+										for (let fm in system.rangeArray) {
+											system.rangeArray[fm] += enhCount;
+										}
+									}
+									if (system.data && system.data["Range"] !== undefined) {
+										if (!(system.distanceRange > 0)) {
+											system.data["Range"] = system.range;
+										} else {
+											system.data["Range"] = system.range + '/' + system.distanceRange;
+										}
+									}
+								}
+								if (system.name === "CaptorMine") {
+									system.range += enhCount;
+									if (system.data && system.data["Range"] !== undefined) {
+										system.data["Range"] = system.range;
+									}
+								} else if (system.name === "MineControllerDEW") {
+									system.rangeSetting += enhCount;
+									if (system.data && system.data["Max Range"] !== undefined && system.data["Max Range"] !== "?") {
+										system.data["Max Range"] = system.rangeSetting;
+									}
+								}
+							}
+							ship.notes += "<br>Improved Range";
+						}
+						ship.impRangEnh = true;
+						break;						
+
 					case 'IMPR_ENG':
 						if (!ship.engEnh) {
 							let strongestEng = null;

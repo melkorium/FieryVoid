@@ -611,7 +611,7 @@ class CaptorMine extends Weapon{
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
         $strippedSystem->allocatedRanges = $this->allocatedRanges; 
-        $strippedSystem->range = $this->range; 	 			                             
+        //$strippedSystem->range = $this->range; 	 			                             
         return $strippedSystem;
     }
 	    

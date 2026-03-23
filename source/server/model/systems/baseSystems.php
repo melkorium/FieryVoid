@@ -6903,7 +6903,7 @@ class MineControllerDEW extends ShipSystem{
                 $this->data[' - '.$shipType.' range'] =  $range;
             }         
 			$this->data["Special"] = "<br>Used to set ranges for DEW Mine's weapon against different types of enemy. ";	
-			$this->data["Special"] .= "<br>Ranges are set on turn that Mine deploys, these cannot then be changed..";					            
+			$this->data["Special"] .= "<br>Ranges are set on turn that the Mine deploys, and these cannot then be changed.";					            
 			$this->data["Special"] .= "<br>All range are halved against Jammer-equipped units.";											
 	}	
 
@@ -6976,12 +6976,25 @@ class MineControllerDEW extends ShipSystem{
 
 			$mine = $this->getUnit();		
 
+			// Determine total IMPR_RANG enhancement count and apply to rangeSetting ONCE
+			$rangeEnhancement = 0;
+			foreach ($mine->enhancementOptions as $enhancement) {
+				if ($enhancement[0] == 'IMPR_RANG') {
+					$rangeEnhancement += $enhancement[2];
+				}
+			}
+			$this->rangeSetting += $rangeEnhancement;
+
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon  && $weapon->name !== "RammingAttack"){
 					if($weapon->fireControl[0] !== null) $weapon->fireControl[0] = $this->accuracy;
 					if($weapon->fireControl[1] !== null) $weapon->fireControl[1] = $this->accuracy;
 					if($weapon->fireControl[2] !== null) $weapon->fireControl[2] = $this->accuracy;
-					$weapon->range = $this->rangeSetting;
+
+					$weapon->range = $this->rangeSetting;				
+					foreach($weapon->rangeArray as $mode => $val) {
+						$weapon->rangeArray[$mode] = $this->rangeSetting;
+					}
 					$weapon->autoFireOnly = true;									
 				}
 			}	
@@ -7178,7 +7191,8 @@ class MineControllerDEW extends ShipSystem{
 
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
-        $strippedSystem->allocatedRanges = $this->allocatedRanges; 			                             
+        $strippedSystem->allocatedRanges = $this->allocatedRanges;
+        $strippedSystem->rangeSetting = $this->rangeSetting;		 			                             
         return $strippedSystem;
     }
 	    
