@@ -151,55 +151,6 @@ window.lobbyEnhancements = {
 						ship.iffEnh = true;
 						break;
 
-					case 'IMPR_ACC':
-						if (!ship.impAccEnh) {
-							/*for (let system of ship.systems) {
-								if(system.weapon){
-									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
-									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
-									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
-								}																	
-							}*/	
-							ship.notes += "<br>Improved Accuracy";
-						}
-						ship.impAccEnh = true;
-						break;						
-
-					case 'IMPR_RANG':
-						if (!ship.impRangEnh) {
-							for (let system of ship.systems) {
-								if (system.weapon) {
-									system.range += enhCount;
-									if (system.rangeArray) {
-										for (let fm in system.rangeArray) {
-											system.rangeArray[fm] += enhCount;
-										}
-									}
-									if (system.data && system.data["Range"] !== undefined) {
-										if (!(system.distanceRange > 0)) {
-											system.data["Range"] = system.range;
-										} else {
-											system.data["Range"] = system.range + '/' + system.distanceRange;
-										}
-									}
-								}
-								if (system.name === "CaptorMine") {
-									system.range += enhCount;
-									if (system.data && system.data["Range"] !== undefined) {
-										system.data["Range"] = system.range;
-									}
-								} else if (system.name === "MineControllerDEW") {
-									system.rangeSetting += enhCount;
-									if (system.data && system.data["Max Range"] !== undefined && system.data["Max Range"] !== "?") {
-										system.data["Max Range"] = system.rangeSetting;
-									}
-								}
-							}
-							ship.notes += "<br>Improved Range";
-						}
-						ship.impRangEnh = true;
-						break;						
-
 					case 'IMPR_ENG':
 						if (!ship.engEnh) {
 							let strongestEng = null;
@@ -274,14 +225,6 @@ window.lobbyEnhancements = {
 							}
 						}
 						ship.sensEnh = true;
-						break;
-
-					case 'IMPR_SIGN':
-						if (!ship.signEnh) {
-							ship.signature += 1;
-							if(ship.detectedSignature !== -1) ship.detectedSignature += 1;
-						}
-						ship.signEnh = true;
 						break;
 
 					case 'IMPR_SR':
@@ -370,6 +313,60 @@ window.lobbyEnhancements = {
 							ship.fervEnh = true;
 							ship.notes += "<br>Markab Fervor";
 						}
+						break;
+
+					case 'MINE_ACC':
+						if (!ship.mineAccEnh) {
+							/*for (let system of ship.systems) { //in Lobby weapon's firecontrol defaults to normal, not mine's accuracy as it will in game.
+								if(system.weapon){
+									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
+									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
+									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
+								}																	
+							}*/	
+							ship.notes += "<br>Improved Accuracy";
+						}
+						ship.mineAccEnh = true;
+						break;						
+
+					case 'MINE_ARM':
+						if (!ship.mineArmEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "structure") {
+									system.armour += enhCount;
+								}
+							}
+							ship.notes += "<br>Improved Armour";
+						}
+						ship.mineArmEnh = true;
+						break;	
+
+					case 'MINE_RANG':
+						if (!ship.mineRangEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "CaptorMine") {
+									system.range += enhCount;
+									if (system.data && system.data["Range"] !== undefined) {
+										system.data["Range"] = system.range;
+									}
+								} else if (system.name === "MineControllerDEW") {
+									system.rangeSetting += enhCount;
+									if (system.data && system.data["Max Range"] !== undefined && system.data["Max Range"] !== "?") {
+										system.data["Max Range"] = system.rangeSetting;
+									}
+								}
+							}
+							ship.notes += "<br>Improved Range";
+						}
+						ship.mineRangEnh = true;
+						break;						
+
+					case 'MINE_SIGN':
+						if (!ship.mineSignEnh) {
+							ship.signature += enhCount;
+							if(ship.detectedSignature !== -1) ship.detectedSignature += enhCount;
+						}
+						ship.mineSignEnh = true;
 						break;
 
 					case 'POOR_CREW':

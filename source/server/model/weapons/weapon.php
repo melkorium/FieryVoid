@@ -345,8 +345,6 @@ class Weapon extends ShipSystem
 			$strippedSystem->fireControl = $this->fireControl;
 			$strippedSystem->fireControlArray = $this->fireControlArray;  
 			$strippedSystem->autoFireOnly = $this->autoFireOnly;         
-			$strippedSystem->range = $this->range;                                     
-			$strippedSystem->rangeArray = $this->rangeArray;
         }				
 			
 		}

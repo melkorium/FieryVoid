@@ -90,12 +90,16 @@ class Enhancements{
 		case 'Mines':
 			Enhancements::blockStandardEnhancements($unit);
 			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';
-			$unit->enhancementOptionsEnabled[] = 'IMPR_SIGN';
+			$unit->enhancementOptionsEnabled[] = 'MINE_SIGN';
 			
-			if($unit->mineType && $unit->mineType == 'Captor' || $unit->mineType == 'DEW'){
-				$unit->enhancementOptionsEnabled[] = 'IMPR_ACC';	
-				$unit->enhancementOptionsEnabled[] = 'IMPR_RANG';								
-			}			
+			if($unit->mineType && ($unit->mineType == 'Captor' || $unit->mineType == 'DEW')){
+				$unit->enhancementOptionsEnabled[] = 'MINE_ACC';	
+				$unit->enhancementOptionsEnabled[] = 'MINE_RANG';								
+			}	
+			
+			if($unit->mineType && $unit->mineType == 'DEW'){
+				$unit->enhancementOptionsEnabled[] = 'MINE_ARM';									
+			}				
 
 			break;	  			
 	
@@ -258,22 +262,6 @@ class Enhancements{
 		  $enhPriceStep = 0; //flat rate
 		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		}
-
-  	//Improve Accuracy rating of Mines		
-  	$enhID = 'IMPR_ACC';
-  	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
-		$enhName = 'Improved Accuracy';
-		$enhLimit = 5; 
-		$enhPrice = 0;
-		if($ship->mineType && $ship->mineType == 'Captor'){
-			$enhPrice = ceil($ship->pointCost * 0.1);		
-		}else{
-			$enhPrice = ceil($ship->pointCost * 0.2);	//DEW mines	
-		}		
-		$enhPriceStep = 0; //flat rate
-		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
-	}			
-
 		    
 	  //Improved Engine: +1 Thrust, cost: 12+4/turn cost, round up, limit: up to +50%
 	  $enhID = 'IMPR_ENG';
@@ -313,28 +301,7 @@ class Enhancements{
 			  $enhLimit = 1;	  
 			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
-	  }
-
-		//Improve Range of Mines		
-		$enhID = 'IMPR_RANG';
-		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
-			$enhName = 'Improved Range';
-			$enhLimit = 5; 
-			
-			$mineRange = 0;
-			foreach ($ship->systems as $system) {
-				if ($system instanceof CaptorMine) {
-					$mineRange = max($mineRange, $system->range);
-				} elseif ($system instanceof MineControllerDEW) {
-					$mineRange = max($mineRange, $system->rangeSetting);
-				}
-			}
-			
-			$enhPrice = max(4, $mineRange); //New sign (+1) +1.	Minimum 4pts.	  
-			$enhPriceStep = 1; 
-			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
-		}	  	  
-
+	  }		
 
 		//Improved Reactor: +1/2/3/4 Power (depending on unit size), cost: 10 *Power added (double if ship has power deficit to begin with), limit: o1
 	  $enhID = 'IMPR_REA';
@@ -394,17 +361,7 @@ class Enhancements{
 			  $enhPriceStep = 0;
 			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
-	  }	  
-	  
-  	//Improve Signature rating of Mines		
-  	$enhID = 'IMPR_SIGN';
-  	if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
-		$enhName = 'Improved Signature';
-		$enhLimit = 5; 
-		$enhPrice = max(4, $ship->signature + 2); //New sign (+1) +1.	Minimum 4pts.	  
-		$enhPriceStep = 1; 
-		$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
-	}	  
+	  }	    
 	  
 	  //Improved Self Repair - +1 Self-Repair rating
 	  $enhID = 'IMPR_SR';	  
@@ -495,6 +452,69 @@ class Enhancements{
 		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);//this is NOT an enhancement - rather an OPTION
 	  }  
 	  
+		//Improve Accuracy rating of Mines		
+		$enhID = 'MINE_ACC';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Improved Accuracy';
+			$enhLimit = 5; 
+			$enhPrice = 0;
+			if($ship->mineType && $ship->mineType == 'Captor'){
+				$enhPrice = ceil($ship->pointCost * 0.1);		
+			}else{
+				$enhPrice = ceil($ship->pointCost * 0.2);	//DEW mines	
+			}		
+			$enhPriceStep = 0; //flat rate
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}			
+
+		//Improve Armour of Mines		
+		$enhID = 'MINE_ARM';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Improved Armour';
+			$enhLimit = 5; 
+			
+			$mineArmour = 0;
+			foreach ($ship->systems as $system) {
+				if ($system instanceof Structure) {
+					$mineArmour = $system->armour;
+				}
+			}
+			
+			$enhPrice = max(4, $mineArmour+1); //New armour +1.	Minimum 4pts.	  
+			$enhPriceStep = 1; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}			
+
+		//Improve Range of Mines		
+		$enhID = 'MINE_RANG';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Improved Range';
+			$enhLimit = 5; 
+			
+			$mineRange = 0;
+			foreach ($ship->systems as $system) {
+				if ($system instanceof CaptorMine) {
+					$mineRange = max($mineRange, $system->range);
+				} elseif ($system instanceof MineControllerDEW) {
+					$mineRange = max($mineRange, $system->rangeSetting);
+				}
+			}
+			
+			$enhPrice = max(4, $mineRange); //New sign (+1) +1.	Minimum 4pts.	  
+			$enhPriceStep = 1; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}	  	  
+
+		//Improve Signature rating of Mines		
+		$enhID = 'MINE_SIGN';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Improved Signature';
+			$enhLimit = 5; 
+			$enhPrice = max(4, $ship->signature + 2); //New sign (+1) +1.	Minimum 4pts.	  
+			$enhPriceStep = 1; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}		
+
 	  //Poor Crew (official but modified): -5 Initiative, -1 Engine, -1 Sensors, -1 Reactor power, +1 Profile, +2 to critical results, -1 to hit all weapons
 	  //cost: -15% of ship cost (second time: -10%)
 	  $enhID = 'POOR_CREW';
@@ -1792,17 +1812,6 @@ class Enhancements{
 						$ship->setIFFSystem();
 						break;
 
-					case 'IMPR_ACC': //Improved Accuracy for Mines
-						foreach ($ship->systems as $system){
-							if ($system instanceof Weapon){
-								if($system->fireControl[0] !== null) $system->fireControl[0] += $enhCount;
-								if($system->fireControl[1] !== null) $system->fireControl[1] += $enhCount;
-								if($system->fireControl[2] !== null) $system->fireControl[2] += $enhCount;							
-							}
-						}								
-
-						break;								
-
 					case 'IMPR_ENG': //Improved Engine: +1 Engine output (strongest Engine), may be taken multiple times
 						$strongestSystem = null;
 						$strongestValue = -1;	  
@@ -1826,18 +1835,6 @@ class Enhancements{
 							}
 						}  
 						break;
-					case 'IMPR_RANG': //Improved Range for Mines
-						foreach ($ship->systems as $system){
-							if ($system instanceof CaptorMine){
-								$system->range += $enhCount;
-								foreach($system->rangeArray as $mode => $val) {
-									$system->rangeArray[$mode] += $enhCount;
-								}
-							}
-						}								
-
-						break;	
-
 
 					case 'IMPR_REA': //Improved Reactor: more power output (depending on ship size
 						$strongestSystem = null;
@@ -1875,14 +1872,7 @@ class Enhancements{
 						if($strongestValue > 0){ //Scanner actually exists to be enhanced!
 							$strongestSystem->output += $enhCount;
 						}
-						break;
-
-					case 'IMPR_SIGN': //Improved Signature for Mines
-						//Mark true
-						$ship->signature += 1;
-						if($ship->detectedSignature !== -1) $ship->detectedSignature += $enhCount;
-						break;						
-
+						break;					
 
 					case 'IMPR_SR': //Improved Self Repair: +1 Output for each Self Repair
 						foreach ($ship->systems as $system){
@@ -1957,8 +1947,46 @@ class Enhancements{
 							$ship->iniativebonus += $enhCount*10;
 							$ship->forwardDefense += $enhCount*2;
 							$ship->sideDefense += $enhCount*2;
-							break;
-													
+					break;
+
+					case 'MINE_ACC': //Improved Accuracy for Mines
+						foreach ($ship->systems as $system){
+							if ($system instanceof Weapon){
+								if($system->fireControl[0] !== null) $system->fireControl[0] += $enhCount;
+								if($system->fireControl[1] !== null) $system->fireControl[1] += $enhCount;
+								if($system->fireControl[2] !== null) $system->fireControl[2] += $enhCount;							
+							}
+						}								
+
+					break;								
+
+					case 'MINE_ARM': //Improved Armour for Mines
+						foreach ($ship->systems as $system) {
+							if ($system instanceof Structure) {
+								$system->armour += $enhCount;
+							}
+						}
+						
+					break;
+
+					case 'MINE_RANG': //Improved Range for Mines
+						foreach ($ship->systems as $system){
+							if ($system instanceof CaptorMine){
+								$system->range += $enhCount;
+								foreach($system->rangeArray as $mode => $val) {
+									$system->rangeArray[$mode] += $enhCount;
+								}
+							}
+						}								
+
+					break;	
+
+					case 'MINE_SIGN': //Improved Signature for Mines
+						//Mark true
+						$ship->signature += $enhCount;
+						if($ship->detectedSignature !== -1) $ship->detectedSignature += $enhCount;
+						break;								
+
 					case 'POOR_CREW': //Poor Crew: -1 Engine, -1 Sensors, -1 Reactor power, +1 Profile, +2 to critical results, -5 Initiative, -1 to hit all weapons
 						//fixed values
 						$ship->forwardDefense += $enhCount;
@@ -2300,7 +2328,11 @@ class Enhancements{
 							$strippedShip->iniativebonus = $ship->iniativebonus;
 							$strippedShip->toHitBonus = $ship->toHitBonus;	///Just in case needed on Front End.					
 							break;
-														
+			
+						case 'MINE_SIGN': //Improved signature for mines
+							$strippedShip->signature = $ship->signature;
+							break;								
+
 						case 'IPSH_EETH': //Ipsha Eethan Barony refit: +2 free thrust, +25% available power (round up), +0.1 turn delay, -5 Initiative, +4 critical roll modifier for Reactor and Engine
 							$strippedShip->iniativebonus = $ship->iniativebonus;
 							$strippedShip->turndelaycost = $ship->turndelaycost;
@@ -2411,6 +2443,19 @@ class Enhancements{
 							}
 							break;							
 					
+						case 'MINE_ARM':
+							if ($system instanceof Structure) { //Improved Armour for Mines.
+								$strippedSystem->armour = $system->armour;
+							}						
+						break;
+
+						case 'MINE_RANG':
+							if ($system instanceof Weapon) { //Improved Armour for Mines.
+								$strippedSystem->range = $system->range;                                     
+								$strippedSystem->rangeArray = $system->rangeArray;
+							}						
+						break;						
+
 						case 'SHAD_DIFF': //Increased Diffuser Capability: +1 Output for each Diffuser
 							if ($system instanceof EnergyDiffuser) { 
 								$strippedSystem->output = $system->output;

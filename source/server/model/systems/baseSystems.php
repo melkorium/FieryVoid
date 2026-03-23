@@ -476,8 +476,8 @@ class MineStealth extends ShipSystem implements SpecialAbility{
     
     public function setSystemDataWindow($turn){
 			$ship = $this->getUnit();	
-			$this->data["Special"] = "<br>Mine signature: " . $ship->signature;
-            $this->data["Special"] .= "<br>Ship is invisible to enemies until reveals itself by attacking or is detected.";
+			//$this->data["Special"] = "<br>Mine signature: " . $ship->signature;
+            $this->data["Special"] = "<br>Ship is invisible to enemies until reveals itself by attacking or is detected.";
             $this->data["Special"] .= "<br>Once detected you can scan the mine to reveal information about its type etc.";			
 			$this->data["Special"] .= "<br>Can be detected by enemy ships during Movement Phase if they have greater Detect Mines EW than Distance + Signature.";
 			$this->data["Special"] .= "<br>See Fiery Void FAQ for more details on Mine detection.";														
@@ -6979,7 +6979,7 @@ class MineControllerDEW extends ShipSystem{
 			// Determine total IMPR_RANG enhancement count and apply to rangeSetting ONCE
 			$rangeEnhancement = 0;
 			foreach ($mine->enhancementOptions as $enhancement) {
-				if ($enhancement[0] == 'IMPR_RANG') {
+				if ($enhancement[0] == 'MINE_RANG') {
 					$rangeEnhancement += $enhancement[2];
 				}
 			}
@@ -6995,7 +6995,8 @@ class MineControllerDEW extends ShipSystem{
 					foreach($weapon->rangeArray as $mode => $val) {
 						$weapon->rangeArray[$mode] = $this->rangeSetting;
 					}
-					$weapon->autoFireOnly = true;									
+					$weapon->autoFireOnly = true;	
+					$weapon->isTargetable = false;								
 				}
 			}	
                       
