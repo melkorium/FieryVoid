@@ -399,7 +399,9 @@ class Firing
         $shooter = $gd->getShipById($fire->shooterid);
         $target = $gd->getShipById($fire->targetid);
         $interceptingShip = $weapon->getUnit();
-        $firingweapon = $shooter->getSystemById($fire->weaponid);		
+        $firingweapon = $shooter->getSystemById($fire->weaponid);	
+        
+        if($shooter instanceof Mine) return false; //Mines generally can't intercept using their weapons.        
 
         if ($firingweapon->doNotIntercept){ //some attacks simply aren't subject to interception - like being in a field, or ramming attacks
             //Debug::log("Target weapon cannot be intercepted\n");
