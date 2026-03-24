@@ -300,7 +300,7 @@ window.MineDeployment = (function () {
         html +=
             '</div>' +
             '<div class="mine-deploy-actions">' +
-            '<button id="mineDeployConfirm" class="mine-deploy-btn">Confirm</button>' +
+            '<button id="mineDeployConfirm" class="mine-deploy-btn">Deploy Selected</button>' +
             '<button id="mineDeployAll"     class="mine-deploy-btn" style="margin: 0 5px;">Deploy All</button>' +
             '<button id="mineDeployCancel"  class="mine-deploy-btn mine-deploy-btn-cancel">Cancel</button>' +
             '</div>' +
