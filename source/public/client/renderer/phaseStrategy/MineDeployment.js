@@ -577,7 +577,7 @@ window.MineDeployment = (function () {
         var btn = document.getElementById('mineDeployBtn');
         if (btn) btn.classList.add('active');
 
-        _showToast('Select the area you wish to deploy mines by dragging the mouse.', 5000);
+        _showToast('Select the area you wish to deploy mines by dragging the mouse.', 3000);
 
         var pageContainer = document.getElementById('pagecontainer');
         if (pageContainer) {
