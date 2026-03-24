@@ -2934,6 +2934,8 @@ class Mine extends OSAT{
     public $spawned = -1; //To denote the turn a unit was spawned by DURING the game, e.g. doesn't count for CPV etc, show in Replay prior to it spawning
     public $canPreOrder = true;//Needed to set ranges for spawned Mines in Pre-Turn phase.
     protected $variableDamage = 0; //Amount by which mine set ddamage can vary, looked for in Enhancements
+    public $commandControl = false;
+    public $multiSettings = false;
 
     public function isDisabled(){
         return false;
@@ -2958,6 +2960,8 @@ class Mine extends OSAT{
         $strippedShip = parent::stripForJson();
         if($this->detectedSignature !== -1){
             $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->commandControl = $this->commandControl; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->multiSettings = $this->multiSettings; //Need to send updated Signature values for DEW mine weapons.
             //$strippedShip->detectedSignature = $this->detectedSignature; //Need to send updated Signature values for DEW mine weapons.            
             //$strippedShip->activated = $this->activated; //Need to send updated activated values for DEW mine weapons.            
         } 
