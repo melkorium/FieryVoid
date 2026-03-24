@@ -1924,8 +1924,14 @@ window.gamedata = {
 
 				// Don't append to fragment yet, wait to see if it's empty
 
-				for (var index = 0; index < shipList.length; index++) {
-					ship = shipList[index];
+				var activeShipList = shipList;
+				if (desiredSize === 5) {
+					activeShipList = shipList.slice();
+					this.orderShipListOnName(activeShipList);
+				}
+
+				for (var index = 0; index < activeShipList.length; index++) {
+					ship = activeShipList[index];
 					if (gamedata.rules && !gamedata.rules.allowMines && ship.mine && !gamedata.rules.fleetTest) continue; //Skip mines if not allowed in scenario
 
 					isCustomShip = isCustomFaction || ship.unofficial === true;
@@ -1961,8 +1967,8 @@ window.gamedata = {
 					categoryContainer.append(h); // We always use categoryContainer now
 					hasShips = true;
 					//search for variants of the base design above...
-					for (var indexV = 0; indexV < shipList.length; indexV++) {
-						shipV = shipList[indexV];
+					for (var indexV = 0; indexV < activeShipList.length; indexV++) {
+						shipV = activeShipList[indexV];
 						if (shipV.variantOf != ship.shipClass) continue;//that's not a variant of current base ship
 
 						isCustomShip = isCustomFaction || shipV.unofficial === true;
