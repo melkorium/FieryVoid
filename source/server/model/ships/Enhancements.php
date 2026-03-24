@@ -2010,7 +2010,7 @@ class Enhancements{
 					case 'MINE_SIGN': //Improved Signature for Mines
 						//Mark true
 						$ship->signature += $enhCount;
-						if($ship->detectedSignature !== -1) $ship->detectedSignature += $enhCount;
+						if($ship->mineType == 'DEW') $ship->detectedSignature += $enhCount;
 						break;								
 
 					case 'POOR_CREW': //Poor Crew: -1 Engine, -1 Sensors, -1 Reactor power, +1 Profile, +2 to critical results, -5 Initiative, -1 to hit all weapons

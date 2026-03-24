@@ -384,7 +384,7 @@ window.lobbyEnhancements = {
 					case 'MINE_SIGN':
 						if (!ship.mineSignEnh) {
 							ship.signature += enhCount;
-							if(ship.detectedSignature !== -1) ship.detectedSignature += enhCount;
+							if(ship.mineType == 'DEW') ship.detectedSignature += enhCount;
 						}
 						ship.mineSignEnh = true;
 						break;

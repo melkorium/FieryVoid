@@ -34,7 +34,7 @@ class FireGamePhase implements Phase
         // Restricted to Mine units as automatic interceptions on normal ships do not have multi-turn reloads.
         foreach ($newFireOrders as $fireOrder) {
             $ship = $gameData->getShipById($fireOrder->shooterid);
-            if ($ship instanceof Mine && isset($ship->detectedSignature) && $ship->detectedSignature != -1) {
+            if ($ship instanceof Mine && $ship->mineType == 'DEW') {
                 $weapon = $ship->getSystemById($fireOrder->weaponid);
                 if ($weapon) {
                     $weapon->setFireOrder($fireOrder);
