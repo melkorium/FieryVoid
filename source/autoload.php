@@ -3586,7 +3586,29 @@ spl_autoload_register(
 
 
                         //Great Crusade Orieni
-//						'prophetgcam' => '/server/model/ships/GreatCrusadeOrieni/prophetGCAM.php',	
+						'benevolentgcam' => '/server/model/ships/GreatCrusadeOrieni/benevolentGCAM.php',	
+						'communegc' => '/server/model/ships/GreatCrusadeOrieni/communeGC.php',	
+						'crusadergc' => '/server/model/ships/GreatCrusadeOrieni/crusaderGC.php',	
+						'enlightenmentgcam' => '/server/model/ships/GreatCrusadeOrieni/enlightenmentGCAM.php',	
+						'faithfulgc' => '/server/model/ships/GreatCrusadeOrieni/faithfulGC.php',	
+						'flameofpuritygcam' => '/server/model/ships/GreatCrusadeOrieni/FlameOfPurityGCAM.php',	
+						'highguardagcam' => '/server/model/ships/GreatCrusadeOrieni/highguardAGCAM.php',	
+						'highguardbgc' => '/server/model/ships/GreatCrusadeOrieni/highguardBGC.php',	
+						'hkblazingstargc' => '/server/model/ships/GreatCrusadeOrieni/hkBlazingStarGC.php',	
+						'obedientgc' => '/server/model/ships/GreatCrusadeOrieni/obedientGC.php',	
+						'overseergc' => '/server/model/ships/GreatCrusadeOrieni/overseerGC.php',	
+						'paragongcam' => '/server/model/ships/GreatCrusadeOrieni/paragonGCAM.php',	
+						'penitentgcam' => '/server/model/ships/GreatCrusadeOrieni/penitentGCAM.php',	
+						'prophetgcam' => '/server/model/ships/GreatCrusadeOrieni/prophetGCAM.php',	
+						'purifiergcam' => '/server/model/ships/GreatCrusadeOrieni/purifierGCAM.php',	
+						'seekergc' => '/server/model/ships/GreatCrusadeOrieni/seekerGC.php',	
+						'skywatchgcam' => '/server/model/ships/GreatCrusadeOrieni/skywatchGCAM.php',	
+						'stormfrontgcam' => '/server/model/ships/GreatCrusadeOrieni/stormfrontGCAM.php',	
+						'templargc' => '/server/model/ships/GreatCrusadeOrieni/templarGC.php',	
+						'vengeancegc' => '/server/model/ships/GreatCrusadeOrieni/vengeanceGC.php',	
+						'vigilantgcam' => '/server/model/ships/GreatCrusadeOrieni/vigilantGCAM.php',	
+						'zealotbgc' => '/server/model/ships/GreatCrusadeOrieni/zealotBGC.php',	
+						'zealotgc' => '/server/model/ships/GreatCrusadeOrieni/zealotGC.php',	
 
 
 						

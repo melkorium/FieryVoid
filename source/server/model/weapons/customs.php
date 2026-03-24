@@ -3178,7 +3178,7 @@ class GromeHvyRailgun extends Weapon{
 class OrieniFlakArray extends Weapon{ 
     public $name = "OrieniFlakArray";
     public $displayName = "Flak Array";
-	public  $iconPath = "FlakCannon.png";
+	public  $iconPath = "FlakArray.png";
 
 	public $animation = "bolt";
     public $animationColor = array(255, 250, 230);
