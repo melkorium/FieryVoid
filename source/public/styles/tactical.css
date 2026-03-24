@@ -555,7 +555,8 @@ body {
 
 #gameinfo::-webkit-scrollbar,
 #declarationsContainer::-webkit-scrollbar,
-#combatLogContainer::-webkit-scrollbar {
+#combatLogContainer::-webkit-scrollbar,
+.mine-deploy-group-list::-webkit-scrollbar {
     width: 10px;
 }
 
@@ -565,7 +566,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-track,
 #declarationsContainer::-webkit-scrollbar-track,
-#combatLogContainer::-webkit-scrollbar-track {
+#combatLogContainer::-webkit-scrollbar-track,
+.mine-deploy-group-list::-webkit-scrollbar-track {
     background: #0d1620;
 }
 
@@ -576,7 +578,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-thumb,
 #declarationsContainer::-webkit-scrollbar-thumb,
-#combatLogContainer::-webkit-scrollbar-thumb {
+#combatLogContainer::-webkit-scrollbar-thumb,
+.mine-deploy-group-list::-webkit-scrollbar-thumb {
     background: #3c5574;
 }
 
@@ -586,7 +589,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-thumb:hover,
 #declarationsContainer::-webkit-scrollbar-thumb:hover,
-#combatLogContainer::-webkit-scrollbar-thumb:hover {
+#combatLogContainer::-webkit-scrollbar-thumb:hover,
+.mine-deploy-group-list::-webkit-scrollbar-thumb:hover {
     background: #5a7ea8;
 }
 

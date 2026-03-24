@@ -301,6 +301,7 @@ window.MineDeployment = (function () {
             '</div>' +
             '<div class="mine-deploy-actions">' +
             '<button id="mineDeployConfirm" class="mine-deploy-btn">Confirm</button>' +
+            '<button id="mineDeployAll"     class="mine-deploy-btn" style="margin: 0 5px;">Deploy All</button>' +
             '<button id="mineDeployCancel"  class="mine-deploy-btn mine-deploy-btn-cancel">Cancel</button>' +
             '</div>' +
             '</div>';
@@ -408,6 +409,29 @@ window.MineDeployment = (function () {
 
         document.getElementById('mineDeployCancel').addEventListener('click', function () {
             _closeDialog();
+        });
+
+        document.getElementById('mineDeployAll').addEventListener('click', function () {
+            for (var i = 0; i < classNames.length; i++) {
+                var cName = classNames[i];
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = Math.min(groups[cName].max, validHexes.length - currentTotalExceptThis);
+                groups[cName].current = Math.max(0, maxAllowed);
+            }
+
+            _closeDialog();
+
+            var minesToDeploy = [];
+            for (var c in groups) {
+                var count = groups[c].current;
+                var list = groups[c].mines;
+                for (var j = 0; j < count; j++) {
+                    minesToDeploy.push(list[j]);
+                }
+            }
+            if (minesToDeploy.length > 0) {
+                _deployMines(minesToDeploy, validHexes);
+            }
         });
 
         document.getElementById('mineDeployConfirm').addEventListener('click', function () {
