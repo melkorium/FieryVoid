@@ -6910,37 +6910,23 @@ class MineControllerDEW extends ShipSystem{
 
 	public function doIndividualNotesTransfer(){
 	    // Data received in variable individualNotesTransfer, further functions will look for it in currchangedSpec
-	    if (is_array($this->individualNotesTransfer)) {
-//Debug::log("reached " . "1"); 
-//var_dump($this->individualNotesTransfer);             
-	        foreach ($this->individualNotesTransfer as $shipType => $rangeValue) {
-//Debug::log("reached " . "2");                  
+	    if (is_array($this->individualNotesTransfer)) {            
+	        foreach ($this->individualNotesTransfer as $shipType => $rangeValue) {                
 	            $this->setRanges[$shipType] = $rangeValue; //Temporarily fill values to generate notes.
-//Debug::log("setRangeTransfer " . $this->setRanges[$shipType]);                
+              
 	        }
 	    }                                	   
 	    $this->individualNotesTransfer = array(); // Empty, just in case
 	}	    
 
     public function generateIndividualNotes($gameData, $dbManager){ //dbManager is necessary for Initial phase only
-		$mine = $this->getUnit();
-//Debug::log("reached " . $mine->name);            
+		$mine = $this->getUnit();           
 		switch($gameData->phase){
 						
 				case -1: //Deployment/Pre-Turn phase
 					//data returned as allocatedBFCP table, with one value passed per BFCP point in each FCType e.g. 'Fighter' mean +1 in allocatedBFCP['Fighter']
-					if($mine->userid == $gameData->forPlayer){ //only own mines, otherwise bad things may happen!
-//Debug::log("reached " . "3");    							
-						//$shipTypes = array_keys($this->allocatedRanges); //Extract keys Fighter, MCV, Capital.
-						//$rangeValues = array_values($this->allocatedRanges);//Extract values for those keys.																	
+					if($mine->userid == $gameData->forPlayer){ //only own mines, otherwise bad things may happen!																
 						foreach ($this->setRanges as $shipType => $rangeValue) { //Will always be three keys.
-						    // Find the FC Type of the current key in $keys array
-						    //$index = array_search($shipType, $shipTypes);
-
-						    // Use the Ship Type to access the corresponding value in $rangeValues array
-						    //$rangeSet = $rangeValues[$index];	
-//Debug::log("shipType " . $shipType);
-//Debug::log("rangeValue " . $rangeValue);     
  												
 							$notekey = $shipType;
 							$noteHuman = 'Mine Range set';
@@ -6951,9 +6937,7 @@ class MineControllerDEW extends ShipSystem{
 				break;	
 				
 				case 1: //Need to add some method for ballistic DEW mines to fire here if they have been activated (e.g. already fired once).
-
-//Debug::log("this->ballisticWeapon " . $this->ballisticWeapon); 	
-//Debug::log("mine->activated " . $mine->activated); 	
+	
 					if($this->ballisticWeapon && $mine->activated){
 						$this->checkAndCreateMineAttacks($gameData, $mine);					
 					}
@@ -6963,14 +6947,11 @@ class MineControllerDEW extends ShipSystem{
 	
 
     public function onIndividualNotesLoaded($gamedata)
-    {
-//Debug::log("turn " . $gamedata->turn);        
+    {      
             //Otherwise, what were the points set this turn at end of Initial Orders.
             foreach ($this->individualNotes as $currNote) {	    	
                 $shipType = $currNote->notekey;
                 $rangeValue = $currNote->notevalue;
-//Debug::log("shipType " . $shipType);
-//Debug::log("rangeValue " . $rangeValue);  
                 $this->allocatedRanges[$shipType] = $rangeValue;
             }
 
@@ -7054,28 +7035,23 @@ class MineControllerDEW extends ShipSystem{
 			if ($ship->getTurnDeployed($gamedata) > $gamedata->turn) continue;  //Ignore units that are not deployed yet!			
 			$relevantUnits[] = $ship;			
 		}
-//Debug::log("mineName " . $mine->name); 	
+	
         $mineTarget = null;
 		//Now check if any enemy units entered range and attack first one
 		$mineTarget = $this->checkForValidTargets($relevantUnits, $mine, $minePosition, $gamedata);	        	
 
 		if ($mineTarget !== null) { // Check if we found a valid target
-//Debug::log("mineTargetName " . $mineTarget->name); 
 			//Loop through mine's weapon and create fire orders against target.		
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon && $weapon->name !== "RammingAttack"){
-//Debug::log("weaponName " . $weapon->name); 
  					
 					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
-//Debug::log("passedLoadedCheck " . $weapon->name); 
 
-//Debug::log("gamedata->phase " . $gamedata->phase);
 						if($gamedata->phase == 1){
 							$type = "ballistic";
 						}else{
 							$type = "normal";
-						}
-//Debug::log("type " . $type);  
+						} 
 
 						if($weapon instanceof AmmoMissileRackS){
 							$magazine =  $mine->getSystemByName("AmmoMagazine");
@@ -7121,12 +7097,12 @@ class MineControllerDEW extends ShipSystem{
 										    
 			$unitStartLoc = $unit->getLastTurnMovement($gamedata->turn);
             if($unitStartLoc == null) continue;
-//Debug::log("unitName1 " . $unit->name); 								
+								
 			//Check if unit can be attacked in its starting position	
 			if($this->checkTargetConditions( $minePosition, $unitStartLoc->position, $gamedata, $mine, $unit)){
                 return $unit;                   
 			}
-//Debug::log("unitName2 " . $unit->name); 
+
 			if($gamedata->phase != 1){ //Don't need to do this check for ballistic weapons in Phase 1 (Initial Orders).
 				//Now check other movements in turn	
 				foreach($unit->movement as $unitMove){
@@ -7157,7 +7133,7 @@ class MineControllerDEW extends ShipSystem{
 		
 		$distance =	mathlib::getDistanceHex($minePosition, $targetPostion);//Compare starting positions.						
         $effectiveRange = $this->rangeSetting; //Start with max range.
-//Debug::log("distance " . $distance); 
+
         $shipType = 'Capitals-HCVs'; //Default as Captials.
         $FCIndex = $target->getFireControlIndex(); //Get FC array index of potential target.
         if($FCIndex == 0){ //Fighters
@@ -7165,20 +7141,17 @@ class MineControllerDEW extends ShipSystem{
         }else if($FCIndex == 1){ //LCV or MCV
             $shipType = 'LCVs-MCVs';                    
         }
-//Debug::log("mineName " . $mine->name); 
-//Debug::log("FCIndex " . $FCIndex); 
-//Debug::log("shipType " . $shipType);  
-//Debug::log("effectiveRange1 " . $effectiveRange);       
-        if($this->allocatedRanges[$shipType] !== null) $effectiveRange = $this->allocatedRanges[$shipType]; //Find and set appropriate range for this type of target.
-//Debug::log("effectiveRange2 " . $effectiveRange);    
-//Debug::log("Caps " . $this->allocatedRanges['Capitals-HCVs']);
-//Debug::log("MCV " . $this->allocatedRanges['LCVs-MCVs']);
-//Debug::log("Fighters " . $this->allocatedRanges['Fighters']);
+     
+        if($this->allocatedRanges[$shipType] !== null){
+			$effectiveRange = $this->allocatedRanges[$shipType]; //Find and set appropriate range for this type of target.
+		}else{
+			return false; //Null mean weapon can't target this ship type.
+		} 
 
         //take into account jammer effects.                    
 		$jammerValue = $target->getSpecialAbilityValue("Jammer", array("shooter" => $mine, "target" => $target));
 		if($jammerValue > 0) $effectiveRange = floor($effectiveRange / 2);
-//Debug::log("effectiveRange3 " . $effectiveRange);    		
+    		
 	    if ($distance > $effectiveRange) return false; //Not within range, skip LoS check and return false.
 
         $loSBlocked = false;
