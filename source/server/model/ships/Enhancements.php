@@ -99,7 +99,11 @@ class Enhancements{
 			
 			if($unit->mineType && $unit->mineType == 'DEW'){
 				$unit->enhancementOptionsEnabled[] = 'MINE_ARM';									
-			}				
+			}	
+			
+			if($unit->getVariableDamage() > 0){
+				$unit->enhancementOptionsEnabled[] = 'MINE_DMG';				
+			}
 
 			break;	  			
 	
@@ -484,6 +488,17 @@ class Enhancements{
 			$enhPriceStep = 1; 
 			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		}			
+
+		//Improve set Damage amount for Mines		
+		$enhID = 'MINE_DMG';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Extra Damage';
+			$variableDamage = $ship->getVariableDamage();
+			$enhLimit = $variableDamage / 2; 
+			$enhPrice = 1; //Adds 2 points of damage per PV	  
+			$enhPriceStep = 0; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}	
 
 		//Improve Range of Mines		
 		$enhID = 'MINE_RANG';
@@ -1969,9 +1984,20 @@ class Enhancements{
 						
 					break;
 
+					case 'MINE_DMG': //Extra Damage for Mines
+					foreach ($ship->systems as $system){
+						if ($system instanceof ProximityMine || $system instanceof CaptorMine){
+							$system->addToDamageBonus($enhCount*2);
+							$system->setMinDamage();
+							$system->setMaxDamage();
+						}
+					}								
+
+					break;	
+
 					case 'MINE_RANG': //Improved Range for Mines
 						foreach ($ship->systems as $system){
-							if ($system instanceof CaptorMine){
+							if ($system instanceof Weapon){
 								$system->range += $enhCount;
 								foreach($system->rangeArray as $mode => $val) {
 									$system->rangeArray[$mode] += $enhCount;
@@ -1979,7 +2005,7 @@ class Enhancements{
 							}
 						}								
 
-					break;	
+					break;						
 
 					case 'MINE_SIGN': //Improved Signature for Mines
 						//Mark true
@@ -2449,12 +2475,21 @@ class Enhancements{
 							}						
 						break;
 
+						case 'MINE_DMG':
+							if ($system instanceof Weapon) { //Improved Damage for Mines.
+								$strippedSystem->minDamage = $system->minDamage;
+								$strippedSystem->maxDamage = $system->maxDamage;
+								$strippedSystem->minDamageArray = $system->minDamageArray;
+								$strippedSystem->maxDamageArray = $system->maxDamageArray;
+							}						
+						break;
+						
 						case 'MINE_RANG':
-							if ($system instanceof Weapon) { //Improved Armour for Mines.
+							if ($system instanceof Weapon) { //Improved Range for Mines.
 								$strippedSystem->range = $system->range;                                     
 								$strippedSystem->rangeArray = $system->rangeArray;
 							}						
-						break;						
+						break;								
 
 						case 'SHAD_DIFF': //Increased Diffuser Capability: +1 Output for each Diffuser
 							if ($system instanceof EnergyDiffuser) { 

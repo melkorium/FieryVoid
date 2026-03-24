@@ -4951,20 +4951,6 @@ window.lobbyEnhancements = {
 						ship.iffEnh = true;
 						break;
 
-					case 'IMP_ACC':
-						if (!ship.impAccEnh) {
-							/*for (let system of ship.systems) {
-								if(system.weapon){
-									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
-									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
-									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
-								}																	
-							}*/	
-							ship.notes += "<br>Improved Accuracy";
-						}
-						ship.impAccEnh = true;
-						break;						
-
 					case 'IMPR_ENG':
 						if (!ship.engEnh) {
 							let strongestEng = null;
@@ -5039,14 +5025,6 @@ window.lobbyEnhancements = {
 							}
 						}
 						ship.sensEnh = true;
-						break;
-
-					case 'IMP_SIGN':
-						if (!ship.signEnh) {
-							ship.signature += 1;
-							if(ship.detectedSignature !== -1) ship.detectedSignature += 1;
-						}
-						ship.signEnh = true;
 						break;
 
 					case 'IMPR_SR':
@@ -5135,6 +5113,80 @@ window.lobbyEnhancements = {
 							ship.fervEnh = true;
 							ship.notes += "<br>Markab Fervor";
 						}
+						break;
+
+					case 'MINE_ACC':
+						if (!ship.mineAccEnh) {
+							/*for (let system of ship.systems) { //in Lobby weapon's firecontrol defaults to normal, not mine's accuracy as it will in game.
+								if(system.weapon){
+									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
+									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
+									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
+								}																	
+							}*/	
+							ship.notes += "<br>Improved Accuracy";
+						}
+						ship.mineAccEnh = true;
+						break;						
+
+					case 'MINE_ARM':
+						if (!ship.mineArmEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "structure") {
+									system.armour += enhCount;
+								}
+							}
+							ship.notes += "<br>Improved Armour";
+						}
+						ship.mineArmEnh = true;
+						break;	
+
+					case 'MINE_DMG':
+					if (!ship.mineDmgEnh) {
+						for (let system of ship.systems) {
+							if (system.name === "ProximityMine" || system.name === "CaptorMine") {
+								system.minDamage += enhCount * 2;
+								system.maxDamage += enhCount * 2;
+								if (system.data && system.data["Damage"] !== undefined) {
+									if (system.minDamage === system.maxDamage) {
+										system.data["Damage"] = system.maxDamage;
+									} else {
+										system.data["Damage"] = system.minDamage + "-" + system.maxDamage;
+									}
+								}
+							}
+						}
+						ship.notes += "<br>Improved Damage";
+					}
+					ship.mineDmgEnh = true;
+					break;							
+
+					case 'MINE_RANG':
+						if (!ship.mineRangEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "CaptorMine") {
+									system.range += enhCount;
+									if (system.data && system.data["Range"] !== undefined) {
+										system.data["Range"] = system.range;
+									}
+								} else if (system.name === "MineControllerDEW") {
+									system.rangeSetting += enhCount;
+									if (system.data && system.data["Max Range"] !== undefined && system.data["Max Range"] !== "?") {
+										system.data["Max Range"] = system.rangeSetting;
+									}
+								}
+							}
+							ship.notes += "<br>Improved Range";
+						}
+						ship.mineRangEnh = true;
+						break;						
+
+					case 'MINE_SIGN':
+						if (!ship.mineSignEnh) {
+							ship.signature += enhCount;
+							if(ship.detectedSignature !== -1) ship.detectedSignature += enhCount;
+						}
+						ship.mineSignEnh = true;
 						break;
 
 					case 'POOR_CREW':
@@ -18296,6 +18348,12 @@ var MineStealth = function MineStealth(json, ship) {
 MineStealth.prototype = Object.create(ShipSystem.prototype);
 MineStealth.prototype.constructor = MineStealth;
 
+MineStealth.prototype.initializationUpdate = function () {
+	var ship = this.ship;
+	this.data["Mine Signature"] = ship.signature;
+	return this
+}
+
 MineStealth.prototype.isDetectedMine = function (ship) {
 	if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
 
@@ -20377,8 +20435,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
 			weapon.data["Fire control (fighter/med/cap)"] = weapon.translateFCtoD100txt(weapon.fireControl);
-			weapon.range = this.rangeSetting;
-			//weapon.data["Range"] = this.rangeSetting;					
+			weapon.range = this.rangeSetting;				
 		}
 	}
 
@@ -24787,6 +24844,12 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data[entryName + " range"] = range;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 CaptorMine.prototype.canPropagate = function () { //can propagate if set to >0
@@ -24953,6 +25016,12 @@ ProximityMine.prototype.refreshData = function () { //refresh description to sho
 		this.data[" - Attack " + currType] = attack;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 ProximityMine.prototype.canPropagate = function () { //can propagate if set to >0

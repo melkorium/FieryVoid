@@ -2933,9 +2933,14 @@ class Mine extends OSAT{
     public $detectedSignature = -1; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
     public $spawned = -1; //To denote the turn a unit was spawned by DURING the game, e.g. doesn't count for CPV etc, show in Replay prior to it spawning
     public $canPreOrder = true;//Needed to set ranges for spawned Mines in Pre-Turn phase.
+    protected $variableDamage = 0; //Amount by which mine set ddamage can vary, looked for in Enhancements
 
     public function isDisabled(){
         return false;
+    }
+
+    public function getVariableDamage(){
+        return $this->variableDamage;
     }
 
     public function getLocations(){

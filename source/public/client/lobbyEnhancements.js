@@ -341,6 +341,26 @@ window.lobbyEnhancements = {
 						ship.mineArmEnh = true;
 						break;	
 
+					case 'MINE_DMG':
+					if (!ship.mineDmgEnh) {
+						for (let system of ship.systems) {
+							if (system.name === "ProximityMine" || system.name === "CaptorMine") {
+								system.minDamage += enhCount * 2;
+								system.maxDamage += enhCount * 2;
+								if (system.data && system.data["Damage"] !== undefined) {
+									if (system.minDamage === system.maxDamage) {
+										system.data["Damage"] = system.maxDamage;
+									} else {
+										system.data["Damage"] = system.minDamage + "-" + system.maxDamage;
+									}
+								}
+							}
+						}
+						ship.notes += "<br>Improved Damage";
+					}
+					ship.mineDmgEnh = true;
+					break;							
+
 					case 'MINE_RANG':
 						if (!ship.mineRangEnh) {
 							for (let system of ship.systems) {
