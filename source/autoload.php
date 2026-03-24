@@ -3542,7 +3542,18 @@ spl_autoload_register(
                 'spawncaptorwotcrabbaib' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiB.php', 
                 
                 //Centauri Mines
-                'proxmineraji' => '/server/model/ships/centauri/proxMineRaji.php',                
+                'proxmineraji' => '/server/model/ships/centauri/proxMineRaji.php',  
+                'captorminecoranta' => '/server/model/ships/centauri/captorMineCorantA.php',
+                'captorminecorantb' => '/server/model/ships/centauri/captorMineCorantB.php', 
+                'captorminecorantc' => '/server/model/ships/centauri/captorMineCorantC.php', 
+                'captorminecorantd' => '/server/model/ships/centauri/captorMineCorantD.php',  
+                'dewmineekosa' => '/server/model/ships/centauri/dewMineEkosA.php', 
+                'dewmineekosb' => '/server/model/ships/centauri/dewMineEkosB.php',                  
+                'dewmineocaraa' => '/server/model/ships/centauri/dewMineOcaraA.php',   
+                'dewmineocarab' => '/server/model/ships/centauri/dewMineOcaraB.php', 
+                'dewmineocarac' => '/server/model/ships/centauri/dewMineOcaraC.php', 
+                'dewmineocarad' => '/server/model/ships/centauri/dewMineOcaraD.php', 
+                'dewmineocarae' => '/server/model/ships/centauri/dewMineOcaraE.php',                                                                              
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
