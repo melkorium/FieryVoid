@@ -1357,6 +1357,8 @@ public function getStartLoading()
 		}else if ($oew < 1){ //OEW beteen 0.5 and 1 is achievable for targets of Distortion EW
 			$noLockPenalty = 0.5;
 		}
+        if($shooter instanceof Mine) $noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.
+
 		//$noLockMod =  $rangePenalty * $noLockPenalty; //moved lower!
 			
 		$jammerValue = 0;
@@ -1386,7 +1388,7 @@ public function getStartLoading()
 		$distanceForPenalty = mathlib::getDistanceHex($launchPos, $targetPos);
 		$rangePenalty = $this->calculateRangePenalty($distanceForPenalty);
 		$noLockMod = 0;
-		$jammermod = 0; //no lock and jammer work on tI havehe same thing, but they still need to be separated (for jinking).
+		$jammermod = 0; //no lock and jammer work on the same thing, but they still need to be separated (for jinking).
 		
 		// if EW is ignored - make it so (and also Jammer and no lock modifier, which are derived from EW as well)
 		if($this->ignoreAllEW){

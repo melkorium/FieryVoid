@@ -1164,6 +1164,9 @@ window.weaponManager = {
         } else if (oew < 1) { //OEW beteen 0.5 and 1 is achievable for targets of Distortion EW
             noLockPenalty = 0.5;
         }
+
+		if(ship.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
+
         //noLockMod =  rangePenalty * noLockPenalty; //moved lower   
         var jammermod = 0;
         //if (shooter.faction != target.faction){ //moved to getJammerValueFromTo!
