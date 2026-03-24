@@ -48,7 +48,7 @@ class dewMineTerrainMissile extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 1));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 20, 2, true)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new AmmoMissileRackS(0, 4, 0, 0, 360, $ammoMagazine, false));
+        $this->addPrimarySystem(new AmmoMissileRackS(0, 1, 0, 0, 360, $ammoMagazine, false));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(0, 6));

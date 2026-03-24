@@ -11,7 +11,7 @@ class captorMineTerrain extends Mine{
         $this->shipClass = "Captor Mine";
 		$this->occurence = "common";
 		//$this->variantOf = 'NONE';
-        $this->isd = 2208;
+        $this->isd = 2200;
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
