@@ -206,23 +206,28 @@ class MineSettingsList extends Component {
 
         const allocatedRangesMap = system.allocatedRanges || {};
         const shipTypes = Object.keys(allocatedRangesMap);
+        const allowedTargets = system.validTargets || shipTypes;
 
         const getVisibleValue = (type) => {
+            if (!allowedTargets.includes(type)) return 'N/A';
             const val = allocatedRangesMap[type];
             return val === null ? system.range : val;
         };
 
         const canIncrease = (type) => {
+            if (!allowedTargets.includes(type)) return false;
             const allocated = getVisibleValue(type);
             return allocated < system.range;
         };
 
         const canDecrease = (type) => {
+            if (!allowedTargets.includes(type)) return false;
             const allocated = getVisibleValue(type);
             return allocated > 0;
         };
 
         const canPropagate = (type) => {
+            if (!allowedTargets.includes(type)) return false;
             return true; // Can always propagate current setting
         };
 

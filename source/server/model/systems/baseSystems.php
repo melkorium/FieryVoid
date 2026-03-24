@@ -6884,8 +6884,9 @@ class MineControllerDEW extends ShipSystem{
 	public $rangeSetting = 0;
 	private $accuracy = 0;
 	public $ballisticWeapon = false; //To mark if mine has ballistic weapons
+    public $validTargets = null; // null means all targets are valid
 
-    function __construct($armour, $maxhealth, $powerReq, $range, $accuracy, $ballistic = false){
+    function __construct($armour, $maxhealth, $powerReq, $range, $accuracy, $ballistic = false, $validTargets = null){
 	//maxhealth and power reqirement are fixed; left option to override with hand-written values
         if ( $maxhealth == 0 ) $maxhealth = 1;
         if ( $powerReq == 0 ) $powerReq = 0;  
@@ -6893,6 +6894,7 @@ class MineControllerDEW extends ShipSystem{
 		$this->accuracy = $accuracy;
 		$this->outputDisplay = '-';
 		$this->ballisticWeapon = $ballistic;
+        $this->validTargets = $validTargets;
 
         parent::__construct($armour, $maxhealth, $powerReq, $range);
     }				
@@ -7167,6 +7169,7 @@ class MineControllerDEW extends ShipSystem{
         $strippedSystem = parent::stripForJson();    
         $strippedSystem->allocatedRanges = $this->allocatedRanges;
         $strippedSystem->rangeSetting = $this->rangeSetting;		 			                             
+        $strippedSystem->validTargets = $this->validTargets;
         return $strippedSystem;
     }
 	    
