@@ -494,8 +494,8 @@ class Enhancements{
 		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
 			$enhName = 'Extra Damage';
 			$variableDamage = $ship->getVariableDamage();
-			$enhLimit = $variableDamage / 2; 
-			$enhPrice = 1; //Adds 2 points of damage per PV	  
+			$enhLimit = $variableDamage; 
+			$enhPrice = 0.5; //Adds 1 point of damage per PV	  
 			$enhPriceStep = 0; 
 			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		}	
@@ -1987,7 +1987,7 @@ class Enhancements{
 					case 'MINE_DMG': //Extra Damage for Mines
 					foreach ($ship->systems as $system){
 						if ($system instanceof ProximityMine || $system instanceof CaptorMine){
-							$system->addToDamageBonus($enhCount*2);
+							$system->addToDamageBonus($enhCount);
 							$system->setMinDamage();
 							$system->setMaxDamage();
 						}

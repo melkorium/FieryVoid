@@ -161,6 +161,7 @@ window.confirm = {
             target = $(".selectAmount.shpenh" + enhNo);
         }
         totalCost += flightSize * enhCost;
+        totalCost = Math.ceil(totalCost);
 
         var totalCostSpan = $(".confirm .totalUnitCostAmount");
         totalCostSpan.data("value", totalCost);
@@ -191,6 +192,9 @@ window.confirm = {
         if (!isNaN(bulkQuantity) && bulkQuantity > 0) {
             totalCost *= bulkQuantity;
         }
+
+        //costPerUnit = Math.ceil(costPerUnit);
+        totalCost = Math.ceil(totalCost);
 
         // Update specifically the "Cost Per Unit" and "Total Unit Cost"
         var costPerUnitSpan = $(".confirm .costPerUnitSpan");
@@ -1224,7 +1228,7 @@ window.confirm = {
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Unit Purchase Cost");
+        $(".totalUnitCostText", totalItem).html("Total Purchase Cost");
         var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
         totalCostAmountSpan.html(ship.pointCost);
         totalCostAmountSpan.data("value", ship.pointCost);

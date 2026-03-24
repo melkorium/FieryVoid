@@ -345,8 +345,8 @@ window.lobbyEnhancements = {
 					if (!ship.mineDmgEnh) {
 						for (let system of ship.systems) {
 							if (system.name === "ProximityMine" || system.name === "CaptorMine") {
-								system.minDamage += enhCount * 2;
-								system.maxDamage += enhCount * 2;
+								system.minDamage += enhCount;
+								system.maxDamage += enhCount;
 								if (system.data && system.data["Damage"] !== undefined) {
 									if (system.minDamage === system.maxDamage) {
 										system.data["Damage"] = system.maxDamage;

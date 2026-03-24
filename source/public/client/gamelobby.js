@@ -379,6 +379,7 @@ window.gamedata = {
 				displayName = ship.name + ' (' + ship.bulkBuy + ')';
 			}
 		}
+		displayCost = Math.ceil(displayCost);
 
 		if (ship.mine && ship.bulkBuy) {
 			var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
@@ -1388,6 +1389,7 @@ window.gamedata = {
 					displayName = ship.name + ' (' + ship.bulkBuy + ')';
 				}
 			}
+			displayCost = Math.ceil(displayCost);
 
 			if (ship.mine && ship.bulkBuy) {
 				var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
