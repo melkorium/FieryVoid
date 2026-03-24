@@ -3520,7 +3520,8 @@ spl_autoload_register(
 				'claweagle' => '/server/model/ships/drazi/claweagle.php',										
 				'assaultsloop' => '/server/model/ships/raiders/assaultsloop.php',
 
-                //mines
+                
+                //MINES
 				'minestealth' => '/server/model/systems/baseSystems.php',
                 'mine' => '/server/model/ships/ShipClasses.php',
                 'captormine' => '/server/model/weapons/AoE.php',
@@ -3553,7 +3554,20 @@ spl_autoload_register(
                 'dewmineocarab' => '/server/model/ships/centauri/dewMineOcaraB.php', 
                 'dewmineocarac' => '/server/model/ships/centauri/dewMineOcaraC.php', 
                 'dewmineocarad' => '/server/model/ships/centauri/dewMineOcaraD.php', 
-                'dewmineocarae' => '/server/model/ships/centauri/dewMineOcaraE.php',                                                                              
+                'dewmineocarae' => '/server/model/ships/centauri/dewMineOcaraE.php',  
+                
+                //Earth Alliance Mines
+                'proxminep1' => '/server/model/ships/EA/proxMineP1.php', 
+                'proxminep2' => '/server/model/ships/EA/proxMineP2.php',                 
+                'proxminep3' => '/server/model/ships/EA/proxMineP3.php',
+                'captorminec1' => '/server/model/ships/EA/captorMineC1.php',
+                'captorminec2' => '/server/model/ships/EA/captorMineC2.php',
+                'captorminec3' => '/server/model/ships/EA/captorMineC3.php',                
+                'dewmined1' => '/server/model/ships/EA/dewMineD1.php',
+                'dewmined2' => '/server/model/ships/EA/dewMineD2.php',
+                'dewmined3' => '/server/model/ships/EA/dewMineD3.php',                                
+
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
