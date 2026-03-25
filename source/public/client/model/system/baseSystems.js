@@ -357,6 +357,12 @@ var MineStealth = function MineStealth(json, ship) {
 MineStealth.prototype = Object.create(ShipSystem.prototype);
 MineStealth.prototype.constructor = MineStealth;
 
+MineStealth.prototype.initializationUpdate = function () {
+	var ship = this.ship;
+	this.data["Mine Signature"] = ship.signature;
+	return this
+}
+
 MineStealth.prototype.isDetectedMine = function (ship) {
 	if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
 
@@ -2438,8 +2444,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
 			weapon.data["Fire control (fighter/med/cap)"] = weapon.translateFCtoD100txt(weapon.fireControl);
-			weapon.range = this.rangeSetting;
-			//weapon.data["Range"] = this.rangeSetting;					
+			weapon.range = this.rangeSetting;				
 		}
 	}
 
@@ -2456,6 +2461,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
+		if (this.validTargets && !this.validTargets.includes(currType)) continue;
 		range = this.allocatedRanges[currType];
 		if (range == null) range = this.rangeSetting;
 		if (hiddenDisplay == '?') range = hiddenDisplay;
@@ -2503,6 +2509,8 @@ MineControllerDEW.prototype.doIndividualNotesTransfer = function () { //prepare 
 
 		for (var i = 0; i < shipCategories.length; i++) {
 			var currType = shipCategories[i];
+			if (this.validTargets && !this.validTargets.includes(currType)) continue;
+
 			if (rangeValues[i] == null) rangeValues[i] = this.rangeSetting; //Set to max range if nothing set by player.
 
 			// Initialize the array for the current spec

@@ -396,14 +396,16 @@ body {
 }
 
 .name-value-button-ally {
-    border-top: 1px solid #444;
-    border-bottom: 1px solid #444;
+    /*border-top: 1px solid #444;
+    border-bottom: 1px solid #444;*/
+    border: solid orange 1px;
     background: rgba(20, 79, 128, 0.212);
     font-weight: normal;
     margin-bottom: 4px;
-    color: #33adff;
+    color: orange;
     cursor: pointer;
-    font-size: 15px;
+    font-size: 14px;
+    padding: 2px 4px;
 }
 
 
@@ -450,9 +452,9 @@ body {
     /*color: #e0e7ef;*/
     /* #deebff; */
     background-color: #04161C;
-    border-top: 1px solid #496791;
-    border-right: 1px solid #496791;
-    border-left: 1px solid #496791;
+    border-top: 1px solid #3793c8;
+    border-right: 1px solid #3793c8;
+    border-left: 1px solid #3793c8;
     position: fixed;
     bottom: 0px;
     z-index: 10;
@@ -478,9 +480,9 @@ body {
 .logUiEntry {
     position: absolute;
     top: -26px;
-    border-top: 1px solid #496791;
-    border-right: 1px solid #496791;
-    border-left: 1px solid #496791;
+    border-top: 1px solid #3793c8;
+    border-right: 1px solid #3793c8;
+    border-left: 1px solid #3793c8;
     border-radius: 5px 5px 0px 0px;
     -moz-border-radius: 5px 5px 0px 0px;
     -webkit-border-radius: 5px 5px 0px 0px;
@@ -553,7 +555,8 @@ body {
 
 #gameinfo::-webkit-scrollbar,
 #declarationsContainer::-webkit-scrollbar,
-#combatLogContainer::-webkit-scrollbar {
+#combatLogContainer::-webkit-scrollbar,
+.mine-deploy-group-list::-webkit-scrollbar {
     width: 10px;
 }
 
@@ -563,7 +566,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-track,
 #declarationsContainer::-webkit-scrollbar-track,
-#combatLogContainer::-webkit-scrollbar-track {
+#combatLogContainer::-webkit-scrollbar-track,
+.mine-deploy-group-list::-webkit-scrollbar-track {
     background: #0d1620;
 }
 
@@ -574,7 +578,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-thumb,
 #declarationsContainer::-webkit-scrollbar-thumb,
-#combatLogContainer::-webkit-scrollbar-thumb {
+#combatLogContainer::-webkit-scrollbar-thumb,
+.mine-deploy-group-list::-webkit-scrollbar-thumb {
     background: #3c5574;
 }
 
@@ -584,7 +589,8 @@ body {
 
 #gameinfo::-webkit-scrollbar-thumb:hover,
 #declarationsContainer::-webkit-scrollbar-thumb:hover,
-#combatLogContainer::-webkit-scrollbar-thumb:hover {
+#combatLogContainer::-webkit-scrollbar-thumb:hover,
+.mine-deploy-group-list::-webkit-scrollbar-thumb:hover {
     background: #5a7ea8;
 }
 
@@ -1366,4 +1372,229 @@ body {
         margin-left: 55px;
         opacity: 0.8;
     }
+}
+
+/* ─── Mine Deployment Mode ─────────────────────────────────────────────────── */
+
+/* Deploy Mines button — sits at the bottom of #iniGui panel content */
+#mineDeployBtn {
+    display: block;
+    width: 90%;
+    box-sizing: border-box;
+    margin: 10px auto 0px;
+    padding: 6px 10px;
+    background: #3793c82a;
+    border: 1px solid #3793c8;
+    border-radius: 5px;
+    color: #deebff;
+    font-family: arial, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.6);
+    opacity: 0.9;
+}
+
+#mineDeployBtn:hover {
+    background: #133e56;
+    border-color: #5a9abf;
+    color: #deebff;
+}
+
+#mineDeployBtn.active {
+    background: rgb(50, 205, 50, 0.30);
+    border-color: limegreen;
+    color: white;
+    box-shadow: 0 0 8px rgba(60, 200, 110, 0.35);
+}
+
+/* Drag-to-draw rectangle overlay on the map canvas */
+#mineDeployRect {
+    position: absolute;
+    display: none;
+    pointer-events: none;
+    border: 2px dashed rgba(255, 165, 0, 0.85);
+    background: rgba(255, 165, 0, 0.20);
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.35);
+    z-index: 8000;
+}
+
+/* ── Confirm dialog ─────────────────────────────────────────────────────────── */
+#mineDeployDialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20010;
+    font-family: arial, sans-serif;
+    background: rgba(5, 20, 30, 0.96);
+    border: 1px solid #3a6080;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    min-width: 300px;
+    max-width: 500px;
+    color: #b8d8ee;
+}
+
+.mine-deploy-dialog-inner {
+    padding: 12px 14px 14px 14px;
+    text-align: center;
+}
+
+.mine-deploy-title {
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: #d0ecff;
+    margin: 0 0 8px;
+}
+
+.mine-deploy-sub {
+    font-size: 13px;
+    margin: 3px 0;
+    color: #8ab4cc;
+}
+
+.mine-deploy-sub strong {
+    color: #c8e8fc;
+}
+
+.mine-deploy-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.mine-deploy-group-list {
+    margin: 10px 0;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.mine-deploy-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(58, 96, 128, 0.4);
+}
+
+.mine-deploy-row:last-child {
+    border-bottom: none;
+    margin-bottom: 4px;
+    padding-bottom: 0;
+}
+
+.mine-deploy-name {
+    flex-grow: 1;
+    text-align: left;
+    font-size: 13px;
+    color: #b8d8ee;
+    margin-right: 10px;
+}
+
+.mine-deploy-controls-sm {
+    display: flex;
+    align-items: center;
+    gap: 0px;
+}
+
+.mine-deploy-count {
+    font-size: 13px;
+    font-weight: bold;
+    color: #d0ecff;
+    width: 36px;
+    display: inline-block;
+    text-align: center;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
+}
+
+.mine-deploy-btn-sm {
+    width: 23px;
+    height: 23px;
+    padding: 0;
+    background: #133e5a;
+    border: 1px solid #3a6080;
+    border-radius: 4px;
+    color: #a8cadf;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.mine-deploy-btn-sm:hover {
+    background: #1c5578;
+    border-color: #5a9abf;
+    color: #d0e8f5;
+}
+
+.mine-deploy-btn-sm.btn-max {
+    width: auto;
+    padding: 0 6px;
+    margin-left: 10px;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.mine-deploy-actions {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.mine-deploy-btn {
+    padding: 6px 18px;
+    min-width: 140px;
+    background: #2e5c2e;
+    border: 1px solid #66b266;
+    border-radius: 4px;
+    color: #deebff;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: arial, sans-serif;
+    letter-spacing: 0.04em;
+    transition: background 0.12s;
+}
+
+.mine-deploy-btn:hover {
+    background: #3c7a3c;
+}
+
+.mine-deploy-btn-cancel {
+    background: #562020;
+    min-width: 140px;
+    border-color: #a77272;
+    color: #deebff;
+}
+
+.mine-deploy-btn-cancel:hover {
+    background: #7a2121;
+}
+
+/* Brief toast notification */
+#mineDeployToast {
+    position: fixed;
+    bottom: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20010;
+    background: rgba(10, 30, 45, 0.92);
+    border: 1px solid #3a6080;
+    border-radius: 6px;
+    color: #a8cadf;
+    font-family: arial, sans-serif;
+    font-size: 13px;
+    padding: 8px 18px;
+    pointer-events: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
 }

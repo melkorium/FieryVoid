@@ -138,11 +138,32 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
 
         $gd = $dbManager->getTacGamedata($gameData->forPlayer, $gameData->id); 
 		
-        if($gd->areMinesPresent){ //There are mines in the game, check if any have been detected.        
+        if($gd->areMinesPresent){ //There are enemy mines in the game, check if any have been detected.        
             foreach ($gd->ships as $ship) {
                 if ($ship->mine) {
                     $ship->generateIndividualNotes($gd, $dbManager);
                     $ship->saveIndividualNotes($dbManager);
+					
+                    //Have they fired any ballistic at player
+					if ($ship->mineType == 'DEW') {
+						$mineController = $ship->getSystemByName("MineControllerDEW");
+						if ($mineController && $mineController->ballisticWeapon) {
+							$newFireOrders = array();
+							$fireOrders = $ship->getAllFireOrders();
+							foreach($fireOrders as $fo) {
+								if($fo->addToDB) {
+									$newFireOrders[] = $fo;
+								}
+							}
+							if(count($newFireOrders) > 0) {
+								if (Firing::validateFireOrders($newFireOrders, $gd)){
+									$dbManager->submitFireorders($gameData->id, $newFireOrders, $gameData->turn, $gameData->phase);
+								}else{
+									throw new Exception("Failed to validate Mine firing orders");
+								}
+							}
+						}
+					}					
                 }
             }
         } 

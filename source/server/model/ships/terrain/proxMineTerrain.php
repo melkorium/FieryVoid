@@ -23,6 +23,7 @@ class proxMineTerrain extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
+        $this->mineType = 'Proximity';         
        		    	    	    	    
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 

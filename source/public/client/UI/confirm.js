@@ -114,8 +114,8 @@ window.confirm = {
 
     getTotalCost: function getTotalCost() {
 
-        if ($(".confirm #mineQuantity").length > 0) {
-            return confirm.getTotalCostMine();
+        if ($(".confirm #bulkQuantity").length > 0) {
+            return confirm.getTotalCostBulk();
         }
 
         var flightSize = $(".fighterAmount").html();
@@ -161,15 +161,16 @@ window.confirm = {
             target = $(".selectAmount.shpenh" + enhNo);
         }
         totalCost += flightSize * enhCost;
+        totalCost = Math.ceil(totalCost);
 
         var totalCostSpan = $(".confirm .totalUnitCostAmount");
         totalCostSpan.data("value", totalCost);
         totalCostSpan.html(totalCost);
     },
 
-    getTotalCostMine: function getTotalCostMine() {
+    getTotalCostBulk: function getTotalCostBulk() {
         // Fallback to generic .totalUnitCostAmount for safety if the class isn't strictly defined
-        var baseCostTarget = $(".confirm .totalMineCostAmount").length ? $(".confirm .totalMineCostAmount") : $(".confirm .totalUnitCostAmount");
+        var baseCostTarget = $(".confirm .totalBulkCostAmount").length ? $(".confirm .totalBulkCostAmount") : $(".confirm .totalUnitCostAmount");
         var baseCost = parseFloat(baseCostTarget.data("baseCost")) || parseFloat(baseCostTarget.first().data("value"));
 
         //add enhancement cost	   
@@ -183,23 +184,26 @@ window.confirm = {
             target = $(".confirm .selectAmount.shpenh" + enhNo);
         }
 
-        var costPerMine = baseCost + enhCost;
-        var totalCost = costPerMine;
+        var costPerUnit = baseCost + enhCost;
+        var totalCost = costPerUnit;
 
-        // If buying mines, multiply final total by designated quantity
-        var mineQuantity = parseInt($(".confirm #mineQuantity").val());
-        if (!isNaN(mineQuantity) && mineQuantity > 0) {
-            totalCost *= mineQuantity;
+        // If buying units in bulk, multiply final total by designated quantity
+        var bulkQuantity = parseInt($(".confirm #bulkQuantity").val());
+        if (!isNaN(bulkQuantity) && bulkQuantity > 0) {
+            totalCost *= bulkQuantity;
         }
 
-        // Update specifically the "Cost Per Mine" and "Total Unit Cost"
-        var costPerMineSpan = $(".confirm .costPerMineAmount");
-        if (costPerMineSpan.length) {
-            costPerMineSpan.data("value", costPerMine);
-            costPerMineSpan.html(costPerMine);
+        //costPerUnit = Math.ceil(costPerUnit);
+        totalCost = Math.ceil(totalCost);
+
+        // Update specifically the "Cost Per Unit" and "Total Unit Cost"
+        var costPerUnitSpan = $(".confirm .costPerUnitSpan");
+        if (costPerUnitSpan.length) {
+            costPerUnitSpan.data("value", costPerUnit);
+            costPerUnitSpan.html(costPerUnit);
         }
 
-        var totalCostSpan = $(".confirm .totalMineCostAmount");
+        var totalCostSpan = $(".confirm .totalBulkCostAmount");
         if (totalCostSpan.length) {
             totalCostSpan.data("value", totalCost); // This updates the DOM data
             totalCostSpan.html(totalCost);
@@ -447,6 +451,7 @@ window.confirm = {
         confirm.getTotalCost();
     },
 
+    /*
     showShipBuy: function showShipBuy(ship, callback) {
         var e = $(this.whtml);
 
@@ -530,11 +535,6 @@ window.confirm = {
             if (enhIsOption) enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
             //if(enhIsOption && enhID != 'DEPLOY') enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
 
-            /*if(enhIsOption && enhID == 'DEPLOY'){
-                selectAmountItem.html(deployTurn);
-                selectAmountItem.data('min', deployTurn);
-                enhName = " <span style='color:rgb(95, 206, 95);' >(DEPLOYMENT)</span> " + enhName;
-            } */
 
             const ammoTypes = ['(HEAVY AMMO)', '(MEDIUM AMMO)', '(LIGHT AMMO)', '(AMMO)'];
             for (const type of ammoTypes) {
@@ -653,7 +653,7 @@ window.confirm = {
             $(".fighterSelectItem .selectButtons .minusButton", e).on("click", confirm.decreaseFlightSize);
         }
 
-        /* try to make default unit name other than nameless */
+
         var nameCore = ship.shipClass;
         var nameNumber = gamedata.lastShipNumber + 1;
         var fullName = '';//by default: nameCore + ' #' + number ; name cannot be repeated!
@@ -674,12 +674,10 @@ window.confirm = {
             }
         }
         gamedata.lastShipNumber = nameNumber;
-        /*end of preparing default name*/
+
         $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="' + fullName + '"></input><br>').prependTo(e);
 
-        /* old, with Nameless default
-        $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="Nameless"></input><br>').prependTo(e);
-        */
+
         //$('<div class="message"><span>Name your new '+ship.shipClass+'</span></div>').prependTo(e);
         $(".confirmok", e).on("click", callback);
         $(".confirmcancel", e).on("click", function () {
@@ -691,7 +689,7 @@ window.confirm = {
         var a = e.appendTo("body");
         a.fadeIn(250);
     },
-
+    */
 
     // Helper function to handle input changes (edit mode)
     handleInputChangeEdit: function handleInputChangeEdit(e) {
@@ -1223,20 +1221,19 @@ window.confirm = {
         a.fadeIn(250);
     },
 
-    showBuyMine: function showBuyMine(ship, callback) {
+    showBuyBulk: function showBuyBulk(ship, callback) {
         var e = $(this.whtml);
 
+        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        var pointCost = ship.pointCost;
-
-        $(".totalUnitCostText", totalItem).html("Cost Per Mine");
-        var perMineAmountSpan = $(".totalUnitCostAmount", totalItem);
-        perMineAmountSpan.html(pointCost);
-        perMineAmountSpan.data("value", pointCost);
-        perMineAmountSpan.addClass("costPerMineAmount");
-
+        $(".totalUnitCostText", totalItem).html("Total Purchase Cost");
+        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
+        totalCostAmountSpan.html(ship.pointCost);
+        totalCostAmountSpan.data("value", ship.pointCost);
+        totalCostAmountSpan.data("baseCost", ship.pointCost);
+        totalCostAmountSpan.addClass("totalBulkCostAmount");
         $(totalItem).show();
 
         //ship enhancements
@@ -1295,32 +1292,33 @@ window.confirm = {
         }
 
         if (ship.enhancementOptions && ship.enhancementOptions.length > 0) {
-            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL mines in this purchase).</label></div>').prependTo(e);
+            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL units in this purchase).</label></div>').prependTo(e);
         }
 
-        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Mine Purchase Cost");
-        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
-        totalCostAmountSpan.html(ship.pointCost);
-        totalCostAmountSpan.data("value", ship.pointCost);
-        totalCostAmountSpan.data("baseCost", ship.pointCost);
-        totalCostAmountSpan.addClass("totalMineCostAmount");
+        var pointCost = ship.pointCost;
+
+        $(".totalUnitCostText", totalItem).html("Cost Per Unit");
+        var perUnitAmountSpan = $(".totalUnitCostAmount", totalItem);
+        perUnitAmountSpan.html(pointCost);
+        perUnitAmountSpan.data("value", pointCost);
+        perUnitAmountSpan.addClass("costPerUnitSpan");
+
         $(totalItem).show();
 
 
-        // Mine Settings Fields
-        var html = '<div class="mineSettings">';
-        html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
-        html += '<label>Quantity: <input type="number" id="mineQuantity" value="10" min="1" style="width: 50px; text-align: center;"></label><br>';
+        // Unit Settings Fields
+        var html = '<div class="unitSettings">';
+        //html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
+        html += '<label>Quantity: <input type="number" id="bulkQuantity" value="1" min="1" style="width: 50px; text-align: center;"></label><br>';
         html += '</div>';
 
         var settingsBlock = $(html).prependTo(e);
 
         // Add mousewheel scroll support to the input field
-        $('#mineQuantity', settingsBlock).on('wheel', function (e) {
+        $('#bulkQuantity', settingsBlock).on('wheel', function (e) {
             e.preventDefault();
             var step = parseInt($(this).attr('step')) || 1;
             var val = parseInt($(this).val()) || 1;
@@ -1336,14 +1334,14 @@ window.confirm = {
             confirm.getTotalCost();
         });
 
-        $('#mineQuantity', settingsBlock).on('input', function () {
+        $('#bulkQuantity', settingsBlock).on('input', function () {
             confirm.getTotalCost();
         });
 
         $('<label>Configure ' + ship.shipClass + ' Purchase:</label><br>').prependTo(e);
 
         $(".confirmok", e).on("click", function () {
-            var q = parseInt($('#mineQuantity', e).val());
+            var q = parseInt($('#bulkQuantity', e).val());
 
             if (isNaN(q) || q < 1) q = 1;
 

@@ -217,6 +217,7 @@
 
     <script defer src="client/renderer/phaseStrategy/PhaseStrategy.js"></script>
     <script defer src="client/renderer/phaseStrategy/DeploymentPhaseStrategy.js"></script>
+    <script defer src="client/renderer/phaseStrategy/MineDeployment.js"></script>
     <script defer src="client/renderer/phaseStrategy/WaitingPhaseStrategy.js"></script>
     <script defer src="client/renderer/phaseStrategy/InitialPhaseStrategy.js"></script>
     <script defer src="client/renderer/phaseStrategy/MovementPhaseStrategy.js"></script>

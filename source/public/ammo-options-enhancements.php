@@ -40,6 +40,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <li><a href="#enhancements">Basic Enhancements</a>
            <ul class="sub-list">
                 <li><a href="#shipenhancements">Ship Enhancements</a></li>
+                <li><a href="#mineEnhancements">Mine Enhancements</a></li>                   
                 <li><a href="#fighterenhancements">Fighter Enhancements</a></li>                
             </ul>
         </li>
@@ -246,6 +247,53 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
       </li>           
     </ul>      
     <a class="back-to-top" href="#top">↩ Back to Top</a>    
+
+
+    <h4 id="mineEnhancements" style="margin-top: 15px;">Mine Enhancements:</h4>
+
+    <ul>
+      <p><strong>Note</strong> - All costs listed below are on per mine basis e.g. you pay for each fighters in the flight.</p>
+      <li><strong>Identify Friend or Foe (IFF) System</strong>
+        <ul class="circle-list">
+            <li>Effect: Prevent ballistic mines from attacking friendly units</li>
+            <li>Points Cost: 4 pts per Ballistic Mine Launcher</li>
+            <li>Limit: 1</li>
+            <li>Notes: Only available to ships equipped with Ballistic Mine Launchers</li>              
+        </ul>      
+      </li> 
+      <li><strong>Improved Accuracy</strong>
+        <ul class="circle-list">
+            <li>Effect: +1 Accuracy</li>
+            <li>Points Cost: 10% for Captor Mines, 20% for DEW Mines</li>
+            <li>Limit: 5</li>
+            <li>Notes: Captor & DEW only</li>
+        </ul>      
+      </li>  
+      <li><strong>Improved Armour</strong>
+        <ul class="circle-list">
+            <li>Effect: +1 Armour</li>
+            <li>Points Cost: New armour rating</li>
+            <li>Limit: 5</li>
+            <li>Notes: DEW only</li>            
+        </ul>      
+      </li>  
+      <li><strong>Improved Range</strong>
+        <ul class="circle-list">
+            <li>Effect: +1 Range</li>
+            <li>Points Cost: Current range value.</li>
+            <li>Limit: 5</li>
+            <li>Notes: Captor & DEW only</li>            
+        </ul>      
+      </li>  
+      <li><strong>Improved Signature</strong>
+        <ul class="circle-list">
+            <li>Effect: +1 Signature</li>
+            <li>Points Cost: New signature value + 1</li>
+            <li>Limit: 5</li>
+        </ul>      
+      </li>          
+    </ul>  
+    <a class="back-to-top" href="#top">↩ Back to Top</a>       
 
 
     <h3 id="factionenhancements" style="margin-top: 15px;">Faction Enhancements:</h3>
