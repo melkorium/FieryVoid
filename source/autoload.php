@@ -1593,6 +1593,7 @@ spl_autoload_register(
 				'lightgatlinggun' => '/server/model/weapons/customNexus.php',
 				'nexusminigun' => '/server/model/weapons/customNexus.php',
 				'nexusminigunftr' => '/server/model/weapons/customNexus.php',
+				'nexussandcaster' => '/server/model/weapons/customNexus.php',
 				'nexusshattergun' => '/server/model/weapons/customNexus.php',
 				'nexusshattergunftr' => '/server/model/weapons/customNexus.php',
 				'nexusultralightrailgun' => '/server/model/weapons/customNexus.php',
@@ -3583,9 +3584,42 @@ spl_autoload_register(
 						'gquan_wi' => '/server/model/ships/whatif/gquan_WI.php',	
 						'vorchan_wi' => '/server/model/ships/whatif/vorchan_WI.php',
 
+
+                        //Great Crusade Orieni
+						'benevolentgcam' => '/server/model/ships/GreatCrusadeOrieni/benevolentGCAM.php',	
+						'communegc' => '/server/model/ships/GreatCrusadeOrieni/communeGC.php',	
+						'crusadergc' => '/server/model/ships/GreatCrusadeOrieni/crusaderGC.php',	
+						'enlightenmentgcam' => '/server/model/ships/GreatCrusadeOrieni/enlightenmentGCAM.php',	
+						'faithfulgc' => '/server/model/ships/GreatCrusadeOrieni/faithfulGC.php',	
+						'flameofpuritygcam' => '/server/model/ships/GreatCrusadeOrieni/FlameOfPurityGCAM.php',	
+						'highguardagcam' => '/server/model/ships/GreatCrusadeOrieni/highguardAGCAM.php',	
+						'highguardbgc' => '/server/model/ships/GreatCrusadeOrieni/highguardBGC.php',	
+						'hkblazingstargc' => '/server/model/ships/GreatCrusadeOrieni/hkBlazingStarGC.php',	
+						'obedientgc' => '/server/model/ships/GreatCrusadeOrieni/obedientGC.php',	
+						'overseergc' => '/server/model/ships/GreatCrusadeOrieni/overseerGC.php',	
+						'paragongcam' => '/server/model/ships/GreatCrusadeOrieni/paragonGCAM.php',	
+						'penitentgcam' => '/server/model/ships/GreatCrusadeOrieni/penitentGCAM.php',	
+						'prophetgcam' => '/server/model/ships/GreatCrusadeOrieni/prophetGCAM.php',	
+						'purifiergcam' => '/server/model/ships/GreatCrusadeOrieni/purifierGCAM.php',	
+						'seekergc' => '/server/model/ships/GreatCrusadeOrieni/seekerGC.php',	
+						'skywatchgcam' => '/server/model/ships/GreatCrusadeOrieni/skywatchGCAM.php',	
+						'stormfrontgcam' => '/server/model/ships/GreatCrusadeOrieni/stormfrontGCAM.php',	
+						'templargc' => '/server/model/ships/GreatCrusadeOrieni/templarGC.php',	
+						'vengeancegc' => '/server/model/ships/GreatCrusadeOrieni/vengeanceGC.php',	
+						'vigilantgcam' => '/server/model/ships/GreatCrusadeOrieni/vigilantGCAM.php',	
+						'zealotbgc' => '/server/model/ships/GreatCrusadeOrieni/zealotBGC.php',	
+						'zealotgc' => '/server/model/ships/GreatCrusadeOrieni/zealotGC.php',	
+
+
 						
 				// For the future
 				'hvyassaultlaser' => '/server/model/weapons/lasers.php',
+				'warlance' => '/server/model/weapons/customs.php',
+				'lightlaserlance' => '/server/model/weapons/customs.php',
+				'imprapidgatling' => '/server/model/weapons/customs.php',
+				'gaussrifle' => '/server/model/weapons/customs.php',
+				'heavygaussrifle' => '/server/model/weapons/customs.php',
+				'orieniflakarray' => '/server/model/weapons/customs.php',
 
 	
 				//let's end this with unit enhancement class...		    
