@@ -1539,6 +1539,7 @@ body {
 
 .mine-deploy-btn-sm.btn-max {
     width: auto;
+    min-width: 60px;
     padding: 0 6px;
     margin-left: 10px;
     font-size: 11px;
