@@ -6906,7 +6906,7 @@ class MineControllerDEW extends ShipSystem{
             }         
 			$this->data["Special"] = "<br>Used to set ranges for DEW Mine's weapon against different types of enemy. ";	
 			$this->data["Special"] .= "<br>Ranges are set on turn that the Mine deploys, and these cannot then be changed.";					            
-			$this->data["Special"] .= "<br>All range are halved against Jammer-equipped units.";											
+			$this->data["Special"] .= "<br>All attacks by DEW mines assume an EW lock, except against Jammer-equipped ships.";											
 	}	
 
 
