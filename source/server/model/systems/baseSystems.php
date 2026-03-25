@@ -6974,6 +6974,14 @@ class MineControllerDEW extends ShipSystem{
 					if($weapon->fireControl[1] !== null) $weapon->fireControl[1] = $this->accuracy;
 					if($weapon->fireControl[2] !== null) $weapon->fireControl[2] = $this->accuracy;
 
+					if (!empty($weapon->fireControlArray)) {
+						foreach ($weapon->fireControlArray as $mode => $fcArray) {
+							if ($weapon->fireControlArray[$mode][0] !== null) $weapon->fireControlArray[$mode][0] = $this->accuracy;
+							if ($weapon->fireControlArray[$mode][1] !== null) $weapon->fireControlArray[$mode][1] = $this->accuracy;
+							if ($weapon->fireControlArray[$mode][2] !== null) $weapon->fireControlArray[$mode][2] = $this->accuracy;
+						}
+					}
+
 					$weapon->range = $this->rangeSetting;				
 					foreach($weapon->rangeArray as $mode => $val) {
 						$weapon->rangeArray[$mode] = $this->rangeSetting;
