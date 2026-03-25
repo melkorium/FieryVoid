@@ -831,7 +831,7 @@ window.gamedata = {
 				customShipPresent = true;
 				warningFound = true;
 			}
-			if ((lship.base == true) || (lship.osat == true)) staticPresent = true;
+			if ((lship.base == true) || (lship.osat == true && !lship.mine)) staticPresent = true;
 			if (lship.isCombatUnit != true) nonCombatPresent = true;
 			//check for presence of enhancements
 			if (!enhancementPresent) { //if already found - no point in checking
