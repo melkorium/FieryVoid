@@ -168,10 +168,12 @@ public function calculateHit($gamedata, $fireOrder){
 
         	    
 	    
-        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $loadingTime = 2, $range = 50){
 		//maxhealth and power reqirement are fixed; left option to override with hand-written values
             if ( $maxhealth == 0 ) $maxhealth = 5;
             if ( $powerReq == 0 ) $powerReq = 4;
+            $this->loadingtime = $loadingTime;
+            $this->range = $range;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
 
