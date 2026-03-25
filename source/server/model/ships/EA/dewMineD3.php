@@ -33,7 +33,7 @@ class dewMineD3 extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 8, 5)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy
-        $this->addPrimarySystem(new MediumPlasma(0, 1, 0, 0, 360));
+        $this->addPrimarySystem(new MediumPlasma(0, 1, 1, 0, 360));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(2, 7));
