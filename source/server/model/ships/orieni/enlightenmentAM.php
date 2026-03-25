@@ -53,8 +53,8 @@ class EnlightenmentAM extends BaseShip{
         $this->addFrontSystem(new Thruster(2, 15, 0, 2, 1));
         $this->addFrontSystem(new Thruster(2, 15, 0, 2, 1));  
 
-        $this->addAftSystem(new RapidGatling(1, 4, 1, 120, 240));
-        $this->addAftSystem(new RapidGatling(1, 4, 1, 120, 240));
+        $this->addAftSystem(new RapidGatling(1, 4, 1, 60, 300));
+        $this->addAftSystem(new RapidGatling(1, 4, 1, 60, 300));
         $this->addAftSystem(new Thruster(3, 12, 0, 2, 2));
         $this->addAftSystem(new Thruster(3, 12, 0, 2, 2));
         $this->addAftSystem(new Thruster(3, 12, 0, 2, 2));
