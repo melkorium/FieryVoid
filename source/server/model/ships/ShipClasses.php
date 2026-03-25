@@ -85,6 +85,8 @@ class BaseShip {
     public $skinDancing = array();	//Holds target ids when there's a successful skin dance.
     protected $skinDancer = false; //Let';s ships of unusual size skin dance e.g. Toravlus capitals ships.   	
 
+	public $isCloaked = false;  //Used for deactivating Trek shields when the Trek cloak is activated
+
     public $team;
     private $expectedDamage = array(); //loc=>dam; damage the unit is expected to take this turn (at outer locations), to decide where to take ambiguous shots
     
