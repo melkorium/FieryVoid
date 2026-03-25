@@ -205,7 +205,7 @@
 
         function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $startArc2 = null, $endArc2 = null){
             if ( $maxhealth == 0 ) $maxhealth = 6;
-            if ( $powerReq == 0 ) $powerReq = 4;
+            if ( $powerReq == 0 ) $powerReq = 2;
 
             if($startArc2 !== null || $endArc2 !== null){      
                 $this->startArcArray[0] = $startArc; //Set rear arcs manually
