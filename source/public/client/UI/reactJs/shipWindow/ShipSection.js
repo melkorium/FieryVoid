@@ -6,6 +6,7 @@ const ShipSectionContainer = styled.div`
     display: flex;
     flex-wrap: wrap-reverse;
     width: ${props => {
+        if (props.$isTerrain) return '125px';
         switch (props.location) {
             case 1:
             case 0:
