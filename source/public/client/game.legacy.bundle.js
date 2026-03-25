@@ -3659,10 +3659,15 @@ window.DeploymentIcon = function () {
                 var hx = hole.position.x - position.x;
                 var hy = hole.position.y - position.y;
 
-                // 1. Stencil write mask
+                var enemyColor = getColorByType("enemy");
+
+                // 1. Stencil write mask and red fill
                 var holeGeom = new THREE.PlaneGeometry(hw, hh);
                 var holeMat = new THREE.MeshBasicMaterial({
-                    colorWrite: false,
+                    color: enemyColor,
+                    transparent: true,
+                    opacity: this.opacity * 0.5,
+                    colorWrite: true,
                     depthWrite: false,
                     stencilWrite: true,
                     stencilRef: 1,
@@ -3700,10 +3705,11 @@ window.DeploymentIcon = function () {
             // Draw borders around each hole, bounded by the valid area (stencil == 0)
             holes.forEach(function (hole) {
                 var hSize = { 
-                    width: hole.size.width + (lineWidth * 2), 
-                    height: hole.size.height + (lineWidth * 2) 
+                    width: hole.size.width + lineWidth, 
+                    height: hole.size.height + lineWidth 
                 };
-                var holeBorder = new window.BoxSprite(hSize, lineWidth, this.z, this.color, this.opacity);
+                var enemyColor = getColorByType("enemy");
+                var holeBorder = new window.BoxSprite(hSize, lineWidth, this.z, enemyColor, this.opacity);
                 holeBorder.mesh.position.set(hole.position.x - position.x, hole.position.y - position.y, 0);
                 holeBorder.mesh.material.stencilWrite = true;
                 holeBorder.mesh.material.stencilRef = 0;
@@ -3738,7 +3744,7 @@ window.DeploymentIcon = function () {
         } else if (type == "terrain") {
             return new THREE.Color(255 / 255, 255 / 255, 255 / 255).convertSRGBToLinear();
         } else if (type == "mine") {
-            return new THREE.Color(255 / 255, 165 / 255, 0).convertSRGBToLinear(); // Orange
+            return new THREE.Color(200 / 255, 250 / 255, 160 / 255).convertSRGBToLinear(); // Paler green
         } else {
             return new THREE.Color(250 / 255, 100 / 255, 100 / 255).convertSRGBToLinear();
         }
@@ -11913,7 +11919,8 @@ window.MineDeployment = (function () {
         html +=
             '</div>' +
             '<div class="mine-deploy-actions">' +
-            '<button id="mineDeployConfirm" class="mine-deploy-btn">Confirm</button>' +
+            '<button id="mineDeployConfirm" class="mine-deploy-btn">Deploy Selected</button>' +
+            '<button id="mineDeployAll"     class="mine-deploy-btn" style="margin: 0 5px;">Deploy All</button>' +
             '<button id="mineDeployCancel"  class="mine-deploy-btn mine-deploy-btn-cancel">Cancel</button>' +
             '</div>' +
             '</div>';
@@ -12021,6 +12028,29 @@ window.MineDeployment = (function () {
 
         document.getElementById('mineDeployCancel').addEventListener('click', function () {
             _closeDialog();
+        });
+
+        document.getElementById('mineDeployAll').addEventListener('click', function () {
+            for (var i = 0; i < classNames.length; i++) {
+                var cName = classNames[i];
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = Math.min(groups[cName].max, validHexes.length - currentTotalExceptThis);
+                groups[cName].current = Math.max(0, maxAllowed);
+            }
+
+            _closeDialog();
+
+            var minesToDeploy = [];
+            for (var c in groups) {
+                var count = groups[c].current;
+                var list = groups[c].mines;
+                for (var j = 0; j < count; j++) {
+                    minesToDeploy.push(list[j]);
+                }
+            }
+            if (minesToDeploy.length > 0) {
+                _deployMines(minesToDeploy, validHexes);
+            }
         });
 
         document.getElementById('mineDeployConfirm').addEventListener('click', function () {
@@ -12166,7 +12196,7 @@ window.MineDeployment = (function () {
         var btn = document.getElementById('mineDeployBtn');
         if (btn) btn.classList.add('active');
 
-        _showToast('Select the area you wish to deploy mines by dragging the mouse.', 5000);
+        _showToast('Select the area you wish to deploy mines by dragging the mouse.', 3000);
 
         var pageContainer = document.getElementById('pagecontainer');
         if (pageContainer) {
@@ -21989,6 +22019,9 @@ window.weaponManager = {
         } else if (oew < 1) { //OEW beteen 0.5 and 1 is achievable for targets of Distortion EW
             noLockPenalty = 0.5;
         }
+
+		if(ship.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
+
         //noLockMod =  rangePenalty * noLockPenalty; //moved lower   
         var jammermod = 0;
         //if (shooter.faction != target.faction){ //moved to getJammerValueFromTo!
@@ -33299,6 +33332,7 @@ window.confirm = {
             target = $(".selectAmount.shpenh" + enhNo);
         }
         totalCost += flightSize * enhCost;
+        totalCost = Math.ceil(totalCost);
 
         var totalCostSpan = $(".confirm .totalUnitCostAmount");
         totalCostSpan.data("value", totalCost);
@@ -33329,6 +33363,9 @@ window.confirm = {
         if (!isNaN(bulkQuantity) && bulkQuantity > 0) {
             totalCost *= bulkQuantity;
         }
+
+        //costPerUnit = Math.ceil(costPerUnit);
+        totalCost = Math.ceil(totalCost);
 
         // Update specifically the "Cost Per Unit" and "Total Unit Cost"
         var costPerUnitSpan = $(".confirm .costPerUnitSpan");
@@ -34362,7 +34399,7 @@ window.confirm = {
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Unit Purchase Cost");
+        $(".totalUnitCostText", totalItem).html("Total Purchase Cost");
         var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
         totalCostAmountSpan.html(ship.pointCost);
         totalCostAmountSpan.data("value", ship.pointCost);
@@ -38665,6 +38702,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
+		if (this.validTargets && !this.validTargets.includes(currType)) continue;
 		range = this.allocatedRanges[currType];
 		if (range == null) range = this.rangeSetting;
 		if (hiddenDisplay == '?') range = hiddenDisplay;
@@ -38712,6 +38750,8 @@ MineControllerDEW.prototype.doIndividualNotesTransfer = function () { //prepare 
 
 		for (var i = 0; i < shipCategories.length; i++) {
 			var currType = shipCategories[i];
+			if (this.validTargets && !this.validTargets.includes(currType)) continue;
+
 			if (rangeValues[i] == null) rangeValues[i] = this.rangeSetting; //Set to max range if nothing set by player.
 
 			// Initialize the array for the current spec
