@@ -107,11 +107,11 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
       <h3>Latest Updates — March 2026</h3>
       <ul class="updates-list">
         <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->
-        <li><strong>The Polaren Confederacy has entered the fray!</strong> - A whole new faction added to the the custom Nexus universe, thanks to Geoffrey!</li> 
-        <li><strong>New House Valheru Ships</strong> - New ships added for the custom House Valheru faction which now has its own listing, thanks to Fred & Geoffrey!</li>                   
-        <li><strong>Mine Warfare</strong> - Basic versions of all three Mine types added to Terrain faction for playtesting, select 'Allow Mines' in Create Game to see them.</li> 
-        <li><strong>Fighter Escorts</strong> - Fighters can now deploy in the same hex as friendly ships. They will no longer escort ALL ships on Turn 1 as a result.</li>                 
-        <li><strong>Stealth Update</strong> - Multiplayer support added for units that can stealth e.g. Hyach Subs, Torvalus.</li>                             
+        <li><strong>The Great Crusade Begins!</strong> - A new custom faction based on the 'Great Crusade' Orieni Imperiuim added, thanks to Geoffrey!</li>          
+        <li><strong>The Polaren Confederacy</strong> - A whole new faction added to the the custom Nexus universe, thanks to Geoffrey!</li>                   
+        <li><strong>Mine Warfare</strong> - New Mine Deployment Tool added, plus mine units now available for Centauri, Earth Alliance, Minbari and Narn.</li> 
+        <li><strong>Nexus and Trek Updates</strong> - Many Nexus and Trek systems received fixes/updates, including no shields for cloaked vessels, thanks to Geoffrey & Wolfgang</li>
+        <li><strong>Asteroids</strong> - You can now freely select the amount of random Asteroids in the Create Game screen, or continue using presets.</li>                                                       
         <li><strong>General Fixes</strong> - Many smaller bug fixes/appearance updates. Thanks for the reports!</li>           
         <!--<li><strong>6 Jun</strong> - Overlay colors, deployment zone tweaks, UI fixes. Pulsar mine fixed, tooltip/text readability improved.</li>-->
       </ul>
