@@ -22020,7 +22020,7 @@ window.weaponManager = {
             noLockPenalty = 0.5;
         }
 
-		if(ship.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
+		if(shooter.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
 
         //noLockMod =  rangePenalty * noLockPenalty; //moved lower   
         var jammermod = 0;
