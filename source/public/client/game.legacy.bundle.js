@@ -3634,9 +3634,11 @@ window.DeploymentIcon = function () {
         this.mesh = null;
         this.size = size;
         this.color = getColorByType(type);
-        this.opacity = 0.5;        
-        if (type == "terrain" || type == "mine") {
-            this.opacity = 0.2;
+        this.opacity = 0.5;
+        if (type == "terrain") {
+            this.opacity = 0.3;
+        } else if (type == "ally") {
+            this.opacity = 0.35;
         }
 
         this.mesh = new THREE.Object3D();
@@ -3651,16 +3653,21 @@ window.DeploymentIcon = function () {
             var stencilGroup = new THREE.Group();
             this.mesh.add(stencilGroup);
 
-            holes.forEach(function(hole) {
+            holes.forEach(function (hole) {
                 var hw = hole.size.width;
                 var hh = hole.size.height;
                 var hx = hole.position.x - position.x;
                 var hy = hole.position.y - position.y;
-                
-                // 1. Stencil write mask
+
+                var enemyColor = getColorByType("enemy");
+
+                // 1. Stencil write mask and red fill
                 var holeGeom = new THREE.PlaneGeometry(hw, hh);
                 var holeMat = new THREE.MeshBasicMaterial({
-                    colorWrite: false,
+                    color: enemyColor,
+                    transparent: true,
+                    opacity: this.opacity * 0.5,
+                    colorWrite: true,
                     depthWrite: false,
                     stencilWrite: true,
                     stencilRef: 1,
@@ -3675,9 +3682,9 @@ window.DeploymentIcon = function () {
 
             // 3. Draw the main map, but only where stencil == 0 (outside the holes)
             var plainGeom = new THREE.PlaneGeometry(size.width + lineWidth, size.height + lineWidth);
-            var plainMat = new THREE.MeshBasicMaterial({ 
-                color: this.color, 
-                transparent: true, 
+            var plainMat = new THREE.MeshBasicMaterial({
+                color: this.color,
+                transparent: true,
                 opacity: this.opacity * 0.5,
                 stencilWrite: true,
                 stencilRef: 0,
@@ -3687,6 +3694,28 @@ window.DeploymentIcon = function () {
             plainMesh.position.z = this.z;
             plainMesh.renderOrder = 0;
             this.mesh.add(plainMesh);
+
+            // Apply stencil to the main border so it gets cut by holes
+            var outerBorder = new window.BoxSprite(size, lineWidth, this.z, this.color, this.opacity);
+            outerBorder.mesh.material.stencilWrite = true;
+            outerBorder.mesh.material.stencilRef = 0;
+            outerBorder.mesh.material.stencilFunc = THREE.EqualStencilFunc;
+            this.mesh.add(outerBorder.mesh);
+
+            // Draw borders around each hole, bounded by the valid area (stencil == 0)
+            holes.forEach(function (hole) {
+                var hSize = { 
+                    width: hole.size.width + lineWidth, 
+                    height: hole.size.height + lineWidth 
+                };
+                var enemyColor = getColorByType("enemy");
+                var holeBorder = new window.BoxSprite(hSize, lineWidth, this.z, enemyColor, this.opacity);
+                holeBorder.mesh.position.set(hole.position.x - position.x, hole.position.y - position.y, 0);
+                holeBorder.mesh.material.stencilWrite = true;
+                holeBorder.mesh.material.stencilRef = 0;
+                holeBorder.mesh.material.stencilFunc = THREE.EqualStencilFunc;
+                this.mesh.add(holeBorder.mesh);
+            }.bind(this));
         } else {
             var borders = new window.BoxSprite(size, lineWidth, this.z, this.color, this.opacity);
             this.mesh.add(borders.mesh);
@@ -3715,11 +3744,11 @@ window.DeploymentIcon = function () {
         } else if (type == "terrain") {
             return new THREE.Color(255 / 255, 255 / 255, 255 / 255).convertSRGBToLinear();
         } else if (type == "mine") {
-            return new THREE.Color(255 / 255, 165 / 255, 0).convertSRGBToLinear(); // Orange
+            return new THREE.Color(200 / 255, 250 / 255, 160 / 255).convertSRGBToLinear(); // Paler green
         } else {
             return new THREE.Color(250 / 255, 100 / 255, 100 / 255).convertSRGBToLinear();
         }
-    }    
+    }
 
     return DeploymentIcon;
 }();;
@@ -4682,7 +4711,7 @@ window.BallisticIconContainer = function () {
 		let weapon = !shooter.flight ? shooter.systems[ballistic.weaponid] : null;
 		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null;
 		if (replay) {
-			if (weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
+			if (!shooter.flight && weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
 		}
 		// Get launch position (may be overwritten later)
 		let launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getFirstMovementOnTurn(turn)?.position);
@@ -11115,6 +11144,9 @@ window.DeploymentPhaseStrategy = function () {
 
         this.deploymentSprites = createSlotSprites(gamedata, webglScene.scene);
 
+        // Give MineDeployment access to deployment sprites for validation
+        if (window.MineDeployment) window.MineDeployment.setDeploymentSprites(this.deploymentSprites);
+
         combatLog.onTurnStart();
         infowindow.informPhase(5000, null);
         this.selectFirstOwnShipOrActiveShip();
@@ -11144,6 +11176,11 @@ window.DeploymentPhaseStrategy = function () {
 
     DeploymentPhaseStrategy.prototype.deactivate = function () {
         PhaseStrategy.prototype.deactivate.call(this);
+        // Clean up mine deployment mode and clear sprite reference
+        if (window.MineDeployment) {
+            window.MineDeployment.deactivate();
+            window.MineDeployment.setDeploymentSprites(null);
+        }
         this.deploymentSprites.forEach(function (icon) {
             icon.ownSprite.hide();
             icon.enemySprite.hide();
@@ -11176,15 +11213,15 @@ window.DeploymentPhaseStrategy = function () {
         if (validateDeploymentPosition(this.selectedShip, hex, this.deploymentSprites)) {
             var shipsInHex = shipManager.getShipsInSameHex(this.selectedShip, hex);
             var isBlocked = false;
-            
-            var hasTerrain = shipsInHex.some(function(s) { 
-                return gamedata.isTerrain(s.shipSizeClass, s.userid) || (s.Huge > 0 && s.Huge <= 3); 
+
+            var hasTerrain = shipsInHex.some(function (s) {
+                return gamedata.isTerrain(s.shipSizeClass, s.userid) || (s.Huge > 0 && s.Huge <= 3);
             });
 
             if (hasTerrain) {
                 isBlocked = true;
             } else if (!(this.selectedShip.mine || this.selectedShip.flight)) {
-                isBlocked = shipsInHex.some(function(s) { return !(s.mine || s.flight); });
+                isBlocked = shipsInHex.some(function (s) { return !(s.mine || s.flight); });
             }
 
             if (!isBlocked) {
@@ -11211,9 +11248,9 @@ window.DeploymentPhaseStrategy = function () {
         if (this.selectedShip && this.selectedShip.id !== ship.id) {
             var isPlacedOnMap = false;
             if (ship.movement && ship.movement.length > 0) {
-                isPlacedOnMap = ship.movement[0].commit === true; 
+                isPlacedOnMap = ship.movement[0].commit === true;
             }
-            
+
             var isTerrain = gamedata.isTerrain(ship.shipSizeClass, ship.userid) || (ship.Huge > 0 && ship.Huge <= 3);
             if (!isTerrain && isPlacedOnMap && (this.selectedShip.mine || this.selectedShip.flight || ship.mine || ship.flight)) {
                 // Ensure we only ever show the deployment stacking pop-up if the clicked location is actually 
@@ -11224,7 +11261,7 @@ window.DeploymentPhaseStrategy = function () {
                     // getShipPosition can return raw {x,y} from the movement array, so we guarantee it's formatted as {q,r} hex coordinates
                     var rawPos = shipManager.getShipPosition(this.selectedShip);
                     var selectedPos = new hexagon.Offset(rawPos);
-                    
+
                     if (!selectedPos || selectedPos.q !== payload.hex.q || selectedPos.r !== payload.hex.r) {
                         this.showSelectFromShips([ship], payload);
                         return;
@@ -11297,6 +11334,7 @@ window.DeploymentPhaseStrategy = function () {
         } else if (ship.mine) {
             // Mines can be selected from any slot, display visual boundary of map
             icon.mineSprite.show();
+            icon.ownSprite.show();
         } else if (gamedata.isMyShip(ship)) {
             icon.ownSprite.show();
         } else {
@@ -11565,8 +11603,664 @@ window.DeploymentPhaseStrategy = function () {
         */
     }
 
+    // Expose mine deployment validation globally for MineDeployment.js
+    window.validateMineDeploymentHex = function (hex, deploymentSprites) {
+        return validateMineDeployment(hex, null, deploymentSprites);
+    };
+
+    // Expose full-deployment validation so MineDeployment.js can gate the commit button correctly
+    window.validateAllDeploymentGlobal = function (gamedataRef, deploymentSprites) {
+        return validateAllDeployment(gamedataRef, deploymentSprites);
+    };
+
     return DeploymentPhaseStrategy;
 }();;
+
+/* Source: client/renderer/phaseStrategy/MineDeployment.js */
+'use strict';
+
+/**
+ * MineDeployment — handles the "Deploy Mines" mode during the Deployment Phase.
+ *
+ * When active, the player can click-drag a rectangle on the map canvas.
+ * On release, a confirm dialog shows how many of their available mines they
+ * want to place. Mines are then randomly deployed across valid hexes inside
+ * the drawn area, respecting validateMineDeploymentHex() (mine zone rules).
+ *
+ * Called by gamedata.drawIniGUI() — button appears if areMinesPresent &&
+ * player owns at least one deployable mine.
+ */
+window.MineDeployment = (function () {
+
+    var _active = false;
+    var _deploymentSprites = null; // Set by DeploymentPhaseStrategy when it activates
+
+    // Drag state
+    var _dragging = false;
+    var _startX = 0;          // container-relative (for overlay div)
+    var _startY = 0;
+    var _currentX = 0;
+    var _currentY = 0;
+    var _startClientX = 0;    // viewport-absolute (for coordinate conversion)
+    var _startClientY = 0;
+    var _currentClientX = 0;
+    var _currentClientY = 0;
+    var _rectEl = null;
+
+    // ─── Pointer event handlers (stored so we can removeEventListener) ───────────
+
+    function _onPointerDown(e) {
+        if (!_active) return;
+        // Only handle primary pointer / left mouse button
+        if (e.button !== undefined && e.button !== 0) return;
+
+        _dragging = true;
+
+        var pageContainer = document.getElementById('pagecontainer');
+        var rect = pageContainer.getBoundingClientRect();
+        // Store both: container-relative for the overlay div, and viewport-absolute for coordinate conversion
+        _startX = e.clientX - rect.left;
+        _startY = e.clientY - rect.top;
+        _currentX = _startX;
+        _currentY = _startY;
+        // Viewport-absolute coords for coordinate conversion
+        _startClientX = e.clientX;
+        _startClientY = e.clientY;
+        _currentClientX = e.clientX;
+        _currentClientY = e.clientY;
+
+        // Create the visual rectangle overlay
+        if (!_rectEl) {
+            _rectEl = document.createElement('div');
+            _rectEl.id = 'mineDeployRect';
+            pageContainer.appendChild(_rectEl);
+        }
+        _rectEl.style.display = 'block';
+        _updateRect();
+
+        // Prevent native browser scrolling/selecting (which causes inverted drags)
+        e.preventDefault();
+
+        // Do NOT stopPropagation here! We want the canvas to register the initially 'down' 
+        // in case this ends up being a tiny click on a ship rather than a drag.
+    }
+
+    function _onPointerMove(e) {
+        if (!_active || !_dragging) return;
+
+        var pageContainer = document.getElementById('pagecontainer');
+        var rect = pageContainer.getBoundingClientRect();
+        _currentX = e.clientX - rect.left;
+        _currentY = e.clientY - rect.top;
+        _currentClientX = e.clientX;
+        _currentClientY = e.clientY;
+        _updateRect();
+
+        e.preventDefault();
+        e.stopPropagation(); // Stop propagation on move so the WebGL map doesn't pan under us.
+    }
+
+    function _onPointerUp(e) {
+        if (!_active || !_dragging) return;
+        _dragging = false;
+
+        if (_rectEl) {
+            _rectEl.style.display = 'none';
+        }
+
+        var dx = Math.abs(_currentX - _startX);
+        var dy = Math.abs(_currentY - _startY);
+
+        // Ignore accidental tiny drags (treat as clicks — don't open dialog)
+        if (dx < 8 && dy < 8) {
+            // It's a click! Deactivate mine deployment so they can naturally click off to a ship.
+            deactivate();
+
+            // Fire the click artificially straight into the Strategy pipeline as gracefully requested!
+            var strategy = window.webglScene && window.webglScene.phaseDirector && window.webglScene.phaseDirector.phaseStrategy;
+            if (strategy && typeof strategy.onClickEvent === 'function') {
+                var pageContainer = document.getElementById('pagecontainer');
+                var rect = pageContainer.getBoundingClientRect();
+                var viewPos = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                var gamePos = window.coordinateConverter.fromViewPortToGame(viewPos);
+                var hexPos = window.coordinateConverter.fromGameToHex(gamePos, true);
+
+                var payload = {
+                    view: viewPos,
+                    game: gamePos,
+                    hex: hexPos,
+                    button: e.button !== undefined ? e.button : 0
+                };
+
+                strategy.onClickEvent(payload);
+            }
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation(); // Stop propagation on a real drag so the map ignores it completely.
+
+        _onAreaSelected();
+    }
+
+    function _updateRect() {
+        if (!_rectEl) return;
+        var x = Math.min(_startX, _currentX);
+        var y = Math.min(_startY, _currentY);
+        var w = Math.abs(_currentX - _startX);
+        var h = Math.abs(_currentY - _startY);
+        _rectEl.style.left = x + 'px';
+        _rectEl.style.top = y + 'px';
+        _rectEl.style.width = w + 'px';
+        _rectEl.style.height = h + 'px';
+    }
+
+    // ─── Core logic ──────────────────────────────────────────────────────────────
+
+    /**
+     * Convert viewport-space rectangle into a list of valid mine-deployment hex positions.
+     * coordinateConverter.fromViewPortToGame expects viewport coords (clientX/clientY).
+     */
+    function _getValidHexesInRect() {
+        // Game-space corners of the drawn rectangle
+        var gameTopLeft = window.coordinateConverter.fromViewPortToGame({
+            x: Math.min(_startClientX, _currentClientX),
+            y: Math.min(_startClientY, _currentClientY)
+        });
+        var gameBottomRight = window.coordinateConverter.fromViewPortToGame({
+            x: Math.max(_startClientX, _currentClientX),
+            y: Math.max(_startClientY, _currentClientY)
+        });
+
+        // Note: fromViewPortToGame flips the Y axis (screen Y increases down,
+        // game Y increases up), so bottom-right in screen = lowest Y in game space.
+        var gameMinX = Math.min(gameTopLeft.x, gameBottomRight.x);
+        var gameMaxX = Math.max(gameTopLeft.x, gameBottomRight.x);
+        var gameMinY = Math.min(gameTopLeft.y, gameBottomRight.y);
+        var gameMaxY = Math.max(gameTopLeft.y, gameBottomRight.y);
+
+        var hexWidth = window.HexagonMath.getHexWidth();
+        var hexRowHeight = window.HexagonMath.getHexRowHeight();
+
+        var validHexes = [];
+        var seen = {};
+
+        // Step through game-space points and snap each to the nearest hex
+        var stepX = hexWidth * 0.6;
+        var stepY = hexRowHeight * 0.6;
+
+        for (var gx = gameMinX; gx <= gameMaxX; gx += stepX) {
+            for (var gy = gameMinY; gy <= gameMaxY; gy += stepY) {
+                var hex = window.coordinateConverter.fromGameToHex({ x: gx, y: gy });
+                if (!hex) continue;
+
+                var key = hex.q + '_' + hex.r;
+                if (seen[key]) continue;
+                seen[key] = true;
+
+                // Double-check hex centre is inside the game bounds
+                var hexGame = window.coordinateConverter.fromHexToGame(hex);
+                if (hexGame.x < gameMinX || hexGame.x > gameMaxX ||
+                    hexGame.y < gameMinY || hexGame.y > gameMaxY) {
+                    continue;
+                }
+
+                // Validate against mine deployment rules
+                if (_deploymentSprites && window.validateMineDeploymentHex) {
+                    if (!window.validateMineDeploymentHex(hex, _deploymentSprites)) continue;
+                }
+
+                validHexes.push(hex);
+            }
+        }
+
+        return validHexes;
+    }
+
+    /**
+     * Collect the player's own un-destroyed mines, sorted so un-deployed ones come first.
+     */
+    function _getPlayerMines() {
+        return gamedata.ships.filter(function (ship) {
+            return ship.mine &&
+                ship.userid == gamedata.thisplayer &&
+                !shipManager.isDestroyed(ship) &&
+                shipManager.getTurnDeployed(ship) <= gamedata.turn;
+        }).sort(function (a, b) {
+            // Prefer mines without a deploy move (not yet placed)
+            var aHasDeploy = !!a.deploymove ? 1 : 0;
+            var bHasDeploy = !!b.deploymove ? 1 : 0;
+            return aHasDeploy - bHasDeploy;
+        });
+    }
+
+    /**
+     * Called when the player finishes drawing the rectangle.
+     */
+    function _onAreaSelected() {
+        var validHexes = _getValidHexesInRect();
+
+        if (validHexes.length === 0) {
+            _showToast('No valid mine deployment hexes in drawn area.');
+            return;
+        }
+
+        var mines = _getPlayerMines();
+
+        if (mines.length === 0) {
+            _showToast('You have no mines available to deploy.');
+            return;
+        }
+
+        _showCountDialog(mines, validHexes);
+    }
+
+    /**
+     * Show a dialog asking how many of each mine class to deploy.
+     */
+    function _showCountDialog(mines, validHexes) {
+        var existing = document.getElementById('mineDeployDialog');
+        if (existing) existing.parentNode.removeChild(existing);
+
+        // Group mines by class
+        var groups = {};
+        for (var i = 0; i < mines.length; i++) {
+            var m = mines[i];
+            var c = m.shipClass;
+            if (!groups[c]) groups[c] = { name: c, mines: [], max: 0, current: 0 };
+            groups[c].mines.push(m);
+            groups[c].max++;
+        }
+
+        var classNames = Object.keys(groups);
+        classNames.sort();
+
+        // Default: 0 per class, up to validHexes limit
+        var initialTotal = 0;
+        for (var j = 0; j < classNames.length; j++) {
+            var g = groups[classNames[j]];
+            if (initialTotal < validHexes.length && g.max > 0) {
+                g.current = 0;
+                initialTotal++;
+            } else {
+                g.current = 0; // Area too small, starts at 0
+            }
+        }
+
+        var dialog = document.createElement('div');
+        dialog.id = 'mineDeployDialog';
+
+        var html =
+            '<div class="mine-deploy-dialog-inner">' +
+            '<p class="mine-deploy-title">DEPLOY MINEFIELD</p>' +
+            '<p class="mine-deploy-sub">Valid hexes in area: <strong>' + validHexes.length + '</strong></p>' +
+            '<p class="mine-deploy-sub">Total available mines: <strong>' + mines.length + '</strong></p>' +
+            '<div class="mine-deploy-group-list">';
+
+        for (var k = 0; k < classNames.length; k++) {
+            var gName = classNames[k];
+            var grp = groups[gName];
+            var safeId = gName.replace(/[^a-zA-Z0-9]/g, '');
+            html +=
+                '<div class="mine-deploy-row">' +
+                '<div class="mine-deploy-name">' + gName + '</div>' +
+                '<div class="mine-deploy-controls-sm">' +
+                '<button class="mine-deploy-btn-sm btn-minus" data-class="' + gName + '">&#8722;</button>' +
+                '<input type="text" class="mine-deploy-count" id="count_' + safeId + '" data-class="' + gName + '" value="' + grp.current + '">' +
+                '<button class="mine-deploy-btn-sm btn-plus" data-class="' + gName + '">&#43;</button>' +
+                '<button class="mine-deploy-btn-sm btn-max" data-class="' + gName + '">Max (' + grp.max + ')</button>' +
+                '</div>' +
+                '</div>';
+        }
+
+        html +=
+            '</div>' +
+            '<div class="mine-deploy-actions">' +
+            '<button id="mineDeployConfirm" class="mine-deploy-btn">Deploy Selected</button>' +
+            '<button id="mineDeployAll"     class="mine-deploy-btn" style="margin: 0 5px;">Deploy All</button>' +
+            '<button id="mineDeployCancel"  class="mine-deploy-btn mine-deploy-btn-cancel">Cancel</button>' +
+            '</div>' +
+            '</div>';
+
+        dialog.innerHTML = html;
+        document.body.appendChild(dialog);
+
+        // Bind events
+        var minusBtns = dialog.querySelectorAll('.btn-minus');
+        var plusBtns = dialog.querySelectorAll('.btn-plus');
+        var countInputs = dialog.querySelectorAll('.mine-deploy-count');
+
+        function _getTotalCurrent() {
+            var t = 0;
+            for (var c in groups) t += groups[c].current;
+            return t;
+        }
+
+        function _updateDisplay(className) {
+            var safeId = className.replace(/[^a-zA-Z0-9]/g, '');
+            document.getElementById('count_' + safeId).value = groups[className].current;
+        }
+
+        for (var mIdx = 0; mIdx < minusBtns.length; mIdx++) {
+            minusBtns[mIdx].addEventListener('click', function (e) {
+                var cName = e.target.getAttribute('data-class');
+                if (groups[cName].current > 0) {
+                    groups[cName].current--;
+                    _updateDisplay(cName);
+                }
+            });
+        }
+
+        for (var pIdx = 0; pIdx < plusBtns.length; pIdx++) {
+            plusBtns[pIdx].addEventListener('click', function (e) {
+                var cName = e.target.getAttribute('data-class');
+                if (groups[cName].current < groups[cName].max && _getTotalCurrent() < validHexes.length) {
+                    groups[cName].current++;
+                    _updateDisplay(cName);
+                }
+            });
+        }
+
+        var maxBtns = dialog.querySelectorAll('.btn-max');
+        for (var maxIdx = 0; maxIdx < maxBtns.length; maxIdx++) {
+            maxBtns[maxIdx].addEventListener('click', function (e) {
+                var cName = e.target.getAttribute('data-class');
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = Math.min(groups[cName].max, validHexes.length - currentTotalExceptThis);
+                groups[cName].current = Math.max(0, maxAllowed);
+                _updateDisplay(cName);
+            });
+        }
+
+        for (var iIdx = 0; iIdx < countInputs.length; iIdx++) {
+            var countEl = countInputs[iIdx];
+
+            // Handle free-typing
+            countEl.addEventListener('input', function (e) {
+                var cName = e.target.getAttribute('data-class');
+                var val = parseInt(e.target.value, 10);
+
+                if (isNaN(val) || val < 0) val = 0;
+
+                // Clamp to the max available for this type
+                if (val > groups[cName].max) val = groups[cName].max;
+
+                // Clamp to the remaining valid hexes (excluding this type's old contribution)
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = validHexes.length - currentTotalExceptThis;
+
+                if (val > maxAllowed) val = Math.max(0, maxAllowed);
+
+                groups[cName].current = val;
+                _updateDisplay(cName); // Restores properly formatted/clamped value
+            });
+
+            // Auto-select text on focus or double-click to easily overwrite
+            function selectAll(e) {
+                e.target.select();
+            }
+            countEl.addEventListener('focus', selectAll);
+            countEl.addEventListener('dblclick', selectAll);
+
+            // Handle mouse wheel
+            countEl.addEventListener('wheel', function (e) {
+                e.preventDefault();
+                var cName = e.target.getAttribute('data-class');
+
+                if (e.deltaY < 0) {
+                    // Scroll up = plus
+                    if (groups[cName].current < groups[cName].max && _getTotalCurrent() < validHexes.length) {
+                        groups[cName].current++;
+                        _updateDisplay(cName);
+                    }
+                } else if (e.deltaY > 0) {
+                    // Scroll down = minus
+                    if (groups[cName].current > 0) {
+                        groups[cName].current--;
+                        _updateDisplay(cName);
+                    }
+                }
+            }, { passive: false });
+        }
+
+        document.getElementById('mineDeployCancel').addEventListener('click', function () {
+            _closeDialog();
+        });
+
+        document.getElementById('mineDeployAll').addEventListener('click', function () {
+            for (var i = 0; i < classNames.length; i++) {
+                var cName = classNames[i];
+                var currentTotalExceptThis = _getTotalCurrent() - groups[cName].current;
+                var maxAllowed = Math.min(groups[cName].max, validHexes.length - currentTotalExceptThis);
+                groups[cName].current = Math.max(0, maxAllowed);
+            }
+
+            _closeDialog();
+
+            var minesToDeploy = [];
+            for (var c in groups) {
+                var count = groups[c].current;
+                var list = groups[c].mines;
+                for (var j = 0; j < count; j++) {
+                    minesToDeploy.push(list[j]);
+                }
+            }
+            if (minesToDeploy.length > 0) {
+                _deployMines(minesToDeploy, validHexes);
+            }
+        });
+
+        document.getElementById('mineDeployConfirm').addEventListener('click', function () {
+            _closeDialog();
+
+            // Build the final array of exact mines to deploy
+            var minesToDeploy = [];
+            for (var c in groups) {
+                var count = groups[c].current;
+                var list = groups[c].mines;
+                for (var i = 0; i < count; i++) {
+                    minesToDeploy.push(list[i]);
+                }
+            }
+            if (minesToDeploy.length > 0) {
+                _deployMines(minesToDeploy, validHexes);
+            }
+        });
+    }
+
+    function _closeDialog() {
+        var d = document.getElementById('mineDeployDialog');
+        if (d) d.parentNode.removeChild(d);
+    }
+
+    /**
+     * Place `minesToDeploy` randomly across `validHexes`, respecting no-stack preference.
+     */
+    function _deployMines(minesToDeploy, validHexes) {
+        var count = minesToDeploy.length;
+
+        // Shuffle validHexes (Fisher-Yates)
+        var shuffled = validHexes.slice();
+        for (var i = shuffled.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+        }
+
+        // Build list of hexes to use (avoid stacking where possible)
+        var usedKeys = {};
+        var hexAssignments = []; // one entry per mine to deploy
+
+        for (var m = 0; m < count; m++) {
+            var assigned = null;
+
+            // First pass: find a hex not yet used
+            for (var h = 0; h < shuffled.length; h++) {
+                var key = shuffled[h].q + '_' + shuffled[h].r;
+                if (!usedKeys[key]) {
+                    usedKeys[key] = true;
+                    assigned = shuffled[h];
+                    break;
+                }
+            }
+
+            // Second pass: area too small — allow stacking, pick any
+            if (!assigned) {
+                assigned = shuffled[m % shuffled.length];
+            }
+
+            hexAssignments.push(assigned);
+        }
+
+        // Deploy each mine
+        for (var k = 0; k < minesToDeploy.length; k++) {
+            var mine = minesToDeploy[k];
+            var hex = hexAssignments[k];
+
+            shipManager.movement.deploy(mine, hex);
+
+            // Notify the active phase strategy so it can refresh the ship's movement UI
+            var strategy = window.webglScene &&
+                window.webglScene.phaseDirector &&
+                window.webglScene.phaseDirector.phaseStrategy;
+            if (strategy && strategy.onShipMovementChanged) {
+                strategy.onShipMovementChanged({ ship: mine });
+            }
+        }
+
+        // Only show the commit button when ALL ships are validly deployed —
+        // mirrors the check in DeploymentPhaseStrategy.onHexClicked
+        var strategy = window.webglScene &&
+            window.webglScene.phaseDirector &&
+            window.webglScene.phaseDirector.phaseStrategy;
+        var sprites = strategy && strategy.deploymentSprites;
+
+        if (sprites && window.validateAllDeploymentGlobal) {
+            if (window.validateAllDeploymentGlobal(gamedata, sprites)) {
+                gamedata.showCommitButton();
+            }
+        }
+
+        _showToast(minesToDeploy.length + ' mine(s) deployed. You can still move them individually.');
+
+        // Unselect the currently selected mine (as requested)
+        if (strategy && strategy.selectedShip && typeof strategy.deselectShip === 'function') {
+            strategy.deselectShip(strategy.selectedShip);
+        }
+    }
+
+    /**
+     * Quick non-blocking status toast.
+     */
+    function _showToast(msg, duration) {
+        var existing = document.getElementById('mineDeployToast');
+        if (existing) existing.parentNode.removeChild(existing);
+
+        var toast = document.createElement('div');
+        toast.id = 'mineDeployToast';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+
+        var timeout = duration || 3000;
+        setTimeout(function () {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, timeout);
+    }
+
+    // ─── Public API ───────────────────────────────────────────────────────────────
+
+    /**
+     * Set the deploymentSprites reference (called by DeploymentPhaseStrategy.activate).
+     */
+    function setDeploymentSprites(sprites) {
+        _deploymentSprites = sprites;
+    }
+
+    /**
+     * Toggle mine-deployment mode on/off.
+     */
+    function toggle() {
+        if (_active) {
+            deactivate();
+        } else {
+            activate();
+        }
+    }
+
+    function activate() {
+        if (_active) return;
+        _active = true;
+
+        var btn = document.getElementById('mineDeployBtn');
+        if (btn) btn.classList.add('active');
+
+        _showToast('Select the area you wish to deploy mines by dragging the mouse.', 3000);
+
+        var pageContainer = document.getElementById('pagecontainer');
+        if (pageContainer) {
+            pageContainer.addEventListener('pointerdown', _onPointerDown, { capture: true });
+            pageContainer.addEventListener('pointermove', _onPointerMove, { capture: true, passive: false });
+            pageContainer.addEventListener('pointerup', _onPointerUp, { capture: true });
+        }
+
+        // Automatically select an undeployed mine so its valid hexes (DeploymentIcon) display
+        var mines = _getPlayerMines();
+        if (mines.length > 0) {
+            var strategy = window.webglScene &&
+                window.webglScene.phaseDirector &&
+                window.webglScene.phaseDirector.phaseStrategy;
+            if (strategy && typeof strategy.setSelectedShip === 'function') {
+                strategy.setSelectedShip(mines[0]);
+            }
+        }
+    }
+
+    function deactivate() {
+        if (!_active) return;
+        _active = false;
+        _dragging = false;
+
+        var btn = document.getElementById('mineDeployBtn');
+        if (btn) btn.classList.remove('active');
+
+        var pageContainer = document.getElementById('pagecontainer');
+        if (pageContainer) {
+            pageContainer.removeEventListener('pointerdown', _onPointerDown, { capture: true });
+            pageContainer.removeEventListener('pointermove', _onPointerMove, { capture: true });
+            pageContainer.removeEventListener('pointerup', _onPointerUp, { capture: true });
+        }
+
+        if (_rectEl) {
+            _rectEl.style.display = 'none';
+        }
+
+        _closeDialog();
+
+        var strategy = window.webglScene &&
+            window.webglScene.phaseDirector &&
+            window.webglScene.phaseDirector.phaseStrategy;
+
+        if (strategy && strategy.selectedShip && typeof strategy.deselectShip === 'function') {
+            strategy.deselectShip(strategy.selectedShip);
+        }
+    }
+
+    function isActive() {
+        return _active;
+    }
+
+    return {
+        activate: activate,
+        deactivate: deactivate,
+        toggle: toggle,
+        isActive: isActive,
+        setDeploymentSprites: setDeploymentSprites
+    };
+
+}());
+;
 
 /* Source: client/renderer/phaseStrategy/WaitingPhaseStrategy.js */
 "use strict";
@@ -13502,6 +14196,13 @@ window.ShipTooltip = function () {
         if (ship.mine) {
             if (gamedata.isMyorMyTeamShip(ship)) toDisplay = 'Signature: ' + ship.signature;
             this.addEntryElement(toDisplay);
+
+            if (this.selectedShip) {
+                if (!gamedata.isMyShip(ship)) {
+                    this.addEntryElement('OEW: ' + ew.getOffensiveEW(this.selectedShip, ship), this.selectedShip !== ship && ship.flight !== true && this.selectedShip.flight !== true);
+                }
+            }    
+
         } else {
             //this.addEntryElement("Iniative Order: " + shipManager.getIniativeOrder(ship) + "    (D100 + " + ship.iniativebonus + ")");
             this.addEntryElement("Ini Order: " + shipManager.getIniativeOrder(ship) + " (total " + ship.iniative + "): base " + ship.iniativebonus + "; mod " + ship.iniativeadded);
@@ -15248,7 +15949,7 @@ window.gamedata = {
     showLoS: false,
     blockedHexes: Array(),
     isStealthPresent: false,
-    areMinesPresent: false,
+    areMinesPresent: false, //Marks that ENEMY mines are present.
 
     mouseOverShipId: -1,
 
@@ -15519,7 +16220,14 @@ window.gamedata = {
         if (gamedata.gamephase == -1) {
             var mines = [];
             var html = '';
-            if(gamedata.areMinesPresent){
+
+            var playerHasMines = gamedata.ships.some(function (ship) {
+                return ship.mine &&
+                    ship.userid == gamedata.thisplayer &&
+                    !shipManager.isDestroyed(ship) &&
+                    shipManager.getTurnDeployed(ship) <= gamedata.turn;
+            });
+            if (playerHasMines) {
                 for (var i in gamedata.ships) {
                     var ship = gamedata.ships[i];
                     if (ship.userid == gamedata.thisplayer) {
@@ -15529,30 +16237,42 @@ window.gamedata = {
                     }
                 }
 
-                var unsetMines = false;
-                if (mines) {
+                if (mines && mines.length > 0) {
+                    var unsetClasses = {};
+
                     for (var i = 0; i < mines.length; i++) {
                         var mine = mines[i];
+                        var hasUnset = false;
                         for (var j in mine.systems) {
-                            var sys = mine.systems[j];                        
-                            if (sys.name == "CaptorMine" || sys.name == "ProximityMine" || sys.name == "MineControllerDEW") {  
-
-                                if(!sys.mineSet){
-                                    unsetMines = true;
-                                    html += "You have not set ranges for all your Mines, they will default to their maximum range.<br>"
+                            var sys = mine.systems[j];
+                            if (sys.name == "CaptorMine" || sys.name == "ProximityMine" || sys.name == "MineControllerDEW") {
+                                if (!sys.mineSet) {
+                                    hasUnset = true;
                                     break;
                                 }
-                            }                       
+                            }
                         }
-                        if (unsetMines) break; // break outer loop                    
+
+                        if (hasUnset) {
+                            unsetClasses[mine.shipClass] = true;
+                        }
+                    }
+
+                    var classList = Object.keys(unsetClasses);
+                    if (classList.length > 0) {
+                        html += "You have not set ranges for the following types of mine:";
+                        for (var c = 0; c < classList.length; c++) {
+                            html += "<br><span class='ship-name'>" + classList[c] + "</span>";
+                        }
+                        html += "<br>They will default to their maximum range.<br>";
                     }
                 }
             }
-            confirm.confirm(html + "<br>Are you sure you wish to commit your orders?", gamedata.doCommit);        
-                
+            confirm.confirm(html + "<br>Are you sure you wish to commit your orders?", gamedata.doCommit);
 
-        // CHECK for NO EW
-        }else if (gamedata.gamephase == 1) {
+
+            // CHECK for NO EW
+        } else if (gamedata.gamephase == 1) {
             var myShips = [];
 
             for (var ship in gamedata.ships) {
@@ -16760,7 +17480,43 @@ getActiveShipName: function getActiveShipName() {
         $(backDiv).data("on", isOpen);
 
         backDiv.addEventListener("click", gamedata.sliderToggle);
+
+        // ── Deploy Mines button ───────────────────────────────────────────────────
+        // Only show during deployment phase when the player has un-destroyed mines.
+        var existingMineBtn = document.getElementById('mineDeployBtn');
+        if (existingMineBtn) existingMineBtn.parentNode.removeChild(existingMineBtn);
+
+        if (gamedata.gamephase === -1) {
+            var playerHasMines = gamedata.ships.some(function (ship) {
+                return ship.mine &&
+                    ship.userid == gamedata.thisplayer &&
+                    !shipManager.isDestroyed(ship) &&
+                    shipManager.getTurnDeployed(ship) <= gamedata.turn;
+            });
+
+            if (playerHasMines) {
+                var mineBtn = document.createElement('button');
+                mineBtn.id = 'mineDeployBtn';
+                //mineBtn.textContent = '💣  Deploy Minefield  💣';
+                mineBtn.textContent = 'Deploy Minefield';
+                if (window.MineDeployment && window.MineDeployment.isActive()) {
+                    mineBtn.classList.add('active');
+                }
+                mineBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (window.MineDeployment) window.MineDeployment.toggle();
+                    if (window.MineDeployment && window.MineDeployment.isActive()) {
+                        mineBtn.classList.add('active');
+                    } else {
+                        mineBtn.classList.remove('active');
+                    }
+                });
+                // Append inside #iniGui so it sits naturally at the bottom of the panel
+                ini_gui.appendChild(mineBtn);
+            }
+        }
     },
+
 
     sliderToggle: function sliderToggle() {
         var backDiv = document.getElementById("backDiv");
@@ -21263,6 +22019,9 @@ window.weaponManager = {
         } else if (oew < 1) { //OEW beteen 0.5 and 1 is achievable for targets of Distortion EW
             noLockPenalty = 0.5;
         }
+
+		if(shooter.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
+
         //noLockMod =  rangePenalty * noLockPenalty; //moved lower   
         var jammermod = 0;
         //if (shooter.faction != target.faction){ //moved to getJammerValueFromTo!
@@ -32526,8 +33285,8 @@ window.confirm = {
 
     getTotalCost: function getTotalCost() {
 
-        if ($(".confirm #mineQuantity").length > 0) {
-            return confirm.getTotalCostMine();
+        if ($(".confirm #bulkQuantity").length > 0) {
+            return confirm.getTotalCostBulk();
         }
 
         var flightSize = $(".fighterAmount").html();
@@ -32573,15 +33332,16 @@ window.confirm = {
             target = $(".selectAmount.shpenh" + enhNo);
         }
         totalCost += flightSize * enhCost;
+        totalCost = Math.ceil(totalCost);
 
         var totalCostSpan = $(".confirm .totalUnitCostAmount");
         totalCostSpan.data("value", totalCost);
         totalCostSpan.html(totalCost);
     },
 
-    getTotalCostMine: function getTotalCostMine() {
+    getTotalCostBulk: function getTotalCostBulk() {
         // Fallback to generic .totalUnitCostAmount for safety if the class isn't strictly defined
-        var baseCostTarget = $(".confirm .totalMineCostAmount").length ? $(".confirm .totalMineCostAmount") : $(".confirm .totalUnitCostAmount");
+        var baseCostTarget = $(".confirm .totalBulkCostAmount").length ? $(".confirm .totalBulkCostAmount") : $(".confirm .totalUnitCostAmount");
         var baseCost = parseFloat(baseCostTarget.data("baseCost")) || parseFloat(baseCostTarget.first().data("value"));
 
         //add enhancement cost	   
@@ -32595,23 +33355,26 @@ window.confirm = {
             target = $(".confirm .selectAmount.shpenh" + enhNo);
         }
 
-        var costPerMine = baseCost + enhCost;
-        var totalCost = costPerMine;
+        var costPerUnit = baseCost + enhCost;
+        var totalCost = costPerUnit;
 
-        // If buying mines, multiply final total by designated quantity
-        var mineQuantity = parseInt($(".confirm #mineQuantity").val());
-        if (!isNaN(mineQuantity) && mineQuantity > 0) {
-            totalCost *= mineQuantity;
+        // If buying units in bulk, multiply final total by designated quantity
+        var bulkQuantity = parseInt($(".confirm #bulkQuantity").val());
+        if (!isNaN(bulkQuantity) && bulkQuantity > 0) {
+            totalCost *= bulkQuantity;
         }
 
-        // Update specifically the "Cost Per Mine" and "Total Unit Cost"
-        var costPerMineSpan = $(".confirm .costPerMineAmount");
-        if (costPerMineSpan.length) {
-            costPerMineSpan.data("value", costPerMine);
-            costPerMineSpan.html(costPerMine);
+        //costPerUnit = Math.ceil(costPerUnit);
+        totalCost = Math.ceil(totalCost);
+
+        // Update specifically the "Cost Per Unit" and "Total Unit Cost"
+        var costPerUnitSpan = $(".confirm .costPerUnitSpan");
+        if (costPerUnitSpan.length) {
+            costPerUnitSpan.data("value", costPerUnit);
+            costPerUnitSpan.html(costPerUnit);
         }
 
-        var totalCostSpan = $(".confirm .totalMineCostAmount");
+        var totalCostSpan = $(".confirm .totalBulkCostAmount");
         if (totalCostSpan.length) {
             totalCostSpan.data("value", totalCost); // This updates the DOM data
             totalCostSpan.html(totalCost);
@@ -32859,6 +33622,7 @@ window.confirm = {
         confirm.getTotalCost();
     },
 
+    /*
     showShipBuy: function showShipBuy(ship, callback) {
         var e = $(this.whtml);
 
@@ -32942,11 +33706,6 @@ window.confirm = {
             if (enhIsOption) enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
             //if(enhIsOption && enhID != 'DEPLOY') enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
 
-            /*if(enhIsOption && enhID == 'DEPLOY'){
-                selectAmountItem.html(deployTurn);
-                selectAmountItem.data('min', deployTurn);
-                enhName = " <span style='color:rgb(95, 206, 95);' >(DEPLOYMENT)</span> " + enhName;
-            } */
 
             const ammoTypes = ['(HEAVY AMMO)', '(MEDIUM AMMO)', '(LIGHT AMMO)', '(AMMO)'];
             for (const type of ammoTypes) {
@@ -33065,7 +33824,7 @@ window.confirm = {
             $(".fighterSelectItem .selectButtons .minusButton", e).on("click", confirm.decreaseFlightSize);
         }
 
-        /* try to make default unit name other than nameless */
+
         var nameCore = ship.shipClass;
         var nameNumber = gamedata.lastShipNumber + 1;
         var fullName = '';//by default: nameCore + ' #' + number ; name cannot be repeated!
@@ -33086,12 +33845,10 @@ window.confirm = {
             }
         }
         gamedata.lastShipNumber = nameNumber;
-        /*end of preparing default name*/
+
         $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="' + fullName + '"></input><br>').prependTo(e);
 
-        /* old, with Nameless default
-        $('<label>Name your new ' + ship.shipClass + ':</label><input type="text" style="text-align:center" name="shipname" value="Nameless"></input><br>').prependTo(e);
-        */
+
         //$('<div class="message"><span>Name your new '+ship.shipClass+'</span></div>').prependTo(e);
         $(".confirmok", e).on("click", callback);
         $(".confirmcancel", e).on("click", function () {
@@ -33103,7 +33860,7 @@ window.confirm = {
         var a = e.appendTo("body");
         a.fadeIn(250);
     },
-
+    */
 
     // Helper function to handle input changes (edit mode)
     handleInputChangeEdit: function handleInputChangeEdit(e) {
@@ -33635,20 +34392,19 @@ window.confirm = {
         a.fadeIn(250);
     },
 
-    showBuyMine: function showBuyMine(ship, callback) {
+    showBuyBulk: function showBuyBulk(ship, callback) {
         var e = $(this.whtml);
 
+        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        var pointCost = ship.pointCost;
-
-        $(".totalUnitCostText", totalItem).html("Cost Per Mine");
-        var perMineAmountSpan = $(".totalUnitCostAmount", totalItem);
-        perMineAmountSpan.html(pointCost);
-        perMineAmountSpan.data("value", pointCost);
-        perMineAmountSpan.addClass("costPerMineAmount");
-
+        $(".totalUnitCostText", totalItem).html("Total Purchase Cost");
+        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
+        totalCostAmountSpan.html(ship.pointCost);
+        totalCostAmountSpan.data("value", ship.pointCost);
+        totalCostAmountSpan.data("baseCost", ship.pointCost);
+        totalCostAmountSpan.addClass("totalBulkCostAmount");
         $(totalItem).show();
 
         //ship enhancements
@@ -33707,32 +34463,33 @@ window.confirm = {
         }
 
         if (ship.enhancementOptions && ship.enhancementOptions.length > 0) {
-            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL mines in this purchase).</label></div>').prependTo(e);
+            $('<div class="missileselect"><label>Here you may select enhancements (applied to ALL units in this purchase).</label></div>').prependTo(e);
         }
 
-        // Added to support Enhancement select recalculations in getTotalCost()
         var totalTemplate = $(".totalUnitCost");
         var totalItem = totalTemplate.clone(true).prependTo(e);
 
-        $(".totalUnitCostText", totalItem).html("Total Mine Purchase Cost");
-        var totalCostAmountSpan = $(".totalUnitCostAmount", totalItem);
-        totalCostAmountSpan.html(ship.pointCost);
-        totalCostAmountSpan.data("value", ship.pointCost);
-        totalCostAmountSpan.data("baseCost", ship.pointCost);
-        totalCostAmountSpan.addClass("totalMineCostAmount");
+        var pointCost = ship.pointCost;
+
+        $(".totalUnitCostText", totalItem).html("Cost Per Unit");
+        var perUnitAmountSpan = $(".totalUnitCostAmount", totalItem);
+        perUnitAmountSpan.html(pointCost);
+        perUnitAmountSpan.data("value", pointCost);
+        perUnitAmountSpan.addClass("costPerUnitSpan");
+
         $(totalItem).show();
 
 
-        // Mine Settings Fields
-        var html = '<div class="mineSettings">';
-        html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
-        html += '<label>Quantity: <input type="number" id="mineQuantity" value="10" min="1" style="width: 50px; text-align: center;"></label><br>';
+        // Unit Settings Fields
+        var html = '<div class="unitSettings">';
+        //html += '<div style="margin-bottom: 5px;">Mines will be placed randomly within the player\'s deployment zone boundaries based on the quantity specified. (NOTE: 10% class surcharge added separately to fleet total)</div>';
+        html += '<label>Quantity: <input type="number" id="bulkQuantity" value="1" min="1" style="width: 50px; text-align: center;"></label><br>';
         html += '</div>';
 
         var settingsBlock = $(html).prependTo(e);
 
         // Add mousewheel scroll support to the input field
-        $('#mineQuantity', settingsBlock).on('wheel', function (e) {
+        $('#bulkQuantity', settingsBlock).on('wheel', function (e) {
             e.preventDefault();
             var step = parseInt($(this).attr('step')) || 1;
             var val = parseInt($(this).val()) || 1;
@@ -33748,14 +34505,14 @@ window.confirm = {
             confirm.getTotalCost();
         });
 
-        $('#mineQuantity', settingsBlock).on('input', function () {
+        $('#bulkQuantity', settingsBlock).on('input', function () {
             confirm.getTotalCost();
         });
 
         $('<label>Configure ' + ship.shipClass + ' Purchase:</label><br>').prependTo(e);
 
         $(".confirmok", e).on("click", function () {
-            var q = parseInt($('#mineQuantity', e).val());
+            var q = parseInt($('#bulkQuantity', e).val());
 
             if (isNaN(q) || q < 1) q = 1;
 
@@ -35841,6 +36598,12 @@ var MineStealth = function MineStealth(json, ship) {
 MineStealth.prototype = Object.create(ShipSystem.prototype);
 MineStealth.prototype.constructor = MineStealth;
 
+MineStealth.prototype.initializationUpdate = function () {
+	var ship = this.ship;
+	this.data["Mine Signature"] = ship.signature;
+	return this
+}
+
 MineStealth.prototype.isDetectedMine = function (ship) {
 	if (gamedata.gamephase == -1 && gamedata.turn == 1) return true;  //Do not hide in Turn 1 Deployment Phase.          
 
@@ -37922,8 +38685,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
 			weapon.data["Fire control (fighter/med/cap)"] = weapon.translateFCtoD100txt(weapon.fireControl);
-			weapon.range = this.rangeSetting;
-			//weapon.data["Range"] = this.rangeSetting;					
+			weapon.range = this.rangeSetting;				
 		}
 	}
 
@@ -37940,6 +38702,7 @@ MineControllerDEW.prototype.refreshData = function () { //refresh description to
 
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
+		if (this.validTargets && !this.validTargets.includes(currType)) continue;
 		range = this.allocatedRanges[currType];
 		if (range == null) range = this.rangeSetting;
 		if (hiddenDisplay == '?') range = hiddenDisplay;
@@ -37987,6 +38750,8 @@ MineControllerDEW.prototype.doIndividualNotesTransfer = function () { //prepare 
 
 		for (var i = 0; i < shipCategories.length; i++) {
 			var currType = shipCategories[i];
+			if (this.validTargets && !this.validTargets.includes(currType)) continue;
+
 			if (rangeValues[i] == null) rangeValues[i] = this.rangeSetting; //Set to max range if nothing set by player.
 
 			// Initialize the array for the current spec
@@ -42320,6 +43085,8 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data["Max Range"] = this.range;			
 	}
 
+	this.data["Fire control (fighter/med/cap)"] = this.fireControl[0]*5 + '/' + this.fireControl[1]*5 + '/' + this.fireControl[2]*5;
+
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
 		range = this.allocatedRanges[currType];
@@ -42330,6 +43097,12 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data[entryName + " range"] = range;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 CaptorMine.prototype.canPropagate = function () { //can propagate if set to >0
@@ -42496,6 +43269,12 @@ ProximityMine.prototype.refreshData = function () { //refresh description to sho
 		this.data[" - Attack " + currType] = attack;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 ProximityMine.prototype.canPropagate = function () { //can propagate if set to >0
@@ -47581,11 +48360,11 @@ CombatTransporter.prototype.constructor = CombatTransporter;
 
 var MicroJumpSystem = function MicroJumpSystem(json, ship) {
     Weapon.call(this, json, ship);
-    this.defensiveType = "Blink";
+    //this.defensiveType = "Blink";
 };
 MicroJumpSystem.prototype = Object.create(Weapon.prototype);
 MicroJumpSystem.prototype.constructor = MicroJumpSystem;
-
+/*
 MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, weapon) {
     if (weapon.ballistic && this.fireOrders.length > 0 && gamedata.gamephase == 3) {
         var fireOrder = this.fireOrders[0];
@@ -47609,7 +48388,7 @@ MicroJumpSystem.prototype.getDefensiveHitChangeMod = function (target, shooter, 
     }
 
 };
-
+*/
 MicroJumpSystem.prototype.isPosOnSpecialArc = function (shooter, target) {
     var shooterPos = shipManager.getShipPosition(shooter);
     var targetCompassHeading = mathlib.getCompassHeadingOfPoint(shooterPos, target);

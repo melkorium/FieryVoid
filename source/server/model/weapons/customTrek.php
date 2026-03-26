@@ -3102,7 +3102,8 @@ class CombatTransporter extends Weapon{
 } //endof class CombatTransporter
 
 
-class MicroJumpSystem extends Weapon implements SpecialAbility, DefensiveSystem{
+//class MicroJumpSystem extends Weapon implements SpecialAbility, DefensiveSystem{
+class MicroJumpSystem extends Weapon implements SpecialAbility{	
     public $name = "MicroJumpSystem";
     public $displayName = "Warp Drive";
 	public $noProjectile = true;	
@@ -3216,7 +3217,7 @@ class MicroJumpSystem extends Weapon implements SpecialAbility, DefensiveSystem{
     {
 		return $this->specialAbilityValue;
 	}
-
+	/*
 	public function getDefensiveType()	{
 		return "Blink"; //Different category so it works in parallel with EM Shield effect of Shading Field
 	}
@@ -3266,7 +3267,7 @@ class MicroJumpSystem extends Weapon implements SpecialAbility, DefensiveSystem{
 	public function getDefensiveDamageMod($target, $shooter, $pos, $turn, $weapon){
 		return 0;
 	}
-
+	*/
 	public function calculateHitBase($gamedata, $fireOrder)
 	{
 		//reduce by distance...

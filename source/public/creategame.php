@@ -121,49 +121,53 @@
                     </div>
 
                     <div id="asteroidsDropdown" class="terrainDropdowns">
-                        <div class="asteroidsDropdown">
+                        <div class="asteroidsDropdown" style="position: relative;">
                             <label for="asteroidsSelect" class="asteroidsSelect">Number of Asteroids:</label>
-                            <select id="asteroidsSelect" name="asteroidsCategories" class="asteroidsCategories">
-                                <option value="0">None</option>              
-                                <option value="3">Few (3)</option>
-                                <option value="6">Several (6)</option>
-                                <option value="12">Pack (12)</option>
-                                <option value="18">Lots (18)</option>
-                                <option value="24">Horde (24)</option>
-                                <option value="36">Swarm (36)</option>
-                                <option value="48">Zounds (48)</option>
-                            </select>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="asteroidsSelect" name="asteroidsCategories" class="asteroidsCategories" min="0" max="48" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
+                            <div id="asteroid_custom_dropdown" class="custom-dropdown-container">
+                                <div class="asteroid-option" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">None (0)</div>
+                                <div class="asteroid-option" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Few (3)</div>
+                                <div class="asteroid-option" data-value="6" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Several (6)</div>
+                                <div class="asteroid-option" data-value="12" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Pack (12)</div>
+                                <div class="asteroid-option" data-value="18" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Lots (18)</div>
+                                <div class="asteroid-option" data-value="24" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Horde (24)</div>
+                                <div class="asteroid-option" data-value="36" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Swarm (36)</div>
+                                <div class="asteroid-option" data-value="48" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Zounds (48)</div>
+                            </div>
                         </div>
                     </div>
                     <div id="moonsDropdown" class="terrainDropdowns">
-                        <div class="moonsDropdown">
+                        <div class="moonsDropdown" style="position: relative;">
                             <label for="moonsSmallSelect" class="moonsSelect">Small Moons:</label>
-                            <select id="moonsSmallSelect" name="moonsSmall" class="moonsSmallSelect">
-                                <option value="0">None</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>        
-                            </select>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsSmallSelect" name="moonsSmall" class="moonsSmallSelect" min="0" max="5" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
+                            <div id="moons_small_dropdown" class="custom-dropdown-container" style="left: 200px;">
+                                <div class="moon-option small-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
+                                <div class="moon-option small-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
+                                <div class="moon-option small-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
+                                <div class="moon-option small-moon" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">3</div>
+                                <div class="moon-option small-moon" data-value="4" style="padding: 5px; cursor: pointer; color: #DEEBFF;">4</div>
+                                <div class="moon-option small-moon" data-value="5" style="padding: 5px; cursor: pointer; color: #DEEBFF;">5</div>
+                            </div>
                         </div>
-                        <div class="moonsDropdown">
+                        <div class="moonsDropdown" style="position: relative;">
                             <label for="moonsMediumSelect" class="moonsSelect">Medium Moons:</label>
-                            <select id="moonsMediumSelect" name="moonsMedium" class="moonsMediumSelect">
-                                <option value="0">None</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>        
-                            </select>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsMediumSelect" name="moonsMedium" class="moonsMediumSelect" min="0" max="4" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
+                            <div id="moons_medium_dropdown" class="custom-dropdown-container" style="left: 200px;">
+                                <div class="moon-option medium-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
+                                <div class="moon-option medium-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
+                                <div class="moon-option medium-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
+                                <div class="moon-option medium-moon" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">3</div>
+                                <div class="moon-option medium-moon" data-value="4" style="padding: 5px; cursor: pointer; color: #DEEBFF;">4</div>
+                            </div>
                         </div>
-                        <div class="moonsDropdown">
+                        <div class="moonsDropdown" style="position: relative;">
                             <label for="moonsLargeSelect" class="moonsSelect">Large Moons:</label>
-                            <select id="moonsLargeSelect" name="moonsLarge" class="moonsLargeSelect">
-                                <option value="0">None</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>        
-                            </select>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsLargeSelect" name="moonsLarge" class="moonsLargeSelect" min="0" max="2" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
+                            <div id="moons_large_dropdown" class="custom-dropdown-container" style="left: 200px;">
+                                <div class="moon-option large-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
+                                <div class="moon-option large-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
+                                <div class="moon-option large-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
+                            </div>
                         </div>
                     </div>
                 </div>    

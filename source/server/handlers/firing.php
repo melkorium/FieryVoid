@@ -184,7 +184,7 @@ class Firing
                 $gamedata->turn, $interceptor->firingMode, 0, 0, $interceptor->defaultShots, 0, 0, null, null
             );
             $interceptFire->addToDB = true;
-			checkForSelfInterceptFire::setFired($interceptor->id, $gamedata->turn);
+			checkForSelfInterceptFire::setFired($interceptor->getUnit()->id, $interceptor->id, $gamedata->turn);
             $interceptor->fireOrders[] = $interceptFire;
         }
 	    
@@ -399,7 +399,9 @@ class Firing
         $shooter = $gd->getShipById($fire->shooterid);
         $target = $gd->getShipById($fire->targetid);
         $interceptingShip = $weapon->getUnit();
-        $firingweapon = $shooter->getSystemById($fire->weaponid);		
+        $firingweapon = $shooter->getSystemById($fire->weaponid);	
+        
+        if($shooter instanceof Mine) return false; //Mines generally can't intercept using their weapons.        
 
         if ($firingweapon->doNotIntercept){ //some attacks simply aren't subject to interception - like being in a field, or ramming attacks
             //Debug::log("Target weapon cannot be intercepted\n");

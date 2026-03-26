@@ -130,6 +130,8 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data["Max Range"] = this.range;			
 	}
 
+	this.data["Fire control (fighter/med/cap)"] = this.fireControl[0]*5 + '/' + this.fireControl[1]*5 + '/' + this.fireControl[2]*5;
+
 	for (var i = 0; i < classes.length; i++) {
 		currType = classes[i];
 		range = this.allocatedRanges[currType];
@@ -140,6 +142,12 @@ CaptorMine.prototype.refreshData = function () { //refresh description to show c
 		this.data[entryName + " range"] = range;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 CaptorMine.prototype.canPropagate = function () { //can propagate if set to >0
@@ -306,6 +314,12 @@ ProximityMine.prototype.refreshData = function () { //refresh description to sho
 		this.data[" - Attack " + currType] = attack;
 	}
 
+	//rebuild damage display from current minDamage/maxDamage
+	if (this.minDamage === this.maxDamage) {
+		this.data["Damage"] = this.maxDamage;
+	} else {
+		this.data["Damage"] = this.minDamage + "-" + this.maxDamage;
+	}
 };
 
 ProximityMine.prototype.canPropagate = function () { //can propagate if set to >0

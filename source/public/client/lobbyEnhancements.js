@@ -315,6 +315,80 @@ window.lobbyEnhancements = {
 						}
 						break;
 
+					case 'MINE_ACC':
+						if (!ship.mineAccEnh) {
+							/*for (let system of ship.systems) { //in Lobby weapon's firecontrol defaults to normal, not mine's accuracy as it will in game.
+								if(system.weapon){
+									if(system.fireControl[0] !== null) system.fireControl[0] += 1;
+									if(system.fireControl[1] !== null) system.fireControl[1] += 1;
+									if(system.fireControl[2] !== null) system.fireControl[2] += 1;
+								}																	
+							}*/	
+							ship.notes += "<br>Improved Accuracy";
+						}
+						ship.mineAccEnh = true;
+						break;						
+
+					case 'MINE_ARM':
+						if (!ship.mineArmEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "structure") {
+									system.armour += enhCount;
+								}
+							}
+							ship.notes += "<br>Improved Armour";
+						}
+						ship.mineArmEnh = true;
+						break;	
+
+					case 'MINE_DMG':
+					if (!ship.mineDmgEnh) {
+						for (let system of ship.systems) {
+							if (system.name === "ProximityMine" || system.name === "CaptorMine") {
+								system.minDamage += enhCount;
+								system.maxDamage += enhCount;
+								if (system.data && system.data["Damage"] !== undefined) {
+									if (system.minDamage === system.maxDamage) {
+										system.data["Damage"] = system.maxDamage;
+									} else {
+										system.data["Damage"] = system.minDamage + "-" + system.maxDamage;
+									}
+								}
+							}
+						}
+						ship.notes += "<br>Improved Damage";
+					}
+					ship.mineDmgEnh = true;
+					break;							
+
+					case 'MINE_RANG':
+						if (!ship.mineRangEnh) {
+							for (let system of ship.systems) {
+								if (system.name === "CaptorMine") {
+									system.range += enhCount;
+									if (system.data && system.data["Range"] !== undefined) {
+										system.data["Range"] = system.range;
+									}
+								} else if (system.name === "MineControllerDEW") {
+									system.rangeSetting += enhCount;
+									if (system.data && system.data["Max Range"] !== undefined && system.data["Max Range"] !== "?") {
+										system.data["Max Range"] = system.rangeSetting;
+									}
+								}
+							}
+							ship.notes += "<br>Improved Range";
+						}
+						ship.mineRangEnh = true;
+						break;						
+
+					case 'MINE_SIGN':
+						if (!ship.mineSignEnh) {
+							ship.signature += enhCount;
+							if(ship.mineType == 'DEW') ship.detectedSignature += enhCount;
+						}
+						ship.mineSignEnh = true;
+						break;
+
 					case 'POOR_CREW':
 						if (!ship.poorEnh) {
 							ship.forwardDefense += enhCount;

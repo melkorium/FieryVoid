@@ -33,7 +33,18 @@
         exit;
     }
 
-    if (!is_object($gamelobbydata) || $gamelobbydata->status != "LOBBY") {
+    if (isset($gamelobbydata->error)) {
+        echo '<html><body style="background:#000; color:red; padding: 20px; font-family:sans-serif;">
+        <h2>Backend Error Generating Lobby</h2>
+        <pre>' . htmlspecialchars($gamelobbydata->error) . '</pre>
+        <p>File: ' . htmlspecialchars($gamelobbydata->file) . ' on line ' . htmlspecialchars($gamelobbydata->line) . '</p>
+        <p>Log ID: ' . htmlspecialchars($gamelobbydata->logid) . '</p>
+        <a href="games.php" style="color:#aaf;">Back to Games</a>
+        </body></html>';
+        exit;
+    }
+
+    if (!is_object($gamelobbydata) || !isset($gamelobbydata->status) || $gamelobbydata->status != "LOBBY") {
         header('Location: games.php');
         exit;
     }

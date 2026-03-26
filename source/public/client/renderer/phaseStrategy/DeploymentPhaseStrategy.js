@@ -18,6 +18,9 @@ window.DeploymentPhaseStrategy = function () {
 
         this.deploymentSprites = createSlotSprites(gamedata, webglScene.scene);
 
+        // Give MineDeployment access to deployment sprites for validation
+        if (window.MineDeployment) window.MineDeployment.setDeploymentSprites(this.deploymentSprites);
+
         combatLog.onTurnStart();
         infowindow.informPhase(5000, null);
         this.selectFirstOwnShipOrActiveShip();
@@ -47,6 +50,11 @@ window.DeploymentPhaseStrategy = function () {
 
     DeploymentPhaseStrategy.prototype.deactivate = function () {
         PhaseStrategy.prototype.deactivate.call(this);
+        // Clean up mine deployment mode and clear sprite reference
+        if (window.MineDeployment) {
+            window.MineDeployment.deactivate();
+            window.MineDeployment.setDeploymentSprites(null);
+        }
         this.deploymentSprites.forEach(function (icon) {
             icon.ownSprite.hide();
             icon.enemySprite.hide();
@@ -79,15 +87,15 @@ window.DeploymentPhaseStrategy = function () {
         if (validateDeploymentPosition(this.selectedShip, hex, this.deploymentSprites)) {
             var shipsInHex = shipManager.getShipsInSameHex(this.selectedShip, hex);
             var isBlocked = false;
-            
-            var hasTerrain = shipsInHex.some(function(s) { 
-                return gamedata.isTerrain(s.shipSizeClass, s.userid) || (s.Huge > 0 && s.Huge <= 3); 
+
+            var hasTerrain = shipsInHex.some(function (s) {
+                return gamedata.isTerrain(s.shipSizeClass, s.userid) || (s.Huge > 0 && s.Huge <= 3);
             });
 
             if (hasTerrain) {
                 isBlocked = true;
             } else if (!(this.selectedShip.mine || this.selectedShip.flight)) {
-                isBlocked = shipsInHex.some(function(s) { return !(s.mine || s.flight); });
+                isBlocked = shipsInHex.some(function (s) { return !(s.mine || s.flight); });
             }
 
             if (!isBlocked) {
@@ -114,9 +122,9 @@ window.DeploymentPhaseStrategy = function () {
         if (this.selectedShip && this.selectedShip.id !== ship.id) {
             var isPlacedOnMap = false;
             if (ship.movement && ship.movement.length > 0) {
-                isPlacedOnMap = ship.movement[0].commit === true; 
+                isPlacedOnMap = ship.movement[0].commit === true;
             }
-            
+
             var isTerrain = gamedata.isTerrain(ship.shipSizeClass, ship.userid) || (ship.Huge > 0 && ship.Huge <= 3);
             if (!isTerrain && isPlacedOnMap && (this.selectedShip.mine || this.selectedShip.flight || ship.mine || ship.flight)) {
                 // Ensure we only ever show the deployment stacking pop-up if the clicked location is actually 
@@ -127,7 +135,7 @@ window.DeploymentPhaseStrategy = function () {
                     // getShipPosition can return raw {x,y} from the movement array, so we guarantee it's formatted as {q,r} hex coordinates
                     var rawPos = shipManager.getShipPosition(this.selectedShip);
                     var selectedPos = new hexagon.Offset(rawPos);
-                    
+
                     if (!selectedPos || selectedPos.q !== payload.hex.q || selectedPos.r !== payload.hex.r) {
                         this.showSelectFromShips([ship], payload);
                         return;
@@ -200,6 +208,7 @@ window.DeploymentPhaseStrategy = function () {
         } else if (ship.mine) {
             // Mines can be selected from any slot, display visual boundary of map
             icon.mineSprite.show();
+            icon.ownSprite.show();
         } else if (gamedata.isMyShip(ship)) {
             icon.ownSprite.show();
         } else {
@@ -467,6 +476,16 @@ window.DeploymentPhaseStrategy = function () {
         return false;
         */
     }
+
+    // Expose mine deployment validation globally for MineDeployment.js
+    window.validateMineDeploymentHex = function (hex, deploymentSprites) {
+        return validateMineDeployment(hex, null, deploymentSprites);
+    };
+
+    // Expose full-deployment validation so MineDeployment.js can gate the commit button correctly
+    window.validateAllDeploymentGlobal = function (gamedataRef, deploymentSprites) {
+        return validateAllDeployment(gamedataRef, deploymentSprites);
+    };
 
     return DeploymentPhaseStrategy;
 }();

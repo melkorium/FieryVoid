@@ -20,8 +20,10 @@ jQuery(function ($) {
         // Support standard number inputs AND our special .points text input
         const isNumberInput = (e.target.tagName === 'INPUT' && e.target.type === 'number');
         const isPointsInput = (e.target.tagName === 'INPUT' && $(e.target).hasClass('points'));
+        const isAsteroidsInput = (e.target.tagName === 'INPUT' && $(e.target).hasClass('asteroidsCategories'));
+        const isMoonsInput = (e.target.tagName === 'INPUT' && ($(e.target).hasClass('moonsSmallSelect') || $(e.target).hasClass('moonsMediumSelect') || $(e.target).hasClass('moonsLargeSelect')));
 
-        if (!isNumberInput && !isPointsInput) return;
+        if (!isNumberInput && !isPointsInput && !isAsteroidsInput && !isMoonsInput) return;
         if (document.activeElement !== e.target) return; // Only if focused
 
         e.preventDefault();
@@ -71,6 +73,40 @@ jQuery(function ($) {
         if ($(`#${item.id}`).val() === item.trigger) {
             $(`#${item.id}_custom`).show();
         }
+    });
+
+    // Custom Asteroids & Moons Dropdown Logic
+    $("#asteroidsSelect, #moonsSmallSelect, #moonsMediumSelect, #moonsLargeSelect").on("focus click", function(e) {
+        $(".custom-dropdown-container").hide();
+        const id = $(this).attr("id");
+        if (id === "asteroidsSelect") $("#asteroid_custom_dropdown").show();
+        if (id === "moonsSmallSelect") $("#moons_small_dropdown").show();
+        if (id === "moonsMediumSelect") $("#moons_medium_dropdown").show();
+        if (id === "moonsLargeSelect") $("#moons_large_dropdown").show();
+        e.stopPropagation();
+    });
+
+    $(".custom-dropdown-container").on("click", function(e) {
+        e.stopPropagation();
+    });
+
+    $(".asteroid-option, .moon-option").on("click", function() {
+        const val = $(this).data("value");
+        const parent = $(this).closest('.asteroidsDropdown, .moonsDropdown');
+        const input = parent.find("input[type='text']");
+        input.val(val).trigger("change");
+        $(this).closest('.custom-dropdown-container').hide();
+    });
+
+    $(".asteroid-option, .moon-option").on("mouseenter", function() {
+        $(this).css("background-color", "#496791");
+    }).on("mouseleave", function() {
+        $(this).css("background-color", "transparent");
+    });
+
+    $(document).on("click", function(e) {
+        // Hide all custom dropdowns when clicking anywhere outside of them
+        $(".custom-dropdown-container").hide();
     });
 
     // UNLIMITED POINTS LOGIC
@@ -368,10 +404,18 @@ window.createGame = {
         if (checkval == "on") {
             $("#asteroidsDropdown").show();
             var selectedValue = $("#asteroidsSelect").val();
-            createGame.rules.asteroids = parseInt(selectedValue, 10);
+            var parsedVal = parseInt(selectedValue, 10);
+            if (isNaN(parsedVal) || parsedVal < 0) parsedVal = 0;
+            if (parsedVal > 48) parsedVal = 48;
+            $("#asteroidsSelect").val(parsedVal);
+            createGame.rules.asteroids = parsedVal;
 
             $("#asteroidsSelect").off('change').on('change', function () {
-                createGame.rules.asteroids = parseInt($(this).val(), 10);
+                var val = parseInt($(this).val(), 10);
+                if (isNaN(val) || val < 0) val = 0;
+                if (val > 48) val = 48;
+                $(this).val(val);
+                createGame.rules.asteroids = val;
             });
         } else {
             $("#asteroidsDropdown").hide();
@@ -386,20 +430,28 @@ window.createGame = {
         if (enabled) {
             $("#moonsDropdown").show();
 
-            const small = parseInt($("#moonsSmallSelect").val(), 10) || 0;
-            const medium = parseInt($("#moonsMediumSelect").val(), 10) || 0;
-            const large = parseInt($("#moonsLargeSelect").val(), 10) || 0;
+            const clampMoon = function(selector, maxVal) {
+                let val = parseInt($(selector).val(), 10);
+                if (isNaN(val) || val < 0) val = 0;
+                if (val > maxVal) val = maxVal;
+                $(selector).val(val);
+                return val;
+            };
+
+            const small = clampMoon("#moonsSmallSelect", 5);
+            const medium = clampMoon("#moonsMediumSelect", 4);
+            const large = clampMoon("#moonsLargeSelect", 2);
 
             createGame.rules.moons = { small, medium, large };
 
             $("#moonsSmallSelect").off('change.moons').on('change.moons', function () {
-                createGame.rules.moons.small = parseInt(this.value, 10) || 0;
+                createGame.rules.moons.small = clampMoon("#moonsSmallSelect", 5);
             });
             $("#moonsMediumSelect").off('change.moons').on('change.moons', function () {
-                createGame.rules.moons.medium = parseInt(this.value, 10) || 0;
+                createGame.rules.moons.medium = clampMoon("#moonsMediumSelect", 4);
             });
             $("#moonsLargeSelect").off('change.moons').on('change.moons', function () {
-                createGame.rules.moons.large = parseInt(this.value, 10) || 0;
+                createGame.rules.moons.large = clampMoon("#moonsLargeSelect", 2);
             });
 
         } else {

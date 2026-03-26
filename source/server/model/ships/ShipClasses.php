@@ -2929,16 +2929,23 @@ class Mine extends OSAT{
     public $mine = true;
     public $canvasSize = 80;  
     public $trueStealth = true;
+    public $mineType = ''; //Captor, DEW or Proximity
     public $signature = 0;
-    public $detectedSignature = -1; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
-    //public $activated = false; //For DEW mines. 
+    public $activated = false;
+    public $detectedSignature = 0; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
     public $spawned = -1; //To denote the turn a unit was spawned by DURING the game, e.g. doesn't count for CPV etc, show in Replay prior to it spawning
     public $canPreOrder = true;//Needed to set ranges for spawned Mines in Pre-Turn phase.
+    protected $variableDamage = 0; //Amount by which mine set ddamage can vary, looked for in Enhancements
+    public $commandControl = false;
+    public $multiSettings = false;
 
     public function isDisabled(){
         return false;
     }
 
+    public function getVariableDamage(){
+        return $this->variableDamage;
+    }
 
     public function getLocations(){
         $locs = array();
@@ -2953,10 +2960,15 @@ class Mine extends OSAT{
 
     public function stripForJson() {
         $strippedShip = parent::stripForJson();
-        if($this->detectedSignature !== -1) $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+        if($this->detectedSignature !== -1){
+            $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->commandControl = $this->commandControl; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->multiSettings = $this->multiSettings; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->detectedSignature = $this->detectedSignature; //Need to send updated Signature values for DEW mine weapons.            
+            //$strippedShip->activated = $this->activated; //Need to send updated activated values for DEW mine weapons.            
+        } 
         return $strippedShip;
     }    
-
 
 }
 

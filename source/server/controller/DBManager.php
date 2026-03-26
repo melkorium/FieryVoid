@@ -1776,7 +1776,10 @@ class DBManager
 				}
                 if (strpos($rules, 'moons') !== false || strpos($rules, 'asteroids') !== false) {
                     $nm .= ', Terrain';
-                }             
+                } 
+				if (strpos($rules, 'allowMines')!==false){
+					$nm  .= ', Mines';
+				}                            
 				if (strpos($rules, 'desperate')!==false){
 					$nm  .= ', Desperate';
 				}

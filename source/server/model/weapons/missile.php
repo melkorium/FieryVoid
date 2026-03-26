@@ -1468,7 +1468,7 @@ class AmmoMissileRackS extends Weapon{
 		
 		$magazine = $this->getAmmoMagazine();
 		if($magazine){ //else something is wrong - weapon is put on a ship without Ammo Magazine!
-			if($magazine->canDrawAmmo($modeName, 1)) $ammoIsAvailable = true;
+			if($magazine->canDrawInterceptor($modeName)) $ammoIsAvailable = true;
 		}
 		return $ammoIsAvailable;
 	}

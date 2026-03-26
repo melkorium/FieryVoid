@@ -119,11 +119,11 @@ class BuyingGamePhase implements Phase
                 $deploymentZone = $this->getGamespace($gameData);
                 
                 if ($ship instanceof moonSmallNew || $ship instanceof moonNew || $ship instanceof moonLarge) {
-                    $maxX = ($deploymentZone['width'] / 2) - 6;
-                    $maxY = ($deploymentZone['height'] / 2) - 4;  
+                    $maxX = (int)(($deploymentZone['width'] / 2) - 6);
+                    $maxY = (int)(($deploymentZone['height'] / 2) - 4);  
                 } else {
-                    $maxX = ($deploymentZone['width'] / 2) - 2;
-                    $maxY = ($deploymentZone['height'] / 2) - 1;
+                    $maxX = (int)(($deploymentZone['width'] / 2) - 2);
+                    $maxY = (int)(($deploymentZone['height'] / 2) - 1);
                 }    
 
                 // Generate a unique random position

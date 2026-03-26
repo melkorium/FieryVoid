@@ -11,7 +11,7 @@ class captorMineTerrain extends Mine{
         $this->shipClass = "Captor Mine";
 		$this->occurence = "common";
 		//$this->variantOf = 'NONE';
-        $this->isd = 2208;
+        $this->isd = 2200;
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
@@ -23,6 +23,7 @@ class captorMineTerrain extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
+        $this->mineType = 'Captor';         
        		    	    	    	    
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
