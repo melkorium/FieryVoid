@@ -180,7 +180,7 @@ class Weapon extends ShipSystem
 	protected $specialArcs = true;	//Denotes for Front End to redirect to weapon specific function to get arcs. Need to pass in strpForJson
 	protected $canTargetAllies = false; //To allow front end to target allies.
 	protected $canTargetAlliesArray = array(); //To allow front end to target allies.
-    protected $canTargetAll = false; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
+    public $canTargetAll = false; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
 	protected $canShootMines = false; //marker to let weapons that normally can't shoot MCVs to shoot mines.    
 
 	//Weapons are repaired before "average system", but after really important things! 
@@ -341,11 +341,18 @@ class Weapon extends ShipSystem
 				}		
 			}
 		}
-        if($ship instanceof Mine && ($ship->mineType == 'DEW' || $ship->mineType == 'Captor')){ //Need to send updated Fire Control values for DEW/Captor mine weapons.
+
+        if($ship instanceof Mine && ($ship->mineType == 'DEW' || $ship->mineType == 'Captor')){ 
+            //Need to send updated Fire Control values for DEW/Captor mine weapons.
 			$strippedSystem->fireControl = $this->fireControl;
 			$strippedSystem->fireControlArray = $this->fireControlArray;  
-			$strippedSystem->autoFireOnly = $this->autoFireOnly;         
-        }				
+			$strippedSystem->autoFireOnly = $this->autoFireOnly; //DEW weapons need to know they are actually autofire on a mine. 
+            $strippedSystem->canTargetAll = $this->canTargetAll;                        
+        }elseif ($ship instanceof Mine && $ship->getCommandControl()){ 
+            //Command Controller can change certain variables, so we need to pass in JSON.
+            $strippedSystem->preFires = $this->preFires; 	 
+            $strippedSystem->autoFireOnly = $this->autoFireOnly;                                            
+        } 				
 			
 		}
         return $strippedSystem;

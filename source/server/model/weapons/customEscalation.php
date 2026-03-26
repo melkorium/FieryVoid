@@ -1672,7 +1672,7 @@ class EWGraviticTractingRod extends Weapon implements SpecialAbility {
 	public $doNotIntercept = true; //although I don't think a weapon exists that could intercept it...
 	public $loadingtime = 3;
     public $rangePenalty = 2;
-    protected $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()	
+    public $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()	
     public $fireControl = array(2, 2, 2); // fighters, <mediums, <capitals 
 	public $preFires = true;
     public $canSplitShots = true;
@@ -1833,7 +1833,7 @@ class EWGraviticTractingRod extends Weapon implements SpecialAbility {
     public function stripForJson() {
         $strippedSystem = parent::stripForJson(); 
         $strippedSystem->showHexagonArc = $this->showHexagonArc;  
-        $strippedSystem->canTargetAll = $this->canTargetAll;
+        //$strippedSystem->canTargetAll = $this->canTargetAll;
         $strippedSystem->moveDistance = $this->moveDistance;                                        
         return $strippedSystem;
 	}	

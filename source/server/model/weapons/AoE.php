@@ -270,9 +270,9 @@ class CaptorMine extends Weapon{
     public $animationExplosionScale = 0.25;        
     public $isTargetable = false; //cannot be targeted ever!        
     public $loadingtime = 1;
-    public $ballistic = true;
+    public $ballistic = false; //Will be marked true later, but this lets Command Control mines target.
     public $hidetarget = true;
-    public $canOffline = false;
+    public $canOffLine = false;
     public $fireControl = array(0, 0, 0); //MODIFIER for weapon fire control!        
     public $damageType = 'Standard';//mode of dealing damage
     public $doNotIntercept = false; //for attacks that are not subject to interception at all - like fields and ramming
@@ -280,12 +280,14 @@ class CaptorMine extends Weapon{
     public $priority = 6;
     public $priorityAF = 5;
     public $firingModes = array(1 => "Captor");
+    public $weaponClass = "Ballistic";
     public $range = 0;
     public $distanceRange = 60; //So that shots don't cancel if target moves far away after triggering a mine.    
     private $diceType = 1; //What type of dice are used.
     private $dice = 1; //How many damage dice are there
     protected $damageBonus = 0; //What is flat damage bonus
     public $autoFireOnly = true; // for weapons that should never be fired manually 
+    public $canTargetAll = true;
 	public $currClass = '';//for front end.       
     public $allocatedRanges = array('Capitals-HCVs' => null, 'LCVs-MCVs' => null, 'Fighters' => null); //Ranges allocated for given ship type 
     public $setRanges = array(); //Ranges allocated for given ship type     
@@ -326,12 +328,10 @@ class CaptorMine extends Weapon{
 	public function doIndividualNotesTransfer(){
 	    // Data received in variable individualNotesTransfer, further functions will look for it in currchangedSpec
 	    if (is_array($this->individualNotesTransfer)) {
-//Debug::log("reached " . "1"); 
-//var_dump($this->individualNotesTransfer);             
-	        foreach ($this->individualNotesTransfer as $shipType => $rangeValue) {
-//Debug::log("reached " . "2");                  
+         
+	        foreach ($this->individualNotesTransfer as $shipType => $rangeValue) {      
 	            $this->setRanges[$shipType] = $rangeValue; //Temporarily fill values to generate notes.
-//Debug::log("setRangeTransfer " . $this->setRanges[$shipType]);                
+             
 	        }
 	    }                                	   
 	    $this->individualNotesTransfer = array(); // Empty, just in case
@@ -339,23 +339,14 @@ class CaptorMine extends Weapon{
 
     public function generateIndividualNotes($gameData, $dbManager){ //dbManager is necessary for Initial phase only
 		$ship = $this->getUnit();
-//Debug::log("reached " . $ship->name);            
+           
 		switch($gameData->phase){
 						
 				case -1: //Deployment/Pre-Turn phase
 					//data returned as allocatedBFCP table, with one value passed per BFCP point in each FCType e.g. 'Fighter' mean +1 in allocatedBFCP['Fighter']
 					if($ship->userid == $gameData->forPlayer){ //only own ships, otherwise bad things may happen!
-//Debug::log("reached " . "3");    							
-						//$shipTypes = array_keys($this->allocatedRanges); //Extract keys Fighter, MCV, Capital.
-						//$rangeValues = array_values($this->allocatedRanges);//Extract values for those keys.																	
-						foreach ($this->setRanges as $shipType => $rangeValue) { //Will always be three keys.
-						    // Find the FC Type of the current key in $keys array
-						    //$index = array_search($shipType, $shipTypes);
-
-						    // Use the Ship Type to access the corresponding value in $rangeValues array
-						    //$rangeSet = $rangeValues[$index];	
-//Debug::log("shipType " . $shipType);
-//Debug::log("rangeValue " . $rangeValue);     
+ 																							
+						foreach ($this->setRanges as $shipType => $rangeValue) { //Will always be three keys.  
  												
 							$notekey = $shipType;
 							$noteHuman = 'Mine Range set';
@@ -370,22 +361,18 @@ class CaptorMine extends Weapon{
 
     public function onIndividualNotesLoaded($gamedata)
     {
-//Debug::log("turn " . $gamedata->turn);        
-            //Otherwise, what were the points set this turn at end of Initial Orders.
-            foreach ($this->individualNotes as $currNote) {	    	
-                $shipType = $currNote->notekey;
-                $rangeValue = $currNote->notevalue;
-//Debug::log("shipType " . $shipType);
-//Debug::log("rangeValue " . $rangeValue);  
-                // Check if the key exists in $this->allocatedBFCP
-                //if (array_key_exists($shipType, $this->allocatedRanges)) {
-                    // Increment the value associated with the appropriate key e.g. Fighter, MCV, Capital.
-                    $this->allocatedRanges[$shipType] = $rangeValue;
-                //}
-            }
+        //Otherwise, what were the points set this turn at end of Initial Orders.
+        foreach ($this->individualNotes as $currNote) {	    	
+            $shipType = $currNote->notekey;
+            $rangeValue = $currNote->notevalue;
+
+            //Increment the value associated with the appropriate key e.g. Fighter, MCV, Capital.
+            $this->allocatedRanges[$shipType] = $rangeValue;
+
+        }
                       
-            //and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
-            $this->individualNotes = array();
+        //and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
+        $this->individualNotes = array();
         
             
     }//endof onIndividualNotesLoaded
@@ -396,6 +383,23 @@ class CaptorMine extends Weapon{
         if($this->isOfflineOnTurn()) return; //Mine weapon deactivated.
 
         $mine = $this->getUnit();
+        if($mine->getCommandControl()){            
+            $firingOrders = $this->getFireOrders($gamedata->turn);
+            
+            $hasFireOrder = null;
+                    foreach ($firingOrders as $fireOrder) { 
+                        if ($fireOrder->type == 'normal' || $fireOrder->type == 'ballistic') { 
+                        $hasFireOrder = $fireOrder;
+                        break; //no need to search further
+                        }
+                    }    			
+                    
+            if($hasFireOrder !== null){
+                $this->ballistic = true; //Mark as ballistic so fireOrder is processed.	                
+                $this->destroyMine($mine, $gamedata);                
+                return; //Has a manual fire order, end of work
+            }    
+        }
         if($mine->isDestroyed()) return; //Mine is destroyed.
 		$deployTurn = $mine->getTurnDeployed($gamedata);
 		if($deployTurn > $gamedata->turn) return;  //Ship not deployed yet, don't fire weapon!
@@ -433,13 +437,11 @@ class CaptorMine extends Weapon{
 		}
 	
         $mineTarget = null;
-        //$chosenLocation = 0;
+
 		//Now check if any enemy units entered range and attack first one
 		$mineTarget = $this->checkForValidTargets($relevantUnits, $mine, $minePosition, $gamedata);	        	
 
 		if ($mineTarget !== null) { // Check if we found a valid target
-            //$mineTarget = $targetData['unit'];
-            //$chosenLocation = $targetData['location'];
 
 			$newFireOrder = new FireOrder(
 				-1, "ballistic", $mine->id, $mineTarget->id,
@@ -447,24 +449,28 @@ class CaptorMine extends Weapon{
 				0, 0, 1, 0, 0, //needed, rolled, shots, shotshit, intercepted
 				0,0,$this->weaponClass,-1 //X, Y, damageclass, resolutionorder
 			);		
-            //$newFireOrder->chosenLocation = $chosenLocation;
-            //$this->locationHit = $chosenLocation;
 
 			$newFireOrder->addToDB = true;
-			$this->fireOrders[] = $newFireOrder;							
+			$this->fireOrders[] = $newFireOrder;
+            $this->ballistic = true; //Mark as ballistic so fireOrder is processed.	            							
 		
             //Now create a damage order to destroy mine.
-            $structure = $mine->getStructureSystem(0);            
-			$damageEntry = new DamageEntry(-1, $mine->id, -1, $gamedata->turn, $structure->id, 1, 0, 0, -1, true, false, "", "SelfDestruct");
-			$damageEntry->updated = true;
-			$this->damage[] = $damageEntry;							
+            $this->destroyMine($mine, $gamedata);  						
 		}        
 
-	} //endof beforePreFiringOrderResolution
+	} //endof beforeFiringOrderResolution
 
-	public function fire($gamedata, $fireOrder){
-		//$fireOrder->chosenLocation = $this->locationHit;        
-		
+    private function destroyMine($mine, $gamedata){
+        //Now create a damage order to destroy mine.
+        $structure = $mine->getStructureSystem(0);            
+		$damageEntry = new DamageEntry(-1, $mine->id, -1, $gamedata->turn, $structure->id, 1, 0, 0, -1, true, false, "", "SelfDestruct");
+		$damageEntry->updated = true;
+		$this->damage[] = $damageEntry;	
+    }   
+
+
+	public function fire($gamedata, $fireOrder){    
+        $this->ballistic = true; //Mark as ballistic so fireOrder is processed.	 		
 		parent::fire($gamedata, $fireOrder);
 	}
 
@@ -481,15 +487,9 @@ class CaptorMine extends Weapon{
 										    
 			$unitStartLoc = $unit->getLastTurnMovement($gamedata->turn);
             if($unitStartLoc == null) continue;
-            
-            //$previousPosition = $unitStartLoc->position;
-            //$previousFacing = $unitStartLoc->getFacingAngle();
 								
 			//Check if unit can be attacked in its starting position	
 			if($this->checkTargetConditions( $minePosition, $unitStartLoc->position,$gamedata, $mine, $unit)){
-                //$relativeBearing = $this->getMineBearing($minePosition, $unitStartLoc->position, $unit, $previousFacing);
-                //$location = $this->getHitSection($relativeBearing, $unit);
-                //return ['unit' => $unit, 'location' => $location];
                 return $unit;                   
 			}	
 
@@ -500,19 +500,11 @@ class CaptorMine extends Weapon{
 	                if ($unitMove->type == "move" || $unitMove->type == "slipleft" || $unitMove->type == "slipright") {
 
                         if($this->checkTargetConditions($minePosition, $unitMove->position, $gamedata,  $mine, $unit)) {
-                           //get bearing / location and return that too		    			
-                            //$relativeBearing = $this->getMineBearing($minePosition, $previousPosition, $unit, $previousFacing);
-                            //$location = $this->getHitSection($relativeBearing, $unit);
-                            //return ['unit' => $unit, 'location' => $location];
                             return $unit;
                        }else{
-                            //$previousPosition = $unitMove->position;
-                            //$previousFacing = $unitMove->getFacingAngle();
                             continue;
                         }
                     } else {
-                        //$previousPosition = $unitMove->position;
-                        //$previousFacing = $unitMove->getFacingAngle();
                     }    		 		 		
 				}
 			}					
@@ -521,46 +513,6 @@ class CaptorMine extends Weapon{
 	    return null; 		
 		
 	}//end of checkForValidTargets    
-
-    /*
-	private function getMineBearing($minePosition, $shipPosition, $ship, $facing){
-		$relativeBearing = 0;	
-		$oPos = mathlib::hexCoToPixel($shipPosition);//Convert to pixel format		
-		$tPos = mathlib::hexCoToPixel($minePosition); //Convert to pixel format
-				
-		$compassHeading = mathlib::getCompassHeadingOfPoint($oPos, $tPos);//Get heading using pixel formats.
-        $relativeBearing =  Mathlib::addToDirection($compassHeading, -$facing);//relative bearing, compass - current facing.
-       
-        if( Movement::isRolled($ship) ){ //if ship is rolled, mirror relative bearing.
-            if( $relativeBearing !== 0 ) { //mirror of 0 is 0
-                $relativeBearing = 360-$relativeBearing;
-            }
-        }        
-
-		return round($relativeBearing);//Round and return!
-	}
-
-	private function getHitSection($relativeBearing, $target) {
-        if (!method_exists($target, 'getLocations')) return 0; // Target has no locations (e.g. FighterFlight sometimes)
-
-		foreach ($target->getLocations() as $location) {
-			$min = $location["min"];
-			$max = $location["max"];
-			
-			// Normal range check
-			if ($min < $max && $relativeBearing >= $min && $relativeBearing < $max) {
-				return $location["loc"];
-			}
-			
-			// Wrap-around range check (e.g., 330-30)
-			if ($min > $max && ($relativeBearing >= $min || $relativeBearing < $max)) {
-				return $location["loc"];
-			}
-		}
-		
-		return 0; // Should not happen but return default if so.
-	} 
-    */
 
 
 	private function checkTargetConditions($minePosition, $targetPostion, $gamedata, $mine, $target){
@@ -575,20 +527,12 @@ class CaptorMine extends Weapon{
         }else if($FCIndex == 1){ //LCV or MCV
             $shipType = 'LCVs-MCVs';                    
         }
-//Debug::log("mineName " . $mine->name); 
-//Debug::log("FCIndex " . $FCIndex); 
-//Debug::log("shipType " . $shipType);  
-//Debug::log("effectiveRange1 " . $effectiveRange);       
+   
         if($this->allocatedRanges[$shipType] !== null) $effectiveRange = $this->allocatedRanges[$shipType]; //Find and set appropriate range for this type of target.
-//Debug::log("effectiveRange2 " . $effectiveRange);    
-//Debug::log("Caps " . $this->allocatedRanges['Capitals-HCVs']);
-//Debug::log("MCV " . $this->allocatedRanges['LCVs-MCVs']);
-//Debug::log("Fighters " . $this->allocatedRanges['Fighters']);
 
         //take into account jammer effects.                    
 		$jammerValue = $target->getSpecialAbilityValue("Jammer", array("shooter" => $mine, "target" => $target));
-		if($jammerValue > 0) $effectiveRange = floor($effectiveRange / 2);
-//Debug::log("effectiveRange3 " . $effectiveRange);    		
+		if($jammerValue > 0) $effectiveRange = floor($effectiveRange / 2);	
 	    if ($distance > $effectiveRange) return false; //Not within range, skip LoS check and return false.
 
         //Captor Mines 'launch' like other ballistics so should obey LoS?
@@ -617,28 +561,30 @@ class CaptorMine extends Weapon{
 
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
-        $strippedSystem->allocatedRanges = $this->allocatedRanges; 
-        //$strippedSystem->range = $this->range; 	 			                             
+        $strippedSystem->allocatedRanges = $this->allocatedRanges;      			                             
         return $strippedSystem;
     }
 	    
 
 } //endof class CaptorMine
 
-class ProximityMine extends Weapon{
+class ProximityMine extends Weapon implements SpecialAbility{
     public $name = "ProximityMine";
     public $displayName = "Proximity Mine";
 	public $iconPath = "EWLightEnergyMine.png";
     public $animation = "ball";
     public $animationColor = array(141, 240, 255);
     public $animationExplosionScale = 1;        
-    public $isTargetable = false; //cannot be targeted ever!        
+    public $isTargetable = false; //cannot be targeted ever!  
+	public $specialAbilities = array("PreFiring"); 
+	public $specialAbilityValue = true; //so it is actually recognized as special ability!               
     public $loadingtime = 1;
-    public $ballistic = true;
-    public $preFires = true;
-    public $hextarget = true; //Actually yes.
+    //public $ballistic = true;
+    public $preFires = false; //Will be marked true by Command Controller
+    public $hextarget = false; //Actually yes.
     public $hidetarget = true;
-    public $canOffline = false;
+    public $canTargetAll = true;
+    public $canOffLine = false;
     public $fireControlMod = array(0, 0, 0); //MODIFIER for weapon fire control!        
     public $damageType = 'Standard';//mode of dealing damage
     public $weaponClass = 'Ballistic';//weapon class
@@ -655,6 +601,7 @@ class ProximityMine extends Weapon{
     public $allocatedShipTypes = array('Capitals-HCVs' => true, 'LCVs-MCVs' => true, 'Fighters' => true); //Types allocated for ships to attack 
     public $setShipTypes = array(); //Ranges allocated for given ship type from front end.    
     public $mineSet = false; //For front end, to confirm mine ranges have been manually set.
+    protected $autoHit = true;
 
 
     function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $diceType, $dice, $damageBonus){
@@ -669,6 +616,12 @@ class ProximityMine extends Weapon{
 
         parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
     }
+
+	public function getSpecialAbilityValue($args)
+    {
+		return $this->specialAbilityValue;
+	}
+
 
     public function addToDamageBonus($add){
         $this->damageBonus += $add;             
@@ -718,18 +671,19 @@ class ProximityMine extends Weapon{
 
     public function onIndividualNotesLoaded($gamedata)
     {      
-            //Otherwise, what were the points set this turn at end of Initial Orders.
-            foreach ($this->individualNotes as $currNote) {	    	
-                $shipType = $currNote->notekey;
-                $willAttack = $currNote->notevalue;
+        //Otherwise, what were the points set this turn at end of Initial Orders.
+        foreach ($this->individualNotes as $currNote) {	    	
+            $shipType = $currNote->notekey;
+            $willAttack = $currNote->notevalue;
  
-                // Check if the key exists in $this->allocatedBFCP
-                // Increment the value associated with the appropriate key e.g. Fighter, MCV, Capital.
-                $this->allocatedShipTypes[$shipType] = ($willAttack == 1 || $willAttack === 'true' || $willAttack === true);
-            }
+            // Check if the key exists in $this->allocatedBFCP
+            // Increment the value associated with the appropriate key e.g. Fighter, MCV, Capital.
+            $this->allocatedShipTypes[$shipType] = ($willAttack == 1 || $willAttack === 'true' || $willAttack === true);
+
+        }
                       
-            //and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
-            $this->individualNotes = array();
+        //and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
+        $this->individualNotes = array();
         
             
     }//endof onIndividualNotesLoaded
@@ -750,6 +704,24 @@ class ProximityMine extends Weapon{
         if($this->isOfflineOnTurn()) return; //Mine weapon deactivated.
 
         $mine = $this->getUnit();
+        if($mine->getCommandControl()){            
+            $firingOrders = $this->getFireOrders($gamedata->turn);
+            
+            $hasFireOrder = null;
+                    foreach ($firingOrders as $fireOrder) { 
+                        if ($fireOrder->type == 'prefiring') { 
+                        $hasFireOrder = $fireOrder;
+                        break; //no need to search further
+                        }
+                    }    			
+                    
+            if($hasFireOrder !== null){
+                $this->ballistic = true; //Mark as ballistic so fireOrder is processed.	                 
+                $this->destroyMine($mine, $gamedata);                
+                return; //Has a manual fire order, end of work
+            }    
+        }            
+
         if($mine->isDestroyed()) return; //Mine is destroyed.
 		$deployTurn = $mine->getTurnDeployed($gamedata);
 		if($deployTurn > $gamedata->turn) return;  //Ship not deployed yet, don't fire weapon!
@@ -805,16 +777,24 @@ class ProximityMine extends Weapon{
             $newFireOrder->chosenLocation = $chosenLocation;
 
 			$newFireOrder->addToDB = true;
-			$this->fireOrders[] = $newFireOrder;							
+			$this->fireOrders[] = $newFireOrder;
+            $this->ballistic = true; //Mark as ballistic so fireOrder is processed.							
 		
             //Now create a damage order to destroy mine.
-            $structure = $mine->getStructureSystem(0);            
-			$damageEntry = new DamageEntry(-1, $mine->id, -1, $gamedata->turn, $structure->id, 1, 0, 0, -1, true, false, "", "SelfDestruct");
-			$damageEntry->updated = true;
-			$this->damage[] = $damageEntry;							
+            $this->destroyMine($mine, $gamedata);
+            
 		}        
 
 	} //endof beforePreFiringOrderResolution
+
+
+    private function destroyMine($mine, $gamedata){
+        //Now create a damage order to destroy mine.
+        $structure = $mine->getStructureSystem(0);            
+		$damageEntry = new DamageEntry(-1, $mine->id, -1, $gamedata->turn, $structure->id, 1, 0, 0, -1, true, false, "", "SelfDestruct");
+		$damageEntry->updated = true;
+		$this->damage[] = $damageEntry;	
+    }             
 
     public function calculateHitBase($gamedata, $fireOrder)
     {
@@ -823,9 +803,8 @@ class ProximityMine extends Weapon{
     }    
 
 
-	public function fire($gamedata, $fireOrder){
-		//$fireOrder->chosenLocation = $this->locationHit;        
-		
+	public function fire($gamedata, $fireOrder){     
+Debug::log("fireREached mod " . $fireOrder->id);		
 		parent::fire($gamedata, $fireOrder);
 	}
 
@@ -938,6 +917,44 @@ class ProximityMine extends Weapon{
 		return true;
 	}	
 
+    //Called during movementPhase->advance() when mine has command controller enhancement.  Checks for ships in range and triggers PreFiring phase to manually target.
+	public function checkForPreFiringTargets($mine, $gamedata){
+		
+        if ($mine->getTurnDeployed($gamedata) > $gamedata->turn) return false; // Not deployed yet
+
+        $minePos = null;
+        foreach ($mine->movement as $move) {
+            if ($move->type === 'deploy') {
+                $minePos = $move->position;
+                break;
+            }
+        }
+        if ($minePos === null) return false;
+
+        $IFFSystem = $mine->getIFFSystem();        
+
+        if (! ($minePos instanceof OffsetCoordinate)) {
+            throw new Exception("only OffsetCoordinate supported");
+        }
+
+        foreach ($gamedata->ships as $ship){
+            if ($ship instanceof Terrain) continue;
+            if ($ship->mine) continue;  
+            if ($ship->base || $ship instanceof OSAT) continue; //They are movement activated.          
+			if ($ship->isDestroyed()) continue;		
+            if (!$this->isValidShipType($ship)) continue;
+			if ($ship->id == $mine->id) continue; // Mine should never target itself!
+			if ($ship->team == $mine->team && $IFFSystem) continue;	//Ignore friendly units if IFF purchased.	
+			if ($ship->getTurnDeployed($gamedata) > $gamedata->turn) continue;  //Ignore units that are not deployed yet!	
+
+            if ( $ship->getHexPos()->distanceTo($minePos) <= $this->range){
+                return true; // Found a valid target, we can exit early!
+            }
+        }     
+        
+		return false;
+	}	
+
   
     public function getDamage($fireOrder)
     {
@@ -956,7 +973,8 @@ class ProximityMine extends Weapon{
 
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
-        $strippedSystem->allocatedShipTypes = $this->allocatedShipTypes; 			                             
+        $strippedSystem->allocatedShipTypes = $this->allocatedShipTypes;      
+        $strippedSystem->autoHit = $this->autoHit; 	                  			                             
         return $strippedSystem;
     }
 	    
