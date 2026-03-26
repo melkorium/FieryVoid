@@ -36,7 +36,7 @@ class templarGC extends FighterFlight{
         $toAdd = $new - $current;
 
         for ($i = 0; $i < $toAdd; $i++){   
-            $armour = array(1, 1, 1, 1);
+            $armour = array(2, 1, 1, 1);
             $fighter = new Fighter("templarGC", $armour, 9, $this->id);
             $fighter->displayName = "Templar II";
             $fighter->imagePath = "img/ships/GCtemplar.png";
