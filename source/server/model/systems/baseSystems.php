@@ -6986,8 +6986,10 @@ class MineControllerDEW extends ShipSystem{
 					foreach($weapon->rangeArray as $mode => $val) {
 						$weapon->rangeArray[$mode] = $this->rangeSetting;
 					}
+					$weapon->isTargetable = false;	
+
 					$weapon->autoFireOnly = true;	
-					$weapon->isTargetable = false;								
+					$weapon->canOffLine = false;							
 				}
 			}	
                       

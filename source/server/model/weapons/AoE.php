@@ -272,7 +272,7 @@ class CaptorMine extends Weapon{
     public $loadingtime = 1;
     public $ballistic = true;
     public $hidetarget = true;
-    public $canOffline = true;
+    public $canOffline = false;
     public $fireControl = array(0, 0, 0); //MODIFIER for weapon fire control!        
     public $damageType = 'Standard';//mode of dealing damage
     public $doNotIntercept = false; //for attacks that are not subject to interception at all - like fields and ramming
@@ -638,7 +638,7 @@ class ProximityMine extends Weapon{
     public $preFires = true;
     public $hextarget = true; //Actually yes.
     public $hidetarget = true;
-    public $canOffline = true;
+    public $canOffline = false;
     public $fireControlMod = array(0, 0, 0); //MODIFIER for weapon fire control!        
     public $damageType = 'Standard';//mode of dealing damage
     public $weaponClass = 'Ballistic';//weapon class
