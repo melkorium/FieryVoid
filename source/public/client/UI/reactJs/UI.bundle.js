@@ -298,7 +298,7 @@ Perhaps you're looking to import 'styled-components/native'?
 Read more about this at https://www.styled-components.com/docs/basics#react-native`);var dv="__sc-".concat(pu,"__");Xt.NODE_ENV!=="production"&&Xt.NODE_ENV!=="test"&&typeof window<"u"&&(window[dv]||(window[dv]=0),window[dv]===1&&console.warn(`It looks like there are several instances of 'styled-components' initialized in this application. This may cause dynamic styles to not render properly, errors during the rehydration process, a missing theme prop, and makes your application bigger without good reason.
 
 See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-several-instances-of-module-on-the-page for more info.`),window[dv]+=1);const pv=B.div`
-    border: 1px solid #496791;
+    border: 1px solid #3793c8;
     color: #deebff;
     background-color: #0a3340;
     font-family:arial;
@@ -590,25 +590,27 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-image: url("./img/ballisticTarget2.png");
     box-shadow: ${u=>u.$toggled?"inset 0 0 15px 5px rgba(50, 205, 50, 0.4)":"none"};
     background-color: ${u=>u.$toggled?"#1b533d":"#0a3340"};
-    border: 1px solid ${u=>u.$toggled?"limegreen":"#496791"};
+    border: 1px solid ${u=>u.$toggled?"limegreen":"#3793c8"};
+    border-right: none;    
 `,tD=B(ss)`
     background-image: url("./img/ballisticLaunch2.png");
     box-shadow: ${u=>u.$toggled?"inset 0 0 15px 5px rgba(50, 205, 50, 0.4)":"none"};
     background-color: ${u=>u.$toggled?"#1b533d":"#0a3340"};
-    border: 1px solid ${u=>u.$toggled?"limegreen":"#496791"};
+    border: 1px solid ${u=>u.$toggled?"limegreen":"#3793c8"};
+    border-right: none;    
 `,nD=B(ss)`
     background-image: url("./img/los1.png");
     filter: ${u=>u.$toggled?"brightness(1.6) sepia(0.85) hue-rotate(60deg) saturate(4)":"none"};
-    border: 1px solid ${u=>u.$toggled?"limegreen":"#496791"};
+    border: 1px solid ${u=>u.$toggled?"limegreen":"#3793c8"};
     border-right: none;
 `,rD=B(ss)`
     background-image: url("./img/hexNumber.png");
     filter: ${u=>u.$toggled?"brightness(1.6) sepia(0.85) hue-rotate(60deg) saturate(4)":"none"};
-    border: 1px solid ${u=>u.$toggled?"limegreen":"#496791"};
+    border: 1px solid ${u=>u.$toggled?"limegreen":"#3793c8"};
     border-right: none;
 `,aD=B(ss)`
     filter: ${u=>u.$toggled?"brightness(1.6) sepia(0.85) hue-rotate(60deg) saturate(4)":"none"};
-    border: 1px solid ${u=>u.$toggled?"limegreen":"#496791"};
+    border: 1px solid ${u=>u.$toggled?"limegreen":"#3793c8"};
     border-right: none;
     position: relative;
 
