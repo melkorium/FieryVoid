@@ -581,7 +581,6 @@ class ProximityMine extends Weapon implements SpecialAbility{
     public $doNotIntercept = true;
     public $uninterceptable = true;             
     public $loadingtime = 1;
-    //public $ballistic = true;
     public $preFires = false; //Will be marked true by Command Controller
     public $hextarget = false; //Actually yes.
     public $hidetarget = true;
@@ -604,7 +603,7 @@ class ProximityMine extends Weapon implements SpecialAbility{
     public $setShipTypes = array(); //Ranges allocated for given ship type from front end.    
     public $mineSet = false; //For front end, to confirm mine ranges have been manually set.
     protected $autoHit = true;
-    public $potentialTargets = array();
+    public $potentialTargets = array(); //Tracks possible targets for Command Controller enhancement.
 
 
 
