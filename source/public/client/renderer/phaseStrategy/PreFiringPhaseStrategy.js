@@ -34,28 +34,7 @@ window.PreFiringPhaseStrategy = function () {
             icon.removeHexagonArcs();
         });
     };
-    /*
-    PreFiringPhaseStrategy.prototype.showAppropriateHighlight = function () {
-        PhaseStrategy.prototype.showAppropriateHighlight.call(this);
 
-        if (!this.selectedShip) return;
-
-        gamedata.selectedSystems.forEach(function (system) {
-            if (system instanceof ProximityMine && system.potentialTargets) {
-                Object.keys(system.potentialTargets).forEach(function (targetId) {
-                    var targetShip = gamedata.getShip(targetId);
-                    if (targetShip) {
-                        var icon = this.shipIconContainer.getByShip(targetShip);
-                        if (icon) {
-                            icon.setHighlighted(true, true);
-                            icon.showSideSprite(true);
-                        }
-                    }
-                }, this);
-            }
-        }, this);
-    };
-    */
     PreFiringPhaseStrategy.prototype.onHexClicked = function (payload) {
         this.lastClickedShipId = -1;
         PhaseStrategy.prototype.onHexClicked.call(this, payload);
@@ -73,15 +52,6 @@ window.PreFiringPhaseStrategy = function () {
             weaponManager.targetHex(this.selectedShip, payload.hex);
         }
     };
-
-    /*//Old version before allied targeting
-    PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
-        this.setSelectedShip(ship);
-        var menu = new ShipTooltipFireMenu(this.selectedShip, ship, this.gamedata.turn);
-        var ballisticsMenu = new ShipTooltipBallisticsMenu(this.shipIconContainer, this.gamedata.turn, true, this.selectedShip);
-        if (!gamedata.showLoS) this.showShipTooltip(ship, payload, menu, false, ballisticsMenu);
-    };
-    */
 
     //New version that allows targeting of allies when Friendly Fire Active - DK
     PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
