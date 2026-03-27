@@ -1805,9 +1805,9 @@ public function getStartLoading()
         }
 
 	    
-        if ($target->isDestroyed()) return;
-	    
+        if ($target->isDestroyed()) return;    
 		$tmpLocation = $fireOrder->chosenLocation;
+
 		$launchPos = null;
 		if ($this->ballistic){
 //			$movement = $shooter->getLastTurnMovement($fireOrder->turn);

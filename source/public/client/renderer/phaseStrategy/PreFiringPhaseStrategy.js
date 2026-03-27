@@ -34,7 +34,28 @@ window.PreFiringPhaseStrategy = function () {
             icon.removeHexagonArcs();
         });
     };
+    /*
+    PreFiringPhaseStrategy.prototype.showAppropriateHighlight = function () {
+        PhaseStrategy.prototype.showAppropriateHighlight.call(this);
 
+        if (!this.selectedShip) return;
+
+        gamedata.selectedSystems.forEach(function (system) {
+            if (system instanceof ProximityMine && system.potentialTargets) {
+                Object.keys(system.potentialTargets).forEach(function (targetId) {
+                    var targetShip = gamedata.getShip(targetId);
+                    if (targetShip) {
+                        var icon = this.shipIconContainer.getByShip(targetShip);
+                        if (icon) {
+                            icon.setHighlighted(true, true);
+                            icon.showSideSprite(true);
+                        }
+                    }
+                }, this);
+            }
+        }, this);
+    };
+    */
     PreFiringPhaseStrategy.prototype.onHexClicked = function (payload) {
         this.lastClickedShipId = -1;
         PhaseStrategy.prototype.onHexClicked.call(this, payload);
@@ -114,6 +135,7 @@ window.PreFiringPhaseStrategy = function () {
     };
 
     PreFiringPhaseStrategy.prototype.targetShip = function (ship, payload) {
+
         if (shipManager.getTurnDeployed(this.selectedShip) > gamedata.turn) { //Selected ships is not deployed yet - DK May 2025
             this.showShipTooltip(ship, payload, menu, false);
             return;

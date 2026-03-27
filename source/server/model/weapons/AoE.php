@@ -577,7 +577,9 @@ class ProximityMine extends Weapon implements SpecialAbility{
     public $animationExplosionScale = 1;        
     public $isTargetable = false; //cannot be targeted ever!  
 	public $specialAbilities = array("PreFiring"); 
-	public $specialAbilityValue = true; //so it is actually recognized as special ability!               
+	public $specialAbilityValue = true; //so it is actually recognized as special ability! 
+    public $doNotIntercept = true;
+    public $uninterceptable = true;             
     public $loadingtime = 1;
     //public $ballistic = true;
     public $preFires = false; //Will be marked true by Command Controller
@@ -602,6 +604,8 @@ class ProximityMine extends Weapon implements SpecialAbility{
     public $setShipTypes = array(); //Ranges allocated for given ship type from front end.    
     public $mineSet = false; //For front end, to confirm mine ranges have been manually set.
     protected $autoHit = true;
+    public $potentialTargets = array();
+
 
 
     function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $diceType, $dice, $damageBonus){
@@ -671,22 +675,20 @@ class ProximityMine extends Weapon implements SpecialAbility{
 
     public function onIndividualNotesLoaded($gamedata)
     {      
-        //Otherwise, what were the points set this turn at end of Initial Orders.
         foreach ($this->individualNotes as $currNote) {	    	
+            if ($currNote->notekey === 'potentialTarget') {
+                if ($currNote->turn == $gamedata->turn) {
+                    $this->potentialTargets[(int)$currNote->notevalue] = (int)$currNote->notekey_human;
+                }
+                continue;
+            }
+
             $shipType = $currNote->notekey;
             $willAttack = $currNote->notevalue;
- 
-            // Check if the key exists in $this->allocatedBFCP
-            // Increment the value associated with the appropriate key e.g. Fighter, MCV, Capital.
             $this->allocatedShipTypes[$shipType] = ($willAttack == 1 || $willAttack === 'true' || $willAttack === true);
-
         }
-                      
-        //and immediately delete notes themselves, they're no longer needed (this will not touch the database, just memory!)
         $this->individualNotes = array();
-        
-            
-    }//endof onIndividualNotesLoaded
+    }
 
 
     private function isValidShipType($ship){
@@ -772,7 +774,7 @@ class ProximityMine extends Weapon implements SpecialAbility{
 				-1, "prefiring", $mine->id, $mineTarget->id,
 				$this->id, -1, $gamedata->turn, 1, 
 				0, 0, 1, 0, 0, //needed, rolled, shots, shotshit, intercepted
-				0,0,$this->weaponClass,-1 //X, Y, damageclass, resolutionorder
+				0,0,'AutoProximity',-1 //X, Y, damageclass, resolutionorder
 			);		
             $newFireOrder->chosenLocation = $chosenLocation;
 
@@ -803,8 +805,14 @@ class ProximityMine extends Weapon implements SpecialAbility{
     }    
 
 
-	public function fire($gamedata, $fireOrder){     
-Debug::log("fireREached mod " . $fireOrder->id);		
+	public function fire($gamedata, $fireOrder){ 
+           
+        if($fireOrder->damageclass !== 'AutoProximity'){
+            if (isset($this->potentialTargets[$fireOrder->targetid])) {             
+                $fireOrder->chosenLocation = $this->potentialTargets[$fireOrder->targetid];
+            }
+        }       
+             
 		parent::fire($gamedata, $fireOrder);
 	}
 
@@ -921,6 +929,8 @@ Debug::log("fireREached mod " . $fireOrder->id);
 	public function checkForPreFiringTargets($mine, $gamedata){
 		
         if ($mine->getTurnDeployed($gamedata) > $gamedata->turn) return false; // Not deployed yet
+        if($mine->isDestroyed()) return false;
+        $newNotes = array();
 
         $minePos = null;
         foreach ($mine->movement as $move) {
@@ -937,6 +947,9 @@ Debug::log("fireREached mod " . $fireOrder->id);
             throw new Exception("only OffsetCoordinate supported");
         }
 
+        $this->potentialTargets = array();
+        $relevantUnits = array();
+
         foreach ($gamedata->ships as $ship){
             if ($ship instanceof Terrain) continue;
             if ($ship->mine) continue;  
@@ -946,14 +959,58 @@ Debug::log("fireREached mod " . $fireOrder->id);
 			if ($ship->id == $mine->id) continue; // Mine should never target itself!
 			if ($ship->team == $mine->team && $IFFSystem) continue;	//Ignore friendly units if IFF purchased.	
 			if ($ship->getTurnDeployed($gamedata) > $gamedata->turn) continue;  //Ignore units that are not deployed yet!	
+            $relevantUnits[] = $ship;
+        }            
 
-            if ( $ship->getHexPos()->distanceTo($minePos) <= $this->range){
-                return true; // Found a valid target, we can exit early!
-            }
-        }     
+		foreach($relevantUnits as $unit){//Now look through relevant ships and take appropriate action.				
+										    
+			$unitStartLoc = $unit->getLastTurnMovement($gamedata->turn);
+            if($unitStartLoc == null) continue;
+            
+            $previousPosition = $unitStartLoc->position;
+            $previousFacing = $unitStartLoc->getFacingAngle();
+								
+			//Check if unit can be attacked in its starting position	
+			if($this->checkTargetConditions( $minePos, $unitStartLoc->position,$gamedata, $mine, $unit)){
+                $relativeBearing = $this->getMineBearing($minePos, $unitStartLoc->position, $unit, $previousFacing);
+                $location = (int)$this->getHitSection($relativeBearing, $unit);
+                $this->potentialTargets[$unit->id] = $location;
+                $newNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,5,$mine->id,$this->id,'potentialTarget',$location,$unit->id);
+                
+                continue; // Found first entry for this ship, move to next ship
+			}	
+
+			//Now check other movements in turn	
+    		foreach($unit->movement as $unitMove){
+				if($unitMove->turn == $gamedata->turn){
+	                // Only interested in moves where unit enters a NEW hex!
+	                if ($unitMove->type == "move" || $unitMove->type == "slipleft" || $unitMove->type == "slipright") {
+
+                        if($this->checkTargetConditions($minePos, $unitMove->position, $gamedata,  $mine, $unit)) {
+                           //get bearing / location and return that too		    			
+                           $relativeBearing = $this->getMineBearing($minePos, $previousPosition, $unit, $previousFacing);
+                           $location = (int)$this->getHitSection($relativeBearing, $unit);
+                           $this->potentialTargets[$unit->id] = $location;
+                           $newNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,5,$mine->id,$this->id,'potentialTarget',$location,$unit->id);
+                           break; // Found first entry for this ship, stop checking movements
+                       }else{
+                            $previousPosition = $unitMove->position;
+                            $previousFacing = $unitMove->getFacingAngle();
+                        }
+                    } else {
+                        $previousPosition = $unitMove->position;
+                        $previousFacing = $unitMove->getFacingAngle();
+                    }    		 		 		
+				}
+			}					
+		}
         
-		return false;
-	}	
+        foreach($newNotes as $note){
+            Manager::insertIndividualNote($note);
+        }        
+
+		return count($this->potentialTargets) > 0;
+	}
 
   
     public function getDamage($fireOrder)
@@ -975,6 +1032,7 @@ Debug::log("fireREached mod " . $fireOrder->id);
         $strippedSystem = parent::stripForJson();    
         $strippedSystem->allocatedShipTypes = $this->allocatedShipTypes;      
         $strippedSystem->autoHit = $this->autoHit; 	                  			                             
+        $strippedSystem->potentialTargets = $this->potentialTargets;
         return $strippedSystem;
     }
 	    
