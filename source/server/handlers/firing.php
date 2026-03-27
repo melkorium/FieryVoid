@@ -486,15 +486,15 @@ class Firing
                     } else {//target is ship
                         $selfPosNow = $interceptingShip->getCoPos();
                         $targetPosNow = $target->getCoPos();
-                        if ($fire->turn == 1) { //first turn - assume starting positions did match (technical reasons - units cannot start on same hex!)
-                            $selfPosPrevious = $selfPosNow;
-                            $targetPosPrevious = $targetPosNow;
-                        } else {//standard - check actual position at the end of previous turn
+                        //if ($fire->turn == 1) { //first turn - assume starting positions did match (technical reasons - units cannot start on same hex!)|| Now they can - DK 27.3.26
+                        //    $selfPosPrevious = $selfPosNow;
+                        //    $targetPosPrevious = $targetPosNow;
+                        //} else {//standard - check actual position at the end of previous turn
                             $movement = $interceptingShip->getLastTurnMovement($fire->turn);
                             $selfPosPrevious = mathlib::hexCoToPixel($movement->position); //at start of turn
                             $movement = $target->getLastTurnMovement($fire->turn);
                             $targetPosPrevious = mathlib::hexCoToPixel($movement->position); //at start of turn
-                        }
+                        //}
 
                         if (($selfPosNow == $targetPosNow) && ($selfPosPrevious == $targetPosPrevious)) {
                             return true;
