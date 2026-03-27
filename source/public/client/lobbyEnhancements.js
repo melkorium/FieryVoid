@@ -974,6 +974,7 @@ window.lobbyEnhancements = {
 							flight.systems.forEach(ftr => {
 								ftr.systems.forEach(sys => {
 									if (sys.name == "PairedGatlingGun" ||
+										sys.name == "LtGatlingGun" ||
 										sys.name == "MatterGun" ||
 										sys.name == "SlugCannon" ||
 										sys.name == "GatlingGunFtr" ||
