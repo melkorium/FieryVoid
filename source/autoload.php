@@ -3581,8 +3581,16 @@ spl_autoload_register(
                 'dewminedmal' => '/server/model/ships/narn/dewMineDMal.php',                                  
                 'dewminebtath' => '/server/model/ships/narn/dewMineDTath.php', 
                 'dewminedkak' => '/server/model/ships/narn/dewMineDKak.php', 
-                'dewminedshal' => '/server/model/ships/narn/dewMineDShal.php',                                                 
-               
+                'dewminedshal' => '/server/model/ships/narn/dewMineDShal.php',   
+                
+                //Abbai Mines
+                'proxmineathili1' => '/server/model/ships/abbai/proxMineAthili1.php',                   
+                'proxmineathili2' => '/server/model/ships/abbai/proxMineAthili1.php',                
+                'captorminebaica1' => '/server/model/ships/abbai/captorMineBaica1.php',                   
+                'captorminebaica2' => '/server/model/ships/abbai/captorMineBaica2.php',  
+                'dewmineeliria1' => '/server/model/ships/abbai/dewMineEliria1.php',                   
+                'dewmineeliria2' => '/server/model/ships/abbai/dewMineEliria2.php',                  
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
