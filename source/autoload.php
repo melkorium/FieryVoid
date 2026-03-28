@@ -3589,7 +3589,12 @@ spl_autoload_register(
                 'captorminebaica1' => '/server/model/ships/abbai/captorMineBaica1.php',                   
                 'captorminebaica2' => '/server/model/ships/abbai/captorMineBaica2.php',  
                 'dewmineeliria1' => '/server/model/ships/abbai/dewMineEliria1.php',                   
-                'dewmineeliria2' => '/server/model/ships/abbai/dewMineEliria2.php',                  
+                'dewmineeliria2' => '/server/model/ships/abbai/dewMineEliria2.php', 
+                
+                //Brakiri Mines
+                'proxminerehsap' => '/server/model/ships/brakiri/proxMineRehsaP.php',  
+                'proxminerehsac' => '/server/model/ships/brakiri/proxMineRehsaC.php',                   
+                'proxminerehsag' => '/server/model/ships/brakiri/proxMineRehsaG.php',                 
 
 
 						//Satyra (Wolfgang campaign)

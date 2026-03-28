@@ -6987,6 +6987,7 @@ class MineControllerDEW extends ShipSystem{
 						$weapon->rangeArray[$mode] = $this->rangeSetting;
 					}
 					$weapon->isTargetable = false;
+					$weapon->boostable = false;
 						
 					if(!$mine->getCommandControl()){
 						$weapon->autoFireOnly = true;	
