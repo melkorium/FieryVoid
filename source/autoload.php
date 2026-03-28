@@ -3593,8 +3593,17 @@ spl_autoload_register(
                 
                 //Brakiri Mines
                 'proxminerehsap' => '/server/model/ships/brakiri/proxMineRehsaP.php',  
-                'proxminerehsac' => '/server/model/ships/brakiri/proxMineRehsaC.php',                   
-                'proxminerehsag' => '/server/model/ships/brakiri/proxMineRehsaG.php',                 
+                'captorminerehsac' => '/server/model/ships/brakiri/captorMineRehsaC.php',                   
+                'dewminerehsag' => '/server/model/ships/brakiri/dewMineRehsaG.php',
+                
+                //Drazi Mines
+                'proxminedr' => '/server/model/ships/brakiri/proxMineDR.php',  
+                'proxminedb' => '/server/model/ships/brakiri/proxMineDB.php', 
+                'proxminedx' => '/server/model/ships/brakiri/proxMineDX.php', 
+                'minedFF' => '/server/model/ships/brakiri/mineFF.php', 
+                'dewminebt' => '/server/model/ships/brakiri/dewMineBT.php',  
+                'dewminebp' => '/server/model/ships/brakiri/dewMineBP.php', 
+                'dewminebr' => '/server/model/ships/brakiri/dewMineBR.php', 
 
 
 						//Satyra (Wolfgang campaign)
