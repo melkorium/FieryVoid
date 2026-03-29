@@ -3557,6 +3557,13 @@ spl_autoload_register(
                 'dewmineocarad' => '/server/model/ships/centauri/dewMineOcaraD.php', 
                 'dewmineocarae' => '/server/model/ships/centauri/dewMineOcaraE.php',  
                 
+                //Centauri WotCR Mines
+                'proxminerakir' => '/server/model/ships/centauri_old/proxMineRakir.php',                 
+                'captorminekaran' => '/server/model/ships/centauri_old/captorMineKaran.php',
+                'captorminekota' => '/server/model/ships/centauri_old/captorMineKota.php',                
+                'dewmineacara' => '/server/model/ships/centauri_old/dewMineAcarA.php', 
+                'dewmineacarb' => '/server/model/ships/centauri_old/dewMineAcarB.php',                                 
+
                 //Earth Alliance Mines
                 'proxminep1' => '/server/model/ships/EA/proxMineP1.php', 
                 'proxminep2' => '/server/model/ships/EA/proxMineP2.php',                 
