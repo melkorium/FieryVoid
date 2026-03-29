@@ -3636,12 +3636,18 @@ spl_autoload_register(
                 'proxmineintavib' => '/server/model/ships/dilgar/proxMineIntaviB.php',  
                 'captorminesilklata' => '/server/model/ships/dilgar/captorMineSilklatA.php',
                 'captorminesilklatb' => '/server/model/ships/dilgar/captorMineSilklatB.php',  
-                'dewminelvasta' => '/server/model/ships/descari/dewMineLvastA.php', 
-                'dewminelvastb' => '/server/model/ships/descari/dewMineLvastB.php',  
-                'dewminelvastc' => '/server/model/ships/descari/dewMineLvastC.php',
-                'dewminetravika' => '/server/model/ships/descari/dewMineTravikA.php',
-                'dewminetravikb' => '/server/model/ships/descari/dewMineTravikB.php', 
-                'dewminetravikc' => '/server/model/ships/descari/dewMineTravikC.php',                                                                                                                     
+                'dewminelvasta' => '/server/model/ships/dilgar/dewMineLvastA.php', 
+                'dewminelvastb' => '/server/model/ships/dilgar/dewMineLvastB.php',  
+                'dewminelvastc' => '/server/model/ships/dilgar/dewMineLvastC.php',
+                'dewminetravika' => '/server/model/ships/dilgar/dewMineTravikA.php',
+                'dewminetravikb' => '/server/model/ships/dilgar/dewMineTravikB.php', 
+                'dewminetravikc' => '/server/model/ships/dilgar/dewMineTravikC.php',   
+                
+                //Orieni Mines
+                'captormineclaw' => '/server/model/ships/orieni/captorMineClaw.php',
+                'captorminetalon' => '/server/model/ships/orieni/captorMineTalon.php',
+                'dewminearcher' => '/server/model/ships/orieni/dewMineArcher.php', 
+                'dewminebalista' => '/server/model/ships/orieni/dewMinebalista.php',                                   
                 
 
 
