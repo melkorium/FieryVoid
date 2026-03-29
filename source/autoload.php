@@ -3617,6 +3617,11 @@ spl_autoload_register(
                 'dewminecoltu' => '/server/model/ships/pakmara/dewMineColtu.php', 
                 'dewminecorti' => '/server/model/ships/pakmara/dewMineCorti.php',                                  
 
+                //Vree Mines
+                'proxminev' => '/server/model/ships/pakmara/proxMineV.php',
+                'captorminez' => '/server/model/ships/pakmara/captorMineZ.php',                 
+                'dewminex' => '/server/model/ships/pakmara/dewMineX.php', 
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
