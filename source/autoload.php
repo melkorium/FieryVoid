@@ -3632,7 +3632,18 @@ spl_autoload_register(
                 'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php', 
                 
                 //Dilgar Mines
+                'proxmineintavia' => '/server/model/ships/dilgar/proxMineIntaviA.php',
+                'proxmineintavib' => '/server/model/ships/dilgar/proxMineIntaviB.php',  
+                'captorminesilklata' => '/server/model/ships/dilgar/captorMineSilklatA.php',
+                'captorminesilklatb' => '/server/model/ships/dilgar/captorMineSilklatB.php',  
+                'dewminelvasta' => '/server/model/ships/descari/dewMineLvastA.php', 
+                'dewminelvastb' => '/server/model/ships/descari/dewMineLvastB.php',  
+                'dewminelvastc' => '/server/model/ships/descari/dewMineLvastC.php',
+                'dewminetravika' => '/server/model/ships/descari/dewMineTravikA.php',
+                'dewminetravikb' => '/server/model/ships/descari/dewMineTravikB.php', 
+                'dewminetravikc' => '/server/model/ships/descari/dewMineTravikC.php',                                                                                                                     
                 
+
 
 
 						//Satyra (Wolfgang campaign)
