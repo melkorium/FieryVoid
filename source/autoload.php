@@ -3647,7 +3647,7 @@ spl_autoload_register(
                 'captormineclaw' => '/server/model/ships/orieni/captorMineClaw.php',
                 'captorminetalon' => '/server/model/ships/orieni/captorMineTalon.php',
                 'dewminearcher' => '/server/model/ships/orieni/dewMineArcher.php', 
-                'dewminebalista' => '/server/model/ships/orieni/dewMinebalista.php',                                   
+                'dewminebalista' => '/server/model/ships/orieni/dewMineBalista.php',                                   
                 
 
 
