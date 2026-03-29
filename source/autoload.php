@@ -3606,10 +3606,16 @@ spl_autoload_register(
                 'dewminebr' => '/server/model/ships/brakiri/dewMineBR.php', 
 
                 //Gaim Mines
-                'proxminegaim20' => '/server/model/ships/centauri/proxMineGaim.php',  
-                'captorminegaima' => '/server/model/ships/centauri/captorMineGaimA.php',
-                'captorminegaimb' => '/server/model/ships/centauri/captorMineGaimB.php',                 
-                'dewminegaima' => '/server/model/ships/centauri/dewMineGaimA.php',
+                'proxminegaim20' => '/server/model/ships/gaim/proxMineGaim.php',  
+                'captorminegaima' => '/server/model/ships/gaim/captorMineGaimA.php',
+                'captorminegaimb' => '/server/model/ships/gaim/captorMineGaimB.php',                 
+                'dewminegaima' => '/server/model/ships/gaim/dewMineGaimA.php',
+
+                //Pakmara Mines
+                'proxminepalfa' => '/server/model/ships/pakmara/proxMinePalfa.php',
+                'captorminetilor' => '/server/model/ships/pakmara/captorMineTilor.php',                 
+                'dewminecoltu' => '/server/model/ships/pakmara/dewMineColtu.php', 
+                'dewminecorti' => '/server/model/ships/pakmara/dewMineCorti.php',                                  
 
 
 						//Satyra (Wolfgang campaign)
