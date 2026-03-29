@@ -3624,7 +3624,12 @@ spl_autoload_register(
 
                 //Civilian Mines
                 'proxminedefender' => '/server/model/ships/civilians/proxMineDefender.php',
-                'captorminepaladin' => '/server/model/ships/civilians/captorMinePaladin.php',                 
+                'captorminepaladin' => '/server/model/ships/civilians/captorMinePaladin.php',     
+                
+                //Descari Mines
+                'captorminesirna' => '/server/model/ships/vree/captorMineSirna.php',                 
+                'dewminesircha' => '/server/model/ships/vree/dewMineSircha.php', 
+                'dewminesircho' => '/server/model/ships/vree/dewMineSircho.php',                                  
 
 
 						//Satyra (Wolfgang campaign)
