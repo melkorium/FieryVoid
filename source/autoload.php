@@ -3604,13 +3604,13 @@ spl_autoload_register(
                 'dewminerehsag' => '/server/model/ships/brakiri/dewMineRehsaG.php',
                 
                 //Drazi Mines
-                'proxminedr' => '/server/model/ships/brakiri/proxMineDR.php',  
-                'proxminedb' => '/server/model/ships/brakiri/proxMineDB.php', 
-                'proxminedx' => '/server/model/ships/brakiri/proxMineDX.php', 
-                'minedFF' => '/server/model/ships/brakiri/mineFF.php', 
-                'dewminebt' => '/server/model/ships/brakiri/dewMineBT.php',  
-                'dewminebp' => '/server/model/ships/brakiri/dewMineBP.php', 
-                'dewminebr' => '/server/model/ships/brakiri/dewMineBR.php', 
+                'proxminedr' => '/server/model/ships/drazi/proxMineDR.php',  
+                'proxminedb' => '/server/model/ships/drazi/proxMineDB.php', 
+                'proxminedx' => '/server/model/ships/drazi/proxMineDX.php', 
+                'minedFF' => '/server/model/ships/drazi/mineFF.php', 
+                'dewminebt' => '/server/model/ships/drazi/dewMineBT.php',  
+                'dewminebp' => '/server/model/ships/drazi/dewMineBP.php', 
+                'dewminebr' => '/server/model/ships/drazi/dewMineBR.php', 
 
                 //Gaim Mines
                 'proxminegaim20' => '/server/model/ships/gaim/proxMineGaim.php',  
