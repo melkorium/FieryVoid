@@ -3605,6 +3605,12 @@ spl_autoload_register(
                 'dewminebp' => '/server/model/ships/brakiri/dewMineBP.php', 
                 'dewminebr' => '/server/model/ships/brakiri/dewMineBR.php', 
 
+                //Gaim Mines
+                'proxminegaim20' => '/server/model/ships/centauri/proxMineGaim.php',  
+                'captorminegaima' => '/server/model/ships/centauri/captorMineGaimA.php',
+                'captorminegaimb' => '/server/model/ships/centauri/captorMineGaimB.php',                 
+                'dewminegaima' => '/server/model/ships/centauri/dewMineGaimA.php',
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
