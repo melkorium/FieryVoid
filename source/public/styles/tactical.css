@@ -471,6 +471,7 @@ body {
 
 #logcontainer.large {
     height: 500px;
+    max-height: 75vh;
 }
 
 #logcontainer.mouseover {
@@ -1321,6 +1322,7 @@ body {
 
     #logcontainer.large {
         height: 300px;
+        max-height: 75vh;
     }
 
     #iniGui {
