@@ -12,6 +12,7 @@ class captorMineTilor extends Mine{
 		$this->occurence = "common";
 		//$this->variantOf = 'NONE';
         $this->isd = 2200;
+        $this->notes = 'Has IFF System';          
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
