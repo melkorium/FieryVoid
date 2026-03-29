@@ -3627,9 +3627,12 @@ spl_autoload_register(
                 'captorminepaladin' => '/server/model/ships/civilians/captorMinePaladin.php',     
                 
                 //Descari Mines
-                'captorminesirna' => '/server/model/ships/vree/captorMineSirna.php',                 
-                'dewminesircha' => '/server/model/ships/vree/dewMineSircha.php', 
-                'dewminesircho' => '/server/model/ships/vree/dewMineSircho.php',                                  
+                'captorminesirna' => '/server/model/ships/descari/captorMineSirna.php',                 
+                'dewminesircha' => '/server/model/ships/descari/dewMineSircha.php', 
+                'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php', 
+                
+                //Dilgar Mines
+                
 
 
 						//Satyra (Wolfgang campaign)
