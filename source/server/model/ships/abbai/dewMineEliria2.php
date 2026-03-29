@@ -12,6 +12,7 @@ class dewMineEliria2 extends Mine{
 		$this->occurence = "common";
 		$this->variantOf = "Eliria-1 DEW Mine";
         $this->isd = 2200;
+        $this->notes = 'Has Command Controller';
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
@@ -39,7 +40,7 @@ class dewMineEliria2 extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 12, 6)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new TwinArray(0, 1, 1, 0, 360));
+        $this->addPrimarySystem(new CommDisruptor(0, 1, 1, 0, 360));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(0, 8));
