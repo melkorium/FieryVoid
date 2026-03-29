@@ -3618,9 +3618,13 @@ spl_autoload_register(
                 'dewminecorti' => '/server/model/ships/pakmara/dewMineCorti.php',                                  
 
                 //Vree Mines
-                'proxminev' => '/server/model/ships/pakmara/proxMineV.php',
-                'captorminez' => '/server/model/ships/pakmara/captorMineZ.php',                 
-                'dewminex' => '/server/model/ships/pakmara/dewMineX.php', 
+                'proxminev' => '/server/model/ships/vree/proxMineV.php',
+                'captorminez' => '/server/model/ships/vree/captorMineZ.php',                 
+                'dewminex' => '/server/model/ships/vree/dewMineX.php', 
+
+                //Civilian Mines
+                'proxminedefender' => '/server/model/ships/civilians/proxMineDefender.php',
+                'captorminepaladin' => '/server/model/ships/civilians/captorMinePaladin.php',                 
 
 
 						//Satyra (Wolfgang campaign)
