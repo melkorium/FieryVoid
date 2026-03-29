@@ -3592,7 +3592,7 @@ spl_autoload_register(
                 
                 //Abbai Mines
                 'proxmineathili1' => '/server/model/ships/abbai/proxMineAthili1.php',                   
-                'proxmineathili2' => '/server/model/ships/abbai/proxMineAthili1.php',                
+                'proxmineathili2' => '/server/model/ships/abbai/proxMineAthili2.php',                
                 'captorminebaica1' => '/server/model/ships/abbai/captorMineBaica1.php',                   
                 'captorminebaica2' => '/server/model/ships/abbai/captorMineBaica2.php',  
                 'dewmineeliria1' => '/server/model/ships/abbai/dewMineEliria1.php',                   
