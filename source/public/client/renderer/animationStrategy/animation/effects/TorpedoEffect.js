@@ -41,10 +41,10 @@ window.TorpedoEffect = function () {
 
         // Cache reusable Audio objects globally
         if (!TorpedoEffect.cachedLaunchAudio) {
-            TorpedoEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.wav");
+            TorpedoEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.mp3");
         }
         if (!TorpedoEffect.cachedExplosionAudio) {
-            TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+            TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
         }
 
         if (this.hit) {
