@@ -1,12 +1,12 @@
 <?php
-class proxMineRehsaG extends Mine{
+class dewMineRehsaG extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 24;
 	    $this->faction = "Brakiri Syndicracy";
-        $this->phpclass = "proxMineRehsaG";
+        $this->phpclass = "dewMineRehsaG";
         $this->imagePath = "img/ships/brakiriMine.png";
         $this->shipClass = "Rehsa-G DEW Mine";
 		$this->occurence = "common";

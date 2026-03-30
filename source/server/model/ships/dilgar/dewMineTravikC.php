@@ -6,7 +6,7 @@ class dewMineTravikC extends Mine{
         
 		$this->pointCost = 56;
 	    $this->faction = "Dilgar Imperium";
-        $this->phpclass = "dewMineTravikB";
+        $this->phpclass = "dewMineTravikC";
         $this->imagePath = "img/ships/dilgarMine.png";
         $this->shipClass = "Travik-C DEW Mine";
 		$this->occurence = "common";

@@ -1,12 +1,12 @@
 <?php
-class proxMineGaim extends Mine{
+class proxMineGaim20 extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 10;
 		$this->faction = "Gaim Intelligence";
-        $this->phpclass = "proxMineGaim";
+        $this->phpclass = "proxMineGaim20";
         $this->imagePath = "img/ships/gaimMine.png";
         $this->shipClass = "Raji-20 Proximity Mine";
 		$this->occurence = "common";
@@ -23,8 +23,7 @@ class proxMineGaim extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
-        $this->mineType = 'Proximity';
-        $this->variableDamage = 0;       
+        $this->mineType = 'Proximity';     
        		    	    	    	    
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 

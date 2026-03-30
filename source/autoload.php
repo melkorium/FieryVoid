@@ -3607,13 +3607,13 @@ spl_autoload_register(
                 'proxminedr' => '/server/model/ships/drazi/proxMineDR.php',  
                 'proxminedb' => '/server/model/ships/drazi/proxMineDB.php', 
                 'proxminedx' => '/server/model/ships/drazi/proxMineDX.php', 
-                'minedFF' => '/server/model/ships/drazi/mineFF.php', 
+                'minedff' => '/server/model/ships/drazi/mineFF.php', 
                 'dewminebt' => '/server/model/ships/drazi/dewMineBT.php',  
                 'dewminebp' => '/server/model/ships/drazi/dewMineBP.php', 
                 'dewminebr' => '/server/model/ships/drazi/dewMineBR.php', 
 
                 //Gaim Mines
-                'proxminegaim20' => '/server/model/ships/gaim/proxMineGaim.php',  
+                'proxminegaim20' => '/server/model/ships/gaim/proxMineGaim20.php',  
                 'captorminegaima' => '/server/model/ships/gaim/captorMineGaimA.php',
                 'captorminegaimb' => '/server/model/ships/gaim/captorMineGaimB.php',                 
                 'dewminegaima' => '/server/model/ships/gaim/dewMineGaimA.php',
