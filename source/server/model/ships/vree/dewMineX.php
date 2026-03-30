@@ -8,7 +8,7 @@ class dewMineX extends Mine{
 		$this->faction = "Vree Conglomerate";
         $this->phpclass = "dewMineX";
         $this->imagePath = "img/ships/vreeMine.png";
-        $this->shipClass = "Class=X DEW Mine";
+        $this->shipClass = "Class-X DEW Mine";
 		$this->occurence = "common";
 		//$this->variantOf = "Type-BT DEW Mine";
         $this->isd = 2200;                
@@ -33,7 +33,7 @@ class dewMineX extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 6, 8)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new AntiprotonDefender(0, 1, 0, 0, 360));      
+        $this->addPrimarySystem(new AntiprotonDefender(0, 1, 1, 0, 360));      
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(2, 10));

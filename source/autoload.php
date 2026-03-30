@@ -3656,7 +3656,10 @@ spl_autoload_register(
                 'dewminearcher' => '/server/model/ships/orieni/dewMineArcher.php', 
                 'dewminebalista' => '/server/model/ships/orieni/dewMineBalista.php',                                   
                 
-
+                //Usuuth Mines
+                'captormineruga' => '/server/model/ships/usuuth/captorMineRuga.php',
+                'proxmineorthine' => '/server/model/ships/usuuth/proxMineOrthine.php',
+                'proxminesootha' => '/server/model/ships/usuuth/proxMineSootha.php',                                                  
 
 
 						//Satyra (Wolfgang campaign)

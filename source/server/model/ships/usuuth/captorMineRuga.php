@@ -1,22 +1,21 @@
 <?php
-class dewMineBP extends Mine{
+class captorMineRuga extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 22;
-        $this->faction = "Drazi Freehold";
-        $this->phpclass = "dewMineBP";
-        $this->imagePath = "img/ships/draziMine.png";
-        $this->shipClass = "Type-BP DEW Mine";
+		$this->pointCost = 18;
+        $this->faction = "Usuuth Coalition";
+        $this->phpclass = "captorMineRuga";
+        $this->imagePath = "img/ships/korlyan_mine.png";
+        $this->shipClass = "Ruga Captor Mine";
 		$this->occurence = "common";
-		$this->variantOf = "Type-BT DEW Mine";
-        $this->isd = 2200;
+		//$this->variantOf = 'NONE';
+        $this->isd = 2208;
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
-        $this->signature = 3;
-        $this->detectedSignature = 2;           
+        $this->signature = 2;         
         
         $this->turncost = 0;
         $this->turndelaycost = 0;
@@ -24,19 +23,18 @@ class dewMineBP extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
-        $this->mineType = 'DEW';         
+        $this->mineType = 'Captor';         
        		    	    	    	    
-        //Block all enhancements for Mine units when bought
+        //Block all enhancements for Terrain units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
 
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
-        $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 6, 12)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new StdParticleBeam(0, 1, 1, 0, 360));
+        $this->addPrimarySystem(new CaptorMine(0, 1, 1, 0, 360, 4, 4, 1, 0, 18)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $accuracy, $diceType, $dice, $damageBonus 
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
-        $this->addPrimarySystem(new Structure(1, 10));
+        $this->addPrimarySystem(new Structure(0, 1));
         
         	//d20 hit chart
         $this->hitChart = array(
