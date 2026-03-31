@@ -204,8 +204,8 @@ window.BallisticIconContainer = function () {
 		let weapon = null;
 		let modeName = null;
 
-		if (!shooter.flight && ballistic.weaponid in shooter.systems) {
-			weapon = shooter.systems[ballistic.weaponid];
+		weapon = shipManager.systems.getSystem(shooter, ballistic.weaponid);
+		if (weapon) {
 			modeName = weapon?.firingModes?.[ballistic.firingMode] || null;
 		}
 
@@ -213,7 +213,7 @@ window.BallisticIconContainer = function () {
 
 		if (replay) {
 			if (ballistic.damageclass === 'PersistentEffectPlasma' && ballistic.targetid === -1 && ballistic.notes !== 'PlasmaCloud') return;
-			if (!shooter.flight && weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
+			if (weapon?.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
 				for (var i in weapon.fireOrders) {
 					var otherBall = weapon.fireOrders[i];
 					if (otherBall.damageclass == "SecondAttack") {
@@ -237,7 +237,7 @@ window.BallisticIconContainer = function () {
 			//targetPosition = { x: 0, y: 0 }; // placeholder — the mesh will handle it
 		}
 
-		if (!shooter.flight && weapon?.noTargetHexIcon) {
+		if (weapon?.noTargetHexIcon) {
 			targetPosition = launchPosition;
 		}
 
@@ -448,10 +448,10 @@ window.BallisticIconContainer = function () {
 		if (!shooterIcon) return;
 
 		let shooter = shooterIcon.ship;
-		let weapon = !shooter.flight ? shooter.systems[ballistic.weaponid] : null;
-		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null;
-		if (replay) {
-			if (!shooter.flight && weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
+		let weapon = shipManager.systems.getSystem(shooter, ballistic.weaponid);
+		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null; 
+		if (replay && weapon) {
+			if (weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
 		}
 		// Get launch position (may be overwritten later)
 		let launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getFirstMovementOnTurn(turn)?.position);
