@@ -433,6 +433,83 @@
 
     }
 
+	/*Orieni assault shuttle weapon*/
+    class LtGatlingGun extends LinkedWeapon{
+        public $name = "LtGatlingGun";
+        public $displayName = "Light Gatling Gun";
+        public $iconPath = "LightGatlingGun.png";
+        public $animation = "trail";
+        public $animationColor = array(250, 250, 190);
+	    
+        public $shots = 1;
+        public $defaultShots = 1;
+        public $ammunition = 6;        
+        public $loadingtime = 1;
+		
+        public $intercept = 1;
+        public $ballisticIntercept = true;
+
+        public $rangePenalty = 2;
+        public $fireControl = array(0, 0, 0); // fighters, <mediums, <capitals
+        private $damagebonus = 0;
+	    
+	    public $noOverkill = true;	    
+	    public $priority = 4;//more or less equivalent of d6+4, due to Matter properties
+	    
+	    public $damageType = "Standard"; //MANDATORY (first letter upcase) actual mode of dealing damage (Standard, Flash, Raking, Pulse...) - overrides $this->data["Damage type"] if set!
+    	public $weaponClass = "Matter"; //MANDATORY (first letter upcase) weapon class - overrides $this->data["Weapon type"] if set!  
+
+        function __construct($startArc, $endArc){
+            parent::__construct(0, 1, 0, $startArc, $endArc);
+        }
+
+        public function stripForJson() {
+            $strippedSystem = parent::stripForJson();    
+            $strippedSystem->ammunition = $this->ammunition;           
+            return $strippedSystem;
+        }        
+	    
+        public function setSystemDataWindow($turn){
+            parent::setSystemDataWindow($turn);
+            $this->data["Special"] = "Ignores armor, does not overkill.";
+            $this->data["Special"] .= "<br>Can intercept ballistic weapons only.";
+            $this->data["Ammunition"] = $this->ammunition;
+        }
+
+        public function getSystemArmourStandard($target, $system, $gamedata, $fireOrder, $pos=null){
+            return 0; //Matter ignores armor!
+        }
+
+        public function setAmmo($firingMode, $amount){
+            $this->ammunition = $amount;
+        }
+
+       public function fire($gamedata, $fireOrder){ //note ammo usage
+        	//debug::log("fire function");
+            parent::fire($gamedata, $fireOrder);
+
+			$ship = $gamedata->getShipById($fireOrder->shooterid);
+            $this->ammunition--;//Deduct round just fired!			
+			//Now need to remove Enhancement bonuses from saved ammo count, as these will be re-added in onConstructed()			
+			foreach ($ship->enhancementOptions as $enhancement) {
+			    $enhID = $enhancement[0];
+				$enhCount = $enhancement[2];		        
+				if($enhCount > 0) {		            
+			        if ($enhID == 'EXT_AMMO') $this->ammunition -= $enhCount;     	
+				}
+			}		
+			Manager::updateAmmoInfo($fireOrder->shooterid, $this->id, $gamedata->id, $this->firingMode, $this->ammunition, $gamedata->turn);			
+			
+        }
+    
+        public function getDamage($fireOrder){
+            $dmg = Dice::d(6, 1);
+            return $dmg;
+        }
+        public function setMinDamage(){     $this->minDamage = 1;      }
+        public function setMaxDamage(){     $this->maxDamage = 6;      }
+
+    }
 
    class MatterGun extends PairedGatlingGun{
 	   /*Belt Alliance fighter weapon, with limited ammo - poorer cousin of Orieni fighter weapon*/

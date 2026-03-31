@@ -5785,6 +5785,7 @@ window.lobbyEnhancements = {
 							flight.systems.forEach(ftr => {
 								ftr.systems.forEach(sys => {
 									if (sys.name == "PairedGatlingGun" ||
+										sys.name == "LtGatlingGun" ||
 										sys.name == "MatterGun" ||
 										sys.name == "SlugCannon" ||
 										sys.name == "GatlingGunFtr" ||
@@ -22589,6 +22590,12 @@ var PairedGatlingGun = function PairedGatlingGun(json, ship) {
 };
 PairedGatlingGun.prototype = Object.create(Matter.prototype);
 PairedGatlingGun.prototype.constructor = PairedGatlingGun;
+
+var LtGatlingGun = function LtGatlingGun(json, ship) {
+    Matter.call(this, json, ship);
+};
+LtGatlingGun.prototype = Object.create(Matter.prototype);
+LtGatlingGun.prototype.constructor = LtGatlingGun;
 
 var MatterGun = function MatterGun(json, ship) {
     Matter.call(this, json, ship);
