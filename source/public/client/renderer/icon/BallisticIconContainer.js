@@ -376,9 +376,9 @@ window.BallisticIconContainer = function () {
 		});
 	}
 
-	const getByLaunchPosition = (position, icons) => icons.find(icon => icon.launchPosition && icon.launchPosition.x === position.x && icon.launchPosition.y === position.y)
+	const getByLaunchPosition = (position, icons) => icons.find(icon => icon.used && icon.launchPosition && icon.launchPosition.x === position.x && icon.launchPosition.y === position.y)
 
-	const getByTargetIdOrTargetPosition = (position, targetId, icons) => icons.find(icon => (targetId !== -1 && icon.targetId === targetId) || (position && icon.position && icon.position.x === position.x && icon.position.y === position.y))
+	const getByTargetIdOrTargetPosition = (position, targetId, icons) => icons.find(icon => icon.used && ((targetId !== -1 && icon.targetId === targetId) || (position && icon.position && icon.position.x === position.x && icon.position.y === position.y)))
 
 
 	function updateBallisticIcon(icon) {
