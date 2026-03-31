@@ -68,6 +68,8 @@ docker-compose up -d --build --force-recreate
 
 ## VAGRANT IS NO LONGER USED! ##
 
+Here were the old instructions for posterity
+
 1. Install virtualbox https://www.virtualbox.org/
 1. Install vagrant https://www.vagrantup.com/
 1. Make sure you have ssh client and terminal
@@ -81,7 +83,7 @@ You can access the virtual box by:
 1. Access database by typing: `mysql -uroot -proot`
 
 
-# New Game.php and gamelobby.php bundling:
+# Game.php and gamelobby.php js bundling:
 
 I created a scripts/bundle-legacy.js script that bundles the ~130 legacy JavaScript files into a single file (game.legacy.bundle.js). I also updated game.php to load this bundle by default, which should drastically reduce HTTP requests and eliminate the HTTP/2 errors. You can still load individual scripts for debugging by adding &debug=1 to the URL. I updated package.json to include this in your build process (using yarn).
 
