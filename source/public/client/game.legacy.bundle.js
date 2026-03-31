@@ -34957,14 +34957,6 @@ var Ship = function Ship(json) {
 
     this.hexOffsets = json.hexOffsets || this.hexOffsets || null;
 
-    // Optimization #2: Server omits empty/default ship-level properties.
-    if (this.EW === undefined || this.EW === null) this.EW = [];
-    if (this.spawned === undefined) this.spawned = -1;
-    if (this.skinDancing === undefined) this.skinDancing = false;
-    if (this.individualNotesTransfer === undefined) this.individualNotesTransfer = "";
-    if (this.sustainedTarget === undefined) this.sustainedTarget = [];
-    if (this.enhancementOptions === undefined) this.enhancementOptions = [];
-
     // If we have any system data, proceed
     var systemsToLoad = inputSystems || staticSystems;
 
@@ -35344,18 +35336,6 @@ var ShipSystem = function ShipSystem(json, ship) {
 	for (var i in json) {
 		this[i] = json[i];
 	}
-
-	// Optimization #2: Server omits empty arrays/default values to reduce JSON.
-	// Ensure safe defaults exist for properties that may not be sent.
-	if (this.damage === undefined) this.damage = [];
-	if (this.criticals === undefined) this.criticals = [];
-	if (this.critData === undefined) this.critData = [];
-	if (this.power === undefined) this.power = [];
-	if (this.specialAbilities === undefined) this.specialAbilities = [];
-	if (this.outputMod === undefined) this.outputMod = 0;
-	if (this.destroyed === undefined) this.destroyed = false;
-	if (this.individualNotesTransfer === undefined) this.individualNotesTransfer = "";
-	if (this.sustainedTarget === undefined) this.sustainedTarget = [];
 };
 
 ShipSystem.prototype = {
@@ -35457,16 +35437,7 @@ SuperHeavyFighter.prototype.constructor = SuperHeavyFighter;
 
 var Weapon = function Weapon(json, ship) {
 	ShipSystem.call(this, json, ship);
-
-	// Optimization #2: Server omits zero/empty weapon properties.
-	// Ensure safe defaults for properties that may not be sent.
-	if (this.turnsloadedArray === undefined) this.turnsloadedArray = [];
-	if (this.overloadturns === undefined) this.overloadturns = 0;
-	if (this.overloadshots === undefined) this.overloadshots = 0;
-	if (this.extraoverloadshots === undefined) this.extraoverloadshots = 0;
-	if (this.extraoverloadshotsArray === undefined) this.extraoverloadshotsArray = [];
-	if (this.sustainedTarget === undefined) this.sustainedTarget = [];
-	if (this.fireControlArray === undefined) this.fireControlArray = [];
+	//this.targetsShips = true;
 };
 
 Weapon.prototype = Object.create(ShipSystem.prototype);
@@ -36213,24 +36184,7 @@ window.SystemFactory = (function () {
             if (staticSystem && staticSystem.fighter) return new Fighter(systemJson, staticSystem, ship);
             var name = systemJson.name.charAt(0).toUpperCase() + systemJson.name.slice(1);
 
-            // Optimization #2 Regression Fix: Ensure stateful properties (managed by server) 
-            // are NOT blindly merged from the live instance if they were pruned in the JSON.
-            // This prevents "shadowing" of old data that leads to duplication.
-            var base = Object.assign({}, staticSystem);
-            
-            if (staticSystem && staticSystem.ship) { // This is a live instance, not just a blueprint
-                var stateful = [
-                    'damage', 'criticals', 'power', 'sustainedTarget',
-                    'turnsloadedArray', 'overloadturns', 'overloadshots', 
-                    'extraoverloadshots', 'extraoverloadshotsArray', 'fireControlArray'
-                ];
-                
-                stateful.forEach(function(key) {
-                    delete base[key];
-                });
-            }
-
-            var args = Object.assign(base, systemJson);
+            var args = Object.assign(Object.assign({}, staticSystem), systemJson);
             var system = new window[name](args, ship);
 
             return system;
