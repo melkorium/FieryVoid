@@ -662,11 +662,11 @@
         public $canSplitShots = false; //Defaults false without Gunsights
         public $specialHitChanceCalculation = false;        
         private $hitChanceMod = 0;
-        private $shotsFiredSoFar = 0;
-        //private $previousHit = true;       
+        private $shotsFiredSoFar = 0;    
        
         
-        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $baseGuns = 1){
+            $this->guns = $baseGuns; //Mine version needs to manually set 2 as it can't boost.
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
         

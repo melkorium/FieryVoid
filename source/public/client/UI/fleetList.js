@@ -277,9 +277,13 @@ window.fleetListManager = {
                 break;
         }
 
-        const html = slot.waiting
-            ? "<span style='color:green'>&nbsp;&nbsp;[Orders committed]</span>"
-            : "<span style='color:orange'>&nbsp;&nbsp;[Waiting for " + phaseLabel + " Orders]</span>";
+        var html = "<span style='color:orange'>&nbsp;&nbsp;[Waiting for " + phaseLabel + " Orders]</span>";
+
+        if (slot.surrendered !== null && slot.surrendered <= gamedata.turn) {
+            html = "<span style='color:red'>&nbsp;&nbsp;[Surrendered on Turn " + slot.surrendered + "]</span>";
+        } else if (slot.waiting) {
+            html = "<span style='color:green'>&nbsp;&nbsp;[Orders committed]</span>";
+        }
 
         header.html(html);
     },

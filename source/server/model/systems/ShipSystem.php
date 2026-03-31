@@ -97,7 +97,11 @@ class ShipSystem {
 		if ($ship->getSystemByName("MindriderEngine")){ //Mind's Eye Contraction CAN increase armour!
 			$strippedSystem->armour = $this->armour;
 		}			
-							
+		
+		if ($ship instanceof Mine && $ship->getCommandControl()){ 
+			$strippedSystem->canOffline = $this->canOffLine; 		
+		}
+
         return $strippedSystem;
     }
 	
