@@ -22,6 +22,17 @@ This will build and start the Nginx, PHP, and MariaDB containers in the backgrou
 
 (Note: The database is automatically initialized from db/emptyDatabase.sql on the very first start and securely saved to a persistent Docker volume).
 
+Note: you might need to delete this from docker-compose.yml file: 
+
+"develop:
+      watch:
+        
+action: sync
+        path: ./source
+        target: /usr/src/fieryvoid/source
+        ignore:
+node_modules/"
+
 2. Accessing the Application
 Web Interface: Point your browser to http://localhost
 
