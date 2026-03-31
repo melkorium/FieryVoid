@@ -7,7 +7,7 @@ class stormfrontGCAM extends MediumShip{
 		$this->pointCost = 390;
 		$this->faction = "Great Crusade Orieni Imperium";
         $this->phpclass = "stormfrontGCAM";
-        $this->imagePath = "img/ships/GCstormFront.png";
+        $this->imagePath = "img/ships/GCstormfront.png";
         $this->shipClass = "Storm Front Missile Corvette (2262)";
 			$this->variantOf = "Vengeance Attack Frigate";
 			$this->occurence = "uncommon";

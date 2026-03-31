@@ -3064,7 +3064,7 @@ class GromeHvyRailgun extends Weapon{
 
     class LightLaserLance extends LaserLance{
         public $name = "LightLaserLance";
-        public $displayName = "Light Laaser Lance";
+        public $displayName = "Light Laser Lance";
         public $animationColor = array(220, 100, 11);
         public $iconPath = "LightLaserLance.png";
 
