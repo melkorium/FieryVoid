@@ -303,7 +303,7 @@ window.AllWeaponFireAgainstShipAnimation = function () {
                     var playedImpactSound = false;
                     var soundVolume = 0.1;
                     if (typeof TorpedoEffect !== 'undefined' && !TorpedoEffect.cachedExplosionAudio) {
-                        TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+                        TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
                     }
 
                     return {

@@ -22,7 +22,9 @@ class captorWotcrAbbaiA extends Mine{
         $this->accelcost = 0;
         $this->rollcost = 0;
         $this->pivotcost = 0;	
-        $this->iniativebonus = -200; 
+        $this->iniativebonus = -200;
+        
+        $this->mineType = 'Captor';        
         $this->spawned = true;
        		    	    	    	    
         //Block all enhancements for Terrain units when bought

@@ -432,6 +432,41 @@ input[type=number] {
   color: #DEEBFF;
 }
 
+/* Custom Dropdown Styling */
+.custom-dropdown-container {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 200px;
+  width: 120px;
+  background-color: #0c1a28;
+  border: 1px solid #215a7a;
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  border-radius: 3px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.custom-dropdown-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-dropdown-container::-webkit-scrollbar-track {
+  background: #050a10;
+  border-radius: 4px;
+}
+
+.custom-dropdown-container::-webkit-scrollbar-thumb {
+  background: #496791;
+  border-radius: 4px;
+}
+
+.custom-dropdown-container::-webkit-scrollbar-thumb:hover {
+  background: #8bcaf2;
+}
+
+
 
 
 .gamespacedefinition {
@@ -614,7 +649,7 @@ input[type=number] {
   display: inline-block;
   margin-top: 0px;
   float: left;
-  margin-bottom: 15px;  
+  margin-bottom: 15px;
 }
 
 .btn-add-team:hover {
@@ -716,4 +751,3 @@ div[data-team-id="2"] .remove-team-btn {
 .btn-create-game-ladder:hover {
   background: #2c7da0;
 }
-

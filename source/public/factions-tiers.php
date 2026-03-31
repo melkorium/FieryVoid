@@ -108,6 +108,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li><a href="#escalationwars">ESCALATION WARS</a></li>
                 <li><a href="#starwars">STAR WARS</a></li>
                 <li><a href="#startrek">STAR TREK</a></li>                                           
+                <li><a href="#valheru">HOUSE VALHERU</a></li>                                           
+                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li>                                           
             </ul>     
       </li>
       <a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a>                                                                      
@@ -336,7 +338,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                     <li><strong>Wide:</strong> - 7 hex range, +10 to hit 12 Damage.</li>
                 </ul>
             </li>
-            <li>Unexploded mines do not remain in play the following turn.</li>
+            <li>Mines that do not find a target on the turn they are fired, with persist as a Captor Mine until they are destroyed or find a unit to attack.</li>
     <a class="back-to-top" href="#top">↩ Back to Top</a>
 
     <h4 id="brakiri" style="">BRAKIRI SYNDICRACY</h4>
@@ -553,7 +555,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 It has no effect on OSATs or units equipped with Advanced Armor. </li>
         <h5>Ballistic Mine Launcher</h5>
             <li>Launches a mine at a target hex, with a 25% chance to scatter.  Once it lands on a hex it will look for ships up to its maximum radius then attack the closest, 
-                including friendly ships (if multiple ships are equally distant it will select one at random). Unexploded mines do not remain in play the following turn.</li>
+                including friendly ships (if multiple ships are equally distant it will select one at random). Mines that do not find a target on the turn they are fired, with persist as a Captor Mine until they are destroyed or find a unit to attack.</li>
             <li>The launcher does not come with any ammunition and you must purchase this at Fleet Selection from the available choices:
                 <ul class="circle-list">
                     <li><strong>Basic:</strong> - 3 hex range, +40 to hit 16-24 Damage,</li>
@@ -1420,6 +1422,32 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     <p>The approach here is that Star Wars ships are typically seen firing rapidly (and technical manuals show they have a lot of weapons). The approach here is to use faster firing, but overall lower damage weapons.
     Weapons typically come in single, twin, and quad configurations. As turbolasers, these fire every other turn, once per turn, and twice per turn, respectively. Shields use the B5 Wars EM shield rules. Ion weapons use Burst Beam effects.</p>                                                                                           
     <a class="back-to-top" href="#top">↩ Back to Top</a>          
+
+
+
+    <h4 id="valheru" style="">HOUSE VALHERU</h4>
+    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
+space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regarless of the 
+developer of said technologies were politically well connected or not.</p> 
+    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
+	are considered common hulls.</p>
+    <p>House Valheru was created by Fred Colman</p>
+        <h5>Snipper Cannon</h5>
+            <li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+    <a class="back-to-top" href="#top">↩ Back to Top</a>
+
+
+    <h4 id="greatcrusade" style="">GREAT CRUSADE ORIENI</h4>
+    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
+    <p>These are currently considered in Playtest until their units can be tested.</p>
+        <h5>Flak Array</h5>
+            <li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
+			but with an offensive mode that can attack any units.</li>
+    <a class="back-to-top" href="#top">↩ Back to Top</a>
+
+
+
+
 
 
 

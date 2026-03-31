@@ -12,6 +12,18 @@ class MovementGamePhase implements Phase
         $latestgameData = $dbManager->getTacGamedata($gameData->forPlayer, $gameData->id);
 
         foreach ($latestgameData->ships as $ship) {
+            // Track slots that have pre-firing ships ready to shoot
+            // Checked BEFORE skipping bases/mines to ensure mines with command control get a Pre-Firing Phase
+            if (
+                !$ship->isDestroyed() &&
+                $ship->getTurnDeployed($gameData) <= $gameData->turn &&
+                !$ship->isTerrain() &&
+                $ship->hasSpecialAbility("PreFiring") && 
+                $ship->hasPreFireWeaponsReady($latestgameData)
+            ) {
+                $preFiringSlots[$ship->slot] = true; // use associative key to ensure uniqueness
+            }
+
             // Skip destroyed, terrain, or undeployed ships
             if (
                 $ship->isDestroyed() ||
@@ -45,10 +57,6 @@ class MovementGamePhase implements Phase
                 $ship->checkStealth($latestgameData);
             }
 
-            // Track slots that have pre-firing ships ready to shoot
-            if ($ship->hasSpecialAbility("PreFiring") && $ship->hasPreFireWeaponsReady($latestgameData)) {
-                $preFiringSlots[$ship->slot] = true; // use associative key to ensure uniqueness
-            }
         }
 
         // Update game phase to Pre-Firing
@@ -214,7 +222,8 @@ class MovementGamePhase implements Phase
                     if ($lastMove) {
 //Debug::log("lastMove2 " . $lastMove->speed);	                        
                         $hydratedMovements[] = new MovementOrder(-1, 'start', $lastMove->position, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gameData->turn, 0, 0);
-                    }                                 
+                    }
+                    $gdShip->movement = $hydratedMovements; // Fix: Actually apply the generated dummy array back to the ship!  DK 26.3.26
                 }    
                 
                 // Re-sync the hydrated array back to the matching $activeShips proxy so

@@ -85,6 +85,8 @@ class BaseShip {
     public $skinDancing = array();	//Holds target ids when there's a successful skin dance.
     protected $skinDancer = false; //Let';s ships of unusual size skin dance e.g. Toravlus capitals ships.   	
 
+	public $isCloaked = false;  //Used for deactivating Trek shields when the Trek cloak is activated
+
     public $team;
     private $expectedDamage = array(); //loc=>dam; damage the unit is expected to take this turn (at outer locations), to decide where to take ambiguous shots
     
@@ -621,6 +623,9 @@ class BaseShip {
                     
 
         public function getInitiativebonus($gamedata){
+            if($this instanceof Terrain) return 0;            
+            if($this instanceof Mine) return 0;
+
             $flagBridgeBonus = FlagBridge::getIniBonus($gamedata, $this);
 
             /*
@@ -1006,16 +1011,16 @@ class BaseShip {
     {         
         $readyToFire = false;
         foreach($this->systems as $system){
-            if($system instanceof Weapon){
+            if($system instanceof Weapon){                
                 if($system->preFires && ($system->turnsloaded >= $system->loadingtime) && !$system->autoFireOnly){ //ready to fire!
+                    //Separate check for Prox Mines here.              
+                    if($system instanceof ProximityMine){
+                        if($this->commandControl && !$system->checkForPreFiringTargets($this, $gamedata)) continue; //No targets in range, don't trigger preFire phase.
+                    }                
                     $readyToFire = true;
                     break; //At least one weapon can pre fire, exit loop.
                 }    
             }
-            /*else if($system->preFires){ //Only weapons in game atm
-                    $readyToFire = true;
-                    break; //At least one non-weapon system can pre fire, exit loop.            
-            }*/
         }
         return $readyToFire;
     }        
@@ -1294,9 +1299,9 @@ class BaseShip {
 		}
         
         public function getLastMovement(){
-            $m = 0;
+            $m = null;
             
-            if (!is_array($this->movement))
+            if (!is_array($this->movement) || empty($this->movement))
                 return null;
             
             foreach($this->movement as $elementKey => $move) {
@@ -1641,7 +1646,7 @@ class BaseShip {
     public function getCoPos(){
 
         $movement = null;
-        if (!is_array($this->movement)){
+        if (!is_array($this->movement) || empty($this->movement)){
             return array("x"=>0, "y"=>0);
         }
         foreach ($this->movement as $move){
@@ -1654,7 +1659,7 @@ class BaseShip {
     public function getHexPos() : OffsetCoordinate{
 
         $movement = null;
-        if (!is_array($this->movement)){
+        if (!is_array($this->movement) || empty($this->movement)){
             return new OffsetCoordinate(0, 0);
         }
 
@@ -1815,6 +1820,10 @@ public function getAllEWExceptDEW($turn){
 
     public function getFacingAngle(){
         $movement = null;
+
+        if (!is_array($this->movement) || empty($this->movement)){
+            return 0;
+        }
 
         foreach ($this->movement as $move){
             $movement = $move;
@@ -2927,14 +2936,31 @@ class Mine extends OSAT{
     public $mine = true;
     public $canvasSize = 80;  
     public $trueStealth = true;
+    public $mineType = ''; //Captor, DEW or Proximity
     public $signature = 0;
-    public $detectedSignature = -1; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
-    //public $activated = false; //For DEW mines. 
+    public $activated = false;
+    public $detectedSignature = 0; //Adjusted signature for detected DEW mines, also seves as a way to identift these type of mines.
     public $spawned = -1; //To denote the turn a unit was spawned by DURING the game, e.g. doesn't count for CPV etc, show in Replay prior to it spawning
     public $canPreOrder = true;//Needed to set ranges for spawned Mines in Pre-Turn phase.
+    protected $variableDamage = 0; //Amount by which mine set damage can vary, looked for in Enhancements
+    protected $commandControl = false;
+    public $multiSettings = false;
+
 
     public function isDisabled(){
         return false;
+    }
+
+    public function getVariableDamage(){
+        return $this->variableDamage;
+    }
+
+    public function setCommandControl($setting){
+        $this->commandControl = $setting;
+    }
+
+    public function getCommandControl(){
+        return $this->commandControl;
     }
 
 
@@ -2951,10 +2977,15 @@ class Mine extends OSAT{
 
     public function stripForJson() {
         $strippedShip = parent::stripForJson();
-        if($this->detectedSignature !== -1) $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+        if($this->detectedSignature !== -1){
+            $strippedShip->signature = $this->signature; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->commandControl = $this->commandControl; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->multiSettings = $this->multiSettings; //Need to send updated Signature values for DEW mine weapons.
+            //$strippedShip->detectedSignature = $this->detectedSignature; //Need to send updated Signature values for DEW mine weapons.            
+            //$strippedShip->activated = $this->activated; //Need to send updated activated values for DEW mine weapons.            
+        } 
         return $strippedShip;
     }    
-
 
 }
 

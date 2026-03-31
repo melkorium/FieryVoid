@@ -24,6 +24,7 @@ class captorMineKLW extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
+        $this->mineType = 'Captor';         
        		    	    	    	    
         //Block all enhancements for Terrain units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 

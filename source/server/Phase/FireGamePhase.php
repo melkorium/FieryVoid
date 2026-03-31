@@ -26,8 +26,21 @@ class FireGamePhase implements Phase
 		}
 		
 
-        $dbManager->submitFireorders($servergamedata->id, $servergamedata->getNewFireOrders(), $servergamedata->turn, 3);
+        $newFireOrders = $servergamedata->getNewFireOrders();
+        $dbManager->submitFireorders($servergamedata->id, $newFireOrders, $servergamedata->turn, 3);
         $dbManager->updateFireOrders($servergamedata->getUpdatedFireOrders());
+
+        // Copy new fire orders to the local $gameData object so subsequent loading calculations can access them
+        // Restricted to Mine units as automatic interceptions on normal ships do not have multi-turn reloads.
+        foreach ($newFireOrders as $fireOrder) {
+            $ship = $gameData->getShipById($fireOrder->shooterid);
+            if ($ship instanceof Mine && $ship->mineType == 'DEW') {
+                $weapon = $ship->getSystemById($fireOrder->weaponid);
+                if ($weapon) {
+                    $weapon->setFireOrder($fireOrder);
+                }
+            }
+        }
 
         $dbManager->submitDamages($servergamedata->id, $servergamedata->turn, $servergamedata->getNewDamages());
 

@@ -41,7 +41,7 @@ window.BlinkEffect = function () {
 
         // Cache reusable Audio objects globally
         if (!BlinkEffect.cachedLaunchAudio) {
-            BlinkEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BlinkAudio.wav");
+            BlinkEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BlinkAudio.mp3");
         }
         /*
         if (!BlinkEffect.cachedExplosionAudio) {

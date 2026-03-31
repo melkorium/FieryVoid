@@ -35,10 +35,10 @@ window.BoltEffect = function () {
         this.playedImpactSound = false;
 
         if (!BoltEffect.cachedLaunchAudio) {
-            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BoltAudio.wav");
+            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BoltAudio.mp3");
         }
         if (!BoltEffect.cachedImpactAudio) {
-            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
         }
 
         //if (this.hit) this.duration -= 25;

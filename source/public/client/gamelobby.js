@@ -137,6 +137,9 @@ window.gamedata = {
 			/*case 'Orieni Imperium (defenses)':
 			  powerRating = 'Tier 1; Major Faction';
 			  break;*/
+			case 'Great Crusade Orieni Imperium':
+				powerRating = 'Tier 1; Custom Faction; Playtest';
+				break;
 			case "Pak'ma'ra Confederacy":
 				powerRating = 'Tier 2; League Faction';
 				break;
@@ -373,12 +376,15 @@ window.gamedata = {
 		var displayType = ship.shipClass;
 		var displayName = ship.name;
 
-		if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+		if (ship.mine && ship.bulkBuy) {
 			displayCost = ((ship.pointCost + (ship.pointCostEnh || 0) + (ship.pointCostEnh2 || 0)) * ship.bulkBuy);
-			displayName = ship.name + ' (' + ship.bulkBuy + ')';
+			if (ship.bulkBuy > 1) {
+				displayName = ship.name + ' (' + ship.bulkBuy + ')';
+			}
 		}
+		displayCost = Math.ceil(displayCost);
 
-		if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+		if (ship.mine && ship.bulkBuy) {
 			var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 				'<span class="shipname name">' + displayName + '</span>' +
 				'<span class="boughtShiptype">' + displayType + '</span>' +
@@ -828,7 +834,7 @@ window.gamedata = {
 				customShipPresent = true;
 				warningFound = true;
 			}
-			if ((lship.base == true) || (lship.osat == true)) staticPresent = true;
+			if ((lship.base == true) || (lship.osat == true && !lship.mine)) staticPresent = true;
 			if (lship.isCombatUnit != true) nonCombatPresent = true;
 			//check for presence of enhancements
 			if (!enhancementPresent) { //if already found - no point in checking
@@ -854,7 +860,7 @@ window.gamedata = {
 
 		var calcPoints = selectedSlot.points;
 		if (calcPoints == -1) { //If unlimited points, assess against points spent so far.
-			calcPoints = totalPointsSpent;			
+			calcPoints = totalPointsSpent;
 		}
 
 		checkResult = "Total fleet limit: " + (calcPoints == -1 ? "Unlimited" : calcPoints) + "<br><br>";
@@ -1380,12 +1386,15 @@ window.gamedata = {
 			var displayType = ship.shipClass;
 			var displayName = ship.name;
 
-			if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+			if (ship.mine && ship.bulkBuy) {
 				displayCost = ((ship.pointCost + (ship.pointCostEnh || 0) + (ship.pointCostEnh2 || 0)) * ship.bulkBuy);
-				displayName = ship.name + ' (' + ship.bulkBuy + ')';
+				if (ship.bulkBuy > 1) {
+					displayName = ship.name + ' (' + ship.bulkBuy + ')';
+				}
 			}
+			displayCost = Math.ceil(displayCost);
 
-			if (ship.mine && ship.bulkBuy && ship.bulkBuy > 1) {
+			if (ship.mine && ship.bulkBuy) {
 				var h = $('<div class="ship bought slotid_' + ship.slot + ' shipid_' + ship.id + '" data-shipindex="' + ship.id + '">' +
 					'<span class="shipname name">' + displayName + '</span>' +
 					'<span class="boughtShiptype">' + displayType + '</span>' +
@@ -1440,6 +1449,7 @@ window.gamedata = {
 			}
 		});
 
+		//if (ship.mine) {
 		$("#fleet").off("click", ".editship").on("click", ".editship", function (e) {
 			var id = $(this).closest(".ship").data("shipindex");
 			for (var i in gamedata.ships) {
@@ -1459,6 +1469,7 @@ window.gamedata = {
 				}
 			}
 		});
+		//}
 
 		gamedata.calculateFleet();
 	},
@@ -1469,28 +1480,28 @@ window.gamedata = {
 
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var minePoints = 0;
-		var uniqueMineClasses = [];
+		var unitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 
 			if (gamedata.ships[i].mine) {
 				let mCount = gamedata.ships[i].bulkBuy || 1;
-				minePoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+				unitPoints += ((gamedata.ships[i].pointCost + (gamedata.ships[i].pointCostEnh || 0) + (gamedata.ships[i].pointCostEnh2 || 0)) * mCount);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].mineType)) {
+					uniqueUnitClasses.push(gamedata.ships[i].mineType);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		if (minePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (unitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			let totalMineCost = (100 + minePoints) * surchargeMultiplier;
-			points += Math.round(totalMineCost);
+			let totalUnitCost = (100 + unitPoints) * surchargeMultiplier;
+			points += Math.round(totalUnitCost);
 		}
 
 		var maxPoints = selectedSlot.points;
@@ -1878,23 +1889,23 @@ window.gamedata = {
 			gamedata.setShipsFromFaction(faction, shipList);
 
 			//show separately: immobile objects (bases/OSATs), every ship size, fighters, mines
-			var sizeClassHeaders = ['Fighters', 'Medium Ships', 'Heavy Ships', 'Capital Ships', 'Immobile Structures', 'Mines'];
-			for (var desiredSize = 5; desiredSize >= 0; desiredSize--) {
-				if (desiredSize === 5 && gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest) continue;
-				if (faction === "Terrain" && desiredSize < 4) continue; // Terrain faction has no ships or fighters
+			var sizeClassHeaders = ['Fighters', 'Light Combat Vessels', 'Medium Ships', 'Heavy Combat Vessels', 'Capital Ships', 'Immobile Structures', 'Mines'];
+			for (var categoryIndex = 6; categoryIndex >= 0; categoryIndex--) {
+				if (categoryIndex === 6 && gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest) continue;
+				if (faction === "Terrain" && categoryIndex < 5) continue; // Terrain faction has no ships or fighters
 
 				// Create a fragment for this size category
 				var fragment = document.createDocumentFragment();
 
 				//display header
 				var isCollapsible = true; // All categories are collapsible now
-				var startClosed = (desiredSize === 4 || desiredSize === 5); // 4 = Immobile Structures, 5 = Mines
+				var startClosed = (categoryIndex === 1 || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
 				if (faction === "Terrain") {
 					startClosed = false;
 				}
 
 				var iconText = startClosed ? '[+]' : '[-]';
-				var headerElem = $('<div class="shipsizehdr clickable" data-faction="' + faction + '"><span class="toggleicon">' + iconText + '</span><span class="categoryType">' + sizeClassHeaders[desiredSize] + ':</span></div>');
+				var headerElem = $('<div class="shipsizehdr clickable" data-faction="' + faction + '"><span class="toggleicon">' + iconText + '</span><span class="categoryType">' + sizeClassHeaders[categoryIndex] + ':</span></div>');
 
 				var displayStyle = startClosed ? 'display:none;' : 'display:block;';
 				var categoryContainer = $('<div class="category-container" style="' + displayStyle + '"></div>');
@@ -1916,23 +1927,42 @@ window.gamedata = {
 
 				// Don't append to fragment yet, wait to see if it's empty
 
-				for (var index = 0; index < shipList.length; index++) {
-					ship = shipList[index];
+				var activeShipList = shipList;
+				if (categoryIndex === 6) {
+					activeShipList = shipList.slice();
+					this.orderShipListOnName(activeShipList);
+				}
+
+				for (var index = 0; index < activeShipList.length; index++) {
+					ship = activeShipList[index];
 					if (gamedata.rules && !gamedata.rules.allowMines && ship.mine && !gamedata.rules.fleetTest) continue; //Skip mines if not allowed in scenario
 
 					isCustomShip = isCustomFaction || ship.unofficial === true;
 					let customShipHighlight = (!isCustomFaction && ship.unofficial === true) ? ' highlight-custom-ship' : '';
 					isd = ship.isd;
-					if (desiredSize == 5) { //Mines
+					if (categoryIndex == 6) { //Mines
 						if (ship.mine != true) continue;
-					} else if (desiredSize == 4) { //bases and OSATs, size does not matter
+					} else if (categoryIndex == 5) { //bases and OSATs, size does not matter
 						if (ship.mine == true || (ship.base != true && ship.osat != true)) continue; //check if it's a base or OSAT
-					} else if (desiredSize > 0) { //ships (check actual size)
-						if (ship.mine == true || ship.shipSizeClass != desiredSize) continue;//check if it's of correct size
-						if ((ship.base == true) || (ship.osat == true)) continue; //check if it's not a base or OSAT
+					} else if (categoryIndex == 4) { //Capital Ships
+						if (ship.mine == true || ship.shipSizeClass != 3) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 3) { //Heavy Combat Vessels
+						if (ship.mine == true || ship.shipSizeClass != 2) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 2) { //Medium Ships
+						if (ship.mine == true || ship.shipSizeClass != 1) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 1) { //Light Combat Vessels
+						if (ship.hangarRequired !== 'LCVs') continue;
+						if (ship.mine == true || ship.base == true || ship.osat == true) continue;
 					} else { //fighters! check max size - they should be -1, but 0 isn't used...
 						if (ship.mine == true || ship.shipSizeClass > 0) continue;//check if it's of correct size
 						if ((ship.base == true) || (ship.osat == true)) continue; //check if it's not a base or OSAT
+						if (ship.hangarRequired === 'LCVs') continue;
 					}
 					if (ship.variantOf != '') continue;//check if it's not a variant, we're looking only for base designs here...
 					//ok, display...
@@ -1946,15 +1976,15 @@ window.gamedata = {
 						+ shipDisplayName + '</span><span class="pointcost">'
 						+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-					let buyHandler = ship.mine ? this.buyMine.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
+					let buyHandler = ship.mine ? this.buyBulk.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
 					$(".addship", h).on("click", buyHandler);
 					$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, ship.phpclass, faction, ship.id, false));
 
 					categoryContainer.append(h); // We always use categoryContainer now
 					hasShips = true;
 					//search for variants of the base design above...
-					for (var indexV = 0; indexV < shipList.length; indexV++) {
-						shipV = shipList[indexV];
+					for (var indexV = 0; indexV < activeShipList.length; indexV++) {
+						shipV = activeShipList[indexV];
 						if (shipV.variantOf != ship.shipClass) continue;//that's not a variant of current base ship
 
 						isCustomShip = isCustomFaction || shipV.unofficial === true;
@@ -1970,7 +2000,7 @@ window.gamedata = {
 							+ shipDisplayName + '</span><span class="pointcost">'
 							+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
 
-						let buyHandlerV = shipV.mine ? this.buyMine.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
+						let buyHandlerV = shipV.mine ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
 						$(".addship", h).on("click", buyHandlerV);
 						$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, shipV.phpclass, faction, ship.id, false));
 
@@ -2261,7 +2291,7 @@ window.gamedata = {
 		}
 	},
 
-	buyMine: function buyMine(shipclass) {
+	buyBulk: function buyBulk(shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		var slotid = gamedata.selectedSlot;
@@ -2273,10 +2303,10 @@ window.gamedata = {
 
 		$(".confirm").remove();
 
-		window.confirm.showBuyMine(ship, gamedata.doBuyMine);
+		window.confirm.showBuyBulk(ship, gamedata.doBuyBulk);
 	},
 
-	doBuyMine: function doBuyMine(results, shipclass) {
+	doBuyBulk: function doBuyBulk(results, shipclass) {
 		var ship = gamedata.getShipByType(shipclass);
 
 		ship.userid = gamedata.thisplayer;
@@ -2285,7 +2315,7 @@ window.gamedata = {
 		ship.bulkBuy = parseInt(results.quantity);
 
 		// Calculate total cost stringently to afford check
-		let totalMineCost = ship.pointCost * ship.bulkBuy;
+		let totalUnitCost = ship.pointCost * ship.bulkBuy;
 
 		ship.pointCostEnh = 0;
 		ship.pointCostEnh2 = 0;
@@ -2301,7 +2331,7 @@ window.gamedata = {
 				if (!ship.enhancementOptions[enhNo][6]) { //this is an actual enhancement (as opposed to option) - note value!
 					ship.pointCostEnh += target.data("enhCost"); // Cost is per-unit
 				} else { //this is an option - note value!
-					ship.pointCostEnh2 += target.data("enhOptionCost"); // Cost is per-unit
+					ship.pointCostEnh2 += target.data("enhCost"); // Cost is per-unit
 				}
 			}
 
@@ -2310,44 +2340,44 @@ window.gamedata = {
 			target = $(".selectAmount.shpenh" + enhNo);
 		}
 
-		totalMineCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
+		totalUnitCost += (ship.pointCostEnh + ship.pointCostEnh2) * ship.bulkBuy;
 
-		// Calculate cost of the fleet WITH this new mine order
+		// Calculate cost of the fleet WITH this new Unit order
 		var slotid = gamedata.selectedSlot;
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var points = 0;
-		var existingMinePoints = 0;
-		var uniqueMineClasses = [];
+		var existingUnitPoints = 0;
+		var uniqueUnitClasses = [];
 
 		for (var i in gamedata.ships) {
 			if (gamedata.ships[i].slot != slotid) continue;
 			if (gamedata.ships[i].mine) {
-				existingMinePoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
-				if (!uniqueMineClasses.includes(gamedata.ships[i].shipClass)) {
-					uniqueMineClasses.push(gamedata.ships[i].shipClass);
+				existingUnitPoints += (gamedata.ships[i].pointCost + gamedata.ships[i].pointCostEnh + gamedata.ships[i].pointCostEnh2) * (gamedata.ships[i].bulkBuy || 1);
+				if (!uniqueUnitClasses.includes(gamedata.ships[i].mineType)) {
+					uniqueUnitClasses.push(gamedata.ships[i].mineType);
 				}
 			} else {
 				points += gamedata.ships[i].pointCost;
 			}
 		}
 
-		// Add new mine to totals
-		existingMinePoints += totalMineCost;
-		if (!uniqueMineClasses.includes(ship.shipClass)) {
-			uniqueMineClasses.push(ship.shipClass);
+		// Add new unit to totals
+		existingUnitPoints += totalUnitCost;
+		if (!uniqueUnitClasses.includes(ship.mineType)) {
+			uniqueUnitClasses.push(ship.mineType);
 		}
 
-		if (existingMinePoints > 0) {
-			let uniqueClassCount = uniqueMineClasses.length;
+		if (existingUnitPoints > 0) {
+			let uniqueClassCount = uniqueUnitClasses.length;
 			let surchargeMultiplier = 1 + ((uniqueClassCount - 1) * 0.10);
-			points += Math.round((100 + existingMinePoints) * surchargeMultiplier);
+			points += Math.round((100 + existingUnitPoints) * surchargeMultiplier);
 		}
 
 		var maxPoints = selectedSlot.points;
 
 		if (maxPoints != -1 && points > maxPoints) {
 			$(".confirm").remove();
-			window.confirm.error("You cannot afford that Mine purchase!", function () { });
+			window.confirm.error("You cannot afford that Unit purchase!", function () { });
 			return;
 		}
 
@@ -2356,7 +2386,7 @@ window.gamedata = {
 		$(".confirm").remove();
 		gamedata.updateFleet(ship);
 		gamedata.calculateFleet();
-		gamedata.drawMapPreview(); // Redraw map to show minefields
+		gamedata.drawMapPreview(); // Redraw map to show unitfields
 	},
 
 	buyShip: function buyShip(shipclass) {

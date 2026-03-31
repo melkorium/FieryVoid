@@ -184,7 +184,7 @@ class Firing
                 $gamedata->turn, $interceptor->firingMode, 0, 0, $interceptor->defaultShots, 0, 0, null, null
             );
             $interceptFire->addToDB = true;
-			checkForSelfInterceptFire::setFired($interceptor->id, $gamedata->turn);
+			checkForSelfInterceptFire::setFired($interceptor->getUnit()->id, $interceptor->id, $gamedata->turn);
             $interceptor->fireOrders[] = $interceptFire;
         }
 	    
@@ -399,7 +399,9 @@ class Firing
         $shooter = $gd->getShipById($fire->shooterid);
         $target = $gd->getShipById($fire->targetid);
         $interceptingShip = $weapon->getUnit();
-        $firingweapon = $shooter->getSystemById($fire->weaponid);		
+        $firingweapon = $shooter->getSystemById($fire->weaponid);	
+        
+        if($interceptingShip instanceof Mine) return false; //Mines generally can't intercept using their weapons.        
 
         if ($firingweapon->doNotIntercept){ //some attacks simply aren't subject to interception - like being in a field, or ramming attacks
             //Debug::log("Target weapon cannot be intercepted\n");
@@ -484,15 +486,15 @@ class Firing
                     } else {//target is ship
                         $selfPosNow = $interceptingShip->getCoPos();
                         $targetPosNow = $target->getCoPos();
-                        if ($fire->turn == 1) { //first turn - assume starting positions did match (technical reasons - units cannot start on same hex!)
-                            $selfPosPrevious = $selfPosNow;
-                            $targetPosPrevious = $targetPosNow;
-                        } else {//standard - check actual position at the end of previous turn
+                        //if ($fire->turn == 1) { //first turn - assume starting positions did match (technical reasons - units cannot start on same hex!)|| Now they can - DK 27.3.26
+                        //    $selfPosPrevious = $selfPosNow;
+                        //    $targetPosPrevious = $targetPosNow;
+                        //} else {//standard - check actual position at the end of previous turn
                             $movement = $interceptingShip->getLastTurnMovement($fire->turn);
                             $selfPosPrevious = mathlib::hexCoToPixel($movement->position); //at start of turn
                             $movement = $target->getLastTurnMovement($fire->turn);
                             $targetPosPrevious = mathlib::hexCoToPixel($movement->position); //at start of turn
-                        }
+                        //}
 
                         if (($selfPosNow == $targetPosNow) && ($selfPosPrevious == $targetPosPrevious)) {
                             return true;

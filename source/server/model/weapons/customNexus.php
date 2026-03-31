@@ -8473,7 +8473,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 	    $output = 0;
 	    $targetpos = null;
 
-	    // Plasma Web damage reduction only works against three types of weapons.
+	    // Sand Caster damage reduction only works against three types of weapons.
 	    if ($weapon->weaponClass != 'Laser' && $weapon->weaponClass != 'Antimatter' && $weapon->weaponClass != 'Particle' && $weapon->name != 'AntimatterTorpedo' && $weapon->name != 'Plasma' && $weapon->name != 'Ion') {
 	        return 0;
 	    }
@@ -8598,8 +8598,8 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 		    $coordinatesKey = $cloudFireOrder->x . ',' . $cloudFireOrder->y; // This will be the key for the array
 		 
 			// Check if the target has been engaged by a Plasma Cloud at these coordinates
-			if (isset(PakmaraPlasmaWeb::$alreadyEngagedClouded[$target->id][$coordinatesKey])) {
-				if (PakmaraPlasmaWeb::$alreadyEngagedClouded[$target->id][$coordinatesKey]['engaged'] === true) {
+			if (isset(NexusSandCaster::$alreadyEngagedClouded[$target->id][$coordinatesKey])) {
+				if (NexusSandCaster::$alreadyEngagedClouded[$target->id][$coordinatesKey]['engaged'] === true) {
 				    // Target was already engaged at these coordinates
 				    return; // unit already engaged by a Plasma Web at these coordinates, don't create new fireOrder
 				}
@@ -8614,7 +8614,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 		    );
 			$newDamageFireOrder->notes = 'Attack on fighters passing through';
 	        // Store the engagement with coordinates as the key
-	        PakmaraPlasmaWeb::$alreadyEngagedClouded[$target->id][$coordinatesKey] = [
+	        NexusSandCaster::$alreadyEngagedClouded[$target->id][$coordinatesKey] = [
 	            'engaged' => true, // marking engagement
 	            'coordinates' => ['x' => $newDamageFireOrder->x, 'y' => $newDamageFireOrder->y] // store the x and y coordinates while they are still the cloud coordinate.
 	        ];		 	                
@@ -8645,7 +8645,6 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 						break; //Don't check the others, retrieved in Descending order so first one is the one we want!
 					}
 				}
-
         }
 
 	}//End of createFireOrders()	
@@ -8713,9 +8712,9 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 					$fireOrder->targetid = -1; //Do not need targetid anymore, change to -1			
 				
 				}else{//Anti-Fighter mode FIRED this turn, draw power if not boosted.
-					if ($this->getBoostLevel(TacGamedata::$currentTurn) <=0 ) { //not boosted...
-						PlasmaBattery::shipDrawPower($this->unit);
-					}
+//					if ($this->getBoostLevel(TacGamedata::$currentTurn) <=0 ) { //not boosted...
+//						PlasmaBattery::shipDrawPower($this->unit);
+//					}
 									
 					$fireOrder->pubnotes .= "Sand cloud created on hex, remains in place until next Firing Phase!"; //just information for player.
 					
@@ -8747,12 +8746,12 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 		$coordinatesKey = $fireOrder->x . ',' . $fireOrder->y; // This will be the key for the array
 	
 		if($fireOrder->type == "normal"){
-	        if (isset(PakmaraPlasmaWeb::$alreadyEngagedDirect[$target->id])){
+	        if (isset(NexusSandCaster::$alreadyEngagedDirect[$target->id])){
 	        	$fireOrder->pubnotes .= "<br> No effect on fighters already damaged by a Sand Caster on this hex." ; //just information for player.
 	        	return; //unit already engaged by a previous direct Plasma Web at this hex.
 			}	
-			if (isset(PakmaraPlasmaWeb::$alreadyEngagedClouded[$target->id][$coordinatesKey])) {
-				if (PakmaraPlasmaWeb::$alreadyEngagedClouded[$target->id][$coordinatesKey]['engaged'] === true) {
+			if (isset(NexusSandCaster::$alreadyEngagedClouded[$target->id][$coordinatesKey])) {
+				if (NexusSandCaster::$alreadyEngagedClouded[$target->id][$coordinatesKey]['engaged'] === true) {
 				    // Target was already engaged at these coordinates
 	        		$fireOrder->pubnotes .= "<br> No effect on fighters already damaged by a Sand Caster on this hex." ; //just information for player.				    
 				    return; // unit already engaged by a Plasma Web cloud at these coordinates, don't cause further damage.
@@ -8940,7 +8939,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 								$this->maxDamage = 0;
 								break;
 						case 2:
-								$this->maxDamage = 7;
+								$this->maxDamage = 8;
 								break;								
 				}
 				$this->maxDamageArray[$this->firingMode] = $this->maxDamage;

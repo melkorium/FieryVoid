@@ -180,7 +180,7 @@ class Weapon extends ShipSystem
 	protected $specialArcs = true;	//Denotes for Front End to redirect to weapon specific function to get arcs. Need to pass in strpForJson
 	protected $canTargetAllies = false; //To allow front end to target allies.
 	protected $canTargetAlliesArray = array(); //To allow front end to target allies.
-    protected $canTargetAll = false; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
+    public $canTargetAll = false; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
 	protected $canShootMines = false; //marker to let weapons that normally can't shoot MCVs to shoot mines.    
 
 	//Weapons are repaired before "average system", but after really important things! 
@@ -298,7 +298,7 @@ class Weapon extends ShipSystem
 			$strippedSystem->overloadshots = $this->overloadshots;
 			$strippedSystem->extraoverloadshots = $this->extraoverloadshots;
 			$strippedSystem->extraoverloadshotsArray = $this->extraoverloadshotsArray;
-			$strippedSystem->fireOrders = $this->fireOrders;
+			$strippedSystem->fireOrders = $this->fireOrders;         
 			
 			if(isset($this->ammunition)){
 				$strippedSystem->ammunition = $this->ammunition;
@@ -341,10 +341,18 @@ class Weapon extends ShipSystem
 				}		
 			}
 		}
-        if($ship instanceof Mine && $ship->detectedSignature !== -1){ //Need to send updated Fire Control values for DEW mine weapons.
+
+        if($ship instanceof Mine && ($ship->mineType == 'DEW' || $ship->mineType == 'Captor')){ 
+            //Need to send updated Fire Control values for DEW/Captor mine weapons.
 			$strippedSystem->fireControl = $this->fireControl;
-			$strippedSystem->fireControlArray = $this->fireControlArray;            
-        }				
+			$strippedSystem->fireControlArray = $this->fireControlArray;  
+			$strippedSystem->autoFireOnly = $this->autoFireOnly; //DEW weapons need to know they are actually autofire on a mine. 
+            $strippedSystem->canTargetAll = $this->canTargetAll;                        
+        }elseif ($ship instanceof Mine && $ship->getCommandControl()){ 
+            //Command Controller can change certain variables, so we need to pass in JSON.
+            $strippedSystem->preFires = $this->preFires; 	 
+            $strippedSystem->autoFireOnly = $this->autoFireOnly;                                            
+        } 				
 			
 		}
         return $strippedSystem;
@@ -585,7 +593,7 @@ class Weapon extends ShipSystem
         foreach ($this->fireOrders as $fire) {
             if ($fire->type != "selfIntercept" && $fire->weaponid == $this->id && $fire->turn == $turn) {
                 return true;
-            } else if ($fire->type == "selfIntercept" && checkForSelfInterceptFire::checkFired($this->id, $turn)) {
+            } else if ($fire->type == "selfIntercept" && checkForSelfInterceptFire::checkFired($this->getUnit()->id, $this->id, $turn)) {
                 return true;
             }
         }
@@ -841,6 +849,8 @@ public function getStartLoading()
         } else if ($phase == 3) {
             if ($this->preFires && $this->firedOnTurn(TacGamedata::$currentTurn)) {
                 return new WeaponLoading(0, 0, $this->getLoadedAmmo(), 0, $this->getLoadingTime(), $this->firingMode);
+            }else if ($this->ballistic && $this->firedOnTurn(TacGamedata::$currentTurn)) {
+                return new WeaponLoading(0, 0, $this->getLoadedAmmo(), 0, $this->getLoadingTime(), $this->firingMode);
             }
         } else if ($phase == -1) {
             $weaponLoading = $this->calculateLoadingFromLastTurn($gamedata);                   
@@ -872,8 +882,25 @@ public function getStartLoading()
 
     private function calculateLoadingFromLastTurn($gamedata)
     {
-        if ($this->ballistic && !(checkForSelfInterceptFire::checkFired($this->id, $gamedata->turn -1)))
-            return null;
+        if ($this->ballistic && !(checkForSelfInterceptFire::checkFired($this->getUnit()->id, $this->id, $gamedata->turn -1))) {
+            $ship = $this->getUnit();              
+            if ($ship instanceof Mine) {
+                $firedNormal = false;
+               
+                foreach ($this->fireOrders as $fire) {
+                    if ($fire->type == "normal" && $fire->weaponid == $this->id && $fire->turn == ($gamedata->turn - 1)) {
+                        $firedNormal = true;
+                        break;
+                    }
+                }
+                
+                if (!$firedNormal) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
 
 
         if ($this->firedOnTurn($gamedata->turn -1)) {
@@ -1337,6 +1364,8 @@ public function getStartLoading()
 		}else if ($oew < 1){ //OEW beteen 0.5 and 1 is achievable for targets of Distortion EW
 			$noLockPenalty = 0.5;
 		}
+        if($shooter instanceof Mine) $noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.
+
 		//$noLockMod =  $rangePenalty * $noLockPenalty; //moved lower!
 			
 		$jammerValue = 0;
@@ -1366,7 +1395,7 @@ public function getStartLoading()
 		$distanceForPenalty = mathlib::getDistanceHex($launchPos, $targetPos);
 		$rangePenalty = $this->calculateRangePenalty($distanceForPenalty);
 		$noLockMod = 0;
-		$jammermod = 0; //no lock and jammer work on tI havehe same thing, but they still need to be separated (for jinking).
+		$jammermod = 0; //no lock and jammer work on the same thing, but they still need to be separated (for jinking).
 		
 		// if EW is ignored - make it so (and also Jammer and no lock modifier, which are derived from EW as well)
 		if($this->ignoreAllEW){
@@ -1776,9 +1805,9 @@ public function getStartLoading()
         }
 
 	    
-        if ($target->isDestroyed()) return;
-	    
+        if ($target->isDestroyed()) return;    
 		$tmpLocation = $fireOrder->chosenLocation;
+
 		$launchPos = null;
 		if ($this->ballistic){
 //			$movement = $shooter->getLastTurnMovement($fireOrder->turn);
@@ -2253,21 +2282,21 @@ class checkForSelfInterceptFire
 {
     private static $fired = array();
 
-    public static function setFired($id, $turn)
+    public static function setFired($shipid, $weaponid, $turn)
     {
         if ($turn != TacGamedata::$currentTurn) {
-            $fired = array();
+            checkForSelfInterceptFire::$fired = array();
         }
-        checkForSelfInterceptFire::$fired[] = $id;
+        checkForSelfInterceptFire::$fired[] = array('shipid' => $shipid, 'weaponid' => $weaponid);
     }
 
-    public static function checkFired($id, $turn)
+    public static function checkFired($shipid, $weaponid, $turn)
     {
         if ($turn != TacGamedata::$currentTurn) {
-            $fired = array();
+            checkForSelfInterceptFire::$fired = array();
         }
         foreach (checkForSelfInterceptFire::$fired as $weapon) {
-            if ($weapon == $id) {
+            if ($weapon['shipid'] == $shipid && $weapon['weaponid'] == $weaponid) {
                 return true;
             }
         }

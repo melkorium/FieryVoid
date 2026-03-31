@@ -7,8 +7,8 @@ class PolarenColonyJumpshipRefit extends BaseShip{
 		$this->pointCost = 725;
 		$this->faction = "Nexus Polaren Confederacy (early)";
         $this->phpclass = "PolarenColonyJumpshipRefit";
-        $this->imagePath = "img/ships/Nexus/polarenColonyJumpship.png";
-			$this->canvasSize = 200; //img has 200px per side
+        $this->imagePath = "img/ships/Nexus/polarenColonyJumpship2.png";
+			$this->canvasSize = 190; //img has 200px per side
         $this->shipClass = "Colony Jumpship (refit)";
 			$this->variantOf = "Colony Jumpship";
 			$this->occurence = "common";

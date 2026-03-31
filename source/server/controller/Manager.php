@@ -114,6 +114,11 @@ class Manager{
                     return "{}";
                 }
 
+                // getGameLobbyData (via getTacGamedata) returns a JSON error string if an exception occurs
+                if (is_string($lobbymodel)) {
+                    return $lobbymodel;
+                }
+
                 $data = $lobbymodel->stripForJson();
                 unset($lobbymodel);
 

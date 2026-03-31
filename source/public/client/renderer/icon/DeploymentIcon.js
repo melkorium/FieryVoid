@@ -7,9 +7,11 @@ window.DeploymentIcon = function () {
         this.mesh = null;
         this.size = size;
         this.color = getColorByType(type);
-        this.opacity = 0.5;        
-        if (type == "terrain" || type == "mine") {
-            this.opacity = 0.2;
+        this.opacity = 0.5;
+        if (type == "terrain") {
+            this.opacity = 0.3;
+        } else if (type == "ally") {
+            this.opacity = 0.35;
         }
 
         this.mesh = new THREE.Object3D();
@@ -24,16 +26,21 @@ window.DeploymentIcon = function () {
             var stencilGroup = new THREE.Group();
             this.mesh.add(stencilGroup);
 
-            holes.forEach(function(hole) {
+            holes.forEach(function (hole) {
                 var hw = hole.size.width;
                 var hh = hole.size.height;
                 var hx = hole.position.x - position.x;
                 var hy = hole.position.y - position.y;
-                
-                // 1. Stencil write mask
+
+                var enemyColor = getColorByType("enemy");
+
+                // 1. Stencil write mask and red fill
                 var holeGeom = new THREE.PlaneGeometry(hw, hh);
                 var holeMat = new THREE.MeshBasicMaterial({
-                    colorWrite: false,
+                    color: enemyColor,
+                    transparent: true,
+                    opacity: this.opacity * 0.5,
+                    colorWrite: true,
                     depthWrite: false,
                     stencilWrite: true,
                     stencilRef: 1,
@@ -48,9 +55,9 @@ window.DeploymentIcon = function () {
 
             // 3. Draw the main map, but only where stencil == 0 (outside the holes)
             var plainGeom = new THREE.PlaneGeometry(size.width + lineWidth, size.height + lineWidth);
-            var plainMat = new THREE.MeshBasicMaterial({ 
-                color: this.color, 
-                transparent: true, 
+            var plainMat = new THREE.MeshBasicMaterial({
+                color: this.color,
+                transparent: true,
                 opacity: this.opacity * 0.5,
                 stencilWrite: true,
                 stencilRef: 0,
@@ -60,6 +67,28 @@ window.DeploymentIcon = function () {
             plainMesh.position.z = this.z;
             plainMesh.renderOrder = 0;
             this.mesh.add(plainMesh);
+
+            // Apply stencil to the main border so it gets cut by holes
+            var outerBorder = new window.BoxSprite(size, lineWidth, this.z, this.color, this.opacity);
+            outerBorder.mesh.material.stencilWrite = true;
+            outerBorder.mesh.material.stencilRef = 0;
+            outerBorder.mesh.material.stencilFunc = THREE.EqualStencilFunc;
+            this.mesh.add(outerBorder.mesh);
+
+            // Draw borders around each hole, bounded by the valid area (stencil == 0)
+            holes.forEach(function (hole) {
+                var hSize = { 
+                    width: hole.size.width + lineWidth, 
+                    height: hole.size.height + lineWidth 
+                };
+                var enemyColor = getColorByType("enemy");
+                var holeBorder = new window.BoxSprite(hSize, lineWidth, this.z, enemyColor, this.opacity);
+                holeBorder.mesh.position.set(hole.position.x - position.x, hole.position.y - position.y, 0);
+                holeBorder.mesh.material.stencilWrite = true;
+                holeBorder.mesh.material.stencilRef = 0;
+                holeBorder.mesh.material.stencilFunc = THREE.EqualStencilFunc;
+                this.mesh.add(holeBorder.mesh);
+            }.bind(this));
         } else {
             var borders = new window.BoxSprite(size, lineWidth, this.z, this.color, this.opacity);
             this.mesh.add(borders.mesh);
@@ -88,11 +117,11 @@ window.DeploymentIcon = function () {
         } else if (type == "terrain") {
             return new THREE.Color(255 / 255, 255 / 255, 255 / 255).convertSRGBToLinear();
         } else if (type == "mine") {
-            return new THREE.Color(255 / 255, 165 / 255, 0).convertSRGBToLinear(); // Orange
+            return new THREE.Color(200 / 255, 250 / 255, 160 / 255).convertSRGBToLinear(); // Paler green
         } else {
             return new THREE.Color(250 / 255, 100 / 255, 100 / 255).convertSRGBToLinear();
         }
-    }    
+    }
 
     return DeploymentIcon;
 }();
