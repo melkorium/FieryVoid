@@ -6986,8 +6986,13 @@ class MineControllerDEW extends ShipSystem{
 					foreach($weapon->rangeArray as $mode => $val) {
 						$weapon->rangeArray[$mode] = $this->rangeSetting;
 					}
-					$weapon->autoFireOnly = true;	
-					$weapon->isTargetable = false;								
+					$weapon->isTargetable = false;
+					$weapon->boostable = false;
+						
+					if(!$mine->getCommandControl()){
+						$weapon->autoFireOnly = true;	
+						$weapon->canOffLine = false;					
+					}							
 				}
 			}	
                       
@@ -7057,11 +7062,19 @@ class MineControllerDEW extends ShipSystem{
  					
 					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
 
-						if($gamedata->phase == 1){
-							$type = "ballistic";
-						}else{
-							$type = "normal";
-						} 
+						if($mine->getCommandControl()){            
+							$firingOrders = $weapon->getFireOrders($gamedata->turn);
+							
+							$hasFireOrder = null;
+									foreach ($firingOrders as $fireOrder) { 
+										if ($fireOrder->type == 'normal' || $fireOrder->type == 'ballistic') { 
+										$hasFireOrder = $fireOrder;
+										break; //no need to search further
+										}
+									}    			
+									
+							if($hasFireOrder !== null) return; //Has a manual fire order, end of work
+						}   
 
 						if($weapon instanceof AmmoMissileRackS){
 							$magazine =  $mine->getSystemByName("AmmoMagazine");
@@ -7075,17 +7088,28 @@ class MineControllerDEW extends ShipSystem{
 								}	
 							}
 						}	
-						//Now create fireorder
-						$newFireOrder = new FireOrder(
-							-1, $type, $mine->id, $mineTarget->id,
-							$weapon->id, -1, $gamedata->turn, $weapon->firingMode, 
-							0, 0, 1, 0, 0, //needed, rolled, shots, shotshit, intercepted
-							0,0,$weapon->weaponClass,-1 //X, Y, damageclass, resolutionorder
-						);		
 
-						$newFireOrder->addToDB = true;
-						$weapon->fireOrders[] = $newFireOrder;							
+						$guns = $weapon->guns; //Some weapons can fire more than once, like Twin arrays.
 
+
+						if($gamedata->phase == 1){
+							$type = "ballistic";
+						}else{
+							$type = "normal";
+						} 
+						while ($guns > 0){
+						//Now create fireorder(s)
+							$newFireOrder = new FireOrder(
+								-1, $type, $mine->id, $mineTarget->id,
+								$weapon->id, -1, $gamedata->turn, $weapon->firingMode, 
+								0, 0, 1, 0, 0, //needed, rolled, shots, shotshit, intercepted
+								0,0,$weapon->weaponClass,-1 //X, Y, damageclass, resolutionorder
+							);		
+
+							$newFireOrder->addToDB = true;
+							$weapon->fireOrders[] = $newFireOrder;
+							$guns--;
+						}	
 					}
 				}
 			}        

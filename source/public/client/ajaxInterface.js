@@ -933,8 +933,7 @@ window.ajaxInterface = {
         if (data && data.error) {
             window.confirm.exception(data, function () { });
             gamedata.waiting = false;
-        } else {
-            //gamedata.parseServerData(data);
+            return;
         }
         gamedata.parseServerData(data);
     },
@@ -977,6 +976,13 @@ window.ajaxInterface = {
         if (gamedata.waiting == false) {
             ajaxInterface.stopPolling();
             return;
+        }
+
+        // Safety: Reset stuck submiting flag (e.g. after tab sleep killed the XHR)
+        if (ajaxInterface.submiting && ajaxInterface._lastPollTime &&
+            Date.now() - ajaxInterface._lastPollTime > 30000) {
+            console.warn("Polling: Resetting stuck submiting flag");
+            ajaxInterface.submiting = false;
         }
 
         var time = 4000;
@@ -1052,11 +1058,13 @@ window.ajaxInterface = {
         if (ajaxInterface.submiting) return;
 
         ajaxInterface.submiting = true;
+        ajaxInterface._lastPollTime = now;
 
         ajaxInterface.ajaxWithRetry({
             type: 'GET',
             url: 'gamedata.php',
             dataType: 'json',
+            timeout: 20000, // Prevent indefinite hang on background tab / mobile sleep
             maxAttempts: 2, // Limit retries for in-game polling too
             data: {
                 turn: gamedata.turn,
@@ -1068,7 +1076,10 @@ window.ajaxInterface = {
                 time: Date.now()
             },
             success: ajaxInterface.successRequest,
-            error: ajaxInterface.errorAjax,
+            error: function (xhr, textStatus, errorThrown) {
+                // Silent for polling — next poll cycle will retry automatically
+                console.warn("Gamedata poll failed:", textStatus, errorThrown);
+            },
             complete: function () {
                 // always clear flag, even on error/timeout
                 ajaxInterface.submiting = false;
@@ -1395,3 +1406,15 @@ window.ajaxInterface = {
     }
 
 };
+
+// Tab reactivation: Immediately poll when user returns to the tab
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && typeof gamedata !== 'undefined' &&
+        gamedata.waiting && ajaxInterface.pollActive) {
+        // Tab just became visible — do an immediate poll and reset decay
+        ajaxInterface.pollcount = 0;
+        if (!ajaxInterface.submiting) {
+            ajaxInterface.requestGamedata();
+        }
+    }
+});

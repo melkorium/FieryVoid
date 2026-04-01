@@ -1889,23 +1889,23 @@ window.gamedata = {
 			gamedata.setShipsFromFaction(faction, shipList);
 
 			//show separately: immobile objects (bases/OSATs), every ship size, fighters, mines
-			var sizeClassHeaders = ['Fighters', 'Medium Ships', 'Heavy Ships', 'Capital Ships', 'Immobile Structures', 'Mines'];
-			for (var desiredSize = 5; desiredSize >= 0; desiredSize--) {
-				if (desiredSize === 5 && gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest) continue;
-				if (faction === "Terrain" && desiredSize < 4) continue; // Terrain faction has no ships or fighters
+			var sizeClassHeaders = ['Fighters', 'Light Combat Vessels', 'Medium Ships', 'Heavy Combat Vessels', 'Capital Ships', 'Immobile Structures', 'Mines'];
+			for (var categoryIndex = 6; categoryIndex >= 0; categoryIndex--) {
+				if (categoryIndex === 6 && gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest) continue;
+				if (faction === "Terrain" && categoryIndex < 5) continue; // Terrain faction has no ships or fighters
 
 				// Create a fragment for this size category
 				var fragment = document.createDocumentFragment();
 
 				//display header
 				var isCollapsible = true; // All categories are collapsible now
-				var startClosed = (desiredSize === 4 || desiredSize === 5); // 4 = Immobile Structures, 5 = Mines
+				var startClosed = (categoryIndex === 1 || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
 				if (faction === "Terrain") {
 					startClosed = false;
 				}
 
 				var iconText = startClosed ? '[+]' : '[-]';
-				var headerElem = $('<div class="shipsizehdr clickable" data-faction="' + faction + '"><span class="toggleicon">' + iconText + '</span><span class="categoryType">' + sizeClassHeaders[desiredSize] + ':</span></div>');
+				var headerElem = $('<div class="shipsizehdr clickable" data-faction="' + faction + '"><span class="toggleicon">' + iconText + '</span><span class="categoryType">' + sizeClassHeaders[categoryIndex] + ':</span></div>');
 
 				var displayStyle = startClosed ? 'display:none;' : 'display:block;';
 				var categoryContainer = $('<div class="category-container" style="' + displayStyle + '"></div>');
@@ -1928,7 +1928,7 @@ window.gamedata = {
 				// Don't append to fragment yet, wait to see if it's empty
 
 				var activeShipList = shipList;
-				if (desiredSize === 5) {
+				if (categoryIndex === 6) {
 					activeShipList = shipList.slice();
 					this.orderShipListOnName(activeShipList);
 				}
@@ -1940,16 +1940,29 @@ window.gamedata = {
 					isCustomShip = isCustomFaction || ship.unofficial === true;
 					let customShipHighlight = (!isCustomFaction && ship.unofficial === true) ? ' highlight-custom-ship' : '';
 					isd = ship.isd;
-					if (desiredSize == 5) { //Mines
+					if (categoryIndex == 6) { //Mines
 						if (ship.mine != true) continue;
-					} else if (desiredSize == 4) { //bases and OSATs, size does not matter
+					} else if (categoryIndex == 5) { //bases and OSATs, size does not matter
 						if (ship.mine == true || (ship.base != true && ship.osat != true)) continue; //check if it's a base or OSAT
-					} else if (desiredSize > 0) { //ships (check actual size)
-						if (ship.mine == true || ship.shipSizeClass != desiredSize) continue;//check if it's of correct size
-						if ((ship.base == true) || (ship.osat == true)) continue; //check if it's not a base or OSAT
+					} else if (categoryIndex == 4) { //Capital Ships
+						if (ship.mine == true || ship.shipSizeClass != 3) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 3) { //Heavy Combat Vessels
+						if (ship.mine == true || ship.shipSizeClass != 2) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 2) { //Medium Ships
+						if (ship.mine == true || ship.shipSizeClass != 1) continue;
+						if (ship.base == true || ship.osat == true) continue;
+						if (ship.hangarRequired === 'LCVs') continue;
+					} else if (categoryIndex == 1) { //Light Combat Vessels
+						if (ship.hangarRequired !== 'LCVs') continue;
+						if (ship.mine == true || ship.base == true || ship.osat == true) continue;
 					} else { //fighters! check max size - they should be -1, but 0 isn't used...
 						if (ship.mine == true || ship.shipSizeClass > 0) continue;//check if it's of correct size
 						if ((ship.base == true) || (ship.osat == true)) continue; //check if it's not a base or OSAT
+						if (ship.hangarRequired === 'LCVs') continue;
 					}
 					if (ship.variantOf != '') continue;//check if it's not a variant, we're looking only for base designs here...
 					//ok, display...

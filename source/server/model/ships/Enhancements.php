@@ -91,6 +91,7 @@ class Enhancements{
 			Enhancements::blockStandardEnhancements($unit);
 			$unit->enhancementOptionsEnabled[] = 'IFF_SYS';
 			$unit->enhancementOptionsEnabled[] = 'MINE_SIGN';
+			$unit->enhancementOptionsEnabled[] = 'MINE_CTRL';			
 			
 			if($unit->mineType && ($unit->mineType == 'Captor' || $unit->mineType == 'DEW')){
 				$unit->enhancementOptionsEnabled[] = 'MINE_ACC';	
@@ -488,6 +489,16 @@ class Enhancements{
 			$enhPriceStep = 1; 
 			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		}			
+
+		//Improve Signature rating of Mines		
+		$enhID = 'MINE_CTRL';
+		if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+			$enhName = 'Command Controller';
+			$enhLimit = 1; 
+		  	$enhPrice = ceil($ship->pointCost*0.33); //33%	  
+			$enhPriceStep = 0; 
+			$ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		}	
 
 		//Improve set Damage amount for Mines		
 		$enhID = 'MINE_DMG';
@@ -1985,6 +1996,23 @@ class Enhancements{
 						
 					break;
 
+					case 'MINE_CTRL': //Command Controller for Mines
+						//Mark true
+						$ship->setCommandControl(true);
+						foreach ($ship->systems as $system){
+							if ($system instanceof Weapon){
+								$system->autoFireOnly = false;
+								$system->canOffLine = true;
+								$system->canTargetAll = true;	
+								if($system instanceof ProximityMine) {
+									$system->preFires = true;
+									$system->hextarget = false;									
+								}	
+							}
+						}	
+
+						break;	
+
 					case 'MINE_DMG': //Extra Damage for Mines
 					foreach ($ship->systems as $system){
 						if ($system instanceof ProximityMine || $system instanceof CaptorMine){
@@ -2355,7 +2383,7 @@ class Enhancements{
 							$strippedShip->iniativebonus = $ship->iniativebonus;
 							$strippedShip->toHitBonus = $ship->toHitBonus;	///Just in case needed on Front End.					
 							break;
-			
+
 						case 'MINE_SIGN': //Improved signature for mines
 							$strippedShip->signature = $ship->signature;
 							break;								

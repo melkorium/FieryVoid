@@ -1618,6 +1618,7 @@ window.weaponManager = {
         debug && console.log("weaponManager target ship", ship, system);
 
         if (shipManager.isDestroyed(selectedShip)) return;
+        if(selectedShip.mine && ship.mine) return;  //Mine can't shoot mines.      
         if (ship.Huge > 0) return; //Do not allow targeting of large muti-hex terrain.
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
         if (weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.
@@ -1820,6 +1821,11 @@ window.weaponManager = {
 
 
     checkIsInRange: function checkIsInRange(shooter, target, weapon) {
+
+        if (weapon.name == "ProximityMine" && gamedata.gamephase == 5 && weapon.potentialTargets && weapon.potentialTargets[target.id] !== undefined) {
+            return true;
+        }
+
         var range = weapon.range;
         var distance = mathlib.getDistanceBetweenShipsInHex(shooter, target).toFixed(2);
 
