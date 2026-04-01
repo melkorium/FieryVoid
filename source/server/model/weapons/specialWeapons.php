@@ -6572,11 +6572,12 @@ class ProximityLaserLauncher extends Weapon{
 		public $range = 30; 
 		
         //function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){
-		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){		
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $ammunition = 10){		
  			//$this->pairing = $pairing;
 			//$this->displayName = 'Proximity Laser ' . $pairing . ''; 
 			$this->startArcArray[] = $startArc; 
-			$this->endArcArray[] = $endArc;						
+			$this->endArcArray[] = $endArc;		
+			$this->ammunition = $ammunition;				
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 6;				        	       	
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);

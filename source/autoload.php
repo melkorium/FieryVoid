@@ -3529,17 +3529,15 @@ spl_autoload_register(
                 'mine' => '/server/model/ships/ShipClasses.php',
                 'captormine' => '/server/model/weapons/AoE.php',
                 'proximitymine' => '/server/model/weapons/AoE.php', 
-                'minecontrollerdew' => '/server/model/weapons/baseSystems.php',                   
+                'minecontrollerdew' => '/server/model/weapons/baseSystems.php', 
+                
+                
+                //Terrain / Test Mines
                 'captormineterrain' => '/server/model/ships/terrain/captorMineTerrain.php',
                 'proxmineterrain' => '/server/model/ships/terrain/proxMineTerrain.php', 
                 'dewmineterrainbeam' => '/server/model/ships/terrain/dewMineTerrainBeam.php', 
                 'dewmineterrainmissile' => '/server/model/ships/terrain/dewMineTerrainMissile.php',                                              
-                'captormineklb' => '/server/model/ships/korlyan/captorMineKLB.php',	
-                'captormineklw' => '/server/model/ships/korlyan/captorMineKLW.php',	                                
-                'captormineklh' => '/server/model/ships/korlyan/captorMineKLH.php',	
-                'spawncaptorklb' => '/server/model/ships/korlyan/spawnCaptorKLB.php',	
-                'spawncaptorklw' => '/server/model/ships/korlyan/spawnCaptorKLW.php',	                                
-                'spawncaptorklh' => '/server/model/ships/korlyan/spawnCaptorKLH.php',
+
                 'captorwotcrabbaia' => '/server/model/ships/abbai_old/captorWotcrAbbaiA.php',	                                
                 'captorwotcrabbaib' => '/server/model/ships/abbai_old/captorWotcrAbbaiB.php',                     
                 'spawncaptorwotcrabbaia' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiA.php',	                                
@@ -3683,7 +3681,23 @@ spl_autoload_register(
                 //Ipsha Mines
                 'proxminespore' => '/server/model/ships/ipsha/proxMineSpore.php',                 
                 'captorminecyst' => '/server/model/ships/ipsha/captorMineCyst.php',
-                'dewmineblast' => '/server/model/ships/ipsha/dewMineBlast.php',                
+                'dewmineblast' => '/server/model/ships/ipsha/dewMineBlast.php',     
+                
+                //Kor-Lyan Mines
+                'captormineklb' => '/server/model/ships/korlyan/captorMineKLB.php',	
+                'captormineklw' => '/server/model/ships/korlyan/captorMineKLW.php',	                                
+                'captormineklh' => '/server/model/ships/korlyan/captorMineKLH.php',	
+                'spawncaptorklb' => '/server/model/ships/korlyan/spawnCaptorKLB.php',	
+                'spawncaptorklw' => '/server/model/ships/korlyan/spawnCaptorKLW.php',	                                
+                'spawncaptorklh' => '/server/model/ships/korlyan/spawnCaptorKLH.php',
+                'dewminetonkar' => '/server/model/ships/korlyan/dewMineTonkar.php',
+                'dewminetonkat' => '/server/model/ships/korlyan/dewMineTonkat.php', 
+                'dewminetonkal' => '/server/model/ships/korlyan/dewMineTonkal.php', 
+                'dewminetraska' => '/server/model/ships/korlyan/dewMineTraska.php', 
+                'dewminetalivos' => '/server/model/ships/korlyan/dewMineTalivos.php',                                                                                  
+
+
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
