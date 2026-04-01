@@ -1489,7 +1489,7 @@ class SparkField extends Weapon implements DefensiveSystem{
 	public $damagePenalty = 0;
 	
 	protected $targetList = array(); //weapon will hit units on this list rather than target from firing order; filled by SparkFieldHandler!
-	
+	private $damageMod = 0;
 	
  	protected $possibleCriticals = array( //no point in range reduced crit; but reduced damage is really nasty for this weapon!
             14=>"ReducedDamage"
@@ -1524,7 +1524,7 @@ class SparkField extends Weapon implements DefensiveSystem{
 	
 	public function getAoE($turn){
 		$boostlevel = $this->getBoostLevel($turn);
-		$aoe = 2+(2*$boostlevel);
+		$aoe = $this->baseOutput +(2*$boostlevel);
 		return $aoe;
 	}
 	
@@ -1606,7 +1606,7 @@ class SparkField extends Weapon implements DefensiveSystem{
 	}
 	
 
-	function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc)
+	function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $baseOutput = 2, $damageMod = 0, $boostable = true)
 	{
 		//maxhealth and power reqirement are fixed; left option to override with hand-written values
 		if ( $maxhealth == 0 ){
@@ -1615,6 +1615,10 @@ class SparkField extends Weapon implements DefensiveSystem{
 		if ( $powerReq == 0 ){
 			$powerReq = 2;
 		}
+		//Some settings can be different from Mine version.
+		$this->baseOutput = $baseOutput; 
+		$this->damageMod = $damageMod; 	
+		$this->boostable = $boostable;
 		parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
 		SparkFieldHandler::addSparkField($this);//so all Spark Fields are accessible together, and firing orders can be uniformly created
 	}
@@ -1663,7 +1667,7 @@ class SparkField extends Weapon implements DefensiveSystem{
 	
 	
 	public function getDamage($fireOrder){        
-		$damageRolled = Dice::d(6, 1)+1;
+		$damageRolled = Dice::d(6, 1)+1 - $this->damageMod; //damageMod is for Mine version, which is set at 1d6 and can't be boosted.
 		$boostlevel = $this->getBoostLevel($fireOrder->turn);
 		$damageRolled -= $boostlevel; //-1 per level of boost
 		$damageRolled = max(0,$damageRolled); //cannot do less than 0	
@@ -1678,7 +1682,8 @@ class SparkField extends Weapon implements DefensiveSystem{
 
 	public function stripForJson(){
 		$strippedSystem = parent::stripForJson();
-		$strippedSystem->noProjectile = $this->noProjectile;															
+		$strippedSystem->noProjectile = $this->noProjectile;
+		$strippedSystem->baseOutput = $this->baseOutput;																	
 		return $strippedSystem;
 	} 
 	

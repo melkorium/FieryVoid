@@ -3673,15 +3673,17 @@ spl_autoload_register(
                 'dewmineloirnisar' => '/server/model/ships/hyach/dewMineLoirniSar.php',                                                                                
 
                 //Cascor Mines
-                'proxmineeraqar' => '/server/model/ships/cascor/proxMineRaqar.php', 
-                'proxmineerashaq' => '/server/model/ships/cascor/proxMineRashaq.php',                                 
-                'proxmineeraccan' => '/server/model/ships/cascor/proxMineRaccan.php',  
+                'proxmineraqar' => '/server/model/ships/cascor/proxMineRaqar.php', 
+                'proxminerashaq' => '/server/model/ships/cascor/proxMineRashaq.php',                                 
+                'proxmineraccan' => '/server/model/ships/cascor/proxMineRaccan.php',  
                 'captorminetorqi' => '/server/model/ships/cascor/captorMineTorqi.php',
                 'captorminetralati' => '/server/model/ships/cascor/captorMineTralati.php',                
                 'dewminesonoraq' => '/server/model/ships/cascor/dewMineSonoraq.php',                   
 
-
-
+                //Ipsha Mines
+                'proxminespore' => '/server/model/ships/ipsha/proxMineSpore.php',                 
+                'captorminecyst' => '/server/model/ships/ipsha/captorMineCyst.php',
+                'dewmineblast' => '/server/model/ships/ipsha/dewMineBlast.php',                
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
