@@ -1,21 +1,22 @@
 <?php
-class captorMineRehsaC extends Mine{
+class dewMineLoirniSar extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 18;
-	    $this->faction = "Brakiri Syndicracy";
-        $this->phpclass = "captorMineRehsaC";
-        $this->imagePath = "img/ships/brakiriMine.png";
-        $this->shipClass = "Rehsa-C Captor Mine";
+		$this->pointCost = 96;
+	    $this->faction = "Hyach Gerontocracy";
+        $this->phpclass = "dewMineLoirniSar";
+        $this->imagePath = "img/ships/hyachMine.png";
+        $this->shipClass = "Loirni Sar DEW Mine";
 		$this->occurence = "common";
-		//$this->variantOf = 'NONE';
+		$this->variantOf = "Aval Sar DEW Mine";
         $this->isd = 2200;
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
-        $this->signature = 3;         
+        $this->signature = 2;
+        $this->detectedSignature = -1;           
         
         $this->turncost = 0;
         $this->turndelaycost = 0;
@@ -23,18 +24,21 @@ class captorMineRehsaC extends Mine{
         $this->rollcost = 0;
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
-        $this->mineType = 'Captor';         
+        $this->mineType = 'DEW';     
        		    	    	    	    
         //Block all enhancements for Mine units when bought
-		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
+		Enhancements::nonstandardEnhancementSet($this, 'Mines');             
 
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
-        $this->addPrimarySystem(new CaptorMine(0, 1, 1, 0, 360, 4, 6, 1, 0, 16)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $accuracy, $diceType, $dice, $damageBonus 
+        $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 12, 5)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
+        $this->addPrimarySystem(new BlastLaser(0, 1, 1, 0, 360));        
+        $this->addPrimarySystem(new Maser(0, 1, 1, 0, 360));
+        $this->addPrimarySystem(new Maser(0, 1, 1, 0, 360));        
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
-        $this->addPrimarySystem(new Structure(0, 1));
+        $this->addPrimarySystem(new Structure(2, 18));
         
         	//d20 hit chart
         $this->hitChart = array(

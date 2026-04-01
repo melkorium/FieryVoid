@@ -3663,6 +3663,16 @@ spl_autoload_register(
                 'proxmineorthine' => '/server/model/ships/usuuth/proxMineOrthine.php',
                 'proxminesootha' => '/server/model/ships/usuuth/proxMineSootha.php',                                                  
 
+                //Hyach Mines
+                'proxmineechalival' => '/server/model/ships/hyach/proxMineEchaliVal.php',  
+                'captormineelaskvor' => '/server/model/ships/hyach/captorMineElaskVor.php',                   
+                'dewmineavalsar' => '/server/model/ships/hyach/dewMineAvalSar.php',
+                'dewmineilanisar' => '/server/model/ships/hyach/dewMineIlaniSar.php', 
+                'dewminenalinasar' => '/server/model/ships/hyach/dewMineNalinaSar.php', 
+                'dewminemaschatsar' => '/server/model/ships/hyach/dewMineMaschatSar.php', 
+                'dewmineloirnisar' => '/server/model/ships/hyach/dewMineLoirniSar.php',                                                                                
+
+
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
