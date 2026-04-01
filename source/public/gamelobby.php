@@ -1,17 +1,25 @@
 <?php
-    include_once 'global.php';
-    session_write_close(); // Prevent session locking for concurrent loads
-	
-	if (!isset($_SESSION["user"]) || $_SESSION["user"] == false){
-		header('Location: index.php');
-        exit;
-	}
-    
-    	if (isset($_GET["leave"]) && isset($_GET["gameid"])){
-		Manager::leaveLobbySlot($_SESSION["user"], $_GET["gameid"]);
-		header('Location: games.php');
-        exit;
-	}
+// Start output buffering with compression (gzip/brotli via zlib or gzhandler)
+// We capture the output to hash it for an ETag before sending.
+if (!ini_get('zlib.output_compression')) {
+    ob_start("ob_gzhandler");
+} else {
+    ob_start();
+}
+
+include_once 'global.php';
+session_write_close(); // Prevent session locking for concurrent loads
+
+if (!isset($_SESSION["user"]) || $_SESSION["user"] == false){
+    header('Location: index.php');
+    exit;
+}
+
+if (isset($_GET["leave"]) && isset($_GET["gameid"])){
+    Manager::leaveLobbySlot($_SESSION["user"], $_GET["gameid"]);
+    header('Location: games.php');
+    exit;
+}
 	
 	
 	$gameid = null;
@@ -1247,7 +1255,23 @@ All trademarks and copyrights remain the property of their respective owners.
 
 
 	</body>
-
-
-
 </html>
+<?php
+// Extract the fully generated HTML from the buffer
+$content = ob_get_clean();
+$etag = md5($content);
+
+// Apply ETag headers
+header("Etag: \"$etag\"");
+header("Cache-Control: private, must-revalidate"); // Ensure the browser validates but allows caching
+
+// Compare with client's cached ETag
+if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === "\"$etag\"") {
+    // If exact match, send 304 Not Modified and stop (browser uses local cache)
+    header("HTTP/1.1 304 Not Modified");
+    exit;
+}
+
+// Otherwise, send the full (compressed) payload
+echo $content;
+?>
