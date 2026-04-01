@@ -431,7 +431,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
             <li>These can engage fighters and deal matter damage in flash mode. While effective in this role, their main benefit is their impressive defensive fire.</li>
             <li>When a Flak Cannon intercepts a shot from an enemy it will also intercept all other fire from that ship using the normal interception degradation rules e.g. three Flak Cannons could generate -30% to hit from all fire from an enemy.</li>
             <li>In addition, the Flak Cannon can intercept friendly units as long as the friendly unit is within 5 hexes and both the friendly and firing unit are in arc.</li>
-            <li>The Flak Cannon can also intercept uninterceptable weapons like lasers to an extent (only 50% interecpt is applied), but only when they are fired at the Flak Cannon-equipped ship e.g. it cannot intercept this type of weapon at all for friendly units</li>
+            <li>The Flak Cannon can also intercept uninterceptable weapons such as lasers to an extent (only 50% interecpt is applied), but only when they are fired at the Flak Cannon-equipped ship e.g. it cannot intercept this type of weapon at all for friendly units</li>
         <h5>Light and Heavy Railguns</h5>
             <li>Smaller and larger versions, respectively, of the standard railgun.</li>
         <h5>Targeting Array</h5>
