@@ -3672,6 +3672,15 @@ spl_autoload_register(
                 'dewminemaschatsar' => '/server/model/ships/hyach/dewMineMaschatSar.php', 
                 'dewmineloirnisar' => '/server/model/ships/hyach/dewMineLoirniSar.php',                                                                                
 
+                //Cascor Mines
+                'proxmineeraqar' => '/server/model/ships/cascor/proxMineRaqar.php', 
+                'proxmineerashaq' => '/server/model/ships/cascor/proxMineRashaq.php',                                 
+                'proxmineeraccan' => '/server/model/ships/cascor/proxMineRaccan.php',  
+                'captorminetorqi' => '/server/model/ships/cascor/captorMineTorqi.php',
+                'captorminetralati' => '/server/model/ships/cascor/captorMineTralati.php',                
+                'dewminesonoraq' => '/server/model/ships/cascor/dewMineSonoraq.php',                   
+
+
 
 
 						//Satyra (Wolfgang campaign)
