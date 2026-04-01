@@ -1609,6 +1609,7 @@ class Enhancements{
 						foreach($flight->systems as $ftr) foreach($ftr->systems as $sys)
 							//Find relevant weapons 
 							if(	$sys instanceOf PairedGatlingGun || 
+								$sys instanceOf LtGatlingGun || 
 								$sys instanceOf MatterGun || 
 								$sys instanceOf SlugCannon || 
 								$sys instanceOf GatlingGunFtr ||
