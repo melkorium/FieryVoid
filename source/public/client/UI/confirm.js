@@ -786,7 +786,8 @@ window.confirm = {
             } else $(".totalUnitCostAmount").data("maxSize", 9);
         }
 
-        var pointCost = ship.pointCost;
+        var pristineBaseShip = gamedata.getShipByType(ship.phpclass);
+        var pointCost = pristineBaseShip ? pristineBaseShip.pointCost : ship.pointCost;
         /*
         if (ship.maxFlightSize==3){ //for single-unit flight cost is for a fighter; for usual 6+ flight, for 6 craft (and 6 craft will be set)
             //but for 3-strong flight cost is still set for 6-strong flight...
@@ -825,7 +826,17 @@ window.confirm = {
             selectAmountItem.addClass("shpenh" + i);
             selectAmountItem.data('enhID', enhID);
             selectAmountItem.data('count', enhCount);
-            selectAmountItem.data('enhCost', 0);
+            
+            var initialEnhCost = 0;
+            for (let eCount = 0; eCount < enhCount; eCount++) {
+                initialEnhCost += enhPrice + (eCount * enhPriceStep);
+            }
+            selectAmountItem.data('enhCost', initialEnhCost);
+            if (enhIsOption) {
+                selectAmountItem.data('enhOptionCost', initialEnhCost);
+                selectAmountItem.data('enhIsOption', true);
+            }
+            
             selectAmountItem.data('min', 0);
             selectAmountItem.data('max', enhLimit);
             selectAmountItem.data('enhPrice', enhPrice);
@@ -952,7 +963,10 @@ window.confirm = {
 
             selectAmountItem.html(ship.flightSize);
 
-            selectAmountItem.data('pV', Math.floor(ship.pointCost / ship.flightSize));
+            var pristineBaseShip = gamedata.getShipByType(ship.phpclass);
+            var pristineBaseCost = pristineBaseShip ? pristineBaseShip.pointCost : ship.pointCost;
+            selectAmountItem.data('pV', Math.floor(pristineBaseCost / 6));
+
 
             selectAmountItem.on("wheel", confirm.handleMouseWheelFighter);
             $(".fighterSelectItem .selectButtons .plusButton", e).on("click", confirm.increaseFlightSize);
@@ -974,6 +988,7 @@ window.confirm = {
 
 
         var a = e.appendTo("body");
+        confirm.getTotalCost();
         a.fadeIn(250);
     },
 
@@ -1218,6 +1233,7 @@ window.confirm = {
         $(".confirmok", e).data("shipclass", ship.phpclass);
 
         var a = e.appendTo("body");
+        confirm.getTotalCost();
         a.fadeIn(250);
     },
 
