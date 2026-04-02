@@ -360,6 +360,7 @@ MineStealth.prototype.constructor = MineStealth;
 MineStealth.prototype.initializationUpdate = function () {
 	var ship = this.ship;
 	this.data["Mine Signature"] = ship.signature;
+	if(ship.mineType && ship.mineType == 'DEW') this.data["Detected Signature"] = ship.detectedSignature;	
 	return this
 }
 
