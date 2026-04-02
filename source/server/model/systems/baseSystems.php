@@ -451,8 +451,11 @@ class Stealth extends ShipSystem implements SpecialAbility{
 
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
-        $strippedSystem->detected = $this->detected;	        
-        $strippedSystem->detectedNew = $this->detectedNew;	        
+        $strippedSystem->detected = $this->detected;
+        if (isset($this->detectedNew) && !empty($this->detectedNew)) {
+            $strippedSystem->detectedNew = $this->detectedNew;
+        }  			        
+        //$strippedSystem->detectedNew = $this->detectedNew;	        
         return $strippedSystem;
     }
 
@@ -708,12 +711,7 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 			$otherPos = $otherShip->getHexPos();
 			$distance = mathlib::getDistanceHex($pos, $otherPos);
 			$noLoS = !empty($blockedHexes) && Mathlib::isLoSBlocked($pos, $otherPos, $blockedHexes);
-//Debug::log("otherShip " . $otherShip->name);
-//Debug::log("otherShip " . $mine->name);	
-//Debug::log("totalDetectionFinal " . $totalDetection);	
-//Debug::log("distance " . $distance);	
-//Debug::log("noLoS " . $noLoS);	
-//Debug::log("mine->signature " . $mine->signature);	
+	
 			// If within detection range, and LoS not blocked the mine is detected
 			if (($totalDetection > $distance + $mine->signature) && !$noLoS) { 	
 				if (!in_array($otherShip->team, $detectingTeams)) {
@@ -809,8 +807,14 @@ class MineStealth extends ShipSystem implements SpecialAbility{
 
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
-        $strippedSystem->detected = $this->detected;
-        $strippedSystem->revealInfo = $this->revealInfo;			        
+        if (isset($this->detected) && !empty($this->detected)) {
+            $strippedSystem->detected = $this->detected;
+        }  		
+        //$strippedSystem->detected = $this->detected;
+        if (isset($this->revealInfo) && !empty($this->revealInfo)) {
+            $strippedSystem->revealInfo = $this->revealInfo;
+        }  		
+        //$strippedSystem->revealInfo = $this->revealInfo;			        
         return $strippedSystem;
     }
 
@@ -6909,7 +6913,10 @@ class MindriderHangar extends ShipSystem{
 		public function stripForJson(){
 			$strippedSystem = parent::stripForJson();
 			$strippedSystem->detected = $this->detected;
-			$strippedSystem->detectedNew = is_array($this->detectedNew) ? $this->detectedNew : array();
+			if (isset($this->detectedNew) && !empty($this->detectedNew)) {
+				$strippedSystem->detectedNew = $this->detectedNew;
+			}  			
+			//$strippedSystem->detectedNew = is_array($this->detectedNew) ? $this->detectedNew : array();
 			$strippedSystem->active = $this->active;				        
 			return $strippedSystem;
 		}
