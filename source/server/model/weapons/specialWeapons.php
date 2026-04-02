@@ -1462,7 +1462,7 @@ class SparkField extends Weapon implements DefensiveSystem{
         //public $animationWidth = 1;
         //public $trailLength = 1;
 	
-	public $boostable = true;
+		public $boostable = true;
         public $boostEfficiency = 2;
         public $maxBoostLevel = 4;
 	
@@ -1511,14 +1511,23 @@ class SparkField extends Weapon implements DefensiveSystem{
 		    $this->range = $this->getAoE($turn);
 		      parent::setSystemDataWindow($turn);  
 		      //$this->data["AoE"] = $this->getAoE($turn);
-		      $this->data["Special"] = "This weapons automatically affects all units (friend or foe) in area of effect.";  
-		      $this->data["Special"] .= "<br>It should not be fired manually."; 
-		      $this->data["Special"] .= "<br>Ignores armor, but cannot damage ship structure.";  
-		      $this->data["Special"] .= "<br>Base damage is 1d6+1, range 2 hexes.";  
-		      $this->data["Special"] .= "<br>Can be boosted, for +2 AoE and -1 damage per level."; 
-		      $this->data["Special"] .= "<br>Multiple overlapping Spark Fields will only cause 1 (strongest) attack on a particular target."; 
-		      $this->data["Special"] .= "<br>With CUSTOM Spark Curtain enhancement acts as anti-Ballistic shield (reducing hit chance only, by 2+boost)."; 
-	    }	//endof function setSystemDataWindow
+			  $ship = $this->getUnit();
+			  if($ship instanceof Mine){
+				$this->data["Special"] = "This weapons automatically affects all units (friend or foe) in area of effect.";  
+				$this->data["Special"] .= "<br>It cannot be fired manually."; 
+				$this->data["Special"] .= "<br>Ignores armor, but cannot damage ship structure.";  
+				$this->data["Special"] .= "<br>Deals 1-6 damage with a range of 4 hexes.";  
+				$this->data["Special"] .= "<br>If multiple Spark Fields overlap, only strongest will attack."; 			
+			  }else{
+				$this->data["Special"] = "This weapons automatically affects all units (friend or foe) in area of effect.";  
+				$this->data["Special"] .= "<br>It cannot be fired manually."; 
+				$this->data["Special"] .= "<br>Ignores armor, but cannot damage ship structure.";  
+				$this->data["Special"] .= "<br>Base damage is 1d6+1, range 2 hexes.";  
+				$this->data["Special"] .= "<br>Can be boosted, for +2 AoE and -1 damage per level."; 
+				$this->data["Special"] .= "<br>If multiple Spark Fields overlap, only strongest will attack."; 		
+				$this->data["Special"] .= "<br>With CUSTOM Spark Curtain enhancement acts as anti-Ballistic shield (reducing hit chance only, by 2+boost)."; 
+			  }
+		}	//endof function setSystemDataWindow
 	
 	
 	
@@ -1617,7 +1626,7 @@ class SparkField extends Weapon implements DefensiveSystem{
 		}
 		//Some settings can be different from Mine version.
 		$this->baseOutput = $baseOutput; 
-		$this->damageMod = $damageMod; 	
+		$this->damageMod -= $damageMod; 	
 		$this->boostable = $boostable;
 		parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
 		SparkFieldHandler::addSparkField($this);//so all Spark Fields are accessible together, and firing orders can be uniformly created
@@ -1667,17 +1676,17 @@ class SparkField extends Weapon implements DefensiveSystem{
 	
 	
 	public function getDamage($fireOrder){        
-		$damageRolled = Dice::d(6, 1)+1 - $this->damageMod; //damageMod is for Mine version, which is set at 1d6 and can't be boosted.
+		$damageRolled = Dice::d(6, 1)+1 + $this->damageMod; //damageMod is for Mine version, which is set at 1d6 and can't be boosted.
 		$boostlevel = $this->getBoostLevel($fireOrder->turn);
 		$damageRolled -= $boostlevel; //-1 per level of boost
 		$damageRolled = max(0,$damageRolled); //cannot do less than 0	
 		return $damageRolled;   
 	}
         public function setMinDamage(){    
-		$this->minDamage = 2 ;	      		
+		$this->minDamage = 2 + $this->damageMod ;	      		
 	}
         public function setMaxDamage(){   
-		$this->maxDamage = 7 ;	    
+		$this->maxDamage = 7 + $this->damageMod ;	    
 	}	
 
 	public function stripForJson(){
