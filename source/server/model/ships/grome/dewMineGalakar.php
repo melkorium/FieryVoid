@@ -10,7 +10,7 @@ class dewMineGalakar extends Mine{
         $this->imagePath = "img/ships/gromeMine.png";
         $this->shipClass = "Galakar DEW Mine";
 		$this->occurence = "common";
-		$this->shipClass = "Lektha DEW Mine";
+		$this->variantOf = "Lektha DEW Mine";
         $this->isd = 2200;          
         
         $this->forwardDefense = 12;

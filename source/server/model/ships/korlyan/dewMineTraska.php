@@ -4,7 +4,7 @@ class dewMineTraska extends Mine{
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 40;
+		$this->pointCost = 54;
 		$this->faction = "Kor-Lyan Kingdoms";
         $this->phpclass = "dewMineTraska";
         $this->imagePath = "img/ships/korlyan_mine.png";
@@ -52,10 +52,10 @@ class dewMineTraska extends Mine{
 		$this->enhancementOptionsEnabled[] = 'MINE_BLB';//add enhancement options for mines - Basic Mines
 
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
-        $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 1));
+        $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         //$this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 20, 4, true)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
-        $this->addPrimarySystem(new BallisticMineLauncher(0, 1, 0, 0, 360, $ammoMagazine, false));
+        $this->addPrimarySystem(new BallisticMineLauncher(0, 1, 1, 0, 360, $ammoMagazine, false));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(2, 9));

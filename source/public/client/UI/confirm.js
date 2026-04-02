@@ -1270,6 +1270,15 @@ window.confirm = {
             //Add (OPTION) at the beginning of name of options
             if (enhIsOption) enhName = " <span style='color:rgb(224, 185, 57) ;'>(OPTION)</span> " + enhName;
 
+            const ammoTypes = ['(HEAVY AMMO)', '(MEDIUM AMMO)', '(LIGHT AMMO)', '(AMMO)'];
+            for (const type of ammoTypes) {
+                if (enhName.includes(type)) {
+                    enhName = enhName.replace(type, '').trim();
+                    enhName = ` <span style="color:rgb(106, 195, 255);">${type}</span> ` + enhName;
+                    break; // Assuming only one ammo type appears in the string
+                }
+            }
+
             var nameExpanded = enhName;
             nameExpanded = nameExpanded + ' (';
             if (enhLimit > 1) nameExpanded += 'up to ' + enhLimit + ' levels, ';
