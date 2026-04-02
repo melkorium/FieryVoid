@@ -6,7 +6,7 @@ class dewMineHD2 extends Mine{
         
 		$this->pointCost = 20;
         $this->faction = "Hurr Republic";
-        $this->phpclass = "dewMineD2";
+        $this->phpclass = "dewMineHD2";
         $this->imagePath = "img/ships/hurrMine.png";
         $this->shipClass = "Class-D2 DEW Mine";
 		$this->occurence = "common";
@@ -33,7 +33,7 @@ class dewMineHD2 extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 6, 8)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy
-        $this->addPrimarySystem(new StdParticleBeam(0, 1, 0, 0, 360));
+        $this->addPrimarySystem(new StdParticleBeam(0, 1, 1, 0, 360));
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(1, 9));

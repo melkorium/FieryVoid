@@ -30,11 +30,7 @@ class dewMineBlast extends Mine{
         //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');       
 
-		// Remove MINE_CTRL from enabled array because it's added by the 'Mines' set, but this unit already has one.
-		$contIndex = array_search('MINE_CTRL', $this->enhancementOptionsEnabled);
-		if ($contIndex !== false) {
-			unset($this->enhancementOptionsEnabled[$contIndex]);
-		}     
+        $this->enhancementOptionsDisabled[] = 'SPARK_CURT';
 
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));

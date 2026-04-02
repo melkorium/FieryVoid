@@ -3608,7 +3608,7 @@ spl_autoload_register(
                 'proxminedr' => '/server/model/ships/drazi/proxMineDR.php',  
                 'proxminedb' => '/server/model/ships/drazi/proxMineDB.php', 
                 'proxminedx' => '/server/model/ships/drazi/proxMineDX.php', 
-                'minedff' => '/server/model/ships/drazi/mineFF.php', 
+                'mineff' => '/server/model/ships/drazi/mineFF.php', 
                 'dewminebt' => '/server/model/ships/drazi/dewMineBT.php',  
                 'dewminebp' => '/server/model/ships/drazi/dewMineBP.php', 
                 'dewminebr' => '/server/model/ships/drazi/dewMineBR.php', 
@@ -3734,7 +3734,7 @@ spl_autoload_register(
                 'dewminehbp' => '/server/model/ships/hurr/dewMineHBP.php', 
                 'dewminehcorti' => '/server/model/ships/hurr/dewMineHCorti.php',   
 
-                'minehdff' => '/server/model/ships/hurr/mineHFF.php',                                 
+                'minehff' => '/server/model/ships/hurr/mineHFF.php',                                 
 
 
 						//Satyra (Wolfgang campaign)

@@ -6,7 +6,7 @@ class dewMineHCorti extends Mine{
         
 		$this->pointCost = 32;
         $this->faction = "Hurr Republic";
-        $this->phpclass = "dewMineD2";
+        $this->phpclass = "dewMineHCorti";
         $this->imagePath = "img/ships/hurrMine.png";
         $this->shipClass = "Cort'i DEW Mine";
 		$this->occurence = "uncommon";

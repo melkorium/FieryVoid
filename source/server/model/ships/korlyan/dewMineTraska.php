@@ -13,7 +13,8 @@ class dewMineTraska extends Mine{
 		$this->variantOf = "Tonkar DEW Mine";    
         $this->isd = 2200;
         $this->notes = 'Must be fired manually';
-        $this->notes = '<br>Must Purchase ammo';                  
+        $this->notes .= '<br>Must Purchase ammo'; 
+        $this->notes .= '<br>Has IFF System';                          
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
