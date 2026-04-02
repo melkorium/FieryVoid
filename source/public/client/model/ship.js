@@ -25,6 +25,12 @@ var Ship = function Ship(json) {
 
     this.hexOffsets = json.hexOffsets || this.hexOffsets || null;
 
+    // Optimization #2: Server omits empty/default ship-level properties.
+    if (this.EW === undefined || this.EW === null) this.EW = [];
+    if (this.spawned === undefined) this.spawned = -1;
+    if (this.skinDancing === undefined) this.skinDancing = false;
+    if (this.enhancementOptions === undefined) this.enhancementOptions = [];
+
     // If we have any system data, proceed
     var systemsToLoad = inputSystems || staticSystems;
 

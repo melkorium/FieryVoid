@@ -3514,8 +3514,14 @@ public function onIndividualNotesLoaded($gamedata)
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;
-        $strippedSystem->allocatedBFCP = $this->allocatedBFCP;
-        $strippedSystem->BFCPtotal_used = $this->BFCPtotal_used;
+        if (isset($this->allocatedBFCP) && !empty($this->allocatedBFCP)) {
+            $strippedSystem->allocatedBFCP = $this->allocatedBFCP;
+        }  			
+        //$strippedSystem->allocatedBFCP = $this->allocatedBFCP;
+        if (isset($this->BFCPtotal_used) && !empty($this->BFCPtotal_used)) {
+            $strippedSystem->BFCPtotal_used = $this->BFCPtotal_used;
+        }  		
+        //$strippedSystem->BFCPtotal_used = $this->BFCPtotal_used;
 		
         return $strippedSystem;
     }
@@ -4042,14 +4048,38 @@ class HyachSpecialists extends ShipSystem implements SpecialAbility{
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;
-        $strippedSystem->allocatedSpec = $this->allocatedSpec;
-        $strippedSystem->availableSpec = $this->availableSpec;      
-      	$strippedSystem->currSelectedSpec = $this->currSelectedSpec;		        
-      	$strippedSystem->currAllocatedSpec = $this->currAllocatedSpec;        
-        $strippedSystem->specTotal_used = $this->specTotal_used;       
-        $strippedSystem->specAllocatedCount = $this->specAllocatedCount;      
-        $strippedSystem->specDecreased = $this->specDecreased;
-        $strippedSystem->specIncreased = $this->specIncreased;                             		
+        if (isset($this->allocatedSpec) && !empty($this->allocatedSpec)) {
+            $strippedSystem->allocatedSpec = $this->allocatedSpec;
+        } 		
+        //$strippedSystem->allocatedSpec = $this->allocatedSpec;
+        if (isset($this->availableSpec) && !empty($this->availableSpec)) {
+            $strippedSystem->availableSpec = $this->availableSpec;
+        } 		
+        //$strippedSystem->availableSpec = $this->availableSpec;  
+        if (isset($this->currSelectedSpec) && !empty($this->currSelectedSpec)) {
+            $strippedSystem->currSelectedSpec = $this->currSelectedSpec;
+        } 			    
+      	//$strippedSystem->currSelectedSpec = $this->currSelectedSpec;
+        if (isset($this->currAllocatedSpec) && !empty($this->currAllocatedSpec)) {
+            $strippedSystem->currAllocatedSpec = $this->currAllocatedSpec;
+        } 				        
+      	//$strippedSystem->currAllocatedSpec = $this->currAllocatedSpec;  
+        if (isset($this->specTotal_used) && !empty($this->specTotal_used)) {
+            $strippedSystem->specTotal_used = $this->specTotal_used;
+        } 		      
+        //$strippedSystem->specTotal_used = $this->specTotal_used;
+        if (isset($this->specAllocatedCount) && !empty($this->specAllocatedCount)) {
+            $strippedSystem->specAllocatedCount = $this->specAllocatedCount;
+        } 			       
+        //$strippedSystem->specAllocatedCount = $this->specAllocatedCount;
+        if (isset($this->specDecreased) && !empty($this->specDecreased)) {
+            $strippedSystem->specDecreased = $this->specDecreased;
+        } 			      
+        //$strippedSystem->specDecreased = $this->specDecreased;
+        if (isset($this->specIncreased) && !empty($this->specIncreased)) {
+            $strippedSystem->specIncreased = $this->specIncreased;
+        } 			
+        //$strippedSystem->specIncreased = $this->specIncreased;                             		
         return $strippedSystem;
     }
 	
@@ -4378,11 +4408,26 @@ class AdaptiveArmorController extends ShipSystem{
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;
-        $strippedSystem->allocatedAA = $this->allocatedAA;
-        $strippedSystem->availableAA = $this->availableAA;
-        $strippedSystem->currchangedAA = $this->currchangedAA;
-        $strippedSystem->AAtotal_used = $this->AAtotal_used;
-        $strippedSystem->AApreallocated_used = $this->AApreallocated_used;
+        if (isset($this->allocatedAA) && !empty($this->allocatedAA)) {
+            $strippedSystem->allocatedAA = $this->allocatedAA;
+        }        		
+        //$strippedSystem->allocatedAA = $this->allocatedAA;
+        if (isset($this->availableAA) && !empty($this->availableAA)) {
+            $strippedSystem->availableAA = $this->availableAA;
+        }  		
+        //$strippedSystem->availableAA = $this->availableAA;
+        if (isset($this->currchangedAA) && !empty($this->currchangedAA)) {
+            $strippedSystem->currchangedAA = $this->currchangedAA;
+        }  			
+        //$strippedSystem->currchangedAA = $this->currchangedAA;
+        if (isset($this->AAtotal_used) && !empty($this->AAtotal_used)) {
+            $strippedSystem->AAtotal_used = $this->AAtotal_used;
+        }  		
+        //$strippedSystem->AAtotal_used = $this->AAtotal_used;
+        if (isset($this->AApreallocated_used) && !empty($this->AApreallocated_used)) {
+            $strippedSystem->AApreallocated_used = $this->AApreallocated_used;
+        }  				
+        //$strippedSystem->AApreallocated_used = $this->AApreallocated_used;
 		
         return $strippedSystem;
     }
@@ -5082,8 +5127,11 @@ class SelfRepair extends ShipSystem{
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;		
-		//$strippedSystem->output = $this->getOutput();	//actual output is constant, and outputMod is correctly shown in front end!	
-        $strippedSystem->priorityChanges = $this->priorityChanges;	
+		//$strippedSystem->output = $this->getOutput();	//actual output is constant, and outputMod is correctly shown in front end!
+        if (isset($this->priorityChanges) && !empty($this->priorityChanges)) {
+            $strippedSystem->priorityChanges = $this->priorityChanges;
+        }  				
+        //$strippedSystem->priorityChanges = $this->priorityChanges;	
         return $strippedSystem;
     }
 	
@@ -7060,7 +7108,7 @@ class MineControllerDEW extends ShipSystem{
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon && $weapon->name !== "RammingAttack"){
  					
-					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded (will this blocked ballistics if they fired in Initial Orders?)
+					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded.  Accelerator weapons should only fire when fully loaded too.
 
 						if($mine->getCommandControl()){            
 							$firingOrders = $weapon->getFireOrders($gamedata->turn);
