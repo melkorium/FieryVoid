@@ -5831,7 +5831,10 @@ capacitor is completely emptied.
 	    $strippedSystem->powerMax = $this->getMaxCapacity();
 		$strippedSystem->nominalOutput = $this->output;
 		//$strippedSystem->powerReceivedFromFrontEnd = $this->powerReceivedFromFrontEnd;
-		$strippedSystem->individualNotesTransfer = $this->individualNotesTransfer;
+        if ($this->individualNotesTransfer !== '' && $this->individualNotesTransfer !== null) {
+            $strippedSystem->individualNotesTransfer = $this->individualNotesTransfer;
+        }		
+		//$strippedSystem->individualNotesTransfer = $this->individualNotesTransfer;
 		$strippedSystem->active = $this->active;
 		$strippedSystem->doubled = $this->doubled;					
         return $strippedSystem;
@@ -6326,9 +6329,9 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;
-        $strippedSystem->shieldPresets = $this->shieldPresets;
-        $strippedSystem->storedCapacity = $this->storedCapacity;       
-        $strippedSystem->presetCurrClass = $this->presetCurrClass;  
+        //$strippedSystem->shieldPresets = $this->shieldPresets;
+        if ($this->storedCapacity !== 0) $strippedSystem->storedCapacity = $this->storedCapacity;       
+        if ($this->presetCurrClass !== '') $strippedSystem->presetCurrClass = $this->presetCurrClass;  
 		
         return $strippedSystem;
     }
@@ -6391,9 +6394,9 @@ class ThoughtShieldGenerator extends ShipSystem{
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
         $strippedSystem->data = $this->data;
-        $strippedSystem->shieldPresets = $this->shieldPresets;
-        $strippedSystem->storedCapacity = $this->storedCapacity;       
-        $strippedSystem->presetCurrClass = $this->presetCurrClass;  
+        //$strippedSystem->shieldPresets = $this->shieldPresets;
+        if ($this->storedCapacity !== 0) $strippedSystem->storedCapacity = $this->storedCapacity;       
+        if ($this->presetCurrClass !== '') $strippedSystem->presetCurrClass = $this->presetCurrClass;  
 		
         return $strippedSystem;
     }
