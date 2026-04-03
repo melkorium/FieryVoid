@@ -166,7 +166,7 @@ class TacGamedata {
 
             //Just a convenient place to set Stealth/Mine variable since we're already going through ships in the game.
             if($ship->userid !== $this->forPlayer){
-                if($ship->trueStealth && !$ship instanceof Mine  && !$ship->isDestroyed()) $this->isStealthPresent = true;
+                if($ship->trueStealth && !$ship->faction > 2 && !$ship instanceof Mine && !$ship->isDestroyed()) $this->isStealthPresent = true;
                 if($ship instanceof Mine && !$ship->isDestroyed()) $this->areMinesPresent = true; //Marks that ENEMY mines are present.
             }                
         }
