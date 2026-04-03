@@ -98,7 +98,7 @@ window.ReplayAnimationStrategy = function () {
             // returns undefined and isDetected() always evaluates to false.
             if (!gamedata.isMyorMyTeamShip(ship)) {
                 if (ship.trueStealth && !shipManager.isDetected(ship)) {
-                    if (!weaponManager.shipHasFiringOrder(ship)) {
+                    if (!weaponManager.shipHasFiringOrder(ship)) { //Check it hasn't fired tho to prevent bugs from mines firing their opening shot etc.
                         return; // Skip this ship
                     }
                 }
