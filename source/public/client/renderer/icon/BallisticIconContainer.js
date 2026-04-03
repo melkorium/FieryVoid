@@ -450,6 +450,14 @@ window.BallisticIconContainer = function () {
 		let shooter = shooterIcon.ship;
 		let weapon = shipManager.systems.getSystem(shooter, ballistic.weaponid);
 		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null; 
+		
+		// If this is an Antimine hex shot, skip if there's a follow-on mine shot
+		if (modeName === 'Z - Antimine' && ballistic.targetid === -1) {
+			if (weapon && weapon.fireOrders && weapon.fireOrders.some(order => order.targetid !== -1 && order.turn === turn)) {
+				return;
+			}
+		}
+
 		if (replay && weapon) {
 			if (weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
 		}
