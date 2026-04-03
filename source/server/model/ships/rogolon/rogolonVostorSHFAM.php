@@ -1,15 +1,14 @@
 <?php
-class RogolonVostorSHF extends SuperHeavyFighter{
+class RogolonVostorSHFAM extends SuperHeavyFighter{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
         $this->pointCost = 85*6;
         $this->faction = "Rogolon Dynasty";
-        $this->phpclass = "RogolonVostorSHF";
+        $this->phpclass = "RogolonVostorSHFAM";
         $this->shipClass = "Vostor Assault Fighter";
         $this->imagePath = "img/ships/RogolonVostor.png";
-	    $this->variantOf = 'NONE';    //Replaced with Ammo version           
 	
 	    $this->isd = 1959;
 
@@ -48,7 +47,7 @@ class RogolonVostorSHF extends SuperHeavyFighter{
             //ammo magazine itself (AND its missile options)
             $ammoMagazine = new AmmoMagazine(4); //pass magazine capacity - actual number of rounds, NOT number of salvoes
             $fighter->addAftSystem($ammoMagazine); //fit to ship immediately
-            $ammoMagazine->addAmmoEntry(new AmmoMissileFY(), 0); //add Dogfight missile as an option - but do NOT load any actual missiles at this moment - so weapon data is actually filled with _something_!
+            $ammoMagazine->addAmmoEntry(new AmmoMissileFB(), 0); //add Dogfight missile as an option - but do NOT load any actual missiles at this moment - so weapon data is actually filled with _something_!
             $this->enhancementOptionsEnabled[] = 'AMMO_FB';//add enhancement options for missiles - Class-FY
 
             $fighter->addFrontSystem(new AmmoFighterRack(330, 30, $ammoMagazine, false)); //$startArc, $endArc, $magazine, $base 

@@ -846,7 +846,8 @@ spl_autoload_register(
 				//'rogolontolovam' => '/server/model/ships/rogolon/rogolonTolovAM.php',
 				'rogolontussova' => '/server/model/ships/rogolon/rogolonTussova.php',
                 'rogolonvasturshf' => '/server/model/ships/rogolon/rogolonVasturSHF.php',
-                'rogolonvostorshf' => '/server/model/ships/rogolon/rogolonVostorSHF.php',
+                //'rogolonvostorshf' => '/server/model/ships/rogolon/rogolonVostorSHF.php',
+                'rogolonvostorshfam' => '/server/model/ships/rogolon/rogolonVostorSHFAM.php',                
 				
 				
                 'rolentha' => '/server/model/ships/minbari/rolentha.php',
@@ -954,7 +955,8 @@ spl_autoload_register(
 		'sorithiantyancarrier' => '/server/model/ships/smallraces/sorithiantyancarrier.php',
 		'sorithiantyancarrierrefit' => '/server/model/ships/smallraces/sorithiantyancarrierrefit.php',
 		'sorithianzolori' => '/server/model/ships/smallraces/sorithianzolori.php',
-		'sorithianzolorii' => '/server/model/ships/smallraces/sorithianzolorii.php',
+		//'sorithianzolorii' => '/server/model/ships/smallraces/sorithianzolorii.php',
+		'sorithianzoloriiam' => '/server/model/ships/smallraces/sorithianzoloriiAM.php',        
 		'sorithianzoloriii' => '/server/model/ships/smallraces/sorithianzoloriii.php',
 		    
 		'sparkfield' => '/server/model/weapons/specialWeapons.php',
