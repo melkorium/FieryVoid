@@ -535,8 +535,10 @@ class CaptorMine extends Weapon{
 		if($jammerValue > 0) $effectiveRange = floor($effectiveRange / 2);	
 	    if ($distance > $effectiveRange) return false; //Not within range, skip LoS check and return false.
 
-        //Captor Mines 'launch' like other ballistics so should obey LoS?
-		$loSBlocked = $this->isLoSBlocked($minePosition, $targetPostion, $gamedata); //Returns true is LoS blocked
+        $loSBlocked = false;
+        if (!empty($gamedata->blockedHexes)) { 
+		    $loSBlocked = $this->isLoSBlocked($minePosition, $targetPostion, $gamedata); //Returns true is LoS blocked
+        }
 		if($loSBlocked) return false; //LoS Blocked
 
 		return true;
@@ -917,8 +919,10 @@ class ProximityMine extends Weapon implements SpecialAbility{
 		
 	    if ($distance > $effectiveRange) return false; //Not within range, skip LoS check and return false.
 
-        //Proximity mines can't damage if Terrain in the way.
-		$loSBlocked = $this->isLoSBlocked($minePosition, $targetPostion, $gamedata); //Returns true is LoS blocked
+        $loSBlocked = false;
+        if (!empty($gamedata->blockedHexes)) { 
+		    $loSBlocked = $this->isLoSBlocked($minePosition, $targetPostion, $gamedata); //Returns true is LoS blocked
+        }
 		if($loSBlocked) return false; //LoS Blocked
 
 		return true;

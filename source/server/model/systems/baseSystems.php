@@ -7247,8 +7247,8 @@ class MineControllerDEW extends ShipSystem{
 	    if ($distance > $effectiveRange) return false; //Not within range, skip LoS check and return false.
 
         $loSBlocked = false;
-        if (!empty($blockedLosHex)) {            
-            $loSBlocked = Mathlib::isLoSBlocked($minePosition, $targetPostion, $blockedLosHex);
+        if (!empty($gamedata->blockedHexes)) {            
+            $loSBlocked = Mathlib::isLoSBlocked($minePosition, $targetPostion, $gamedata->blockedHexes);
         }		
 		if($loSBlocked) return false; //LoS Blocked
 
