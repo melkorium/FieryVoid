@@ -1034,7 +1034,10 @@ class ProximityMine extends Weapon implements SpecialAbility{
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
         $strippedSystem->allocatedShipTypes = $this->allocatedShipTypes;      
-        $strippedSystem->autoHit = $this->autoHit; 	                  			                             
+        $strippedSystem->autoHit = $this->autoHit; 	 
+        if (isset($this->potentialTargets) && !empty($this->potentialTargets)) {
+            $strippedSystem->potentialTargets = $this->potentialTargets;
+        } 	                         			                             
         $strippedSystem->potentialTargets = $this->potentialTargets;
         return $strippedSystem;
     }
