@@ -103,7 +103,8 @@ spl_autoload_register(
                 'baseshipnoaft' => '/server/model/ships/ShipClasses.php',
                 'baseshipnofwd' => '/server/model/ships/ShipClasses.php',
                 'bashnar' => '/server/model/ships/brakiri/bashnar.php',
-                'bastarfoxftr' => '/server/model/ships/beltalliance/baStarfoxFtr.php',
+                //'bastarfoxftr' => '/server/model/ships/beltalliance/baStarfoxFtr.php',
+                'bastarfoxftram' => '/server/model/ships/beltalliance/baStarfoxFtrAM.php',                
                 'basurveyship' => '/server/model/ships/beltalliance/baSurveyShip.php',
                 'batrado' => '/server/model/ships/brakiri/batrado.php',
                 'batradoearly' => '/server/model/ships/brakiri/batradoEarly.php',
@@ -2143,6 +2144,7 @@ spl_autoload_register(
 				//Rich Bax Early Earth Alliance
                 'bagammaftr' => '/server/model/ships/beltalliance/baGammaFtr.php',
                 'basentinelftr' => '/server/model/ships/beltalliance/baSentinelFtr.php',
+                'basentinelftram' => '/server/model/ships/beltalliance/baSentinelFtrAM.php',                
 
                 'ariesstarfury' => '/server/model/ships/EA_old/ariesStarfury.php',
                 'atlasstarfury' => '/server/model/ships/EA_old/atlasStarfury.php',

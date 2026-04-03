@@ -1,15 +1,14 @@
 <?php
-class BASentinelFtr extends FighterFlight{
+class baSentinelFtrAM extends FighterFlight{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
         $this->pointCost = 228;
         $this->faction = "Belt Alliance";
-        $this->phpclass = "BASentinelFtr";
+        $this->phpclass = "baSentinelFtrAM";
         $this->shipClass = "BA Sentinel Fighters";
-        $this->imagePath = "img/ships/BASentinel.png";
-	    $this->variantOf = 'NONE';    //Replaced with Ammo version      
+        $this->imagePath = "img/ships/BASentinel.png";    
 
         $this->isd = 2261;
         
@@ -41,14 +40,13 @@ class BASentinelFtr extends FighterFlight{
             $frontGun->displayName = "Light Particle Gun";
             $fighter->addFrontSystem($frontGun);
 
-            $missileRack = new FighterMissileRack(2, 330, 30);
-            $missileRack->firingModes = array(
-                1 => "FY"
-            );
-            $missileRack->missileArray = array(
-                1 => new MissileFY(330, 30)
-            );
-            $fighter->addFrontSystem($missileRack);		
+            //ammo magazine itself (AND its missile options)
+            $ammoMagazine = new AmmoMagazine(2); //pass magazine capacity - actual number of rounds, NOT number of salvoes
+            $fighter->addAftSystem($ammoMagazine); //fit to ship immediately
+            $ammoMagazine->addAmmoEntry(new AmmoMissileFY(), 0); //add Dogfight missile as an option - but do NOT load any actual missiles at this moment - so weapon data is actually filled with _something_!
+            $this->enhancementOptionsEnabled[] = 'AMMO_FY';//add enhancement options for missiles - Class-FY
+
+            $fighter->addFrontSystem(new AmmoFighterRack(330, 30, $ammoMagazine, false)); //$startArc, $endArc, $magazine, $base 
 			
 		$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack
 		
