@@ -90,10 +90,19 @@ window.ReplayAnimationStrategy = function () {
     function animateMovement(time) {
         this.gamedata.ships.forEach(function (ship) {
 
-            // Filter out enemy stealth ships that are undetected
+            // Filter out enemy stealth ships that are undetected —
+            // BUT always include ships that have fire orders this turn:
+            // a mine that fired must appear in movementAnimations so the
+            // weapon-fire animation phase can look up its position.
+            // This is also the fix for spectator view where getPlayerTeam()
+            // returns undefined and isDetected() always evaluates to false.
             if (!gamedata.isMyorMyTeamShip(ship)) {
                 if (ship.trueStealth && !shipManager.isDetected(ship)) {
-                    return; // Skip this ship
+                    var hasFireOrders = weaponManager.getAllFireOrdersForShip &&
+                        weaponManager.getAllFireOrdersForShip(ship).length > 0;
+                    if (!hasFireOrders) {
+                        return; // Skip this undetected stealth ship that hasn't fired
+                    }
                 }
             }
 
