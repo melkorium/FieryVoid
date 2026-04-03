@@ -7117,10 +7117,12 @@ class MineControllerDEW extends ShipSystem{
 			//Loop through mine's weapon and create fire orders against target.		
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon && $weapon->name !== "RammingAttack"){
+					if($weapon->isDestroyed($gamedata->turn)) return;//Is destroyed (shouldn't happen)
  					
 					if($weapon->getTurnsloaded() >= $weapon->getNormalLoad() && !$weapon->firedOnTurn($gamedata->turn)){ //is Loaded.  Accelerator weapons should only fire when fully loaded too.
 
-						if($mine->getCommandControl()){            
+						if($mine->getCommandControl()){  
+							if($weapon->isOfflineOnTurn($gamedata->turn)) return; //Is been turned offline							          
 							$firingOrders = $weapon->getFireOrders($gamedata->turn);
 							
 							$hasFireOrder = null;
