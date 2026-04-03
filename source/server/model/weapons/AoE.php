@@ -315,7 +315,7 @@ class CaptorMine extends Weapon{
 
     public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
-            $this->data["Max Range"] = $this->range;        
+            $this->data["Range"] = $this->range;       
             foreach($this->allocatedRanges as $shipType=>$range){
                 $this->data[' - '.$shipType.' range'] =  $range;
             }         
@@ -634,7 +634,7 @@ class ProximityMine extends Weapon implements SpecialAbility{
 
     public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
-            $this->data["Max Range"] = $this->range;
+            $this->data["Range"] = $this->range;
             foreach($this->allocatedShipTypes as $shipType=>$range){
                 $this->data[' - Attack '.$shipType] =  $range;
             }         
