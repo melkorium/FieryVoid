@@ -8349,8 +8349,7 @@ class AmmoMissileZ extends AmmoMissileTemplate{
 
 
 	public function beforeFiringOrderResolution($gamedata, $weapon, $originalFireOrder){
-//Debug::log("x " . $originalFireOrder->x);
-//Debug::log("y " . $originalFireOrder->y);
+
 		$targetHex = new OffsetCoordinate($originalFireOrder->x, $originalFireOrder->y);
 		$fired = false;
 		$ship = $weapon->getUnit();
@@ -8390,7 +8389,7 @@ class AmmoMissileZ extends AmmoMissileTemplate{
 		}		
 
 		if(!$fired){
-			$originalFireOrder->pubnotes = "<br>No mines detected, munition lost.";	
+			$originalFireOrder->pubnotes = "<br>No mines detected.";	
 		}
 	
 
