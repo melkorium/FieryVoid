@@ -143,7 +143,7 @@ session_write_close(); // Prevent Session Locking (Spam Refresh Protection)
                 window.UIManagerInstance.FullScreen();
                 window.UIManagerInstance.EwButtons();
                 $("#pagecontainer").show();
-            }, 10);
+            }, 50);
         });
         
             
