@@ -109,27 +109,7 @@ if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] === 
     exit;
 }
 
-// Optimization #3: PHP-level Brotli compression for dynamic JSON.
-// LiteSpeed serves gzip for dynamic output but not Brotli.
-// brotli_compress() is available on this server, so we apply it manually.
-$acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-
-if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress') && strlen($ret) > 256) {
-    // Disable any server-level compression to avoid double-encoding
-    if (function_exists('apache_setenv')) {
-        apache_setenv('no-gzip', '1');
-    }
-    ini_set('zlib.output_compression', 'Off');
-    
-    header('Content-Encoding: br');
-    header('Vary: Accept-Encoding');
-    $compressed = brotli_compress($ret, 4); // Level 4: good balance for dynamic content
-    header('Content-Length: ' . strlen($compressed));
-    echo $compressed;
-} else {
-    // Fallback: let LiteSpeed handle gzip compression
-    echo $ret;
-}
+echo $ret;
 exit;
 
 /* //Old version
