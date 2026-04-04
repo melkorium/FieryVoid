@@ -8617,6 +8617,35 @@ class AmmoMissileFD extends AmmoMissileTemplate{
     }
 } //endof class AmmoMissileFD
 
+class AmmoMissileFDum extends AmmoMissileTemplate{	
+	public $name = 'AmmoMissileFDum';
+	public $displayName = 'Dummy Missile';
+	public $modeName = 'XDummy'; //R to differentiate from D - on mode change first letter is displayed!
+	public $size = 1; //how many store slots are required for a single round
+	public $enhancementName = 'AMMO_DUM'; //enhancement name to be enabled
+	public $enhancementDescription = '(AMMO) Dummy Missile'; 
+	public $enhancementPrice = 1; //PV per missile; originally it's 8 for Kor-Lyan and 10 for everyone else
+	
+	public $fireControlMod = array(null, null, null); //Should never fire.
+	public $minDamage = 0;
+	public $maxDamage = 0;	
+	public $damageType = 'Standard';//mode of dealing damage
+	public $weaponClass = 'Ballistic';//weapon class
+	public $priority = 10;
+	public $priorityAF = 10; //at the very end of queue - to drop out fighters that actually survived other impacts
+		
+    public function getDamage($fireOrder) //actual function to be called, as with weapon!
+    {
+        return 0;
+    }
+	
+	function getPrice($unit) //some missiles might have different price depending on unit being fitted!
+	{
+		return $this->enhancementPrice;
+	}	
+
+} //endof class AmmoMissileDum
+
 
 //ammunition for AmmoMagazine - Basic Mine for BallisticMineLauncher
 class AmmoBLMineB extends AmmoMissileTemplate{	

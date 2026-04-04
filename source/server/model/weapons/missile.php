@@ -1965,6 +1965,7 @@ class AmmoFighterRack extends AmmoMissileRackS{
 			$this->ammoClassesArray[] =  new AmmoMissileFH();
 			$this->ammoClassesArray[] =  new AmmoMissileFY();
 			$this->ammoClassesArray[] =  new AmmoMissileFD();
+			$this->ammoClassesArray[] =  new AmmoMissileFDum();			
 			$this->availableAmmoAlreadySet = true;
 		}		
 		parent::__construct(0, 1, 0, $startArc, $endArc, $magazine, $base); //Parent routines take care of the rest
