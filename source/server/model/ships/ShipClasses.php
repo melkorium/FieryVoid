@@ -616,7 +616,7 @@ class BaseShip {
 		}				
 	
 		
-		 $strippedShip->enhancementOptions = array(); // could remove - was always empty but maybe that's the point since less data being passed around Front End?
+		//$strippedShip->enhancementOptions = array(); // can remove - will be emptied in front end when ships are built - DK
         return $strippedShip;
     }
 	 

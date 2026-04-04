@@ -29,7 +29,9 @@ var Ship = function Ship(json) {
     if (this.EW === undefined || this.EW === null) this.EW = [];
     if (this.spawned === undefined) this.spawned = -1;
     if (this.skinDancing === undefined) this.skinDancing = false;
-    if (this.enhancementOptions === undefined) this.enhancementOptions = [];
+    if (json.enhancementOptions === undefined && (window.gamedata && window.gamedata.status !== 'LOBBY')) {
+        this.enhancementOptions = [];
+    }
 
     // If we have any system data, proceed
     var systemsToLoad = inputSystems || staticSystems;
