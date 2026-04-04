@@ -143,7 +143,7 @@
                 window.UIManagerInstance.FullScreen();
                 window.UIManagerInstance.EwButtons();
                 $("#pagecontainer").show();
-            }, 100);
+            }, 10);
         });
         
             
