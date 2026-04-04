@@ -1,6 +1,5 @@
 <?php
-ob_start();
-require_once 'global.php'; // ✅ Critical dependency
+    require_once 'global.php'; // ✅ Critical dependency
     session_write_close(); // Prevent Session Locking (Spam Refresh Protection)
 
 	$gameid = 1;
@@ -877,43 +876,4 @@ require_once 'global.php'; // ✅ Critical dependency
 </body>
 
 </html>
-<?php
-// Standardized Brotli compression for the main tactical interface
-$content = ob_get_clean();
-$etag = md5($content);
 
-header("Etag: \"$etag\"");
-header("Cache-Control: private, must-revalidate");
-
-if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === "\"$etag\"") {
-    header("HTTP/1.1 304 Not Modified");
-    exit;
-}
-
-$acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-
-if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress') && strlen($content) > 1024) {
-    header('X-Debug-Method: Brotli-PHP');
-    header('X-LiteSpeed-No-Gzip: 1');
-    header('X-LSCompress: 0');
-    
-    if (function_exists('apache_setenv')) {
-        apache_setenv('no-gzip', '1');
-    }
-    ini_set('zlib.output_compression', 'Off');
-    
-    header('Content-Encoding: br');
-    header('Vary: Accept-Encoding');
-    $compressed = brotli_compress($content, 4); 
-    header('Content-Length: ' . strlen($compressed));
-    echo $compressed;
-} else if (strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode') && strlen($content) > 1024) {
-    header('Content-Encoding: gzip');
-    header('Vary: Accept-Encoding');
-    $compressed = gzencode($content, 6);
-    header('Content-Length: ' . strlen($compressed));
-    echo $compressed;
-} else {
-    echo $content;
-}
-?>

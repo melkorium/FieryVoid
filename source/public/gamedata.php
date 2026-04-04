@@ -114,11 +114,8 @@ if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] === 
 // brotli_compress() is available on this server, so we apply it manually.
 $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
 
-if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress') && strlen($ret) > 1024) {
-    header('X-Debug-Method: Brotli-PHP');
-    header('X-LiteSpeed-No-Gzip: 1');
-    header('X-LSCompress: 0');
-    
+if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress') && strlen($ret) > 256) {
+    // Disable any server-level compression to avoid double-encoding
     if (function_exists('apache_setenv')) {
         apache_setenv('no-gzip', '1');
     }
@@ -126,16 +123,11 @@ if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress'
     
     header('Content-Encoding: br');
     header('Vary: Accept-Encoding');
-    $compressed = brotli_compress($ret, 4); 
-    header('Content-Length: ' . strlen($compressed));
-    echo $compressed;
-} else if (strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode') && strlen($ret) > 1024) {
-    header('Content-Encoding: gzip');
-    header('Vary: Accept-Encoding');
-    $compressed = gzencode($ret, 6);
+    $compressed = brotli_compress($ret, 4); // Level 4: good balance for dynamic content
     header('Content-Length: ' . strlen($compressed));
     echo $compressed;
 } else {
+    // Fallback: let LiteSpeed handle gzip compression
     echo $ret;
 }
 exit;
