@@ -2137,6 +2137,7 @@ full Advanced Armor effects (by rules) for reference:
 	/*weapons with special effects affecting system hit will redefine this*/
     protected function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder)
     {
+        if($system instanceof Fighter && $damage >= 2) $system->checkMissileLoss($ship, $gamedata); //Damage to fighters carrying missiles can 
         return;
     }
 

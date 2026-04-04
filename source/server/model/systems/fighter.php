@@ -256,6 +256,48 @@ throw new Exception("getArmourAdaptive (fighter)! $dmgClass $armour");
     } //endof function getRammingFactor
 
 
+    public function checkMissileLoss($ship, $gamedata)
+    {
+		$magazine = null;
+		foreach($this->systems as $system){
+			if($system->name == 'ammoMagazine'){
+				$magazine = $system;
+				break;
+			}
+		}
+
+		if($magazine !== null){
+            $bestAmmoMode = null;
+            $lowestPrice = 9999;
+            
+            foreach($magazine->ammoCountArray as $modeName => $count){
+                // Determine actual available count considering pending removals in this turn
+                $availableCount = $count;
+                foreach($magazine->getIndividualNotes() as $note){
+                    if($note->notekey == 'AmmoUsed' && $note->notevalue == $modeName){
+                        $availableCount--;
+                    }
+                }
+                
+                if($availableCount > 0){
+                    $ammo = $magazine->getAmmo($modeName);
+                    if($ammo){
+                        $price = $ammo->getPrice($ship);
+                        if($price < $lowestPrice){
+                            $lowestPrice = $price;
+                            $bestAmmoMode = $modeName;
+                        }
+                    }
+                }
+            }
+            
+            if($bestAmmoMode !== null){
+                $magazine->doDrawAmmo($gamedata, $bestAmmoMode);
+            }
+		}
+    } //endof function checkMissileLoss
+
+
 }
 
 ?>

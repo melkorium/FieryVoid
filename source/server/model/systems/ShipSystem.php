@@ -860,7 +860,10 @@ class ShipSystem {
 	public function onIndividualNotesLoaded($gamedata){
 		$this->individualNotes = array();//delete notes, after reaction on their load they serve no further purpose
 	}
-		
+		public function getIndividualNotes(){
+		return $this->individualNotes;
+	}
+	
 	
     public function setUnit($unit){
 		$this->unit = $unit;    
