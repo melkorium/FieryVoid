@@ -474,7 +474,7 @@ shipManager.movement = {
             if (name == "slipright") { //slip to Stbd requres Port thruster
                 reqThrusterName = "port";
             }
-            var requiredThruster = shipManager.movement.thrusterDirectionRequired(ship, reqThrusterName);
+            var requiredThruster = shipManager.movement.thrusterDirectionRequired(ship, reqThrusterName, false, true);
             requiredThrust[requiredThruster] = slipcost;
         }
 
@@ -2358,7 +2358,7 @@ shipManager.movement = {
       
       DIRECTION may be text ("port","stbd","main","retro")
     */
-    thrusterDirectionRequired: function thrusterDirectionRequired(ship, direction, accel = false, isTurn = false) {
+    thrusterDirectionRequired: function thrusterDirectionRequired(ship, direction, accel = false, isTurnOrSlip = false) {
         var orientationRequired = shipManager.movement.directionNoFromName(direction);
 
         if (orientationRequired > 2 && shipManager.movement.isRolled(ship)) { //rolled reverses side requirements
@@ -2387,7 +2387,7 @@ shipManager.movement = {
                 }
             }
         } else { //ship is gravitic! reverse requirements if going backwards
-            if (shipManager.movement.isGoingBackwards(ship) && (isTurn || !shipManager.movement.isOutOfAlignment(ship))) { //moving backwards reverses all requirements
+            if (shipManager.movement.isGoingBackwards(ship) && (isTurnOrSlip || !shipManager.movement.isOutOfAlignment(ship))) { //moving backwards reverses all requirements
                 switch (orientationRequired) {
                     case 1:
                         orientationRequired = 2;
@@ -2406,7 +2406,7 @@ shipManager.movement = {
         }
 
         //Gravitic allows further rotations if pivoted (eg. not moving exactly forward or backwards)...
-        if (ship.gravitic && !isTurn) {
+        if (ship.gravitic && !isTurnOrSlip) {
             if (shipManager.movement.isPivotedPort(ship)) { //pivoted to Port means: Stbd is Retro, Main is Stbd, Port is Main, Retro is Port
                 switch (orientationRequired) {
                     case 1:
