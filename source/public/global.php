@@ -9,7 +9,11 @@ if (PHP_SAPI !== 'cli' && !headers_sent()) {
 ini_set('display_errors',1);
 error_reporting(E_ALL);
 require_once dirname(__DIR__) . '/autoload.php';
+
+// Prevent PHP from sending legacy 1981 headers if a session starts
+session_cache_limiter(''); 
 session_start();
+
 require_once dirname(__DIR__) . '/server/server_load_guard.php'; // <--- add this line
 require_once dirname(__DIR__) . '/server/varconfig.php';
 ?>

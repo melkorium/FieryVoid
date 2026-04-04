@@ -13,6 +13,23 @@ function fv_compress_output() {
     $content = ob_get_clean();
     if ($content === false) return;
 
+    // Apply Weak ETag for caching (Nginx often strips strong ETags when compression is active)
+    // NOTE: On this specific server, ETags are stripped by the proxy, but we keep the logic 
+    // for compatibility if the server config changes in the future.
+    $etag = md5($content);
+    
+    header_remove('Pragma');
+    header_remove('Expires');
+    
+    header("Etag: W/\"$etag\"");
+    header("Cache-Control: private, must-revalidate");
+
+    $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+    if ($ifNoneMatch && (trim($ifNoneMatch) === "\"$etag\"" || trim($ifNoneMatch) === "W/\"$etag\"")) {
+        header("HTTP/1.1 304 Not Modified");
+        exit;
+    }
+
     // Check if we already sent a compression header or if it's too small to bother
     $existingHeaders = headers_list();
     $alreadyCompressed = false;
@@ -32,16 +49,6 @@ function fv_compress_output() {
     }
 
     $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-
-    // Apply ETag for caching
-    $etag = md5($content);
-    header("Etag: \"$etag\"");
-    header("Cache-Control: private, must-revalidate");
-
-    if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === "\"$etag\"") {
-        header("HTTP/1.1 304 Not Modified");
-        exit;
-    }
 
     // BROTLI (Highest Priority)
     if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress')) {
@@ -71,7 +78,7 @@ function fv_compress_output() {
         return;
     }
 
-    // No compression
+    // No compression fallback
     echo $content;
 }
 ?>

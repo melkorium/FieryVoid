@@ -1,6 +1,6 @@
 <?php
-    require_once 'global.php'; // ✅ Critical dependency
-    session_write_close(); // Prevent Session Locking (Spam Refresh Protection)
+require_once 'global.php'; // ✅ Critical dependency
+session_write_close(); // Prevent Session Locking (Spam Refresh Protection)
 
 	$gameid = 1;
 	$thisplayer = -1;
