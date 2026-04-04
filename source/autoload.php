@@ -2149,7 +2149,8 @@ spl_autoload_register(
                 'basentinelftram' => '/server/model/ships/beltalliance/baSentinelFtrAM.php',                
 
                 'ariesstarfury' => '/server/model/ships/EA_old/ariesStarfury.php',
-                'atlasstarfury' => '/server/model/ships/EA_old/atlasStarfury.php',
+                //'atlasstarfury' => '/server/model/ships/EA_old/atlasStarfury.php',
+                'atlasstarfuryam' => '/server/model/ships/EA_old/atlasStarfuryAM.php',                
                 'atlasstarfuryrefitam' => '/server/model/ships/EA_old/atlasStarfuryRefitAM.php',
                 'avengeralpha' => '/server/model/ships/EA_old/avengerAlpha.php',
                 'cottenalpha' => '/server/model/ships/EA_old/cottenAlpha.php',
