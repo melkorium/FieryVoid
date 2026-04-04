@@ -616,8 +616,7 @@ class BaseShip {
 		}				
 	
 		
-		// Optimization #2: Don't send empty enhancementOptions
-		// $strippedShip->enhancementOptions = array(); // removed - was always empty
+		 $strippedShip->enhancementOptions = array(); // could remove - was always empty but maybe that's the point since less data being passed around Front End?
         return $strippedShip;
     }
 	 
