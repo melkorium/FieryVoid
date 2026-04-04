@@ -2,7 +2,7 @@
 // Start output buffering with compression (gzip/brotli via zlib or gzhandler)
 // We capture the output to hash it for an ETag before sending.
 if (!ini_get('zlib.output_compression')) {
-    ob_start("ob_gzhandler");
+    ob_start();
 } else {
     ob_start();
 }
@@ -1273,5 +1273,30 @@ if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']
 }
 
 // Otherwise, send the full (compressed) payload
-echo $content;
+$acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+
+if (strpos($acceptEncoding, 'br') !== false && function_exists('brotli_compress') && strlen($content) > 2048) {
+    header('X-Debug-Method: Brotli-PHP');
+    header('X-LiteSpeed-No-Gzip: 1');
+    header('X-LSCompress: 0');
+    
+    if (function_exists('apache_setenv')) {
+        apache_setenv('no-gzip', '1');
+    }
+    ini_set('zlib.output_compression', 'Off');
+    
+    header('Content-Encoding: br');
+    header('Vary: Accept-Encoding');
+    $compressed = brotli_compress($content, 4); 
+    header('Content-Length: ' . strlen($compressed));
+    echo $compressed;
+} else if (strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode') && strlen($content) > 2048) {
+    header('Content-Encoding: gzip');
+    header('Vary: Accept-Encoding');
+    $compressed = gzencode($content, 6);
+    header('Content-Length: ' . strlen($compressed));
+    echo $compressed;
+} else {
+    echo $content;
+}
 ?>
