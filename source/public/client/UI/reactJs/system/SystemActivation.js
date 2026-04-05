@@ -4,7 +4,7 @@ import styled from 'styled-components';
 const Container = styled.div`
     display: flex;
     flex-direction: column;
-    margin-top: 5px;
+    margin-top: 0px;
     width: 100%;
     min-width: 160px;
     opacity: 0.95 !important;
@@ -79,19 +79,32 @@ const ActionButton = styled.div`
         &:hover { background: #203348; color: #deebff; }
     `}
 
-    ${props => props.$active && `
-        background:  #806c00; 
+    ${props => props.$active && props.$variant === 'activate' && `
+        background: #1b5e20; 
         color: white;
-        border: 1px solid #e6c300;
+        border: 1px solid #4caf50;
         opacity: 1;
 
-    &:hover {
-        background:  #806c00; 
-        border: 1px solid #e6c300;      
-        color: #ffffff;
-        opacity: 1;
-    }
+        &:hover {
+            background: #2e7d32; 
+            border: 1px solid #66bb6a;      
+            color: #ffffff;
+            opacity: 1;
+        }
+    `}
 
+    ${props => props.$active && props.$variant === 'deactivate' && `
+        background: #7f1d1d; 
+        color: white;
+        border: 1px solid #ef4444;
+        opacity: 1;
+
+        &:hover {
+            background: #991b1b; 
+            border: 1px solid #f87171;      
+            color: #ffffff;
+            opacity: 1;
+        }
     `}
 `;
 
@@ -133,8 +146,8 @@ class SystemActivation extends Component {
                 <Header>{system.displayName}</Header>
                 <Row>
                     <Controls>
-                        <ActionButton onClick={() => this.handleActivate()} disabled={!this.canActivate()} $active={isActive}>Activate</ActionButton>
-                        <ActionButton onClick={() => this.handleDeactivate()} disabled={!this.canDeactivate()} $active={!isActive}>Deactivated</ActionButton>
+                        <ActionButton onClick={() => this.handleActivate()} disabled={!this.canActivate()} $active={isActive} $variant="activate">Activate</ActionButton>
+                        <ActionButton onClick={() => this.handleDeactivate()} disabled={!this.canDeactivate()} $active={!isActive} $variant="deactivate">Deactivate</ActionButton>
                     </Controls>
                 </Row>
             </Container>

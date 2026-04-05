@@ -1335,7 +1335,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
 `;class S_ extends Ft.Component{handleBoost(){this.canBoost()&&(shipManager.power.clickPlus(this.props.ship,this.props.system),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}handleDeBoost(){this.canDeBoost()&&(shipManager.power.clickMinus(this.props.ship,this.props.system),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}handleActivate(){this.canActivate()&&(this.props.system.doActivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}handleDeactivate(){this.canDeactivate()&&(this.props.system.doDeactivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}canBoost(){const{ship:l,system:d}=this.props;return d.boostable&&gamedata.gamephase===1&&shipManager.power.canBoost(l,d)}canDeBoost(){const{ship:l,system:d}=this.props;return gamedata.gamephase===1&&!!shipManager.power.getBoost(d)}canActivate(){return this.props.system.canActivate()}canDeactivate(){return this.props.system.canDeactivate()}render(){const{ship:l,system:d}=this.props,v=shipManager.power.getBoost(d),b=d.active;return C.jsxs(g_,{children:[C.jsx(y_,{children:"Power Capacitor"}),d.boostable&&C.jsxs(iC,{children:[C.jsx(oC,{children:"Open Petals"}),C.jsxs(lC,{children:[C.jsx(gv,{onClick:()=>this.handleDeBoost(),disabled:!this.canDeBoost(),$active:v===0,children:"OFF"}),C.jsx(gv,{onClick:()=>this.handleBoost(),disabled:!this.canBoost(),$active:v>0,children:"ON"})]})]}),C.jsxs(iC,{children:[C.jsx(oC,{children:"Double Recharge"}),C.jsxs(lC,{children:[C.jsx(gv,{onClick:()=>this.handleDeactivate(),disabled:!this.canDeactivate(),$active:!b,children:"OFF"}),C.jsx(gv,{onClick:()=>this.handleActivate(),disabled:!this.canActivate(),$active:b,children:"ON"})]})]})]})}}const x_=F.div`
     display: flex;
     flex-direction: column;
-    margin-top: 5px;
+    margin-top: 0px;
     width: 100%;
     min-width: 160px;
     opacity: 0.95 !important;
@@ -1400,21 +1400,34 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
         &:hover { background: #203348; color: #deebff; }
     `}
 
-    ${u=>u.$active&&`
-        background:  #806c00; 
+    ${u=>u.$active&&u.$variant==="activate"&&`
+        background: #1b5e20; 
         color: white;
-        border: 1px solid #e6c300;
+        border: 1px solid #4caf50;
         opacity: 1;
 
-    &:hover {
-        background:  #806c00; 
-        border: 1px solid #e6c300;      
-        color: #ffffff;
-        opacity: 1;
-    }
-
+        &:hover {
+            background: #2e7d32; 
+            border: 1px solid #66bb6a;      
+            color: #ffffff;
+            opacity: 1;
+        }
     `}
-`;class E_ extends Ft.Component{handleActivate(){this.canActivate()&&(this.props.system.doActivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}handleDeactivate(){this.canDeactivate()&&(this.props.system.doDeactivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}canActivate(){return this.props.system.canActivate&&typeof this.props.system.canActivate=="function"&&this.props.system.canActivate()}canDeactivate(){return this.props.system.canDeactivate&&typeof this.props.system.canDeactivate=="function"&&this.props.system.canDeactivate()}render(){const{ship:l,system:d}=this.props,v=d.active||d.weapon&&weaponManager.hasFiringOrder(l,d);return C.jsxs(x_,{children:[C.jsx(b_,{children:d.displayName}),C.jsx(w_,{children:C.jsxs(C_,{children:[C.jsx(sC,{onClick:()=>this.handleActivate(),disabled:!this.canActivate(),$active:v,children:"Activate"}),C.jsx(sC,{onClick:()=>this.handleDeactivate(),disabled:!this.canDeactivate(),$active:!v,children:"Deactivated"})]})})]})}}const T_=F.div`
+
+    ${u=>u.$active&&u.$variant==="deactivate"&&`
+        background: #7f1d1d; 
+        color: white;
+        border: 1px solid #ef4444;
+        opacity: 1;
+
+        &:hover {
+            background: #991b1b; 
+            border: 1px solid #f87171;      
+            color: #ffffff;
+            opacity: 1;
+        }
+    `}
+`;class E_ extends Ft.Component{handleActivate(){this.canActivate()&&(this.props.system.doActivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}handleDeactivate(){this.canDeactivate()&&(this.props.system.doDeactivate(),this.forceUpdate(),webglScene.customEvent("SystemDataChanged",{ship:this.props.ship,system:this.props.system}))}canActivate(){return this.props.system.canActivate&&typeof this.props.system.canActivate=="function"&&this.props.system.canActivate()}canDeactivate(){return this.props.system.canDeactivate&&typeof this.props.system.canDeactivate=="function"&&this.props.system.canDeactivate()}render(){const{ship:l,system:d}=this.props,v=d.active||d.weapon&&weaponManager.hasFiringOrder(l,d);return C.jsxs(x_,{children:[C.jsx(b_,{children:d.displayName}),C.jsx(w_,{children:C.jsxs(C_,{children:[C.jsx(sC,{onClick:()=>this.handleActivate(),disabled:!this.canActivate(),$active:v,$variant:"activate",children:"Activate"}),C.jsx(sC,{onClick:()=>this.handleDeactivate(),disabled:!this.canDeactivate(),$active:!v,$variant:"deactivate",children:"Deactivate"})]})})]})}}const T_=F.div`
     display: flex;
     flex-direction: column;
     margin-top: 0px;
@@ -1615,7 +1628,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     font-size: 11px;
 `,F.span`
     color: white;
-`;class G_ extends Ft.Component{render(){const{ship:l,system:d,boundingBox:v}=this.props;return nS(l,d)?C.jsx(Y_,{position:Q_(v),opacity:W_(l,d)?.9:.8,children:C.jsx(I_,{...this.props})}):null}}const Q_=u=>{const l={};return u.top>window.innerHeight/2?l.bottom=window.innerHeight-u.top:l.top=u.top+u.height,u.left>window.innerWidth/2?l.right=window.innerWidth-u.right:l.left=u.left,l},K_=F.div`
+`;class G_ extends Ft.Component{render(){const{ship:l,system:d,boundingBox:v}=this.props;return nS(l,d)?C.jsx(Y_,{position:Q_(v),opacity:W_(l,d)?.95:.8,children:C.jsx(I_,{...this.props})}):null}}const Q_=u=>{const l={};return u.top>window.innerHeight/2?l.bottom=window.innerHeight-u.top:l.top=u.top+u.height,u.left>window.innerWidth/2?l.right=window.innerWidth-u.right:l.left=u.left,l},K_=F.div`
     display: flex;
     flex-wrap: wrap-reverse;
     width: ${u=>{if(u.$isTerrain)return"125px";switch(u.location){case 1:case 0:case 2:return"40%";default:return"30%"}}};	
