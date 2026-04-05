@@ -19,7 +19,7 @@ const Header = styled.div`
     border-bottom: 1px solid #496791;    
     color: #deebff;
     text-align: center;
-    font-size: 12px;
+    font-size: 11px;
     margin-bottom: 2px;
     opacity: 0.95 !important;     
     font-weight: bold;
