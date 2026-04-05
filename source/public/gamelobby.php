@@ -73,7 +73,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<!-- Preload critical bundle to parallelize download with large inline JSON payloads below -->
 		<?php $debug = isset($_GET['debug']); ?>
 		<?php if (!$debug): ?>
-		<link rel="preload" href="client/gamelobby.legacy.bundle.js" as="script">
+		<link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/gamelobby.legacy.bundle.js'); ?>" as="script">
 		<?php endif; ?>
 
 		<link href="styles/base.css" rel="stylesheet" type="text/css">
@@ -144,7 +144,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         <script src="client/model/weapon/customTrek.js"></script>		
         <script src="client/model/weapon/customCW.js"></script>
     <?php else: ?>
-    <script defer src="client/gamelobby.legacy.bundle.js"></script>
+    <script defer src="<?php echo AssetLoader::getAssetUrl('client/gamelobby.legacy.bundle.js'); ?>"></script>
     <?php endif; ?>		
 		<script>
 			
