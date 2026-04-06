@@ -4474,7 +4474,7 @@ window.BallisticIconContainer = function () {
 		let hideTargetAlways = false;
 
 		if (replay) {
-			if (ballistic.damageclass === 'PersistentEffectPlasma' && ballistic.targetid === -1 && ballistic.notes !== 'PlasmaCloud') return;
+			//if (ballistic.damageclass === 'PersistentEffectPlasma' && ballistic.targetid === -1) return;
 			if (weapon?.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
 				for (var i in weapon.fireOrders) {
 					var otherBall = weapon.fireOrders[i];
@@ -4603,7 +4603,7 @@ window.BallisticIconContainer = function () {
 		let launchSprite = null;
 		if (
 			!getByLaunchPosition(launchPosition, this.ballisticIcons) &&
-			ballistic.notes !== 'PersistentEffect' &&
+			ballistic.damageclass !== 'PersistentEffectPlasma' &&
 			ballistic.type !== 'normal' &&
 			ballistic.damageclass !== 'support'
 		) {
@@ -4694,7 +4694,7 @@ window.BallisticIconContainer = function () {
 			} else {
 				updateBallisticLineIcon.call(this, icon, ballistic, iconContainer, turn);
 			}
-		} else if (ballistic.notes !== 'PersistentEffect') {
+		} else if (ballistic.notes !== 'PersistentEffect' && ballistic.damageclass !== 'PersistentEffectPlasma') {
 			createBallisticLineIcon.call(this, ballistic, iconContainer, turn, this.scene, replay);
 		}
 	}
@@ -4703,7 +4703,7 @@ window.BallisticIconContainer = function () {
 	//To create ballistic lines between launches and targets.
 	function createBallisticLineIcon(ballistic, iconContainer, turn, scene, replay = false) {
 		//if(ballistic.damageclass == 'Targeter') return;		
-		if (ballistic.targetid === -1 && ballistic.x == "null" && ballistic.y == "null") return; // Skip creation of enemy hidden weapons, can cause visual bugs.
+		if (ballistic.targetid === -1 && ballistic.x == "null" && ballistic.y == "null") return; // Skip creation of enemy hidden weapons, can cause visual bugs.	
 
 		const shooterIcon = iconContainer.getById(ballistic.shooterid);
 		const targetIcon = iconContainer.getById(ballistic.targetid);
@@ -4728,7 +4728,9 @@ window.BallisticIconContainer = function () {
 		let targetPosition;
 
 		// Determine target position
-		if (replay && targetIcon) {
+		if (ballistic.damageclass === 'PersistentEffectPlasma') {
+			targetPosition = this.coordinateConverter.fromHexToGame(new hexagon.Offset(ballistic.x, ballistic.y));
+		} else if (replay && targetIcon) {
 			targetPosition = this.coordinateConverter.fromHexToGame(targetIcon.getLastMovementOnTurn(turn)?.position);
 		} else if (targetIcon && ballistic.targetid !== -1) {
 			targetPosition = this.coordinateConverter.fromHexToGame(targetIcon.getLastMovement(turn)?.position);
