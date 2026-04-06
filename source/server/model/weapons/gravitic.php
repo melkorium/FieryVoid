@@ -920,7 +920,7 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 	public $doNotIntercept = true; //although I don't think a weapon exists that could intercept it...
 	public $loadingtime = 3;
     public $rangePenalty = 1;
-    protected $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
+    public $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
 	public $firingModes = array(
 		1 => "Clockwise",
         2 => "Anti-Clockwise"
@@ -1038,7 +1038,7 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 
     public function stripForJson() {
         $strippedSystem = parent::stripForJson();    
-        $strippedSystem->canTargetAll = $this->canTargetAll;	        											                                        
+        //$strippedSystem->canTargetAll = $this->canTargetAll;	        											                                        
         return $strippedSystem;
 	}	
 
@@ -1061,7 +1061,7 @@ class GravityNet extends Weapon implements SpecialAbility{
 	public $doNotIntercept = true; //although I don't think a weapon exists that could intercept it...
 	public $loadingtime = 2;
     public $rangePenalty = 1;
-    protected $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()	
+    public $canTargetAll = true; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()	
     public $fireControl = array(1, 2, 3); // fighters, <mediums, <capitals 
 	public $preFires = true;
     public $canSplitShots = true;
@@ -1239,7 +1239,7 @@ class GravityNet extends Weapon implements SpecialAbility{
     public function stripForJson() {
         $strippedSystem = parent::stripForJson(); 
         $strippedSystem->showHexagonArc = $this->showHexagonArc;  
-        $strippedSystem->canTargetAll = $this->canTargetAll;
+        //$strippedSystem->canTargetAll = $this->canTargetAll;
         $strippedSystem->moveDistance = $this->moveDistance;                                        
         return $strippedSystem;
 	}	

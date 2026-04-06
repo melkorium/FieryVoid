@@ -1,6 +1,6 @@
 #replayUI {
     pointer-events: auto;
-    border: 1px solid #496791;
+    border: 1px solid #3793c8;
     border-radius: 8px;
     color: #deebff;
     background-color: #0a3340;
@@ -49,11 +49,11 @@
 
 #replayUI .selected-replay {
     text-transform: uppercase;
-        margin-top: 0px;
-        margin-right: 3px;
-        margin-bottom: 0px;
-        margin-left: 12px;
-        padding-top: 3px;    
+    margin-top: 0px;
+    margin-right: 3px;
+    margin-bottom: 0px;
+    margin-left: 12px;
+    padding-top: 3px;
 }
 
 #replayUI .replay-buttons button {
@@ -137,6 +137,7 @@
     #replayUI.active .replay-active {
         padding: 5px;
     }
+
     #replayUI .selected-replay {
         text-transform: uppercase;
         font-size: 12px;
@@ -145,5 +146,5 @@
         margin-bottom: 0px;
         margin-left: 6px;
         padding-top: 3px;
-}    
+    }
 }

@@ -4464,8 +4464,8 @@ window.BallisticIconContainer = function () {
 		let weapon = null;
 		let modeName = null;
 
-		if (!shooter.flight && ballistic.weaponid in shooter.systems) {
-			weapon = shooter.systems[ballistic.weaponid];
+		weapon = shipManager.systems.getSystem(shooter, ballistic.weaponid);
+		if (weapon) {
 			modeName = weapon?.firingModes?.[ballistic.firingMode] || null;
 		}
 
@@ -4473,7 +4473,7 @@ window.BallisticIconContainer = function () {
 
 		if (replay) {
 			if (ballistic.damageclass === 'PersistentEffectPlasma' && ballistic.targetid === -1 && ballistic.notes !== 'PlasmaCloud') return;
-			if (!shooter.flight && weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
+			if (weapon?.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
 				for (var i in weapon.fireOrders) {
 					var otherBall = weapon.fireOrders[i];
 					if (otherBall.damageclass == "SecondAttack") {
@@ -4497,7 +4497,7 @@ window.BallisticIconContainer = function () {
 			//targetPosition = { x: 0, y: 0 }; // placeholder — the mesh will handle it
 		}
 
-		if (!shooter.flight && weapon?.noTargetHexIcon) {
+		if (weapon?.noTargetHexIcon) {
 			targetPosition = launchPosition;
 		}
 
@@ -4636,9 +4636,9 @@ window.BallisticIconContainer = function () {
 		});
 	}
 
-	const getByLaunchPosition = (position, icons) => icons.find(icon => icon.launchPosition && icon.launchPosition.x === position.x && icon.launchPosition.y === position.y)
+	const getByLaunchPosition = (position, icons) => icons.find(icon => icon.used && icon.launchPosition && icon.launchPosition.x === position.x && icon.launchPosition.y === position.y)
 
-	const getByTargetIdOrTargetPosition = (position, targetId, icons) => icons.find(icon => (targetId !== -1 && icon.targetId === targetId) || (position && icon.position && icon.position.x === position.x && icon.position.y === position.y))
+	const getByTargetIdOrTargetPosition = (position, targetId, icons) => icons.find(icon => icon.used && ((targetId !== -1 && icon.targetId === targetId) || (position && icon.position && icon.position.x === position.x && icon.position.y === position.y)))
 
 
 	function updateBallisticIcon(icon) {
@@ -4708,10 +4708,10 @@ window.BallisticIconContainer = function () {
 		if (!shooterIcon) return;
 
 		let shooter = shooterIcon.ship;
-		let weapon = !shooter.flight ? shooter.systems[ballistic.weaponid] : null;
-		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null;
-		if (replay) {
-			if (!shooter.flight && weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
+		let weapon = shipManager.systems.getSystem(shooter, ballistic.weaponid);
+		let modeName = weapon?.firingModes?.[ballistic.firingMode] ?? null; 
+		if (replay && weapon) {
+			if (weapon.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) return;
 		}
 		// Get launch position (may be overwritten later)
 		let launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getFirstMovementOnTurn(turn)?.position);
@@ -6600,7 +6600,7 @@ window.ShipDestroyedAnimation = function () {
 
     ShipDestroyedAnimation.playExplosionSound = function () {
         if (!ShipDestroyedAnimation.cachedAudio) {
-            ShipDestroyedAnimation.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/ShipExplosionAudio.wav");
+            ShipDestroyedAnimation.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/ShipExplosionAudio.mp3");
             ShipDestroyedAnimation.cachedAudio.volume = 0.1;
         }
 
@@ -6718,7 +6718,7 @@ window.ShipJumpAnimation = function () {
 
         // --- 🔊 Add sound support ---
         this.explosionTriggered = false;
-        this.sound = new Audio("client/renderer/animationStrategy/animation/sound/ShipJumpAudio.wav");
+        this.sound = new Audio("client/renderer/animationStrategy/animation/sound/ShipJumpAudio.mp3");
         this.sound.volume = 0.7;
     }
 
@@ -7165,7 +7165,7 @@ window.AllWeaponFireAgainstShipAnimation = function () {
                     var playedImpactSound = false;
                     var soundVolume = 0.1;
                     if (typeof TorpedoEffect !== 'undefined' && !TorpedoEffect.cachedExplosionAudio) {
-                        TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+                        TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
                     }
 
                     return {
@@ -8719,7 +8719,7 @@ window.LaserEffect = function () {
 
         // --- Cached laser sound setup ---
         if (!LaserEffect.cachedAudio) {
-            LaserEffect.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/LaserAudio1.wav");
+            LaserEffect.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/LaserAudio1.mp3");
             LaserEffect.cachedAudio.volume = 0.1;
             LaserEffect.cachedAudio.preload = "auto";
         }
@@ -9052,10 +9052,10 @@ window.BoltEffect = function () {
         this.playedImpactSound = false;
 
         if (!BoltEffect.cachedLaunchAudio) {
-            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BoltAudio.wav");
+            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BoltAudio.mp3");
         }
         if (!BoltEffect.cachedImpactAudio) {
-            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
         }
 
         //if (this.hit) this.duration -= 25;
@@ -9280,10 +9280,10 @@ window.MissileEffect = function () {
         this.playedImpactSound = false;
 
         if (!BoltEffect.cachedLaunchAudio) {
-            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.wav");
+            BoltEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.mp3");
         }
         if (!BoltEffect.cachedImpactAudio) {
-            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+            BoltEffect.cachedImpactAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
         }
 
         //if (this.hit) this.duration -= 25;
@@ -9514,10 +9514,10 @@ window.TorpedoEffect = function () {
 
         // Cache reusable Audio objects globally
         if (!TorpedoEffect.cachedLaunchAudio) {
-            TorpedoEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.wav");
+            TorpedoEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/TorpedoAudio.mp3");
         }
         if (!TorpedoEffect.cachedExplosionAudio) {
-            TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.wav");
+            TorpedoEffect.cachedExplosionAudio = new Audio("client/renderer/animationStrategy/animation/sound/ExplosionAudio.mp3");
         }
 
         if (this.hit) {
@@ -9759,7 +9759,7 @@ window.BlinkEffect = function () {
 
         // Cache reusable Audio objects globally
         if (!BlinkEffect.cachedLaunchAudio) {
-            BlinkEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BlinkAudio.wav");
+            BlinkEffect.cachedLaunchAudio = new Audio("client/renderer/animationStrategy/animation/sound/BlinkAudio.mp3");
         }
         /*
         if (!BlinkEffect.cachedExplosionAudio) {
@@ -12811,15 +12811,6 @@ window.PreFiringPhaseStrategy = function () {
         }
     };
 
-    /*//Old version before allied targeting
-    PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
-        this.setSelectedShip(ship);
-        var menu = new ShipTooltipFireMenu(this.selectedShip, ship, this.gamedata.turn);
-        var ballisticsMenu = new ShipTooltipBallisticsMenu(this.shipIconContainer, this.gamedata.turn, true, this.selectedShip);
-        if (!gamedata.showLoS) this.showShipTooltip(ship, payload, menu, false, ballisticsMenu);
-    };
-    */
-
     //New version that allows targeting of allies when Friendly Fire Active - DK
     PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
 
@@ -12872,6 +12863,7 @@ window.PreFiringPhaseStrategy = function () {
     };
 
     PreFiringPhaseStrategy.prototype.targetShip = function (ship, payload) {
+
         if (shipManager.getTurnDeployed(this.selectedShip) > gamedata.turn) { //Selected ships is not deployed yet - DK May 2025
             this.showShipTooltip(ship, payload, menu, false);
             return;
@@ -19602,8 +19594,7 @@ window.ajaxInterface = {
         if (data && data.error) {
             window.confirm.exception(data, function () { });
             gamedata.waiting = false;
-        } else {
-            //gamedata.parseServerData(data);
+            return;
         }
         gamedata.parseServerData(data);
     },
@@ -19646,6 +19637,13 @@ window.ajaxInterface = {
         if (gamedata.waiting == false) {
             ajaxInterface.stopPolling();
             return;
+        }
+
+        // Safety: Reset stuck submiting flag (e.g. after tab sleep killed the XHR)
+        if (ajaxInterface.submiting && ajaxInterface._lastPollTime &&
+            Date.now() - ajaxInterface._lastPollTime > 30000) {
+            console.warn("Polling: Resetting stuck submiting flag");
+            ajaxInterface.submiting = false;
         }
 
         var time = 4000;
@@ -19721,11 +19719,13 @@ window.ajaxInterface = {
         if (ajaxInterface.submiting) return;
 
         ajaxInterface.submiting = true;
+        ajaxInterface._lastPollTime = now;
 
         ajaxInterface.ajaxWithRetry({
             type: 'GET',
             url: 'gamedata.php',
             dataType: 'json',
+            timeout: 20000, // Prevent indefinite hang on background tab / mobile sleep
             maxAttempts: 2, // Limit retries for in-game polling too
             data: {
                 turn: gamedata.turn,
@@ -19737,7 +19737,10 @@ window.ajaxInterface = {
                 time: Date.now()
             },
             success: ajaxInterface.successRequest,
-            error: ajaxInterface.errorAjax,
+            error: function (xhr, textStatus, errorThrown) {
+                // Silent for polling — next poll cycle will retry automatically
+                console.warn("Gamedata poll failed:", textStatus, errorThrown);
+            },
             complete: function () {
                 // always clear flag, even on error/timeout
                 ajaxInterface.submiting = false;
@@ -20064,6 +20067,18 @@ window.ajaxInterface = {
     }
 
 };
+
+// Tab reactivation: Immediately poll when user returns to the tab
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && typeof gamedata !== 'undefined' &&
+        gamedata.waiting && ajaxInterface.pollActive) {
+        // Tab just became visible — do an immediate poll and reset decay
+        ajaxInterface.pollcount = 0;
+        if (!ajaxInterface.submiting) {
+            ajaxInterface.requestGamedata();
+        }
+    }
+});
 ;
 
 /* Source: client/ew.js */
@@ -22473,6 +22488,7 @@ window.weaponManager = {
         debug && console.log("weaponManager target ship", ship, system);
 
         if (shipManager.isDestroyed(selectedShip)) return;
+        if(selectedShip.mine && ship.mine) return;  //Mine can't shoot mines.      
         if (ship.Huge > 0) return; //Do not allow targeting of large muti-hex terrain.
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
         if (weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.
@@ -22675,6 +22691,11 @@ window.weaponManager = {
 
 
     checkIsInRange: function checkIsInRange(shooter, target, weapon) {
+
+        if (weapon.name == "ProximityMine" && gamedata.gamephase == 5 && weapon.potentialTargets && weapon.potentialTargets[target.id] !== undefined) {
+            return true;
+        }
+
         var range = weapon.range;
         var distance = mathlib.getDistanceBetweenShipsInHex(shooter, target).toFixed(2);
 
@@ -32711,9 +32732,13 @@ window.fleetListManager = {
                 break;
         }
 
-        const html = slot.waiting
-            ? "<span style='color:green'>&nbsp;&nbsp;[Orders committed]</span>"
-            : "<span style='color:orange'>&nbsp;&nbsp;[Waiting for " + phaseLabel + " Orders]</span>";
+        var html = "<span style='color:orange'>&nbsp;&nbsp;[Waiting for " + phaseLabel + " Orders]</span>";
+
+        if (slot.surrendered !== null && slot.surrendered <= gamedata.turn) {
+            html = "<span style='color:red'>&nbsp;&nbsp;[Surrendered on Turn " + slot.surrendered + "]</span>";
+        } else if (slot.waiting) {
+            html = "<span style='color:green'>&nbsp;&nbsp;[Orders committed]</span>";
+        }
 
         header.html(html);
     },

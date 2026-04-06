@@ -81,7 +81,7 @@ window.LaserEffect = function () {
 
         // --- Cached laser sound setup ---
         if (!LaserEffect.cachedAudio) {
-            LaserEffect.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/LaserAudio1.wav");
+            LaserEffect.cachedAudio = new Audio("client/renderer/animationStrategy/animation/sound/LaserAudio1.mp3");
             LaserEffect.cachedAudio.volume = 0.1;
             LaserEffect.cachedAudio.preload = "auto";
         }

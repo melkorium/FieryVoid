@@ -53,15 +53,6 @@ window.PreFiringPhaseStrategy = function () {
         }
     };
 
-    /*//Old version before allied targeting
-    PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
-        this.setSelectedShip(ship);
-        var menu = new ShipTooltipFireMenu(this.selectedShip, ship, this.gamedata.turn);
-        var ballisticsMenu = new ShipTooltipBallisticsMenu(this.shipIconContainer, this.gamedata.turn, true, this.selectedShip);
-        if (!gamedata.showLoS) this.showShipTooltip(ship, payload, menu, false, ballisticsMenu);
-    };
-    */
-
     //New version that allows targeting of allies when Friendly Fire Active - DK
     PreFiringPhaseStrategy.prototype.selectShip = function (ship, payload) {
 
@@ -114,6 +105,7 @@ window.PreFiringPhaseStrategy = function () {
     };
 
     PreFiringPhaseStrategy.prototype.targetShip = function (ship, payload) {
+
         if (shipManager.getTurnDeployed(this.selectedShip) > gamedata.turn) { //Selected ships is not deployed yet - DK May 2025
             this.showShipTooltip(ship, payload, menu, false);
             return;
