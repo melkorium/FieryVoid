@@ -1407,7 +1407,7 @@ class PakmaraPlasmaWeb extends Weapon implements DefensiveSystem{
 	} // End of getDefensiveDamageMod
 			
 
-    public function beforeFiringOrderResolution($gamedata){
+    public function beforePreFiringOrderResolution($gamedata){
     	
 		//Start by checking for Ballistic fireOrder, if there isn't one there's no need to do anything!
 		$firingOrders = $this->getFireOrders($gamedata->turn);
@@ -1509,7 +1509,7 @@ class PakmaraPlasmaWeb extends Weapon implements DefensiveSystem{
 	
 		    // Create a new FireOrder
 		    $newDamageFireOrder = new FireOrder(
-		        -1, "ballistic", $thisShip->id, $target->id,
+		        -1, "prefiring", $thisShip->id, $target->id,
 		        $this->id, -1, $gamedata->turn, 2, 
 		        100, 0, 1, 0, 0, // needed, rolled, shots, shotshit, intercepted
 		        $cloudFireOrder->x, $cloudFireOrder->y, $this->weaponClass, -1 // X, Y, damageclass, resolutionorder
@@ -1604,7 +1604,7 @@ class PakmaraPlasmaWeb extends Weapon implements DefensiveSystem{
 				$fireOrder->rolled = $rolled; ///and auto-hit ;)
 				$fireOrder->shotshit++;
 				
-				if($fireOrder->type == "ballistic"){ //Plasma cloud attack, shouldn't draw power.
+				if($fireOrder->type == "prefiring"){ //Plasma cloud attack, shouldn't draw power.
 					$fireOrder->pubnotes .= "<br>Plasma cloud(s) damages fighters that pass through.";//just information for player.				
 				
 					//deal damage!  Will be to a particular flight, not genuinely AoE!
