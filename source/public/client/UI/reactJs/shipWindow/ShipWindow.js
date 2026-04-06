@@ -18,7 +18,8 @@ const ShipWindowContainer = styled.div`
             return "right: 50px; \n top: 50px;"
         }
     }}
-    max-width: 400px;
+    max-width: ${props => props.$isTerrain ? '250px' : '400px'};
+    width: ${props => props.$isTerrain ? '250px' : 'auto'};
     height: auto;
     border: 1px solid #496791;
     background-color: #0a3340;
@@ -327,9 +328,9 @@ class ShipWindow extends React.Component {
         }
 
         if (isUnrevealedMine) {
-            return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} team={ship.team}>
+            return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} team={ship.team} $isTerrain={true}>
                 <Header><span>{shipName}</span> {unitName}<CloseButton onClick={this.close.bind(this)}>✕</CloseButton></Header>
-                <Column $top>
+                <Column>
                     <ShipImage img={ship.imagePath} onMouseOver={this.onShipMouseOver.bind(this)} onMouseOut={this.onShipMouseOut.bind(this)} onClick={this.onShipClick.bind(this)} onTouchStart={this.onShipTouchStart.bind(this)} onTouchMove={this.onShipTouchMove.bind(this)} onTouchEnd={this.onShipTouchEnd.bind(this)} onTouchCancel={this.onShipTouchCancel.bind(this)} />
                     <UnknownSystemIcon onMouseOver={this.onUnknownMouseOver.bind(this)} onMouseOut={this.onShipMouseOut.bind(this)} onTouchStart={this.onUnknownTouchStart.bind(this)} onTouchMove={this.onShipTouchMove.bind(this)} onTouchEnd={this.onShipTouchEnd.bind(this)} onTouchCancel={this.onShipTouchCancel.bind(this)}>?</UnknownSystemIcon>
                 </Column>
@@ -337,13 +338,14 @@ class ShipWindow extends React.Component {
         }
 
         const systemsByLocation = sortIntoLocations(ship);
+        const isTerrain = window.gamedata.isTerrain(ship.shipSizeClass, ship.userid) || ship.mine;
 
-        return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} team={ship.team}>
+        return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} team={ship.team} $isTerrain={isTerrain}>
             <Header><span>{shipName}</span> {unitName}<CloseButton onClick={this.close.bind(this)}>✕</CloseButton></Header>
-            <Column $top>
+            <Column $top={!isTerrain}>
                 <ShipImage img={ship.imagePath} onMouseOver={this.onShipMouseOver.bind(this)} onMouseOut={this.onShipMouseOut.bind(this)} onClick={this.onShipClick.bind(this)} onTouchStart={this.onShipTouchStart.bind(this)} onTouchMove={this.onShipTouchMove.bind(this)} onTouchEnd={this.onShipTouchEnd.bind(this)} onTouchCancel={this.onShipTouchCancel.bind(this)} />
-                {systemsByLocation[1].length > 0 && <ShipSection location={1} ship={ship} systems={systemsByLocation[1]} />}
-                <ShipWindowEw ship={ship} />
+                {systemsByLocation[1].length > 0 && <ShipSection location={1} ship={ship} systems={systemsByLocation[1]} $isTerrain={isTerrain} />}
+                {!isTerrain && <ShipWindowEw ship={ship} />}
             </Column>
 
             <Column>

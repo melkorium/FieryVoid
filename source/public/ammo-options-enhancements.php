@@ -253,12 +253,21 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
     <ul>
       <p><strong>Note</strong> - All costs listed below are on per mine basis e.g. you pay for each fighters in the flight.</p>
+      
+        <li><strong>Command Controller</strong>
+        <ul class="circle-list">
+            <li>Effect: Allows you to manually choose from valid targets, and overwrite mine's automatic targeting.</li>
+            <li>Points Cost: 33%</li>
+            <li>Limit: 1</li>
+            <li>Notes: Proximity Mines will trigger a Pre-Firing phase where you can target any ships that passed into range during movement. 
+              If you choose not to manually target a unit, the mine will still attack using it's default targeting logic.</li>
+        </ul>      
+      </li> 
       <li><strong>Identify Friend or Foe (IFF) System</strong>
         <ul class="circle-list">
-            <li>Effect: Prevent ballistic mines from attacking friendly units</li>
-            <li>Points Cost: 4 pts per Ballistic Mine Launcher</li>
-            <li>Limit: 1</li>
-            <li>Notes: Only available to ships equipped with Ballistic Mine Launchers</li>              
+            <li>Effect: Prevent mines from attacking friendly units</li>
+            <li>Points Cost: 10%</li>
+            <li>Limit: 1</li>           
         </ul>      
       </li> 
       <li><strong>Improved Accuracy</strong>

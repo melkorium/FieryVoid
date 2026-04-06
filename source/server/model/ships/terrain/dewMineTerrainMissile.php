@@ -10,7 +10,8 @@ class dewMineTerrainMissile extends Mine{
         $this->imagePath = "img/ships/korlyan_mine.png";
         $this->shipClass = "DEW Mine (Missile)";
 		$this->occurence = "common";
-		$this->variantOf = "DEW Mine (Beam)";
+		//$this->variantOf = "DEW Mine (Beam)";
+		$this->variantOf = 'NONE';        
         $this->isd = 2200;
         
         $this->forwardDefense = 12;

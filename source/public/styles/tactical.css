@@ -180,7 +180,7 @@ body {
 }
 
 #phaseheader {
-    border: 1px solid #496791;
+    border: 1px solid #3793c8;
     border-radius: 8px;
     color: #deebff;
     background-color: #0a3340;
@@ -471,6 +471,7 @@ body {
 
 #logcontainer.large {
     height: 500px;
+    max-height: 75vh;
 }
 
 #logcontainer.mouseover {
@@ -700,9 +701,9 @@ body {
 #expandBotPanel {
     position: absolute;
     top: -26px;
-    border-top: 1px solid #496791;
-    border-right: 1px solid #496791;
-    border-left: 1px solid #496791;
+    border-top: 1px solid #3793c8;
+    border-right: 1px solid #3793c8;
+    border-left: 1px solid #3793c8;
     border-radius: 5px 5px 0px 0px;
     -moz-border-radius: 5px 5px 0px 0px;
     -webkit-border-radius: 5px 5px 0px 0px;
@@ -1001,7 +1002,7 @@ body {
 
 #iniGui {
     z-index: 10000;
-    border: 1px solid #496791;
+    border: 1px solid #3793c8;
     color: #deebffdc;
     background-color: #0a3340;
     margin-top: 45px;
@@ -1152,7 +1153,7 @@ body {
     /* Default open */
     width: 55px;
     height: 25px;
-    border: 1px solid #496791;
+    border: 1px solid #3793c8;
     color: #deebff;
     background-color: #0a3340;
     opacity: 0.8;
@@ -1321,6 +1322,7 @@ body {
 
     #logcontainer.large {
         height: 300px;
+        max-height: 75vh;
     }
 
     #iniGui {
