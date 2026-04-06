@@ -2708,6 +2708,7 @@ spl_autoload_register(
 				'drolla' => '/server/model/ships/corillani/Drolla.php',
 				'plasmablast' => '/server/model/weapons/plasma.php',
 				'corillanithorkaosat' => '/server/model/ships/corillani/CorillaniThorkaOSAT.php',
+				'corillaniurshtalubase' => '/server/model/ships/corillani/CorillaniUrshtaluBase.php',
 				
 				//Vree
 				'sixsidedship' => '/server/model/ships/ShipClasses.php',
@@ -3050,6 +3051,7 @@ spl_autoload_register(
          		'abbaiminelauncher' => '/server/model/weapons/missile.php', 	 
 
 
+
 				//Star Wars - Clone Wars testing
 
 				//weapons
@@ -3232,6 +3234,7 @@ spl_autoload_register(
 						'garundaam' => '/server/model/ships/corillani/GarundaAM.php',
 						'llartolam' => '/server/model/ships/corillani/LlartolAM.php',
 						'mollantaam' => '/server/model/ships/corillani/MollantaAM.php',
+						'torellanam' => '/server/model/ships/corillani/TorellanAM.php',
 						'intonaam' => '/server/model/ships/corillani/IntonaAM.php',
 						
 						//Descari
@@ -3630,6 +3633,14 @@ spl_autoload_register(
 						'vorchan_wi' => '/server/model/ships/whatif/vorchan_WI.php',
 
 
+						//Great Crusade Orieni weapons
+						'warlance' => '/server/model/weapons/customs.php',
+						'lightlaserlance' => '/server/model/weapons/customs.php',
+						'imprapidgatling' => '/server/model/weapons/customs.php',
+						'gaussrifle' => '/server/model/weapons/customs.php',
+						'heavygaussrifle' => '/server/model/weapons/customs.php',
+						'orieniflakarray' => '/server/model/weapons/customs.php',
+
                         //Great Crusade Orieni
 						'benevolentgcam' => '/server/model/ships/GreatCrusadeOrieni/benevolentGCAM.php',	
 						'communegc' => '/server/model/ships/GreatCrusadeOrieni/communeGC.php',	
@@ -3656,15 +3667,21 @@ spl_autoload_register(
 						'zealotgc' => '/server/model/ships/GreatCrusadeOrieni/zealotGC.php',	
 
 
+
+
+
 						
 				// For the future
+				'attacklaser' => '/server/model/weapons/customs.php',
+				'boltrailgun' => '/server/model/weapons/customs.php',
+				'chargedparticlegun' => '/server/model/weapons/customs.php',
+				'earlyparticlecannon' => '/server/model/weapons/customs.php',
+				'fusiongun' => '/server/model/weapons/customs.php',
+				'heavyslugcannon' => '/server/model/weapons/customs.php',
 				'hvyassaultlaser' => '/server/model/weapons/lasers.php',
-				'warlance' => '/server/model/weapons/customs.php',
-				'lightlaserlance' => '/server/model/weapons/customs.php',
-				'imprapidgatling' => '/server/model/weapons/customs.php',
-				'gaussrifle' => '/server/model/weapons/customs.php',
-				'heavygaussrifle' => '/server/model/weapons/customs.php',
-				'orieniflakarray' => '/server/model/weapons/customs.php',
+				'hvygraviticbolt' => '/server/model/weapons/customs.php',
+				'hvyplasmagunftr' => '/server/model/weapons/customs.php',
+				'interceptorarray' => '/server/model/weapons/customs.php',
 
 	
 				//let's end this with unit enhancement class...		    
