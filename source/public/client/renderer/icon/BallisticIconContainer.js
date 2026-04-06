@@ -213,6 +213,7 @@ window.BallisticIconContainer = function () {
 
 		if (replay) {
 			if (ballistic.damageclass === 'PersistentEffectPlasma' && ballistic.targetid === -1 && ballistic.notes !== 'PlasmaCloud') return;
+			if (ballistic.damageclass === 'PersistentEffectSand' && ballistic.targetid === -1 && ballistic.notes !== 'SandCloud') return; //GTS
 			if (weapon?.alwaysHideFireOrders && gamedata.getPlayerTeam() !== shooter.team) {
 				for (var i in weapon.fireOrders) {
 					var otherBall = weapon.fireOrders[i];
