@@ -211,14 +211,6 @@ window.gamedata = {
 			case "House Valheru":
 				powerRating = 'Tier 1; Custom Centauri faction';
 				break;
-/*customGTS*/
-			case "Huan":
-				powerRating = 'Tier 3; Custom faction';
-				break;
-/*customGTS*/
-			case "Kilkameshi":
-				powerRating = 'Tier 3; Custom faction';
-				break;
 			case 'Nexus Brixadii Clans (early)':
 				powerRating = 'Tier 3; Custom faction';
 				break;
@@ -259,10 +251,6 @@ window.gamedata = {
 				powerRating = 'Tier 3; Custom faction';
 				break;
 			case 'Nexus Velrax Republic':
-				powerRating = 'Tier 2; Custom faction';
-				break;
-/*customGTS*/
-			case "Orieni Imperium (early)":
 				powerRating = 'Tier 2; Custom faction';
 				break;
 			case '12 Colonies of Kobol':
