@@ -1,5 +1,4 @@
 <?php
-
 // Load global config and classes
 require_once 'global.php';
 

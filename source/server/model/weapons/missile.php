@@ -1260,36 +1260,36 @@ class AmmoMissileRackS extends Weapon{
  	public function stripForJson(){
 		$strippedSystem = parent::stripForJson();
 		$strippedSystem->firingModes = $this->firingModes; 
-		$strippedSystem->damageTypeArray = $this->damageTypeArray; 
-		$strippedSystem->weaponClassArray = $this->weaponClassArray;
+		if (!empty($this->damageTypeArray)) $strippedSystem->damageTypeArray = $this->damageTypeArray; 
+		if (!empty($this->weaponClassArray)) $strippedSystem->weaponClassArray = $this->weaponClassArray;
 		$strippedSystem->basicFC = $this->basicFC; 		 
-		$strippedSystem->fireControlArray = $this->fireControlArray; 
-		$strippedSystem->rangeArray = $this->rangeArray; 
-		$strippedSystem->distanceRangeArray = $this->distanceRangeArray; 
-		$strippedSystem->priorityArray = $this->priorityArray; 
-		$strippedSystem->priorityAFArray = $this->priorityAFArray; 
-		$strippedSystem->dpArray = $this->dpArray; 
-		$strippedSystem->noOverkillArray = $this->noOverkillArray; 
-		$strippedSystem->minDamageArray = $this->minDamageArray; 
-		$strippedSystem->maxDamageArray = $this->maxDamageArray; 
-		$strippedSystem->hidetargetArray = $this->hidetargetArray;	//For Stealth Missiles			
-		$strippedSystem->maxpulsesArray = $this->maxpulsesArray;//Adding Pulse functions for Starburst missiles	
-		$strippedSystem->rofArray = $this->rofArray;
-		$strippedSystem->useDieArray = $this->useDieArray;
-		$strippedSystem->fixedBonusPulsesArray = $this->fixedBonusPulsesArray;	
-		$strippedSystem->calledShotModArray = $this->calledShotModArray;	//Adding calledShotMod variable for Multiwarhead Missile.
-		$strippedSystem->specialRangeCalculationArray = $this->specialRangeCalculationArray; //Adding for KK Missile
-		$strippedSystem->rangePenaltyArray = $this->rangePenaltyArray; //Adding Range and No Lock variables for KK Missiles
-		$strippedSystem->noLockPenaltyArray = $this->noLockPenaltyArray;		
-		$strippedSystem->specialHitChanceCalculationArray = $this->specialHitChanceCalculationArray;//Adding marker for HARM missiles special hitchance calculation		
-		$strippedSystem->interceptArray = $this->interceptArray;//Adding Intercept nad ballisticIntercept variables for Interceptor missiles	
-		$strippedSystem->ballisticInterceptArray = $this->ballisticInterceptArray;
-		$strippedSystem->hextargetArray = $this->hextargetArray;//For Jammer missile
-		$strippedSystem->animationArray = $this->animationArray;
-		$strippedSystem->animationExplosionScaleArray = $this->animationExplosionScaleArray;
-		$strippedSystem->uninterceptableArray = $this->uninterceptableArray;		
-		$strippedSystem->doNotInterceptArray = $this->doNotInterceptArray;
-		$strippedSystem->mineRangeArray = $this->mineRangeArray;				
+		if (!empty($this->fireControlArray)) $strippedSystem->fireControlArray = $this->fireControlArray; 
+		if (!empty($this->rangeArray)) $strippedSystem->rangeArray = $this->rangeArray; 
+		if (!empty($this->distanceRangeArray)) $strippedSystem->distanceRangeArray = $this->distanceRangeArray; 
+		if (!empty($this->priorityArray)) $strippedSystem->priorityArray = $this->priorityArray; 
+		if (!empty($this->priorityAFArray)) $strippedSystem->priorityAFArray = $this->priorityAFArray; 
+		if (!empty($this->dpArray)) $strippedSystem->dpArray = $this->dpArray; 
+		if (!empty($this->noOverkillArray))$strippedSystem->noOverkillArray = $this->noOverkillArray; 
+		if (!empty($this->minDamageArray))$strippedSystem->minDamageArray = $this->minDamageArray; 
+		if (!empty($this->maxDamageArray))$strippedSystem->maxDamageArray = $this->maxDamageArray; 
+		if (!empty($this->hidetargetArray))$strippedSystem->hidetargetArray = $this->hidetargetArray;	//For Stealth Missiles			
+		if (!empty($this->maxpulsesArray))$strippedSystem->maxpulsesArray = $this->maxpulsesArray;//Adding Pulse functions for Starburst missiles	
+		if (!empty($this->rofArray))$strippedSystem->rofArray = $this->rofArray;
+		if (!empty($this->useDieArray))$strippedSystem->useDieArray = $this->useDieArray;
+		if (!empty($this->fixedBonusPulsesArray))$strippedSystem->fixedBonusPulsesArray = $this->fixedBonusPulsesArray;	
+		if (!empty($this->calledShotModArray))$strippedSystem->calledShotModArray = $this->calledShotModArray;	//Adding calledShotMod variable for Multiwarhead Missile.
+		if (!empty($this->specialRangeCalculationArray))$strippedSystem->specialRangeCalculationArray = $this->specialRangeCalculationArray; //Adding for KK Missile
+		if (!empty($this->rangePenaltyArray))$strippedSystem->rangePenaltyArray = $this->rangePenaltyArray; //Adding Range and No Lock variables for KK Missiles
+		if (!empty($this->noLockPenaltyArray))$strippedSystem->noLockPenaltyArray = $this->noLockPenaltyArray;		
+		if (!empty($this->specialHitChanceCalculationArray))$strippedSystem->specialHitChanceCalculationArray = $this->specialHitChanceCalculationArray;//Adding marker for HARM missiles special hitchance calculation		
+		if (!empty($this->interceptArray))$strippedSystem->interceptArray = $this->interceptArray;//Adding Intercept nad ballisticIntercept variables for Interceptor missiles	
+		if (!empty($this->ballisticInterceptArray))$strippedSystem->ballisticInterceptArray = $this->ballisticInterceptArray;
+		if (!empty($this->hextargetArray))$strippedSystem->hextargetArray = $this->hextargetArray;//For Jammer missile
+		if (!empty($this->animationArray))$strippedSystem->animationArray = $this->animationArray;
+		if (!empty($this->animationExplosionScaleArray))$strippedSystem->animationExplosionScaleArray = $this->animationExplosionScaleArray;
+		if (!empty($this->uninterceptableArray))$strippedSystem->uninterceptableArray = $this->uninterceptableArray;		
+		if (!empty($this->doNotInterceptArray))$strippedSystem->doNotInterceptArray = $this->doNotInterceptArray;
+		if (!empty($this->mineRangeArray))$strippedSystem->mineRangeArray = $this->mineRangeArray;				
 		return $strippedSystem;
 	} 
 
@@ -1965,6 +1965,7 @@ class AmmoFighterRack extends AmmoMissileRackS{
 			$this->ammoClassesArray[] =  new AmmoMissileFH();
 			$this->ammoClassesArray[] =  new AmmoMissileFY();
 			$this->ammoClassesArray[] =  new AmmoMissileFD();
+			$this->ammoClassesArray[] =  new AmmoMissileFDum();			
 			$this->availableAmmoAlreadySet = true;
 		}		
 		parent::__construct(0, 1, 0, $startArc, $endArc, $magazine, $base); //Parent routines take care of the rest

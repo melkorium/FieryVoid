@@ -235,7 +235,9 @@
 
         public function stripForJson(){
             $strippedSystem = parent::stripForJson();
-            $strippedSystem->sustainedTarget = $this->sustainedTarget;	//Needed for front end hit calculation                      			
+            if (isset($this->sustainedTarget) && !empty($this->sustainedTarget)) {
+                $strippedSystem->sustainedTarget = $this->sustainedTarget;
+            }                   			
             return $strippedSystem;
         }    
 
@@ -638,7 +640,9 @@
 
             public function stripForJson(){
                 $strippedSystem = parent::stripForJson();
-                $strippedSystem->sustainedTarget = $this->sustainedTarget;	//Needed for front end hit calculation                      			
+                if (isset($this->sustainedTarget) && !empty($this->sustainedTarget)) {
+                    $strippedSystem->sustainedTarget = $this->sustainedTarget;
+                }                     			
                 return $strippedSystem;
             }    
 
@@ -857,7 +861,9 @@
 
         public function stripForJson(){
             $strippedSystem = parent::stripForJson();
-            $strippedSystem->sustainedTarget = $this->sustainedTarget;	//Needed for front end hit calculation                      			
+            if (isset($this->sustainedTarget) && !empty($this->sustainedTarget)) {
+                $strippedSystem->sustainedTarget = $this->sustainedTarget;
+            }                     			
             return $strippedSystem;
         }   
 
@@ -1701,7 +1707,9 @@ class LaserAccelerator extends Laser{
 
         public function stripForJson(){
             $strippedSystem = parent::stripForJson();
-            $strippedSystem->sustainedTarget = $this->sustainedTarget;	//Needed for front end hit calculation                      			
+            if (isset($this->sustainedTarget) && !empty($this->sustainedTarget)) {
+                $strippedSystem->sustainedTarget = $this->sustainedTarget;
+            }                     			
             return $strippedSystem;
         }           
 
