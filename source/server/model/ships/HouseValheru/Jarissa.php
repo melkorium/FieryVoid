@@ -1,16 +1,16 @@
 <?php
-class Jara extends MediumShip{
+class Jarissa extends MediumShip{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 350;
+		$this->pointCost = 380;
 		$this->faction = "House Valheru";
-        $this->phpclass = "Jara";
+        $this->phpclass = "Jarissa";
         $this->imagePath = "img/ships/jara.png";
-        $this->shipClass = "Jara Skirmisher";
-//			$this->variantOf = "Haven Patrol Boat";
-//			$this->occurence = "rare";
+        $this->shipClass = "Jarissa Destroyer Hunter";
+			$this->variantOf = "Jara Skirmisher";
+			$this->occurence = "uncommon";
         $this->agile = true;
         $this->canvasSize = 100;
 		$this->unofficial = true;
@@ -37,15 +37,14 @@ class Jara extends MediumShip{
 		$this->addPrimarySystem(new Thruster(2, 10, 0, 4, 3));
 		$this->addPrimarySystem(new Thruster(2, 10, 0, 4, 4));
 		
-        $this->addFrontSystem(new TwinArray(2, 6, 2, 180, 60));
-		$this->addFrontSystem(new TwinArray(3, 6, 2, 270, 90));
-        $this->addFrontSystem(new TwinArray(2, 6, 2, 300, 180));
-//		$this->addFrontSystem(new HeavyParticleBeam(3, 6, 2, 270, 90));
+        $this->addFrontSystem(new HeavyParticleBeam(2, 6, 2, 180, 60));
+		$this->addFrontSystem(new HeavyParticleBeam(3, 6, 2, 270, 90));
+        $this->addFrontSystem(new HeavyParticleBeam(2, 6, 2, 300, 180));
         $this->addFrontSystem(new Thruster(2, 8, 0, 2, 1));
         $this->addFrontSystem(new Thruster(2, 8, 0, 2, 1));
 		
-		$this->addAftSystem(new TwinArray(2, 6, 2, 120, 360));
-        $this->addAftSystem(new TwinArray(2, 6, 2, 0, 240));
+		$this->addAftSystem(new HeavyParticleBeam(2, 6, 2, 120, 360));
+        $this->addAftSystem(new HeavyParticleBeam(2, 6, 2, 0, 240));
         $this->addAftSystem(new Thruster(2, 10, 0, 5, 2));
         $this->addAftSystem(new Thruster(2, 10, 0, 5, 2));
        
@@ -62,13 +61,13 @@ class Jara extends MediumShip{
                 ),
                 1=> array(
                         6 => "Thruster",
-                        10 => "Twin Array",
+                        10 => "Heavy Particle Beam",
                         17 => "Structure",
                         20 => "Primary",
                 ),
                 2=> array(
                         6 => "Thruster",
-                        10 => "Twin Array",
+                        10 => "Heavy Particle Beam",
                         17 => "Structure",
                         20 => "Primary",
                 ),
