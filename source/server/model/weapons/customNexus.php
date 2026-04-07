@@ -8526,7 +8526,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 
 		//Check through fireOrders, only interested in Persistent Effect orders created in Initial Orders Phase
 		foreach ($firingOrders as $cloudFireOrder) { 		
-			if (($cloudFireOrder->type == "ballistic") &&  ($cloudFireOrder->damageclass == 'PersistentEffectPlasma')) { 	//Double-check.	
+			if (($cloudFireOrder->type == "ballistic") &&  ($cloudFireOrder->damageclass == 'PersistentEffectSand')) { 	//Double-check.	
 
 				//fireOrder found, proceed to check whether any fighters passed through it.   	
 		    	$thisShip = $this->getUnit();		    	  
@@ -8652,7 +8652,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 
 	public function calculateHitBase($gamedata, $fireOrder)
 	{
-		if($fireOrder->type == "ballistic" && $fireOrder->damageclass == 'PersistentEffectPlasma') return; //Don't resolve ballistic 'cloud' fireOrders.
+		if($fireOrder->type == "ballistic" && $fireOrder->damageclass == 'PersistentEffectSand') return; //Don't resolve ballistic 'cloud' fireOrders.
 			
 		$this->changeFiringMode($fireOrder->firingMode);
 			
@@ -8678,7 +8678,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 		
 	public function fire($gamedata, $fireOrder){
 		if($fireOrder->firingMode == 1) return; //Don't animate Defensive fire, it clogs up Replay
-		if($fireOrder->type == "ballistic" && $fireOrder->damageclass == 'PersistentEffectPlasma') {
+		if($fireOrder->type == "ballistic" && $fireOrder->damageclass == 'PersistentEffectSand') {
             Manager::insertSingleFiringOrder($gamedata, $fireOrder); //But do insert to db for replay
 			return; //Don't resolve ballistic 'cloud' fireOrders.
 		}	
@@ -8875,7 +8875,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 		                        -1, "ballistic", $ship->id, -1,
 		                        $this->id, -1, $gamedata->turn, 2, 
 		                        1, 0, 1, 0, 0, // needed, rolled, shots, shotshit, intercepted
-		                        $xCoordinate, $yCoordinate, 'PersistentEffectPlasma', -1 // X, Y, damageclass, resolutionorder
+		                        $xCoordinate, $yCoordinate, 'PersistentEffectSand', -1 // X, Y, damageclass, resolutionorder
 		                    ); 
 		                    
 							$newFireOrder->notes = "PersistentEffect";
@@ -9916,6 +9916,15 @@ class MultiDefenseLauncher extends Weapon {
     }        
 
 } //endof class MultiDefenseLauncher
+
+
+
+
+
+
+
+
+
 
 
 

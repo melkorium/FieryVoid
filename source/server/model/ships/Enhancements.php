@@ -879,7 +879,7 @@ class Enhancements{
 			  $enhName = $ammoClass->enhancementDescription;
 			  $enhLimit = $actualCapacity;		
 			  $enhPrice = $ammoClass->getPrice($ship); 
-			  $enhPriceStep = 0; //flat rate
+			  $enhPriceStep = 1; //flat rate
 			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
 		  $enhID = 'AMMO_I'; //Interceptor Missiles
