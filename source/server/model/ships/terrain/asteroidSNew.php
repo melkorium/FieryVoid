@@ -15,7 +15,7 @@ class asteroidSNew  extends Terrain{
 		$this->iniativebonus = -200; //no voluntary movement anyway
         $this->isd = 0;     
         $this->notes = "Blocks line of sight";      
-        $this->notes .= "<br>Ships (but not fighters) entering this hex take collision damage";          
+        $this->notes .= "<br>Units passing through this hex take collision damage";        
 	            
 		$this->base = true;
 		$this->smallBase = true;
