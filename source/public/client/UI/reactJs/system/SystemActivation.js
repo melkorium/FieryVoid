@@ -14,7 +14,7 @@ const Container = styled.div`
 
 const Header = styled.div`
     padding: 3px;
-    background-color: #496791;
+    background-color: #4967919a;
     border: 1px solid #496791;
     border-bottom: 1px solid #496791;    
     color: #deebff;
@@ -49,10 +49,12 @@ const Controls = styled.div`
     display: flex;
     align-items: center;     
     gap: 5px;
+    width: 100%;
+    padding: 2px;
 `;
 
 const ActionButton = styled.div`
-    width: 70px;
+    flex: 1;
     height: 18px;
     background: #203348;
     border: 1px solid #496791;
@@ -79,7 +81,7 @@ const ActionButton = styled.div`
         &:hover { background: #203348; color: #deebff; }
     `}
 
-    ${props => props.$active && props.$variant === 'activate' && `
+    ${props => (props.$active || (props.$variant === 'activate' && props.$isWeapon)) && props.$variant === 'activate' && `
         background: #1b5e20; 
         color: white;
         border: 1px solid #4caf50;
@@ -141,13 +143,18 @@ class SystemActivation extends Component {
         // Robust detection of active state
         const isActive = system.active || (system.weapon && weaponManager.hasFiringOrder(ship, system));
 
+        const activateLabel = system.weapon ? "Fire" : "Activate";
+        const deactivateLabel = system.weapon ? "Don't Fire" : "Deactivate";
+
         return (
             <Container>
                 <Header>{system.displayName}</Header>
                 <Row>
                     <Controls>
-                        <ActionButton onClick={() => this.handleActivate()} disabled={!this.canActivate()} $active={isActive} $variant="activate">Activate</ActionButton>
-                        <ActionButton onClick={() => this.handleDeactivate()} disabled={!this.canDeactivate()} $active={!isActive} $variant="deactivate">Deactivate</ActionButton>
+                        <ActionButton onClick={() => this.handleActivate()} disabled={!this.canActivate()} $active={isActive} $variant="activate" $isWeapon={system.weapon}>{activateLabel}</ActionButton>
+                        {!system.weapon && (
+                            <ActionButton onClick={() => this.handleDeactivate()} disabled={!this.canDeactivate()} $active={!isActive} $variant="deactivate">{deactivateLabel}</ActionButton>
+                        )}
                     </Controls>
                 </Row>
             </Container>
