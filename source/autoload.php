@@ -3162,6 +3162,7 @@ spl_autoload_register(
                 		'ammomissilerackr' => '/server/model/weapons/missile.php',
                 		'ammobombrack' => '/server/model/weapons/missile.php',
                 		'ammofighterrack' => '/server/model/weapons/missile.php',
+                        'missilelost' => '/server/model/cricialClasses.php', 
 						
  				//Direct Fire Weapons that use Ammo Magazine
 						'ammodirectweapon' => '/server/model/weapons/ammoWeapons.php',							

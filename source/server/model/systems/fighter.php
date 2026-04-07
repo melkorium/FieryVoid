@@ -293,6 +293,9 @@ throw new Exception("getArmourAdaptive (fighter)! $dmgClass $armour");
             
             if($bestAmmoMode !== null){
                 $magazine->doDrawAmmo($gamedata, $bestAmmoMode);
+				$crit = new MissileLost(-1, $ship->id, $magazine->id, "MissileLost", $gamedata->turn);
+				$crit->updated = true;
+				$magazine->setCritical($crit); //$system->criticals[] =  $crit;	
             }
 		}
     } //endof function checkMissileLoss

@@ -302,6 +302,15 @@ class TacGamedata {
 					if ($crit->updated == true)
 						$list[] = $crit;
 				}
+                //Some fighter systems can have criticals as well e.g. MissileLost from Magazine.    
+                if($system instanceof Fighter){
+                    foreach($system->systems as $subsystem){
+                        foreach($subsystem->criticals as $crit){
+                            if ($crit->updated == true)
+                                $list[] = $crit;
+                        }
+                    }
+                }
                 
             }
         }
