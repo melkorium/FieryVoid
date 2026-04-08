@@ -7633,7 +7633,7 @@ class AmmoMissileL extends AmmoMissileTemplate{
 	public $enhancementPrice = 6;
 	
 	public $rangeMod = 10; //MODIFIER for launch range
-	public $distanceRangeMod = 10; //MODIFIER for distance range
+	public $distanceRangeMod = 30; //MODIFIER for distance range
 	public $fireControlMod = array(3, 3, 3); //MODIFIER for weapon fire control!
 	public $minDamage = 15;
 	public $maxDamage = 15;	
@@ -7665,7 +7665,7 @@ class AmmoMissileH extends AmmoMissileTemplate{
 	public $enhancementPrice = 4;
 	
 	public $rangeMod = -10; //MODIFIER for launch range
-	public $distanceRangeMod = -10; //MODIFIER for distance range
+	public $distanceRangeMod = -30; //MODIFIER for distance range
 	public $fireControlMod = array(0, 3, 3); //MODIFIER for weapon fire control!
 	public $minDamage = 30;
 	public $maxDamage = 30;	
@@ -7784,7 +7784,7 @@ class AmmoMissileP extends AmmoMissileTemplate{
 class AmmoMissileD extends AmmoMissileTemplate{	
 	public $name = 'ammoMissileD';
 	public $displayName = 'Light Missile';
-	public $modeName = 'D - Light';
+	public $modeName = 'D-Light';
 	public $size = 1; //how many store slots are required for a single round
 	public $enhancementName = 'AMMO_D'; //enhancement name to be enabled
 	public $enhancementDescription = '(AMMO) Light Missile'; //enhancement description
@@ -7800,6 +7800,7 @@ class AmmoMissileD extends AmmoMissileTemplate{
 	public $priority = 6;
 	public $priorityAF = 5;
 	public $noOverkill = false;
+	public $useOEW = false;
 	public $hidetarget = false;
 		
     public function getDamage($fireOrder) //actual function to be called, as with weapon!
@@ -8796,6 +8797,9 @@ class AmmoBistifB extends AmmoMissileTemplate{
     public function getDamage($fireOrder){        return 12;   } 
 
 } //endof class AmmoBistifB
+
+
+
 
 
 ?>

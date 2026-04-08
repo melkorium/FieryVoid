@@ -1046,6 +1046,8 @@ class AmmoMissileRackS extends Weapon{
 	private $ammoMagazine; //reference to ammo magazine
 	private $ammoClassesUsed = array();
 	
+	private $base = false; //Fixing stabilized missile launch ranges
+	
 //For Stealth missile
 	public $hidetarget = false;
 	public $hidetargetArray = array();
@@ -1119,14 +1121,16 @@ class AmmoMissileRackS extends Weapon{
 		}
 	
 		$this->ammoMagazine = $magazine;
+//		$this->recompileFiringModes();
 		if($base){
 			$this->basicRange = $this->basicDistanceRange;
+			$this->base = $base;
 		}
-		$this->recompileFiringModes();
 		if ( $maxhealth == 0 ) $maxhealth = 6;
             	if ( $powerReq == 0 ) $powerReq = 0;
 		parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc); //class-S launcher: structure 6, power usage 0
 		$magazine->subscribe($this); //subscribe to any further changes in ammo availability
+		$this->recompileFiringModes();
 	}
     
 	
@@ -1215,8 +1219,14 @@ class AmmoMissileRackS extends Weapon{
 				}
 				$this->fireControlArray[$currMode] = array($fc0, $fc1, $fc2); // fighters, <mediums, <capitals ; INCLUDES MISSILE WARHEAD (and FC if present)! as effectively it is the same and simpler
 				
-				$this->rangeArray[$currMode] = $this->basicRange + $currAmmo->rangeMod; 
-				$this->distanceRangeArray[$currMode] = $this->basicDistanceRange + $currAmmo->distanceRangeMod; 
+				if ($this->base){
+//					$this->rangeArray[$currMode] = $this->basicRange + $currAmmo->rangeMod; 
+					$this->rangeArray[$currMode] = $this->basicDistanceRange + $currAmmo->distanceRangeMod; 
+					$this->distanceRangeArray[$currMode] = $this->basicDistanceRange + $currAmmo->distanceRangeMod; 
+				}else{
+					$this->rangeArray[$currMode] = $this->basicRange + $currAmmo->rangeMod; 
+					$this->distanceRangeArray[$currMode] = $this->basicDistanceRange + $currAmmo->distanceRangeMod; 
+				}
 				$this->priorityArray[$currMode] = $currAmmo->priority;
 				$this->priorityAFArray[$currMode] = $currAmmo->priorityAF;
 				$this->noOverkillArray[$currMode] = $currAmmo->noOverkill;
@@ -1739,7 +1749,7 @@ class AmmoMissileRackO extends AmmoMissileRackS{
 	protected $basicRange=20;
 	protected $basicDistanceRange = 60;
 
-    protected $rackExplosionDamage = 45; //how much damage will this weapon do in case of catastrophic explosion (Class-SO launcher has smaller magazine than Class-S)
+    protected $rackExplosionDamage = 30; //how much damage will this weapon do in case of catastrophic explosion (Class-O launcher has smaller magazine than Class-S)
     protected $rackExplosionThreshold = 20; //how high roll is needed for rack explosion          
 	
 	function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $magazine, $base=false)
@@ -1750,7 +1760,6 @@ class AmmoMissileRackO extends AmmoMissileRackS{
 	}
 	
 } //endof class AmmoMissileRackO
-
 
 
 
@@ -2033,11 +2042,11 @@ class AmmoMissileRackF extends AmmoMissileRackS {
 		}
 
 	private function modifyRange(&$subArray) {//Extra function needed to modify Range values across ALL ammo types in recalculateFireControl.
-  		 	 foreach ($subArray as $key => &$value) {
-    		    if (is_numeric($value)) {
-            $subArray[$key] = $value - 20;
-      				  }
-    			}
+  		 	foreach ($subArray as $key => &$value) {
+					if (is_numeric($value)) {
+						$subArray[$key] = $value - 20;
+      				}
+    		}
 		}		
 
 	private function modifyDistanceRange(&$subArray) {//Extra function needed to modify Distance Range values across ALL ammo types in recalculateFireControl.
