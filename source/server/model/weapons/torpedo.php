@@ -63,7 +63,8 @@
 		
         public $priority = 6;
         
-        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $loadingTime = 2){
+            $this->loadingtime = $loadingTime; //The mine version has loading time of 3.            
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
         
