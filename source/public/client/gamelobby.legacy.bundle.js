@@ -16737,7 +16737,12 @@ var Ship = function Ship(json) {
         var staticShip = window.staticShips[json.faction][json.phpclass];
         Object.keys(staticShip).forEach(function (key) {
             if (key !== 'systems') {
-                this[key] = staticShip[key]; // Copy other props
+                if (staticShip[key] !== null && typeof staticShip[key] === 'object') {
+                    // Deep clone arrays and objects to prevent shared references
+                    this[key] = JSON.parse(JSON.stringify(staticShip[key]));
+                } else {
+                    this[key] = staticShip[key]; // Copy other props
+                }
             } else {
                 staticSystems = staticShip[key]; // Preserve static systems
             }
