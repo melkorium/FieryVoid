@@ -8396,7 +8396,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 	public $damagePenalty = 0;        
          		
 	public $range = 100;
-    public $rangeArray = array(1=>100, 2=>3); //range is essentially unlimited for Defensive, but limited for Offensive.
+    public $rangeArray = array(1=>100, 2=>4); //range is essentially unlimited for Defensive, but limited for Offensive.
 	public $rangePenalty= 0;
 	public $rangePenaltyArray = array(1=>0, 2=>0); //no range penalty in either mode                  
         
@@ -8913,7 +8913,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
                 	return 0; 
 			    			break;
             	case 2:
-            	   	return Dice::d(6,1)+2;
+            	   	return Dice::d(6,1)+1;
 			    			break;		    			
         	}
 		}
@@ -8924,7 +8924,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 								$this->minDamage = 0;
 								break;
 						case 2:
-								$this->minDamage = 3;
+								$this->minDamage = 2;
 								break;							
 				}
 				$this->minDamageArray[$this->firingMode] = $this->minDamage;
@@ -8936,7 +8936,7 @@ class NexusSandCaster extends Weapon implements DefensiveSystem{
 								$this->maxDamage = 0;
 								break;
 						case 2:
-								$this->maxDamage = 8;
+								$this->maxDamage = 7;
 								break;								
 				}
 				$this->maxDamageArray[$this->firingMode] = $this->maxDamage;
