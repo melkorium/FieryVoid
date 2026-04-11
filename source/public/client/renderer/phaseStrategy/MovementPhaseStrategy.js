@@ -151,10 +151,10 @@ window.MovementPhaseStrategy = function () {
 
     function doForcedMovementForActiveShip() {
         gamedata.getMyActiveShips().forEach(function (ship) {
-            shipManager.movement.doForcedPivot(ship);
+            shipManager.movement.doForcedPivot(ship, true);
 
             if (ship.base && (!ship.nonRotating)) {
-                shipManager.movement.doRotate(ship);
+                shipManager.movement.doRotate(ship, true);
 
                 //TODO: Test if this autocommit thing works
                 gamedata.autoCommitOnMovement(ship);

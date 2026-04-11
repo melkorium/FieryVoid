@@ -2524,7 +2524,7 @@ class RammingAttack extends Weapon{
 		foreach($targetList as $targetID=>$target){
 			if(!$target->Enormous) continue; //only auto-ram Enormous units
 			if (isset($shooter->attached[$targetID])) continue; // Already attached to this Enormous unit, do not ram!
-if($target->hasSpecialAbility("Attaches") && !$shooter instanceof Terrain && $shooter instanceof FighterFlight) continue; //ignore pods for now.						
+if($shooter->hasSpecialAbility("Attaches") && !$shooter instanceof Terrain && $shooter instanceof FighterFlight) continue; //ignore pods for now.						
 			if($target instanceof Terrain) continue; //Terrain Enormous units are handled as collisions now.		
 			if($targetID == $shooter->id) continue; //do not ram self			
 			if($target->isDestroyed()) continue; //destroyed unit does not ram... and neither is rammed			

@@ -88,6 +88,9 @@ shipManager.movement = {
     hasDeletableMovements: function hasDeletableMovements(ship) {
         if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!        
 
+        var lastMove = ship.movement[ship.movement.length - 1];
+        if (lastMove && lastMove.type === "attached") return false; // Mirrored moves are not deletable manually
+
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
@@ -97,7 +100,7 @@ shipManager.movement = {
                     return true;
                 }
             } else {
-                if (!movement.preturn && !movement.forced && movement.type != "deploy") return true;
+                if (!movement.preturn && !movement.forced && movement.type != "deploy" && movement.type != "attached") return true;
             }
         }
 
@@ -107,8 +110,14 @@ shipManager.movement = {
 
     deleteMove: function deleteMove(ship) {
         var movement = ship.movement[ship.movement.length - 1];
+        if (movement.type == "attached") return; // Cannot delete mirrored moves
+
         if (!movement.preturn && !movement.forced && movement.turn == gamedata.turn) {
             if (gamedata.gamephase == 3 && (movement.value != "combatpivot" || movement.type != "pivotleft" && movement.type != "pivotright")) return;
+
+            if (movement.type == "detach") {
+                ship.detached = false;
+            }
 
             // adjust the current turn delay if the new speed changes the turn delay
             //var oldspeed = shipManager.movement.getSpeed(ship);
@@ -596,7 +605,7 @@ shipManager.movement = {
         }
     },
 
-    doRotate: function doRotate(ship) {
+    doRotate: function doRotate(ship, silent) {
         if (gamedata.turn > 0) {
             var name;
             var step = ship.movement[1].value;
@@ -632,7 +641,7 @@ shipManager.movement = {
                 value: 0
             };
 
-            shipManager.movement.copyMovementOrders(ship);
+            shipManager.movement.copyMovementOrders(ship, silent);
         }
     },
 
@@ -783,7 +792,7 @@ shipManager.movement = {
         shipManager.movement.copyMovementOrders(ship);
     },
 
-    doForcedPivot: function doForcedPivot(ship) {
+    doForcedPivot: function doForcedPivot(ship, silent) {
         var pivoting = shipManager.movement.isPivoting(ship);
         if (pivoting == "no") return;
 
@@ -828,7 +837,7 @@ shipManager.movement = {
             value: 0
         };
 
-        shipManager.movement.copyMovementOrders(ship);
+        shipManager.movement.copyMovementOrders(ship, silent);
     },
 
     isPivoting: function isPivoting(ship) {

@@ -1527,6 +1527,13 @@ class DBManager
 		}
     } //endof function isMovementAlreadySubmitted
 	
+	public function deleteMovement($gameid, $shipid, $turn)
+    {
+        $sql = "DELETE FROM tac_shipmovement 
+			WHERE gameid = $gameid and turn = $turn and shipid = $shipid and preturn <> 1 and type <> 'deploy'"; 
+        $this->update($sql);
+    }
+	
 
     public function submitMovement($gameid, $shipid, $turn, $movements, $acceptPreturn = false)
     {
