@@ -1,98 +1,140 @@
 <?php
 /**
- * Universal Asset Optimizer for FieryVoid
+ * Universal Asset Optimizer for FieryVoid (Auto-Pilot Version)
  * Recursively converts PNG and JPG/JPEG files in public/img/ to WebP.
- * Handles server execution limits using chunked processing.
  */
 
 // Configuration
 $sourceDir = __DIR__ . '/img';
 $quality = 80;
-$chunkSize = 100; // Number of images per run
-$forceRebuild = true; // Set to true to replace existing WebPs with high-fidelity versions
-
-header('Content-Type: application/json');
+$chunkSize = 50; // Smaller chunks for smoother UI updates
+$forceRebuild = true; 
 
 if (!extension_loaded('imagick')) {
-    die(json_encode(["error" => "Imagick extension not loaded."]));
+    die("Error: Imagick extension not loaded.");
 }
 
-// Get the last processed file from session/cookie or a temp file
 $stateFile = __DIR__ . '/optimization_state.json';
 $state = file_exists($stateFile) ? json_decode(file_get_contents($stateFile), true) : ['offset' => 0, 'completed' => false];
 
 if (isset($_GET['reset'])) {
     $state = ['offset' => 0, 'completed' => false];
+    file_put_contents($stateFile, json_encode($state));
 }
 
-$allFiles = [];
-$it = new RecursiveDirectoryIterator($sourceDir);
-$it = new RecursiveIteratorIterator($it);
-
-foreach ($it as $file) {
-    if ($file->isDir()) continue;
+// Action: Process Chunk
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
     
-    $ext = strtolower($file->getExtension());
-    if (in_array($ext, ['png', 'jpg', 'jpeg'])) {
-        $allFiles[] = $file->getPathname();
-    }
-}
+    $allFiles = [];
+    $it = new RecursiveDirectoryIterator($sourceDir);
+    $it = new RecursiveIteratorIterator($it);
 
-sort($allFiles);
-$totalFiles = count($allFiles);
-$processedCount = 0;
-$errors = [];
-
-$slice = array_slice($allFiles, $state['offset'], $chunkSize);
-
-foreach ($slice as $src) {
-    $dst = preg_replace('/\.(png|jpg|jpeg)$/i', '.webp', $src);
-    
-    if ($forceRebuild || !file_exists($dst)) {
-        try {
-            $im = new Imagick($src);
-            $im->setImageFormat('webp');
-            $im->setImageCompressionQuality($quality);
-            
-            // Optimization for alpha channels (ship sprites)
-            if ($im->getImageAlphaChannel()) {
-                $im->setOption('webp:lossless', 'false');
-            }
-            
-            if ($im->writeImage($dst)) {
-                $processedCount++;
-            }
-            $im->clear();
-            $im->destroy();
-        } catch (Exception $e) {
-            $errors[] = ["file" => basename($src), "error" => $e->getMessage()];
+    foreach ($it as $file) {
+        if ($file->isDir()) continue;
+        $ext = strtolower($file->getExtension());
+        if (in_array($ext, ['png', 'jpg', 'jpeg'])) {
+            $allFiles[] = $file->getPathname();
         }
-    } else {
-        $processedCount++; // Already exists, count as processed
     }
+
+    sort($allFiles);
+    $totalFiles = count($allFiles);
+    $slice = array_slice($allFiles, $state['offset'], $chunkSize);
+    $processedCount = 0;
+
+    foreach ($slice as $src) {
+        $dst = preg_replace('/\.(png|jpg|jpeg)$/i', '.webp', $src);
+        if ($forceRebuild || !file_exists($dst)) {
+            try {
+                $im = new Imagick($src);
+                $im->setImageFormat('webp');
+                $im->setImageCompressionQuality($quality);
+                if ($im->getImageAlphaChannel()) {
+                    $im->setOption('webp:lossless', 'false');
+                }
+                $im->writeImage($dst);
+                $im->clear();
+                $im->destroy();
+            } catch (Exception $e) {}
+        }
+        $processedCount++;
+    }
+
+    $newOffset = $state['offset'] + count($slice);
+    $isFinished = ($newOffset >= $totalFiles);
+
+    $state = ['offset' => $newOffset, 'completed' => $isFinished];
+    file_put_contents($stateFile, json_encode($state));
+
+    if ($isFinished) @unlink($stateFile);
+
+    echo json_encode([
+        "offset" => $newOffset,
+        "total" => $totalFiles,
+        "finished" => $isFinished,
+        "percent" => round(($newOffset / $totalFiles) * 100, 2)
+    ]);
+    exit;
 }
 
-$newOffset = $state['offset'] + $chunkSize;
-$isFinished = ($newOffset >= $totalFiles);
+// Action: Display UI
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FieryVoid Optimizer Auto-Pilot</title>
+    <style>
+        body { font-family: sans-serif; background: #0a161c; color: #eee; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #162a33; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 400px; text-align: center; }
+        .progress-container { background: #000; border-radius: 20px; height: 10px; margin: 25px 0; overflow: hidden; }
+        .progress-bar { background: #4a90e2; height: 100%; width: 0%; transition: width 0.3s; }
+        button { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #c0392b; }
+        #status { margin-bottom: 10px; font-size: 14px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Optimizing Assets...</h2>
+        <div id="status">Starting...</div>
+        <div class="progress-container">
+            <div id="bar" class="progress-bar"></div>
+        </div>
+        <div id="stats">0 / 0</div>
+        <br>
+        <button id="stopBtn">STOP OPTIMIZER</button>
+        <p><small>Closing this tab will pause the process.</small></p>
+    </div>
 
-$state = [
-    'offset' => $newOffset,
-    'completed' => $isFinished
-];
-file_put_contents($stateFile, json_encode($state));
+    <script>
+        let running = true;
+        document.getElementById('stopBtn').onclick = () => { running = false; document.getElementById('status').innerText = 'Paused.'; };
 
-if ($isFinished) {
-    @unlink($stateFile);
-}
+        async function processNext() {
+            if (!running) return;
 
-echo json_encode([
-    "progress" => [
-        "processed_this_chunk" => $processedCount,
-        "current_offset" => $newOffset,
-        "total_files" => $totalFiles,
-        "percent" => round(($newOffset / $totalFiles) * 100, 2) . '%'
-    ],
-    "finished" => $isFinished,
-    "errors" => $errors,
-    "next_url" => $isFinished ? null : ($_SERVER['REQUEST_URI'])
-]);
+            try {
+                const response = await fetch('?ajax=1');
+                const data = await response.json();
+
+                document.getElementById('bar').style.width = data.percent + '%';
+                document.getElementById('stats').innerText = `${data.offset} / ${data.total}`;
+                document.getElementById('status').innerText = data.finished ? 'Complete!' : 'Processing chunk...';
+
+                if (!data.finished && running) {
+                    setTimeout(processNext, 100);
+                } else if (data.finished) {
+                    alert('Optimization Complete!');
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('status').innerText = 'Error occurred. retrying...';
+                setTimeout(processNext, 2000);
+            }
+        }
+
+        processNext();
+    </script>
+</body>
+</html>
