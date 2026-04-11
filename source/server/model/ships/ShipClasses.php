@@ -83,6 +83,8 @@ class BaseShip {
 	public $ignoreManoeuvreMods = false;//New marker for factions like Mindriders that don't take penalties for pivoting etc
     public $trueStealth = false; //For ships that can actually be hidden, not just jammer from range.  Important for Front End.	
     public $skinDancing = array();	//Holds target ids when there's a successful skin dance.
+    public $hasAttached = array(); // Holds shooterid => location for attached boarding pods on this ship.
+    public $attached = array(); // Holds targetid => location if this unit is attached to another unit.
     protected $skinDancer = false; //Let';s ships of unusual size skin dance e.g. Toravlus capitals ships.   	
 
 	public $isCloaked = false;  //Used for deactivating Trek shields when the Trek cloak is activated
@@ -558,8 +560,10 @@ class BaseShip {
         $strippedShip->movement = $this->movement; 
         $strippedShip->faction = $this->faction; 
         $strippedShip->phpclass = $this->phpclass;
-        $strippedShip->skinDancing = $this->skinDancing;
-        $strippedShip->spawned = $this->spawned;        
+        if ($this->skinDancing) $strippedShip->skinDancing = $this->skinDancing;
+        if (!empty($this->hasAttached)) $strippedShip->hasAttached = $this->hasAttached;
+        if (!empty($this->attached)) $strippedShip->attached = $this->attached;
+        if ($this->spawned !== null && $this->spawned !== -1) $strippedShip->spawned = $this->spawned;
         
         $strippedShip->systems = array_map( function($system) {return $system->stripForJson();}, $this->systems);
 

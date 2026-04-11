@@ -2256,6 +2256,40 @@ class CnC extends ShipSystem implements SpecialAbility {
 			
 		}
 		
+		// Boarding Action Detach / Destroy logic
+		if (!empty($ship->hasAttached)) {
+			foreach ($ship->hasAttached as $shooterId => $location) {
+				$boardingShip = $gamedata->getShipById($shooterId);
+				if ($boardingShip && !$boardingShip->isDestroyed()) {
+					$struct = $ship->getStructureSystem($location);
+					if (!$struct) $struct = $ship->getStructureSystem(0); // Fallback to primary structure
+
+					if ($struct && $struct->isDestroyed()) {
+						// Target structure destroyed, kill the boarding ship
+						if ($boardingShip instanceof FighterFlight) {
+							foreach ($boardingShip->systems as $fighter) {
+								if (!$fighter->isDestroyed()) {
+									$damageEntry = new DamageEntry(-1, $boardingShip->id, -1, $gamedata->turn, $fighter->id, $fighter->getRemainingHealth(), 0, 0, -1, true, false, "Target structure destroyed", "Standard", -1, -1);
+									$damageEntry->updated = true;
+									$fighter->damage[] = $damageEntry;
+								}
+							}
+						} else {
+							$boardingStruct = $boardingShip->getStructureSystem(0);
+							if ($boardingStruct && !$boardingStruct->isDestroyed()) {
+								$damageEntry = new DamageEntry(-1, $boardingShip->id, -1, $gamedata->turn, $boardingStruct->id, $boardingStruct->getRemainingHealth(), 0, 0, -1, true, false, "Target structure destroyed", "Standard", -1, -1);
+								$damageEntry->updated = true;
+								$boardingStruct->damage[] = $damageEntry;
+							}
+						}
+					} else if ($ship->isDestroyed()) {
+						// Parent ship destroyed but not the structure, detach!
+						$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$this->id,"Detached","Detached",$shooterId . "=>Detach");
+					}
+				}
+			}
+		}
+
 	}
 	
 	
@@ -2276,6 +2310,44 @@ class CnC extends ShipSystem implements SpecialAbility {
             $strippedSystem->marines = $this->marines;                             
             return $strippedSystem;
         }
+
+	public function onIndividualNotesLoaded($gamedata) {
+		//parent::onIndividualNotesLoaded($gamedata);
+		$ship = $this->getUnit();
+		
+		if (is_array($this->individualNotes)) {
+			$remainingNotes = array();
+			foreach ($this->individualNotes as $currNote) {
+				if ($currNote->notekey === 'Attached') {
+					$parts = explode('=>', $currNote->notevalue);
+					if (count($parts) === 2) {
+						$shooterId = (int)$parts[0];
+						$location = (int)$parts[1];
+						$ship->hasAttached[$shooterId] = $location;
+						
+						$boardingShip = $gamedata->getShipById($shooterId);
+						if ($boardingShip) {
+							$boardingShip->attached[$ship->id] = $location;
+						}
+					}
+				} else if ($currNote->notekey === 'Detached') {
+					$parts = explode('=>', $currNote->notevalue);
+					if (count($parts) === 2) {
+						$shooterId = (int)$parts[0];
+						unset($ship->hasAttached[$shooterId]);
+						
+						$boardingShip = $gamedata->getShipById($shooterId);
+						if ($boardingShip) {
+							unset($boardingShip->attached[$ship->id]);
+						}
+					}
+				} else {
+					$remainingNotes[] = $currNote;
+				}
+			}
+			$this->individualNotes = $remainingNotes;
+		}
+	}
 			
 } //endof class CnC
 

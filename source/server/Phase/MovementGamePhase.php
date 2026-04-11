@@ -137,6 +137,71 @@ class MovementGamePhase implements Phase
 				if ($ship->id === $activeShip->id) {
 					if(!$dbManager->isMovementAlreadySubmitted($gameData->id, $ship->id, $gameData->turn)){ //in case of wrong activeship indicated - do not re-send orders! (...but proceed with other actions)
 						$dbManager->submitMovement($gameData->id, $ship->id, $gameData->turn, $ship->movement);
+						
+						// Create detached note if the ship submitted a 'detach' move
+                        if($ship->hasSpecialAbility("Attaches")) {                        
+                            $detachedMove = false;
+                            foreach ($ship->movement as $move) {
+                                if ($move->type === 'detach') {
+                                    $detachedMove = true;
+                                    break;
+                                }
+                            }
+                            
+                            if ($detachedMove && !empty($ship->attached)) {
+                                $targetShip = $gameData->getShipById(key($ship->attached));
+                                if ($targetShip) {
+                                    $cnc = $targetShip->getSystemByName("CnC");
+                                    if ($cnc) {
+                                        $cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$targetShip->id,$cnc->id,"Detached","Detached",$ship->id . "=>Detach");
+                                        $cnc->saveIndividualNotes($dbManager);
+                                    }
+                                }
+                            }
+                        }
+                        
+						// Duplicating parent ship movements for attached ships
+						if (!empty($activeShip->hasAttached)) {
+							foreach ($activeShip->hasAttached as $attachedShooterId => $location) {
+								$attachedShip = $gameData->getShipById($attachedShooterId);
+								if ($attachedShip && !$attachedShip->isDestroyed() && isset($attachedShip->attached[$activeShip->id])) {
+									if (!$dbManager->isMovementAlreadySubmitted($gameData->id, $attachedShip->id, $gameData->turn)) {
+										$attachedMoves = array();
+										$locOffset = Movement::getAttachedFacingOffset($location);
+
+										// When the parent ship is rolled, breaching pods as FighterFlight 
+										// units cannot roll themselves, so we adjust their absolute 
+										// facing by 180 degrees (+3) instead.
+										$facingOffset = $locOffset;
+										if ($attachedShip instanceof FighterFlight && Movement::isRolled($ship, $gameData->turn)) {
+											$facingOffset = ($facingOffset + 3) % 6;
+										}
+
+										foreach ($ship->movement as $move) {
+											$moveObj = new MovementOrder(
+												-1, // New entry
+												'attached',
+												new OffsetCoordinate($move->position),
+												$move->xOffset,
+												$move->yOffset,
+												$move->speed,
+												$move->heading,
+												($move->facing + $facingOffset) % 6,
+												$move->preturn,
+												$move->turn,
+												$move->value,
+												$move->at_initiative
+											);
+											$moveObj->requiredThrust = $move->requiredThrust;
+											$moveObj->assignedThrust = $move->assignedThrust;
+											$attachedMoves[] = $moveObj;
+										}
+										$dbManager->submitMovement($gameData->id, $attachedShip->id, $gameData->turn, $attachedMoves);
+										$attachedShip->movement = $attachedMoves;
+									}
+								}
+							}
+						}
 					}
 					// Update in-memory movement data so that subsequent checks (like mine detection) use the actual new position	
 					$activeShip->movement = $ship->movement;
@@ -209,8 +274,7 @@ class MovementGamePhase implements Phase
                     }    
                 } else {
                     $lastMove = $gdShip->getLastMovement();
-                    if ($lastMove) {
-//Debug::log("lastMove1 " . $lastMove->speed);	                        
+                    if ($lastMove) {                       
                         $hydratedMovements[] = new MovementOrder(-1, 'start', $lastMove->position, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gameData->turn, 0, 0);
                     }
                 }
@@ -219,8 +283,7 @@ class MovementGamePhase implements Phase
                     $gdShip->movement = $hydratedMovements;
                 }else{ //No moves, hydrate with last known movement from previous turn
                     $lastMove = $gdShip->getLastMovement();
-                    if ($lastMove) {
-//Debug::log("lastMove2 " . $lastMove->speed);	                        
+                    if ($lastMove) {                       
                         $hydratedMovements[] = new MovementOrder(-1, 'start', $lastMove->position, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gameData->turn, 0, 0);
                     }
                     $gdShip->movement = $hydratedMovements; // Fix: Actually apply the generated dummy array back to the ship!  DK 26.3.26

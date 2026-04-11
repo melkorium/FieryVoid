@@ -2509,6 +2509,8 @@ class RammingAttack extends Weapon{
 		$alreadyFiringAt = $this->getFireOrders($gamedata->turn);
 		foreach($targetList as $targetID=>$target){
 			if(!$target->Enormous) continue; //only auto-ram Enormous units
+			if (isset($shooter->attached[$targetID])) continue; // Already attached to this Enormous unit, do not ram!
+if($target->hasSpecialAbility("Attaches") && !$shooter instanceof Terrain && $shooter instanceof FighterFlight) continue; //ignore pods for now.						
 			if($target instanceof Terrain) continue; //Terrain Enormous units are handled as collisions now.		
 			if($targetID == $shooter->id) continue; //do not ram self			
 			if($target->isDestroyed()) continue; //destroyed unit does not ram... and neither is rammed			
@@ -2570,6 +2572,8 @@ class RammingAttack extends Weapon{
     public function getSkinDancingResult($shooter, $target, $gamedata) {
 		if($this->designedToRam) return 'Invalid'; //Do full automatic ramming for these units e.g. HKs		
 		if(!empty($shooter->skinDancing)) return 'Success'; //Already skindancing.
+		//if($target->hasSpecialAbility("Attaches") && !$shooter instanceof Terrain) return 'Aborted';; //Assume that attachable ships are trying to attach so treat as aborted skindance, but not to Terrain.		
+		
 		//Debug::log("Ship name " . $shooter->name);			
 		//Debug::log("before size check " . $shooter->shipSizeClass);	
         //Ship type checks        
@@ -7102,6 +7106,7 @@ class PulsarMine extends Weapon{
 		//Make a list of relelvant ships e.g. this ship and enemy fighters in the game.
 		foreach($allShips as $ship){
 			if ($ship->isDestroyed()) continue;
+			if (isset($ship->attached[$thisShip->id])) continue; // Already attached to this unit, do not fire!			
 			if (!$ship instanceof FighterFlight && ($ship->id != $thisShip->id)) continue; //Ignore ships EXCEPT this one!			
 			if ($ship instanceof FighterFlight && $ship->team == $thisShip->team) continue;	//Ignore flights that are friendly.	
 			if ($ship->getTurnDeployed($gamedata) > $gamedata->turn) continue;  //Ignore fighters that are not deployed yet!			
@@ -7284,14 +7289,14 @@ class PulsarMine extends Weapon{
 
 
 
-class Marines extends Weapon{
+class Marines extends Weapon implements SpecialAbility{
 	public $name = "Marines";
 	public $displayName = "Marines";
 	public $iconPath = "Marines.png";
 	public $animation = "trail";
 	public $animationColor = array(50, 50, 50);
 	public $animationWidth = 0.2;
-  
+  	public $specialAbilities = array("Attaches");
 	public $useOEW = false; 
 	public $range = 0.1;
 	public $ammunition = 2; //limited number of Marine contingents.
@@ -7330,6 +7335,10 @@ class Marines extends Weapon{
 		$this->eliteMarines = $elite;
 	}    
 	
+	public function getSpecialAbilityValue($args){
+		return $this->specialAbilityValue;
+	}
+
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn);      
 		$this->data["Special"] = "<br>If on same hex as an enemy ship, can attempt to board that vessel.";	
@@ -7384,6 +7393,14 @@ class Marines extends Weapon{
 
         $hitLoc = null;
         $hitLoc = $target->getHitSection($shooter, $fireOrder->turn);
+		
+		if (isset($target->hasAttached[$shooter->id])) {
+			$fireOrder->needed = 100;
+			$fireOrder->updated = true;
+			$fireOrder->chosenLocation = $target->hasAttached[$shooter->id];
+			$fireOrder->pubnotes .= "<br> Pod already attached, automatic hit.";
+			return;
+		}
 		
 		if($targetSpeed > $shooterSpeed){//Target is moving faster, roll to attach.
 			$baseHitChance = 100;//Start with automatic hit.
@@ -7507,6 +7524,14 @@ class Marines extends Weapon{
 		}		
 		
 		if($deliveryRoll <= 5){ //successful delivery, continue with applying critical effects.						
+
+			if (!isset($target->hasAttached[$shooter->id])) {
+				$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
+				$shooter->attached[$target->id] = $fireOrder->chosenLocation;
+				if ($cnc) {
+					$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
+				}
+			}
 				
 			switch($this->firingMode){
 								
@@ -7830,7 +7855,14 @@ class GrapplingClaw extends Weapon{
 		}		
 		
 		if($deliveryRoll <= 5){ //successful delivery, continue with applying critical effects.						
-				
+			if (!isset($target->hasAttached[$shooter->id])) {
+				$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
+				$shooter->attached[$target->id] = $fireOrder->chosenLocation;
+				if ($cnc) {
+					$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
+				}
+			}
+
 			switch($this->firingMode){
 								
 				case 1://Capture

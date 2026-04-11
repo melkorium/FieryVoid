@@ -6,6 +6,19 @@ var ShipSystem = function ShipSystem(json, ship) {
 	for (var i in json) {
 		this[i] = json[i];
 	}
+
+	// Optimization #2: Server omits empty arrays/default values to reduce JSON.
+	// Ensure safe defaults exist for properties that may not be sent.
+	if (this.damage === undefined) this.damage = [];
+	if (this.criticals === undefined) this.criticals = [];
+	if (this.critData === undefined) this.critData = [];
+	if (this.fireOrders === undefined) this.fireOrders = [];		
+	if (this.power === undefined) this.power = [];
+	if (this.specialAbilities === undefined) this.specialAbilities = [];
+	if (this.outputMod === undefined) this.outputMod = 0;
+	if (this.destroyed === undefined) this.destroyed = false;
+	if (this.destroyed === undefined) this.destroyed = false;	
+	if (this.individualNotesTransfer === undefined) this.individualNotesTransfer = "";
 };
 
 ShipSystem.prototype = {

@@ -1175,6 +1175,33 @@ public function getStartLoading()
                     return;
                 }
 
+        // Attached pod facing restriction: pod can only be shot if its attachment location on the host ship faces the shooter
+        if (!empty($target->attached)) {
+            $hostShipId = key($target->attached);
+            $podLocation = (int)$target->attached[$hostShipId];
+            
+            if ($podLocation !== 0) {
+                $hostShip = $gamedata->getShipById($hostShipId);
+                if ($hostShip) {
+                    $relativeBearing = $hostShip->getBearingOnUnit($shooter);
+                    $locs = $hostShip->getLocations();
+                    $locationFacesShooter = false;
+                    foreach ($locs as $loc) {
+                        if ($loc['loc'] === $podLocation && mathlib::isInArc($relativeBearing, $loc['min'], $loc['max'])) {
+                            $locationFacesShooter = true;
+                            break;
+                        }
+                    }
+                    if (!$locationFacesShooter) {
+                        $fireOrder->needed = 0;
+                        $fireOrder->updated = true;
+                        $fireOrder->pubnotes .= "<br>Boarding pod is on an unexposed facing and cannot be targeted from this angle.";
+                        return;
+                    }
+                }
+            }
+        }
+
         $pos = $shooter->getHexPos();
 		$targetPos = $target->getHexPos();
         $jammermod = 0;
