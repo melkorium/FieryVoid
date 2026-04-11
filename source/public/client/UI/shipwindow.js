@@ -991,9 +991,9 @@ window.shipWindowManager = {
 
 		systemwindow.addClass(system.name);
 		if (system.iconPath) {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.iconPath + ")");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.iconPath) + ")");
 		} else {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.name + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.name + ".png") + ")");
 		}
 
 		systemwindow.addClass(system.name);
@@ -1089,7 +1089,7 @@ window.shipWindowManager = {
 
 		if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 		}
 
 		shipWindowManager.removeSystemClasses(systemwindow);
@@ -1273,7 +1273,7 @@ window.shipWindowManager = {
 			}
 		} else if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 
 			var channeled = shipManager.movement.getAmountChanneled(ship, system);
 			if (channeled > output) {

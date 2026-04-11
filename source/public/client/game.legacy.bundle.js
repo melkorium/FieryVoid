@@ -737,6 +737,7 @@ window.webglScene = function () {
         //this.scene.add(new THREE.AmbientLight(0xff0000));
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(this.width, this.height);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.localClippingEnabled = true;
 
@@ -1039,7 +1040,7 @@ window.webglScene = function () {
         var payload = getPositionObject.call(this, pos, gamePos, hexPos);
         payload.button = event.button;
 
-        console.log(payload);
+        //console.log(payload);        
         if (this.lastPositionClicked) {
             //console.log("direction", mathlib.getCompassHeadingOfPoint(hexPos, this.lastPositionClicked));
         }
@@ -1557,46 +1558,58 @@ window.webglSprite = function () {
                     };
 
                     const loadTask = () => {
-                        imageBitmapLoader.load(
-                            image,
-                            imageBitmap => {
-                                setTimeout(() => {
-                                    // Draw to canvas to zero RGB on near-transparent pixels before
-                                    // texture upload. r160 sRGB gamma brightens low-alpha colour data
-                                    // in PNG transparent areas, creating a coloured fringe outline.
-                                    // Zeroing RGB below alpha 77 (~30%) removes the fringe without
-                                    // affecting intended semi-transparent areas like shroud effects.
-                                    const cleanCanvas = document.createElement('canvas');
-                                    cleanCanvas.width = imageBitmap.width;
-                                    cleanCanvas.height = imageBitmap.height;
-                                    const cx = cleanCanvas.getContext('2d', { willReadFrequently: true });
-                                    cx.drawImage(imageBitmap, 0, 0);
-                                    const imgData = cx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height);
-                                    const px = imgData.data;
-                                    for (let i = 0; i < px.length; i += 4) {
-                                        if (px[i + 3] < 77) { // alpha < ~30%: zero out RGB to prevent sRGB fringe
-                                            px[i] = px[i + 1] = px[i + 2] = 0;
-                                        }
+                        const smartPath = window.AssetManager.getSmartImagePath(image);
+
+                        const onImageSuccess = imageBitmap => {
+                            setTimeout(() => {
+                                const cleanCanvas = document.createElement('canvas');
+                                cleanCanvas.width = imageBitmap.width;
+                                cleanCanvas.height = imageBitmap.height;
+                                const cx = cleanCanvas.getContext('2d', { willReadFrequently: true });
+                                cx.drawImage(imageBitmap, 0, 0);
+                                const imgData = cx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height);
+                                const px = imgData.data;
+                                for (let i = 0; i < px.length; i += 4) {
+                                    if (px[i + 3] < 77) {
+                                        px[i] = px[i + 1] = px[i + 2] = 0;
                                     }
-                                    cx.putImageData(imgData, 0, 0);
-                                    const texture = new THREE.CanvasTexture(cleanCanvas);
-                                    texture.colorSpace = THREE.SRGBColorSpace;
-                                    // Mipmaps re-enabled: pixel cleaning above zeros transparent edge RGB so
-                                    // mip generation uses clean data with no colour bleed fringe
-                                    texture.generateMipmaps = true;
-                                    texture.minFilter = THREE.LinearMipmapLinearFilter;
-                                    texture.magFilter = THREE.LinearFilter;
-                                    resolve(texture);
-                                    window.activeTextureLoads--;
-                                    processQueue();
-                                }, 0);
-                            },
-                            undefined,
-                            (err) => {
-                                console.error("Error loading texture:", image, err);
-                                reject(err);
+                                }
+                                cx.putImageData(imgData, 0, 0);
+                                const texture = new THREE.CanvasTexture(cleanCanvas);
+                                texture.colorSpace = THREE.SRGBColorSpace;
+                                texture.generateMipmaps = true;
+                                texture.minFilter = THREE.LinearMipmapLinearFilter;
+                                texture.magFilter = THREE.LinearFilter;
+                                resolve(texture);
                                 window.activeTextureLoads--;
                                 processQueue();
+                            }, 0);
+                        };
+
+                        imageBitmapLoader.load(
+                            smartPath,
+                            onImageSuccess,
+                            undefined,
+                            (err) => {
+                                if (smartPath !== image) {
+                                    console.warn("WebP failed, falling back to PNG:", smartPath);
+                                    imageBitmapLoader.load(
+                                        image,
+                                        onImageSuccess,
+                                        undefined,
+                                        (errFallback) => {
+                                            console.error("Critical texture failure:", image, errFallback);
+                                            reject(errFallback);
+                                            window.activeTextureLoads--;
+                                            processQueue();
+                                        }
+                                    );
+                                } else {
+                                    console.error("Error loading texture:", image, err);
+                                    reject(err);
+                                    window.activeTextureLoads--;
+                                    processQueue();
+                                }
                             }
                         );
                     };
@@ -2580,13 +2593,13 @@ window.HexNumberSprite = function () {
 
 window.ShipIcon = function () {
 
-    var directionOfMovementTexture = new THREE.TextureLoader().load('./img/directionOfMovement.png');
+    var directionOfMovementTexture = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath('./img/directionOfMovement.png'));
     directionOfMovementTexture.colorSpace = THREE.SRGBColorSpace;
     directionOfMovementTexture.colorSpace = THREE.SRGBColorSpace;
-    var directionOfProwTexture = new THREE.TextureLoader().load('./img/directionOfProw.png');
+    var directionOfProwTexture = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath('./img/directionOfProw.png'));
     directionOfProwTexture.colorSpace = THREE.SRGBColorSpace;
     directionOfProwTexture.colorSpace = THREE.SRGBColorSpace;
-    const THRUSTER_TEXTURE = new THREE.TextureLoader().load("./img/systemicons/thrusterICON1.png");
+    const THRUSTER_TEXTURE = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath("./img/systemicons/thrusterICON1.png"));
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
 
@@ -17459,7 +17472,7 @@ getActiveShipName: function getActiveShipName() {
             td.className = "iniImage";
 
             var img = document.createElement("img");
-            img.src = ships[i].imagePath;
+            img.src = window.AssetManager.getSmartImagePath(ships[i].imagePath);
 
             if (ships[i].flight) {
                 td.classList.add("flight");
@@ -24762,7 +24775,7 @@ window.shipManager = {
                 $("canvas.hexshipcanvas", e).attr("id", "shipcanvas_");
                 e.attr("id", "hexship_");
                 var img = new Image();
-                img.src = ship.imagePath;
+                img.src = window.AssetManager.getSmartImagePath(ship.imagePath);
                 shipManager.shipImages[ship.id] = {
                     orginal: img,
                     modified: null,
@@ -25264,6 +25277,8 @@ window.shipManager = {
             return;
         }
 
+        if (ship.destroyed) return true; // Early exit if server-side status is already set - DK 04/26
+
         if (ship.flight) {
             for (var i in ship.systems) {
                 var fighter = ship.systems[i];
@@ -25438,16 +25453,20 @@ window.shipManager = {
 
     //New getInitiativeOrder function to accommodate terrain units like asteroids.
     getIniativeOrder: function getIniativeOrder(ship) {
-        var previousInitiative = -100000; // same Ini move together now!
+        var previousInitiative = -100000;
         var order = 0;
 
-        // Filter out destroyed ships and those with shipSizeClass === 5 e.g. terrain
+        // Filter and SORT by initiative before calculating order - DK 04/26
         var validShips = gamedata.ships.filter(function (s) {
             return !shipManager.isDestroyed(s) && !gamedata.isTerrain(s.shipSizeClass, s.userid) && !s.mine && !(shipManager.getTurnDeployed(s) > gamedata.turn);
+        }).sort(function (a, b) {
+            if (a.iniative > b.iniative) return 1;
+            if (a.iniative < b.iniative) return -1;
+            return a.id - b.id; // Stability
         });
 
         for (var i in validShips) {
-            if (validShips[i].iniative > previousInitiative) { // new Ini higher than previous!
+            if (validShips[i].iniative > previousInitiative) {
                 order++;
                 previousInitiative = validShips[i].iniative;
             }
@@ -31141,7 +31160,8 @@ window.shipWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -31965,9 +31985,9 @@ window.shipWindowManager = {
 
 		systemwindow.addClass(system.name);
 		if (system.iconPath) {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.iconPath + ")");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.iconPath) + ")");
 		} else {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.name + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.name + ".png") + ")");
 		}
 
 		systemwindow.addClass(system.name);
@@ -32063,7 +32083,7 @@ window.shipWindowManager = {
 
 		if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 		}
 
 		shipWindowManager.removeSystemClasses(systemwindow);
@@ -32247,7 +32267,7 @@ window.shipWindowManager = {
 			}
 		} else if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 
 			var channeled = shipManager.movement.getAmountChanneled(ship, system);
 			if (channeled > output) {
@@ -32964,7 +32984,8 @@ window.flightWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -34998,7 +35019,12 @@ var Ship = function Ship(json) {
         var staticShip = window.staticShips[json.faction][json.phpclass];
         Object.keys(staticShip).forEach(function (key) {
             if (key !== 'systems') {
-                this[key] = staticShip[key]; // Copy other props
+                if (staticShip[key] !== null && typeof staticShip[key] === 'object') {
+                    // Deep clone arrays and objects to prevent shared references
+                    this[key] = JSON.parse(JSON.stringify(staticShip[key]));
+                } else {
+                    this[key] = staticShip[key]; // Copy other props
+                }
             } else {
                 staticSystems = staticShip[key]; // Preserve static systems
             }
@@ -35015,10 +35041,13 @@ var Ship = function Ship(json) {
 
     this.hexOffsets = json.hexOffsets || this.hexOffsets || null;
 
-    // Optimization #2: Server omits empty/default ship-level properties.
+    // Optimization: Server omits empty/default ship-level properties.
     if (this.EW === undefined || this.EW === null) this.EW = [];
     if (this.spawned === undefined) this.spawned = -1;
     if (this.skinDancing === undefined) this.skinDancing = false;
+    //if (this.hasAttached === undefined) this.hasAttached = false;
+    //if (this.attached === undefined) this.attached = false;     
+
     if (json.enhancementOptions === undefined && (window.gamedata && window.gamedata.status !== 'LOBBY')) {
         this.enhancementOptions = [];
     }

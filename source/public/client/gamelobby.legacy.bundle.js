@@ -6493,7 +6493,7 @@ window.shipManager = {
                 $("canvas.hexshipcanvas", e).attr("id", "shipcanvas_");
                 e.attr("id", "hexship_");
                 var img = new Image();
-                img.src = ship.imagePath;
+                img.src = window.AssetManager.getSmartImagePath(ship.imagePath);
                 shipManager.shipImages[ship.id] = {
                     orginal: img,
                     modified: null,
@@ -6995,6 +6995,8 @@ window.shipManager = {
             return;
         }
 
+        if (ship.destroyed) return true; // Early exit if server-side status is already set - DK 04/26
+
         if (ship.flight) {
             for (var i in ship.systems) {
                 var fighter = ship.systems[i];
@@ -7169,16 +7171,20 @@ window.shipManager = {
 
     //New getInitiativeOrder function to accommodate terrain units like asteroids.
     getIniativeOrder: function getIniativeOrder(ship) {
-        var previousInitiative = -100000; // same Ini move together now!
+        var previousInitiative = -100000;
         var order = 0;
 
-        // Filter out destroyed ships and those with shipSizeClass === 5 e.g. terrain
+        // Filter and SORT by initiative before calculating order - DK 04/26
         var validShips = gamedata.ships.filter(function (s) {
             return !shipManager.isDestroyed(s) && !gamedata.isTerrain(s.shipSizeClass, s.userid) && !s.mine && !(shipManager.getTurnDeployed(s) > gamedata.turn);
+        }).sort(function (a, b) {
+            if (a.iniative > b.iniative) return 1;
+            if (a.iniative < b.iniative) return -1;
+            return a.id - b.id; // Stability
         });
 
         for (var i in validShips) {
-            if (validShips[i].iniative > previousInitiative) { // new Ini higher than previous!
+            if (validShips[i].iniative > previousInitiative) {
                 order++;
                 previousInitiative = validShips[i].iniative;
             }
@@ -14559,7 +14565,8 @@ window.shipWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -15383,9 +15390,9 @@ window.shipWindowManager = {
 
 		systemwindow.addClass(system.name);
 		if (system.iconPath) {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.iconPath + ")");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.iconPath) + ")");
 		} else {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.name + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.name + ".png") + ")");
 		}
 
 		systemwindow.addClass(system.name);
@@ -15481,7 +15488,7 @@ window.shipWindowManager = {
 
 		if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 		}
 
 		shipWindowManager.removeSystemClasses(systemwindow);
@@ -15665,7 +15672,7 @@ window.shipWindowManager = {
 			}
 		} else if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 
 			var channeled = shipManager.movement.getAmountChanneled(ship, system);
 			if (channeled > output) {
@@ -16382,7 +16389,8 @@ window.flightWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -16737,7 +16745,12 @@ var Ship = function Ship(json) {
         var staticShip = window.staticShips[json.faction][json.phpclass];
         Object.keys(staticShip).forEach(function (key) {
             if (key !== 'systems') {
-                this[key] = staticShip[key]; // Copy other props
+                if (staticShip[key] !== null && typeof staticShip[key] === 'object') {
+                    // Deep clone arrays and objects to prevent shared references
+                    this[key] = JSON.parse(JSON.stringify(staticShip[key]));
+                } else {
+                    this[key] = staticShip[key]; // Copy other props
+                }
             } else {
                 staticSystems = staticShip[key]; // Preserve static systems
             }
@@ -16754,10 +16767,13 @@ var Ship = function Ship(json) {
 
     this.hexOffsets = json.hexOffsets || this.hexOffsets || null;
 
-    // Optimization #2: Server omits empty/default ship-level properties.
+    // Optimization: Server omits empty/default ship-level properties.
     if (this.EW === undefined || this.EW === null) this.EW = [];
     if (this.spawned === undefined) this.spawned = -1;
     if (this.skinDancing === undefined) this.skinDancing = false;
+    //if (this.hasAttached === undefined) this.hasAttached = false;
+    //if (this.attached === undefined) this.attached = false;     
+
     if (json.enhancementOptions === undefined && (window.gamedata && window.gamedata.status !== 'LOBBY')) {
         this.enhancementOptions = [];
     }
