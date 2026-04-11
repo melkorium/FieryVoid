@@ -7,7 +7,7 @@
 // Configuration
 $sourceDir = __DIR__ . '/img';
 $quality = 80;
-$chunkSize = 50; // Smaller chunks for smoother UI updates
+$chunkSize = 50; 
 $forceRebuild = true; 
 
 if (!extension_loaded('imagick')) {
@@ -92,6 +92,7 @@ if (isset($_GET['ajax'])) {
         button { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         button:hover { background: #c0392b; }
         #status { margin-bottom: 10px; font-size: 14px; color: #999; }
+        .cooldown { color: #f1c40f !important; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -116,21 +117,32 @@ if (isset($_GET['ajax'])) {
 
             try {
                 const response = await fetch('?ajax=1');
-                const data = await response.json();
+                
+                if (response.status === 503) {
+                    const retryAfter = parseInt(response.headers.get('Retry-After')) || 10;
+                    document.getElementById('status').innerText = `Rate Limited! Cooldown for ${retryAfter}s...`;
+                    document.getElementById('status').className = 'cooldown';
+                    setTimeout(processNext, retryAfter * 1000);
+                    return;
+                }
 
+                if (!response.ok) throw new Error('Server Error');
+
+                const data = await response.json();
+                document.getElementById('status').className = '';
                 document.getElementById('bar').style.width = data.percent + '%';
                 document.getElementById('stats').innerText = `${data.offset} / ${data.total}`;
                 document.getElementById('status').innerText = data.finished ? 'Complete!' : 'Processing chunk...';
 
                 if (!data.finished && running) {
-                    setTimeout(processNext, 100);
+                    setTimeout(processNext, 200); // 200ms delay for safety
                 } else if (data.finished) {
                     alert('Optimization Complete!');
                 }
             } catch (e) {
                 console.error(e);
-                document.getElementById('status').innerText = 'Error occurred. retrying...';
-                setTimeout(processNext, 2000);
+                document.getElementById('status').innerText = 'Error occurred. retrying in 5s...';
+                setTimeout(processNext, 5000);
             }
         }
 

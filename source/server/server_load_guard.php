@@ -13,7 +13,7 @@ if (!function_exists('apcu_fetch')) {
 // Configuration
 // ----------------------
 $maxGlobal = 23;       // max active requests globally (Matched to user's thread limit)
-$maxIP = 6;            // max active requests per IP
+$maxIP = 12;           // max active requests per IP (Increased to allow WebP optimization runs)
 $maxWait = 1.0;        // max seconds to wait for a global slot
 $waitStep = 0.05 + (mt_rand(0, 50) / 1000.0); //Small stutter
 
