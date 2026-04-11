@@ -108,7 +108,7 @@ When uploading your branch to gitHub it's best not to include these files, as th
 
 # Image Optimiser:
 
-Images ar optimsied on Webh Server by navigating to https://fieryvoid.eu/testInstance/source/public/mass_optimizer.php
+Images are optimised on Web Server by navigating to https://fieryvoid.eu/game/source/public/mass_optimizer.php or https://fieryvoid.eu/testInstance/source/public/mass_optimizer.php
 
 As a result, users can work with full png images, and then this script can be run on game and testInstance Server whenever required.
 
