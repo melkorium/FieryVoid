@@ -1047,9 +1047,12 @@ public static function firePreFiringWeapons($gamedata){
                 $hostFire = new FireOrder(-1, $fire->type, $fire->shooterid, $hostShipId, $fire->weaponid, -1, $fire->turn, $fire->firingMode, 100, 1, $fire->shots, $fire->shotshit, $fire->intercepted, $fire->x, $fire->y, $fire->damageclass);
                 $hostFire->needed = 100;
                 $hostFire->rolled = 1;
-                $hostFire->pubnotes = "Automatic hit against ship from shooting its attached pod.";
+                $hostFire->pubnotes = " Automatically on ship from shooting at an attached pod.";
                 $hostFire->targetid = $hostShipId;
                 $hostFire->id = -1; // New order
+                $hostFire->addToDB = true;
+                $hostFire->shotshit = 0;
+                $hostFire->intercepted = 0;
                 
                 $weapon->fire($gamedata, $hostFire);
                 $weapon->fireOrders[] = $hostFire;
