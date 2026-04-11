@@ -71,7 +71,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
 		<!-- Preload critical bundle to parallelize download with large inline JSON payloads below -->
-		<?php $debug = isset($_GET['debug']); ?>
+		<?php $debug = (isset($_GET['debug']) || isset($_GET['DEBUG'])); ?>
 		<?php if (!$debug): ?>
 		<link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/gamelobby.legacy.bundle.js'); ?>" as="script">
 		<?php endif; ?>

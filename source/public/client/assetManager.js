@@ -2,6 +2,17 @@
 
 window.AssetManager = {
     _isWebpSupported: null,
+    _isLocal: null,
+
+    /**
+     * Checks if we are running in a local developmental environment.
+     */
+    isLocal: function() {
+        if (this._isLocal !== null) return this._isLocal;
+        var host = window.location.hostname;
+        this._isLocal = (host === "localhost" || host === "127.0.0.1" || host.indexOf("192.168.") === 0);
+        return this._isLocal;
+    },
 
     /**
      * Checks if the browser supports WebP.
@@ -9,6 +20,14 @@ window.AssetManager = {
      */
     isWebpSupported: function() {
         if (this._isWebpSupported !== null) return this._isWebpSupported;
+
+        // Skip WebP conversion on local environments to prevent 404 noise 
+        // unless explicitly forced by the developer.
+        var forceWebp = window.forceWebp || window.location.search.toLowerCase().indexOf('forcewebp') !== -1;
+        if (this.isLocal() && !forceWebp) {
+            this._isWebpSupported = false;
+            return false;
+        }
 
         try {
             var elem = document.createElement('canvas');
@@ -24,14 +43,8 @@ window.AssetManager = {
         // Initialize global error listener once support is known
         if (this._isWebpSupported && !window._assetManagerInitialized) {
             window.addEventListener('error', function(e) {
-                // Global fallback for any image in the img/ directory
                 if (e.target.tagName === 'IMG' && e.target.src.indexOf('.webp') !== -1) {
                     console.warn("WebP Load failed, reverting to original:", e.target.src);
-                    
-                    // Revert based on potential original extensions
-                    // NOTE: This assumes the original was either .png or .jpg
-                    // Since we can't be 100% sure, we try the most common (PNG) first
-                    // The error listener will trigger again if the PNG also fails.
                     e.target.src = e.target.src.replace('.webp', '.png');
                 }
             }, true);
@@ -43,12 +56,10 @@ window.AssetManager = {
 
     /**
      * Given an image path, returns the WebP version if supported.
-     * Works for all PNG and JPG/JPEG files in the img/ folder.
      */
     getSmartImagePath: function(path) {
         if (!path || typeof path !== 'string') return path;
         
-        // Remove 'v=X' versioning if present to check extension accurately
         var cleanPath = path.split('?')[0];
 
         if (this.isWebpSupported()) {

@@ -47,7 +47,7 @@ session_write_close(); // Prevent Session Locking (Spam Refresh Protection)
 
     <!-- Preload critical bundles to parallelize their download with the large inline JSON payloads below -->
     <link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/UI/reactJs/UI.bundle.js'); ?>" as="script">
-    <?php $debug = isset($_GET['debug']); ?>
+    <?php $debug = (isset($_GET['debug']) || isset($_GET['DEBUG'])); ?>
     <?php if (!$debug): ?>
     <link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/game.legacy.bundle.js'); ?>" as="script">
     <?php endif; ?>
