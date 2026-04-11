@@ -108,13 +108,9 @@ When uploading your branch to gitHub it's best not to include these files, as th
 
 # Image Optimiser:
 
-As images are now saved in Index mode, if you want to edit them you'll need to change to RGB mode (otherwise you lose alot of functionality).  In GIMP this is easily done via by Image->Mode->RGB.
+Images ar optimsied on Webh Server by navigating to https://fieryvoid.eu/testInstance/source/public/mass_optimizer.php
 
-Do NOT run the command below when you add images, it's just something we should do every few months.
-
-Open your terminal in the project root (c:\FV_env\FieryVoid).
-Run the command:
-yarn run optimize-images
+As a result, users can work with full png images, and then this script can be run on game and testInstance Server whenever required.
 
 
 # Sticky Images
