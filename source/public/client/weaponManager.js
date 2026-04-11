@@ -454,27 +454,6 @@ window.weaponManager = {
             var html = "";
             var section = weaponManager.getShipHittingSide(selectedShip, ship);
 
-        // Attached pod logic
-        var attachedUnitHidden = false;    
-        if (selectedShip.hasAttached && Object.keys(selectedShip.hasAttached).length > 0) {
-            var keys = Object.keys(selectedShip.hasAttached);
-            if (keys.includes(ship.id.toString())) {
-                attachedUnitHidden = true; // Parent cannot target the attached pod
-            }
-        }
-        if (ship.attached && Object.keys(ship.attached).length > 0) {
-            var hostId = Object.keys(ship.attached)[0];
-            var podLocation = parseInt(ship.attached[hostId]);
-            if (!isNaN(podLocation) && podLocation !== 0) {
-                var hostShip = gamedata.getShip(hostId);
-                if (hostShip) {
-                    if (!section.includes(podLocation)) {
-                        attachedUnitHidden = true; // Pod is attached to a side not facing the shooter
-                    }
-                }
-            }
-        }
-
             for (var i = 0; i < section.length; i++) {
                 switch (section[i]) {
                     case 1:
@@ -513,6 +492,28 @@ window.weaponManager = {
         var blockedLosHex = gamedata.blockedHexes; //Are there any blocked hexes, no point checking if no.        
         var loSBlocked = false; //Default to LoS not blocked.
         var skinDanceBlocked = null;
+        // Attached pod logic
+        var attachedUnitHidden = false;    
+        if (selectedShip.hasAttached && Object.keys(selectedShip.hasAttached).length > 0) {
+            var keys = Object.keys(selectedShip.hasAttached);
+            if (keys.includes(ship.id.toString())) {
+                attachedUnitHidden = true; // Parent cannot target the attached pod
+            }
+        }
+        if (ship.attached && Object.keys(ship.attached).length > 0) {
+            var hostId = Object.keys(ship.attached)[0];
+            var podLocation = parseInt(ship.attached[hostId]);
+            if (!isNaN(podLocation) && podLocation !== 0) {
+                var hostShip = gamedata.getShip(hostId);
+                var hostSections = weaponManager.getShipHittingSide(selectedShip, hostShip);                
+                if (hostShip) {
+                    if (!hostSections.includes(podLocation)) {
+                        attachedUnitHidden = true; // Pod is attached to a side not facing the shooter
+                    }
+                }
+            }
+        }
+
 
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
