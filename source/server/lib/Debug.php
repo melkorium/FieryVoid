@@ -53,7 +53,12 @@ class Debug
 
             $fullMsg = "[$UID][$date] $msg$context\n";
             
-            // Determine log path: source/logs/fieryvoid.log
+            // 1. Output to System Log (Docker captures this)
+            // We use a more concise format for the console to keep it readable
+            $consoleMsg = "FV_DEBUG: [$UID] " . str_replace(array("\n", "\r"), " ", $msg);
+            @error_log($consoleMsg);
+
+            // 2. Output to Project Log File (Full context)
             $logDir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'logs';
             if (!is_dir($logDir)) {
                 @mkdir($logDir, 0777, true);
@@ -61,17 +66,13 @@ class Debug
             
             $logFile = $logDir . DIRECTORY_SEPARATOR . 'fieryvoid.log';
             
-            // Verify we can write to the directory
             if (is_writable($logDir) || (!file_exists($logFile) && is_writable($logDir)) || (file_exists($logFile) && is_writable($logFile))) {
                 @file_put_contents($logFile, $fullMsg, FILE_APPEND);
-            } else {
-                // Fallback to PHP system log if project log is not writable
-                @error_log("FieryVoid Log NOT WRITABLE: " . $logFile . " - MSG: " . $fullMsg);
             }
             
             return $UID;
         } catch (Throwable $t) {
-            @error_log("Debug::doLog failed: " . $t->getMessage());
+            @error_log("Debug::doLog fatal failure: " . $t->getMessage());
             return "LOG_ERROR";
         }
     }
