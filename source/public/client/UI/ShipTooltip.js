@@ -261,7 +261,7 @@ window.ShipTooltip = function () {
             }
         }
 
-        if (ship.attached && Object.keys(ship.attached).length > 0) {
+        if (ship.attached && Object.keys(ship.attached).length > 0 && !ship.detached) {
             var targetId = Object.keys(ship.attached)[0];
             var location = Object.values(ship.attached)[0];
             var locationTip = '';
