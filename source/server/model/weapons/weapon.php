@@ -1179,7 +1179,7 @@ public function getStartLoading()
     
                     return;
                 }
-
+        /* //Handled in Front End        
         // Attached pod facing restriction: pod can only be shot if its attachment location on the host ship faces the shooter
         if (!empty($target->attached)) {
             $hostShipId = key($target->attached);
@@ -1206,7 +1206,7 @@ public function getStartLoading()
                 }
             }
         }
-
+        */        
         $pos = $shooter->getHexPos();
 		$targetPos = $target->getHexPos();
         $jammermod = 0;
