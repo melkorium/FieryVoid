@@ -7537,16 +7537,18 @@ class Marines extends Weapon implements SpecialAbility{
 		foreach($cnc->criticals as $critDisabled){
 			if($critDisabled->phpclass == "ShipDisabled"  && $critDisabled->turn <= $gamedata->turn) $deliveryRoll = 1;//Ship captured, auto success.		
 		}		
-		
+
+		if (!isset($target->hasAttached[$shooter->id])) {
+			$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
+			$shooter->attached[$target->id] = $fireOrder->chosenLocation;
+			if ($cnc) {
+				$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
+			}
+		}		
+
 		if($deliveryRoll <= 5){ //successful delivery, continue with applying critical effects.						
 
-			if (!isset($target->hasAttached[$shooter->id])) {
-				$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
-				$shooter->attached[$target->id] = $fireOrder->chosenLocation;
-				if ($cnc) {
-					$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
-				}
-			}
+
 				
 			switch($this->firingMode){
 								
@@ -7868,15 +7870,24 @@ class GrapplingClaw extends Weapon{
 		foreach($cnc->criticals as $critDisabled){
 			if($critDisabled->phpclass == "ShipDisabled"  && $critDisabled->turn <= $gamedata->turn) $deliveryRoll = 1;//Ship captured, auto success.		
 		}		
-		
-		if($deliveryRoll <= 5){ //successful delivery, continue with applying critical effects.						
+
 			if (!isset($target->hasAttached[$shooter->id])) {
 				$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
 				$shooter->attached[$target->id] = $fireOrder->chosenLocation;
 				if ($cnc) {
 					$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
 				}
-			}
+			}		
+
+			/*if (!isset($target->hasAttached[$shooter->id])) {
+				$target->hasAttached[$shooter->id] = $fireOrder->chosenLocation;
+				$shooter->attached[$target->id] = $fireOrder->chosenLocation;
+				if ($cnc) {
+					$cnc->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$target->id,$cnc->id,"Attached","Attached",$shooter->id . "=>" . $fireOrder->chosenLocation);
+				}
+			}*/
+
+		if($deliveryRoll <= 5){ //successful delivery, continue with applying critical effects.						
 
 			switch($this->firingMode){
 								
