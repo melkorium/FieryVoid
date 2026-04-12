@@ -2278,14 +2278,14 @@ class CnC extends ShipSystem implements SpecialAbility {
 									$fighter->damage[] = $damageEntry;
 								}
 							}
-						} else {
+						} /*else { //We don't need ship logic, only FighterFlight units attached atm.
 							$boardingStruct = $boardingShip->getStructureSystem(0);
 							if ($boardingStruct && !$boardingStruct->isDestroyed()) {
 								$damageEntry = new DamageEntry(-1, $boardingShip->id, -1, $gamedata->turn, $boardingStruct->id, $boardingStruct->getRemainingHealth(), 0, 0, -1, true, false, "Target structure destroyed", "Standard", -1, -1);
 								$damageEntry->updated = true;
 								$boardingStruct->damage[] = $damageEntry;
 							}
-						}
+						}*/
 					} else if ($ship->isDestroyed()) {
 						// Parent ship destroyed but not the structure, detach!
 						$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$this->id,"Detached","Detached",$shooterId . "=>Detach");
