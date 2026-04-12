@@ -159,14 +159,14 @@ window.MovementPhaseStrategy = function () {
                 //TODO: Test if this autocommit thing works
                 gamedata.autoCommitOnMovement(ship);
             }
-            
+
             // Mirror movement to attached units (e.g. pods) - mirroring logic returns true if anything changed - DK 04/26
-            if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
-                if (shipManager.movement.copyMovementOrders(ship, true)) { // Call silently in the strategy loop to prevent recursion
+            /*if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
+                //if (shipManager.movement.copyMovementOrders(ship, true)) { // Call silently in the strategy loop to prevent recursion
                     // Update the UI if mirroring occurred, but avoid doing it in a way that recurses.
                     // The strategy's update loop will handle most visual refreshes naturally.
-                }
-            }
+               // }
+            }*/
         });
     }
 
