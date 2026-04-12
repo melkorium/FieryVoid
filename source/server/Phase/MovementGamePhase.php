@@ -216,7 +216,7 @@ class MovementGamePhase implements Phase
 									($move->facing + $facingOffset) % 6,
 									$move->preturn,
 									$move->turn,
-									$move->value,
+									$activeShip->id,
 									$move->at_initiative
 								);
 								$moveObj->requiredThrust = $move->requiredThrust;

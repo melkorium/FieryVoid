@@ -454,6 +454,7 @@ shipManager.movement = {
 
     doDetach: function doDetach(ship) {
         var lm = ship.movement[ship.movement.length - 1];
+        var hostShipId = Object.keys(ship.attached)[0];      
         ship.detached = true; //Mark detached this movement.        
         ship.movement[ship.movement.length] = {
             id: -1,
@@ -474,7 +475,7 @@ shipManager.movement = {
             at_initiative: shipManager.getIniativeOrder(ship),
             turn: gamedata.turn,
             forced: false,
-            value: 0
+            value: hostShipId
         };
     },
 
