@@ -131,7 +131,7 @@ shipManager.movement = {
             if (movement.type == "contract") shipManager.movement.amendContractValue(ship, -movement.value);//For Contraction, need to amend level.
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
 
@@ -150,7 +150,7 @@ shipManager.movement = {
                 //                            shipManager.movement.adjustTurnDelay(ship, oldspeed, speed);
                 ship.currentturndelay = shipManager.movement.calculateCurrentTurndelay(ship);
 
-                //shipManager.movement.copyMovementOrders(ship);
+
                 return true;
             }
         }
@@ -438,7 +438,7 @@ shipManager.movement = {
             value: 0
         };
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
     /*just move ahead using all remaining movement*/
@@ -568,7 +568,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
     canRotate: function canRotate(ship) {
@@ -641,7 +641,7 @@ shipManager.movement = {
                 value: 0
             };
 
-            //shipManager.movement.copyMovementOrders(ship);
+
         }
     },
 
@@ -789,7 +789,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
     doForcedPivot: function doForcedPivot(ship, silent) {
@@ -837,7 +837,7 @@ shipManager.movement = {
             value: 0
         };
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
     isPivoting: function isPivoting(ship) {
@@ -1203,7 +1203,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
 
     },
 
@@ -1406,7 +1406,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
     getRemainingEngineThrust: function getRemainingEngineThrust(ship) {
@@ -2004,7 +2004,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        //shipManager.movement.copyMovementOrders(ship);
+
     },
 
 
@@ -2566,62 +2566,6 @@ shipManager.movement = {
     },
 
 
-    /* DId not work, facing sdidn't change and was generating extra movements for ship that pod was attached to.
-    copyMovementOrders: function copyMovementOrders(ship, silent) {
-        if (!ship.hasAttached || Object.keys(ship.hasAttached).length === 0) return false;
 
-        var changed = false;
-
-        for (var attachedId in ship.hasAttached) {
-            var location = ship.hasAttached[attachedId];
-            var attachedShip = gamedata.getShip(attachedId);
-
-            if (!attachedShip || attachedShip.detached || shipManager.isDestroyed(attachedShip)) continue;
-
-            var newMovements = [];
-
-            // 1. Maintain the pod's movement history for previous turns
-            for (var m = 0; m < attachedShip.movement.length; m++) {
-                if (attachedShip.movement[m].turn < gamedata.turn) {
-                    newMovements.push(attachedShip.movement[m]);
-                }
-            }
-
-            var locOffset = shipManager.movement.getAttachedFacingOffset(location);
-            var facingAdjustment = 0;
-
-            // Apply 180-degree flip for pods on rolled host ships
-            if (shipManager.movement.isRolled(ship)) {
-                facingAdjustment = 3;
-            }
-
-            // 2. Clone parent movements for the CURRENT turn
-            for (var i = 0; i < ship.movement.length; i++) {
-                var move = ship.movement[i];
-                if (move.turn != gamedata.turn) continue;
-
-                // Full clone of the host's move order
-                var attachedMove = JSON.parse(JSON.stringify(move));
-                attachedMove.id = -1;
-                attachedMove.type = "attached";
-
-                // Ensure facing is calculated correctly based on attachment point and roll state
-                attachedMove.facing = mathlib.addToHexFacing(move.facing, locOffset + facingAdjustment);
-
-                // Note: Position, Heading, Speed, and Offsets are already mirrored by the clone.
-                newMovements.push(attachedMove);
-            }
-
-            attachedShip.movement = newMovements;
-
-            if (!silent) {
-                gamedata.shipStatusChanged(attachedShip);
-            }
-
-            changed = true;
-        }
-
-        return changed;
-    }*/
 
 };
