@@ -4,7 +4,7 @@ class dewMine41 extends Mine{
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 80;
+		$this->pointCost = 64;
 		$this->faction = "Torata Regency";
         $this->phpclass = "dewMine41";
         $this->imagePath = "img/ships/torataMine.png";
