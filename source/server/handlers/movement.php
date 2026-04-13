@@ -335,10 +335,10 @@
         
 
         public static function setPreturnMovementStatusForShip($ship, $turn, $gamedata = null){
-            $turn = $turn -1;
+            $turn = $turn -1;                 
             
 			// Handle attached ships synchronization
-			if ($gamedata && !empty($ship->attached)) {
+			if ($gamedata && !empty($ship->attached)) {             
 				$parentId = key($ship->attached);
 				$parent = $gamedata->getShipById($parentId);
 				if ($parent) {
@@ -377,11 +377,11 @@
 					// Ensure the pod always has at least one movement order for the new turn 
 					// to synchronize its speed, heading, and position with the host ship.
 					if (empty($movements)) {
-						$movements[] = new MovementOrder(null, "none", $lastmove->position, 0,0, $lastmove->speed, $lastmove->heading, ($lastmove->facing + $facingOffset)%6, true, ($turn+1), 0, $ship->iniative);
+						$movements[] = new MovementOrder(null, "sync", $lastmove->position, 0,0, $lastmove->speed, $lastmove->heading, ($lastmove->facing + $facingOffset)%6, true, ($turn+1), 0, $ship->iniative);
 					}
 					
 					return $movements;
-				}
+				}         
 			}
 
             $rolled = self::isRolled($ship, $turn);
