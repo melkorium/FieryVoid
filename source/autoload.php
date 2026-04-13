@@ -3646,7 +3646,8 @@ spl_autoload_register(
                 //Descari Mines - 3
                 'captorminesirna' => '/server/model/ships/descari/captorMineSirna.php',                 
                 'dewminesircha' => '/server/model/ships/descari/dewMineSircha.php', 
-                'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php', 
+                'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php',
+                'dewminedd3' => '/server/model/ships/descari/dewMineDD3.php',                 
                 
                 //Dilgar Mines - 10
                 'proxmineintavia' => '/server/model/ships/dilgar/proxMineIntaviA.php',
