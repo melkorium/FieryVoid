@@ -3596,7 +3596,7 @@ spl_autoload_register(
                 'proxminedpar' => '/server/model/ships/narn/proxMineDPar.php',
                 'captorminedgoth' => '/server/model/ships/narn/captorMineDGoth.php', 
                 'dewminedmal' => '/server/model/ships/narn/dewMineDMal.php',                                  
-                'dewminebtath' => '/server/model/ships/narn/dewMineDTath.php', 
+                'dewminedtath' => '/server/model/ships/narn/dewMineDTath.php', 
                 'dewminedkak' => '/server/model/ships/narn/dewMineDKak.php', 
                 'dewminedshal' => '/server/model/ships/narn/dewMineDShal.php',   
                 
