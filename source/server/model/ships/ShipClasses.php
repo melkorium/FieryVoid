@@ -209,6 +209,7 @@ class BaseShip {
 			    	$mod += -5* $firstFighter->hasCritical("tmpinidown", $gamedata->turn);				    
 			    }
 		    }
+            if (!empty($this->attached)) $mod += -10;//Attached Pods get -10 to Iniative as if just launched.            
 	    }
 	    return $mod;
     }
