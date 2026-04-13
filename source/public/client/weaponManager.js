@@ -2468,14 +2468,16 @@ window.weaponManager = {
         webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
     },
 
-    getDamagesCausedBy: function getDamagesCausedBy(fire, damages) {
+    getDamagesCausedBy: function getDamagesCausedBy(fire, damages, ships = null) {
 
         if (!damages) {
             damages = [];
         }
 
-        for (var i in gamedata.ships) {
-            var ship = gamedata.ships[i];
+        var shipsToIterate = ships || gamedata.ships;
+
+        for (var i in shipsToIterate) {
+            var ship = shipsToIterate[i];
             var list = Array();
 
             for (var a in ship.systems) {
