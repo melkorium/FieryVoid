@@ -25,7 +25,6 @@ class dewMineDShal extends Mine{
         $this->pivotcost = 0;	
         $this->iniativebonus = -200; 
         $this->mineType = 'DEW';  
-        $this->notes = 'Must be fired manually';
         
 		$this->outOfTier = array('EMINE'=>1);           
        		    	    	    	    
