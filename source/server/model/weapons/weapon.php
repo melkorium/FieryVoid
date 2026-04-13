@@ -1661,7 +1661,20 @@ public function getStartLoading()
             $fireOrder->notes .= " FIRING SHOT: rolled: $rolled, needed: $$fireOrder->needed\n";
             $fireOrder->rolled = $rolled; //I think this is needed to generate a combat log note.           
             return; //Somehow a hex targeted weapon made it to the normal fire function, don't proceed.
-        }    
+        } 
+        
+        if ($shooter instanceof Mine){ //Don't fire if hit chances are less than 0, and empty fireORder array so shot isn't saved to db.
+            if ($fireOrder->needed <= 0) {
+                // Find and remove ONLY this specific fire order from the weapon's array
+                foreach ($this->fireOrders as $key => $fo) {
+                    if ($fo === $fireOrder) {
+                        unset($this->fireOrders[$key]);
+                        break;
+                    }
+                }
+                return; // Exit without rolling or applying damage
+            }
+        }
 
 
         $fireOrder->needed -= $fireOrder->totalIntercept;
