@@ -117,15 +117,20 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
         <h3 id="boarding" style="margin-top: 15px;">Boarding Actions & Marines</h3>
         <ul>
-            <li>Many factions have access to Breaching Pods, which come equipped with a marines that can undertake boarding actions.</li>
-            <li>During the Firing Phase, Pods can attempt to attach to enemy ships in the same hex and deliver Marines to undertake a selection of missions (Sabotage, Capture Ship and Rescue).</li>
-            <li>Pods first roll to attach on a d10, but success is automatic if they are moving faster than the target ship and the speed difference is not higher than pods thrust rating. 
-                If the speed difference to target is greater than pod thrust rating it is unable to attach. 
+            <li>Many factions have access to Breaching Pods, which come equipped with marines that can undertake boarding actions.</li>
+            <li>During the Firing Phase, Pods can attempt to attach to enemy ships in the same hex and deliver Marines to undertake a selection of missions (Capture Ship, Sabotage and Rescue).</li>
+            <li>Pods will initially roll to attach on a d10 in the same way that normal weapons roll to hit enemies, 
+                but the calculation is very different and success is automatic if they are moving faster than the target ship and the speed difference between the two units is not higher than pod's thrust rating. 
+                If the speed difference to target is greater than pod thrust rating it is simply unable to attach. 
                 If the target is moving faster, each point of speed difference is -10% chance to attach.  
-                Pods cannot attached to ships with Advanced Armor and certain factions like Llort have +1 to attach rolls.</li>
-            <br>                 
-            <li>Once attached, the Pod will roll a d10 again on the following table to try and deliver the Marines, with a base chance of 50% to successfully board the vessel.  
-                Unsuccessful marines may be lost or return safely their pod.</li>                           
+                Pods cannot attach to ships with Advanced Armor and certain factions like Llort have +1 to attach rolls.</li>
+            <li>Breaching Pods will remain attached to a vessels facing structure block until they choose to Detach in the Movement Phase, or the vessel is destroyed 
+                (providing that the structure location the pod is attached to is NOT also destryed).  If the structure block a pod is attached to IS detroyed before the Pod detaches, then the Pod is automatically destroyed.  
+                While attached, Pods matach speed and heading with their host ship, and suffer -10 Initiative penalty.  When the Detach they will automatically face away from the host ship to which they were attached.</li>
+            <li>Units can shoot at attached pods, providing they are in arc of the structure location the pod is attached to, and will roll to hit them as normal. However any shot aimed at a pod will automatically hit the vessel it is attached to as well.</li>                 
+            <br>               
+            <li>After the attach roll, the Pod will attempt to deliver its marines by rolling on a d10 again on the following table, with a base chance of 50% to successfully board the vessel.  
+                Depedning on the roll, unsuccessful marines may be lost in the attempt or return safely their pod.</li>                           
             <li><strong>DELIVERY TABLE (D10):</strong>
                 <ul class="circle-list">
                     <li>1-5 - Marines successfully delivered.</li>
@@ -195,7 +200,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 </ul>
             </li>
             <br>   
-            <li>Note - Unlike Tabletop where Pods STAY attached to enemy units, this is not the case in FV and they are free to move the following turn.</li>
+            <li>Note - Ships euipped with Grappling Claws use the same rules to attach and deliver Marines as described above, however they do not currently attach to the enemy vessel in the same way as Breaching Pods.</li>
         </ul>
         <a class="back-to-top" href="#top">↩ Back to Top</a>
 
