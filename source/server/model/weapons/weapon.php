@@ -1658,24 +1658,22 @@ public function getStartLoading()
         $target = $gamedata->getShipById($fireOrder->targetid);
         if($target == null) {
             $rolled = Dice::d(100);
-            $fireOrder->notes .= " FIRING SHOT: rolled: $rolled, needed: $$fireOrder->needed\n";
+            $fireOrder->notes .= " FIRING SHOT: rolled: $rolled, needed: $fireOrder->needed\n";
             $fireOrder->rolled = $rolled; //I think this is needed to generate a combat log note.           
             return; //Somehow a hex targeted weapon made it to the normal fire function, don't proceed.
         } 
         
-        if ($shooter instanceof Mine){ //Don't fire if hit chances are less than 0, and empty fireORder array so shot isn't saved to db.
-            if ($fireOrder->needed <= 0) {
-                // Find and remove ONLY this specific fire order from the weapon's array
+        if ($shooter instanceof Mine){ //Don't fire if hit chances are less than 0, and remove fireOrder so shot isn't saved to db.
+            if ($fireOrder->needed <= 0){
                 foreach ($this->fireOrders as $key => $fo) {
-                    if ($fo === $fireOrder) {
+                    if ($fo->id === $fireOrder->id) {
                         unset($this->fireOrders[$key]);
                         break;
                     }
                 }
-                return; // Exit without rolling or applying damage
+                return;
             }
         }
-
 
         $fireOrder->needed -= $fireOrder->totalIntercept;
         $notes = "Interception: " . $fireOrder->totalIntercept . " sources:" . $fireOrder->numInterceptors . ", final to hit: " . $fireOrder->needed;
