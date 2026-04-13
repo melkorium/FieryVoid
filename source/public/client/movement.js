@@ -1276,14 +1276,20 @@ shipManager.movement = {
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
-            if (movement.preturn == false && movement.forced == false && movement.type != "speedchange" && movement.type != "deploy") return false;
+            if (movement.preturn == false &&
+                movement.forced == false &&
+                movement.type != "speedchange" &&
+                movement.type != "deploy" && 
+                movement.type != "sync" &&
+                movement.type != "attached" &&                  
+                movement.type != "detach") return false;
         }
 
         //gravitic ship with enough thrust can accelerate, no matter her alignment
         if (ship.gravitic) return true;
 
         //ship cannot accelerate if it's not aligned OR pivoting    
-        if (shipManager.movement.isOutOfAlignment(ship) || shipManager.movement.isPivoting(ship) != "no") return false;
+        if ((shipManager.movement.isOutOfAlignment(ship) || shipManager.movement.isPivoting(ship) != "no") && !ship.detached) return false;
 
         return true;
     },
