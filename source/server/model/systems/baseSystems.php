@@ -7031,6 +7031,7 @@ class MineControllerDEW extends ShipSystem{
 
     public function setSystemDataWindow($turn){
             $this->data["Max Range"] = $this->rangeSetting;
+            $this->data["Accuracy"] = $this->accuracy;			
             foreach($this->allocatedRanges as $shipType=>$range){
                 $this->data[' - '.$shipType.' range'] =  $range;
             }         
