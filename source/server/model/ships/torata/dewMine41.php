@@ -41,6 +41,8 @@ class dewMine41 extends Mine{
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 4));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
         $this->addPrimarySystem(new MineControllerDEW(0, 1, 0, 8, 4)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range/output, $accuracy 
+        $this->addPrimarySystem(new LightParticleBeamShip(0, 1, 1, 0, 360));
+        $this->addPrimarySystem(new LightParticleBeamShip(0, 1, 1, 0, 360));          
         $this->addPrimarySystem(new LaserAccelerator(0, 1, 1, 0, 360)); 
         $this->addPrimarySystem(new LightParticleBeamShip(0, 1, 1, 0, 360));
         $this->addPrimarySystem(new LightParticleBeamShip(0, 1, 1, 0, 360));                
