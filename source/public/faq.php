@@ -306,6 +306,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                     <li>If your 'General Lock On' score is greater than the Distance and Signature of the mine added together, this is added to your hit chance.  
                         E.g. If you have 10 EW allocated to mine detection and you spot a mine with a Signature of 1 at range 3, the minimum detection needed is 4 EW. Therefore, the
                         detecting ship has a +6 (multiplied by 5) to hit the mine.  So you'd gain +30% to hit, but would still have a double range penalty if there wasn't a OEW lock on the mine as per usual.</li>
+                    <li>Unless a mine is equipped with the Command Controller enhancement, it will not use its weapons to intercept.</li>    
                 </ul>
             </li>                        
             
