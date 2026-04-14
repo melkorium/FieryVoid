@@ -626,7 +626,7 @@
 .filter-container-style {
     margin-top: 0px;
     margin-left: 5px;
-    font-size: 12px;
+    font-size: 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -638,6 +638,7 @@
     margin-right: 5px;
     text-decoration: underline;
     color: #8bcaf2;
+    font-size: 14px;    
 }
 
 .filter-pipe-separator {
@@ -650,6 +651,7 @@
     text-decoration: underline;
     margin-right: 5px;
     color: #8bcaf2;
+    font-size: 14px;    
 }
 
 .isd-filter-label-style {
@@ -659,6 +661,7 @@
 
 .filter-by-isd-text {
     margin-right: 2px;
+    font-size: 14px;    
 }
 
 .isd-input-style {
@@ -670,7 +673,7 @@
 .reset-isd-link-style {
     text-decoration: underline;
     margin-left: 3px;
-    font-size: 11px;
+    font-size: 12px;
     color: #8bcaf2;
 }
 
@@ -684,6 +687,7 @@
 
 .tier-label-style {
     margin-left: 5px;
+    font-size: 14px;
 }
 
 .tier-pipe-separator {
