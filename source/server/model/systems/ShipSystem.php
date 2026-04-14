@@ -587,7 +587,7 @@ class ShipSystem {
 		if (!$newFireOrder) return;
 
 		$rollMod = $this->getMarineRollMod($critical, $ship, $gamedata);						    			
-		$sabotageRoll = 1;
+		$sabotageRoll = max(0, Dice::d(10) + $rollMod);
 
 		$damageDealt = 0;
 		$eliminated = false;
