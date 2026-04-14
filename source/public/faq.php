@@ -118,6 +118,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <h3 id="boarding" style="margin-top: 15px;">Boarding Actions & Marines</h3>
         <ul>
             <li>Many factions have access to Breaching Pods, which come equipped with marines that can undertake boarding actions.</li>
+            <br>              
             <li>During the Firing Phase, Pods can attempt to attach to enemy ships in the same hex and deliver Marines to undertake a selection of missions (Capture Ship, Sabotage and Rescue).</li>
             <li>Pods will initially roll to attach on a d10 in the same way that normal weapons roll to hit enemies, 
                 but the calculation is very different and success is automatic if they are moving faster than the target ship and the speed difference between the two units is not higher than pod's thrust rating. 
@@ -159,12 +160,15 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <ul class="circle-list">
                     <li><strong>CAPTURE: </strong>Marines will fight the defending marine contingents directly (defenders are shown in CnC tooltip!).  
                     This has been simplified from Tabletop, and now only involves two dice rolls per attacker, one to see if marines eliminate a defender (50% base chance) and a second to see if marines are eliminated (25% base chance).  
-                    If the attacking marines manage to defeat all defenders, the enemy ship is immediately be disabled for the remainder of the battle so long as there are still at least one attacking marine unit on board.
+                    If the attacking marines manage to defeat all defenders, the enemy ship is immediately be disabled for the remainder of the battle so long as there is still at least one attacking marine unit on board.
+                    After a successful capture, one marine unit will remain on the ship and the remainder will return to attached Breaching Pods if available
                     </li>
                     <br>                     
-                    <li><strong>SABOTAGE: </strong>Marines can either attempt to damage a specific system on an enemy ships (by making a called shot against it using the usual rules) 
-                    or Wreak Havoc on the ship more generally (e.g. minor damage to a Primary system, EW/Initiative/Thrust/Defence Profile penalties) by targeting it in the normal fashion.</li>  
-                    <li>In both cases, Marines will roll on a d10 the following tables to see how successful their mission has been:</li>
+                    <li><strong>SABOTAGE: </strong>Using this firing mode, Marines can attempt to damage a specific system on an enemy ships (by making a called shot against it using the usual rules) 
+                    or, if Desperate Rules are in effect, Wreak Havoc on the enemy ship (e.g. inflict minor damage to a Primary system or penatlies to ship's EW/Initiative/Thrust/Defence Profile) by targeting the ship itself, and not a specific system.   
+                    In both cases, Marines will roll on a d10 the following tables to see how successful their mission has been:</li>
+                    <li>Note - Marines which target a specific system and are successful in destroying it will then move to a Wreak Havoc mission providing they have not been eliminated.</li>                    
+
                     <li><strong>SABOTAGE TABLE (D10):</strong>
                         <ul class="circle-list">
                             <li>1 - Deal 3d6 damage to target system.</li>
@@ -173,7 +177,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                             <li>6-8 - No effect, Marines will try again next turn.</li>
                             <li>9+ - No effect, Marines were eliminated.</li> 
                         </ul>
-                    </li>                           
+                    </li>      
+                   
                     <li><strong>WREAK HAVOC TABLE (D10):</strong>
                         <ul class="circle-list">
                             <li>1 - Deal 1d6 damage to a non-Structure system on Primary Hit Chart.</li>
@@ -185,13 +190,15 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                             <li>9+ - No effect, Marines were eliminated.</li>                                                         
                         </ul>
                     </li>   
-                    <li>NOTE - Marines which target a specific system and are successful in destroying it will then move to a Wreak Havoc mission providing they have not been eliminated.</li>
+                    <li>NOTE - Marines which are successful in destroying their target system will return to an attached Breaching Pod if one is available, 
+                        otherwise they will swtich to a Wreak Havoc mission on the enemy vessel.</li>
                     <br>                    
                     <li><strong>RESCUE: </strong>For scenarios only, Marines will attach their pod and attempt to board as normal.  
-                    Then, from the following turn, the Combat Log will provide players with updates on the progress of their Rescue mission.</li>
+                    Then, from the following turn, the Combat Log will update players on the progress of their Rescue mission each turn.</li>
+
                     <li><strong>RESCUE TABLE:</strong>
                         <ul class="circle-list">
-                            <li>1-2 - Rescue is successful, Marines survive.</li>
+                            <li>1-2 - Rescue is successful, Marines survive and return to a Breaching Pod if one is available.</li>
                             <li>3-4 - Rescue is successful, but Marines eliminated.</li>
                             <li>5-6 - Rescue fails this turn, Marines will try again next turn.</li>
                             <li>7+ - Rescue fails, Marines were eliminated.</li> 

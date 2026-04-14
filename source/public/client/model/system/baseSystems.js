@@ -2428,9 +2428,9 @@ MineControllerDEW.prototype.refreshFireControl = function () { //refresh descrip
 	for (var i in ship.systems) {
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
-			if (weapon.fireControl[0] !== null)  weapon.fireControl[0] = this.data["Accuracy"];
-			if (weapon.fireControl[1] !== null)  weapon.fireControl[1] = this.data["Accuracy"];
-			if (weapon.fireControl[2] !== null)  weapon.fireControl[2] = this.data["Accuracy"];								
+			if (weapon.fireControl[0] !== null)  weapon.fireControl[0] = weapon.fireControl[0] + this.data["Accuracy"];
+			if (weapon.fireControl[1] !== null)  weapon.fireControl[1] = weapon.fireControl[1] + this.data["Accuracy"];
+			if (weapon.fireControl[2] !== null)  weapon.fireControl[2] = weapon.fireControl[2] + this.data["Accuracy"];								
 		}
 	}
 	this.FCRefreshed = true;

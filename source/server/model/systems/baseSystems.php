@@ -4291,6 +4291,7 @@ class AdaptiveArmorController extends ShipSystem{
 		}
 		$weaponClassArray[] = $weapon->weaponClass;
 		foreach($weaponClassArray as $weaponClass){
+			if($weaponClass == "Boarding") continue; //Exclude unnecessary types of weapon.
 			//check if already defined, if not - add to both tables
 			if (!isset($this->allocatedAA[$weaponClass])){
 				$this->availableAA[$weaponClass] = 0;
@@ -7101,15 +7102,15 @@ class MineControllerDEW extends ShipSystem{
 
 			foreach($mine->systems as $weapon){		
 				if($weapon instanceof Weapon  && $weapon->name !== "RammingAttack"){
-					if($weapon->fireControl[0] !== null) $weapon->fireControl[0] = $this->accuracy;
-					if($weapon->fireControl[1] !== null) $weapon->fireControl[1] = $this->accuracy;
-					if($weapon->fireControl[2] !== null) $weapon->fireControl[2] = $this->accuracy;
+					if($weapon->fireControl[0] !== null) $weapon->fireControl[0] = $weapon->fireControl[0] + $this->accuracy;
+					if($weapon->fireControl[1] !== null) $weapon->fireControl[1] = $weapon->fireControl[1] + $this->accuracy;
+					if($weapon->fireControl[2] !== null) $weapon->fireControl[2] = $weapon->fireControl[2] + $this->accuracy;
 
 					if (!empty($weapon->fireControlArray)) {
 						foreach ($weapon->fireControlArray as $mode => $fcArray) {
-							if ($weapon->fireControlArray[$mode][0] !== null) $weapon->fireControlArray[$mode][0] = $this->accuracy;
-							if ($weapon->fireControlArray[$mode][1] !== null) $weapon->fireControlArray[$mode][1] = $this->accuracy;
-							if ($weapon->fireControlArray[$mode][2] !== null) $weapon->fireControlArray[$mode][2] = $this->accuracy;
+							if ($weapon->fireControlArray[$mode][0] !== null) $weapon->fireControlArray[$mode][0] = $weapon->fireControlArray[$mode][0] + $this->accuracy;
+							if ($weapon->fireControlArray[$mode][1] !== null) $weapon->fireControlArray[$mode][1] = $weapon->fireControlArray[$mode][1] + $this->accuracy;
+							if ($weapon->fireControlArray[$mode][2] !== null) $weapon->fireControlArray[$mode][2] = $weapon->fireControlArray[$mode][2] + $this->accuracy;
 						}
 					}
 
