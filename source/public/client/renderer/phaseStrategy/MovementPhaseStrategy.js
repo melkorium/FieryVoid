@@ -159,8 +159,9 @@ window.MovementPhaseStrategy = function () {
                 //TODO: Test if this autocommit thing works
                 gamedata.autoCommitOnMovement(ship);
             }
-
-            // Mirroring is now handled by onShipMovementChanged in PhaseStrategy.js - DK 04/26
+            //if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
+                // Mirroring is now handled by onShipMovementChanged in PhaseStrategy.js - DK 04/26
+            //}
         });
     }
 
