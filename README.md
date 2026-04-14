@@ -112,6 +112,8 @@ Images are optimised on Web Server by navigating to https://fieryvoid.eu/game/so
 
 As a result, users can work with full png images, and then this script can be run on game and testInstance Server whenever required.
 
+On local server, images are simply not optimised, although in theroy you could run the mass_optimser script to do so.
+
 
 # Sticky Images
 If you're finding images are not updating after you changed them, you can sometimes add ‘?v=2’ after .png to force image refresh.
