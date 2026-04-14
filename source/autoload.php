@@ -1706,7 +1706,7 @@ spl_autoload_register(
 
 //                'pakmarasimsalle' => '/server/model/ships/pakmara/PakmaraSimSallE.php',					
 //                'pakmarasimsalle2' => '/server/model/ships/pakmara/PakmaraSimSallE2.php',					
-				'plasmaweb' => '/server/model/weapons/customNexus.php',
+//				'plasmaweb' => '/server/model/weapons/customNexus.php',
 //				'plasmablast' => '/server/model/weapons/customNexus.php',
 				'testmissile' => '/server/model/weapons/customNexus.php',
 				'testmissile2' => '/server/model/weapons/customNexus.php',
@@ -3584,6 +3584,8 @@ spl_autoload_register(
                 'dewmined1' => '/server/model/ships/EA/dewMineD1.php',
                 'dewmined2' => '/server/model/ships/EA/dewMineD2.php',
                 'dewmined3' => '/server/model/ships/EA/dewMineD3.php',                                
+
+
 
                 //Minbari Mines - 5
                 'proxminesivhal' => '/server/model/ships/minbari/proxMineSivhal.php',
