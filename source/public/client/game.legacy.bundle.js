@@ -737,6 +737,7 @@ window.webglScene = function () {
         //this.scene.add(new THREE.AmbientLight(0xff0000));
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         this.renderer.setSize(this.width, this.height);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.localClippingEnabled = true;
 
@@ -1039,7 +1040,7 @@ window.webglScene = function () {
         var payload = getPositionObject.call(this, pos, gamePos, hexPos);
         payload.button = event.button;
 
-        console.log(payload);
+        //console.log(payload);        
         if (this.lastPositionClicked) {
             //console.log("direction", mathlib.getCompassHeadingOfPoint(hexPos, this.lastPositionClicked));
         }
@@ -1557,46 +1558,58 @@ window.webglSprite = function () {
                     };
 
                     const loadTask = () => {
-                        imageBitmapLoader.load(
-                            image,
-                            imageBitmap => {
-                                setTimeout(() => {
-                                    // Draw to canvas to zero RGB on near-transparent pixels before
-                                    // texture upload. r160 sRGB gamma brightens low-alpha colour data
-                                    // in PNG transparent areas, creating a coloured fringe outline.
-                                    // Zeroing RGB below alpha 77 (~30%) removes the fringe without
-                                    // affecting intended semi-transparent areas like shroud effects.
-                                    const cleanCanvas = document.createElement('canvas');
-                                    cleanCanvas.width = imageBitmap.width;
-                                    cleanCanvas.height = imageBitmap.height;
-                                    const cx = cleanCanvas.getContext('2d', { willReadFrequently: true });
-                                    cx.drawImage(imageBitmap, 0, 0);
-                                    const imgData = cx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height);
-                                    const px = imgData.data;
-                                    for (let i = 0; i < px.length; i += 4) {
-                                        if (px[i + 3] < 77) { // alpha < ~30%: zero out RGB to prevent sRGB fringe
-                                            px[i] = px[i + 1] = px[i + 2] = 0;
-                                        }
+                        const smartPath = window.AssetManager.getSmartImagePath(image);
+
+                        const onImageSuccess = imageBitmap => {
+                            setTimeout(() => {
+                                const cleanCanvas = document.createElement('canvas');
+                                cleanCanvas.width = imageBitmap.width;
+                                cleanCanvas.height = imageBitmap.height;
+                                const cx = cleanCanvas.getContext('2d', { willReadFrequently: true });
+                                cx.drawImage(imageBitmap, 0, 0);
+                                const imgData = cx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height);
+                                const px = imgData.data;
+                                for (let i = 0; i < px.length; i += 4) {
+                                    if (px[i + 3] < 77) {
+                                        px[i] = px[i + 1] = px[i + 2] = 0;
                                     }
-                                    cx.putImageData(imgData, 0, 0);
-                                    const texture = new THREE.CanvasTexture(cleanCanvas);
-                                    texture.colorSpace = THREE.SRGBColorSpace;
-                                    // Mipmaps re-enabled: pixel cleaning above zeros transparent edge RGB so
-                                    // mip generation uses clean data with no colour bleed fringe
-                                    texture.generateMipmaps = true;
-                                    texture.minFilter = THREE.LinearMipmapLinearFilter;
-                                    texture.magFilter = THREE.LinearFilter;
-                                    resolve(texture);
-                                    window.activeTextureLoads--;
-                                    processQueue();
-                                }, 0);
-                            },
-                            undefined,
-                            (err) => {
-                                console.error("Error loading texture:", image, err);
-                                reject(err);
+                                }
+                                cx.putImageData(imgData, 0, 0);
+                                const texture = new THREE.CanvasTexture(cleanCanvas);
+                                texture.colorSpace = THREE.SRGBColorSpace;
+                                texture.generateMipmaps = true;
+                                texture.minFilter = THREE.LinearMipmapLinearFilter;
+                                texture.magFilter = THREE.LinearFilter;
+                                resolve(texture);
                                 window.activeTextureLoads--;
                                 processQueue();
+                            }, 0);
+                        };
+
+                        imageBitmapLoader.load(
+                            smartPath,
+                            onImageSuccess,
+                            undefined,
+                            (err) => {
+                                if (smartPath !== image) {
+                                    console.warn("WebP failed, falling back to PNG:", smartPath);
+                                    imageBitmapLoader.load(
+                                        image,
+                                        onImageSuccess,
+                                        undefined,
+                                        (errFallback) => {
+                                            console.error("Critical texture failure:", image, errFallback);
+                                            reject(errFallback);
+                                            window.activeTextureLoads--;
+                                            processQueue();
+                                        }
+                                    );
+                                } else {
+                                    console.error("Error loading texture:", image, err);
+                                    reject(err);
+                                    window.activeTextureLoads--;
+                                    processQueue();
+                                }
                             }
                         );
                     };
@@ -2580,13 +2593,13 @@ window.HexNumberSprite = function () {
 
 window.ShipIcon = function () {
 
-    var directionOfMovementTexture = new THREE.TextureLoader().load('./img/directionOfMovement.png');
+    var directionOfMovementTexture = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath('./img/directionOfMovement.png'));
     directionOfMovementTexture.colorSpace = THREE.SRGBColorSpace;
     directionOfMovementTexture.colorSpace = THREE.SRGBColorSpace;
-    var directionOfProwTexture = new THREE.TextureLoader().load('./img/directionOfProw.png');
+    var directionOfProwTexture = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath('./img/directionOfProw.png'));
     directionOfProwTexture.colorSpace = THREE.SRGBColorSpace;
     directionOfProwTexture.colorSpace = THREE.SRGBColorSpace;
-    const THRUSTER_TEXTURE = new THREE.TextureLoader().load("./img/systemicons/thrusterICON1.png");
+    const THRUSTER_TEXTURE = new THREE.TextureLoader().load(window.AssetManager.getSmartImagePath("./img/systemicons/thrusterICON1.png"));
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
 
@@ -12719,6 +12732,14 @@ window.MovementPhaseStrategy = function () {
                 //TODO: Test if this autocommit thing works
                 gamedata.autoCommitOnMovement(ship);
             }
+            
+            // Mirror movement to attached units (e.g. pods) - mirroring logic returns true if anything changed - DK 04/26
+            if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
+                if (shipManager.movement.copyMovementOrders(ship, true)) { // Call silently in the strategy loop to prevent recursion
+                    // Update the UI if mirroring occurred, but avoid doing it in a way that recurses.
+                    // The strategy's update loop will handle most visual refreshes naturally.
+                }
+            }
         });
     }
 
@@ -14185,6 +14206,33 @@ window.ShipTooltip = function () {
             }
         }
 
+        if (ship.attached && Object.keys(ship.attached).length > 0) {
+            var targetId = Object.keys(ship.attached)[0];
+            var location = Object.values(ship.attached)[0];
+            var locationTip = '';
+            
+            if (location == 1){
+                locationTip = 'Front';
+            }else if (location == 2){
+                locationTip = 'Aft';                
+            }else if (location == 3 || location == 31 || location == 32){
+                locationTip = 'Port';             
+            }else if (location == 4 || location == 41 || location == 42){
+                locationTip = 'Starboard';   
+            }    
+
+            var targetShip = gamedata.getShip(targetId);
+            if (targetShip) {
+                toDisplay += '<span style="color:limegreen;">Attached to ' + targetShip.name + ' [' + locationTip + ']</span>; ';
+            }
+        }
+        
+        if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
+            var keys = Object.keys(ship.hasAttached);
+            if (keys.length > 0) {
+                toDisplay += '<span style="color:orange;">Ship is being Boarded!</span>; ';
+            }
+        }
         if (ship.flight === true) {
             if (shipManager.movement.hasCombatPivoted(ship) && (!ship.ignoreManoeuvreMods)) rollPivotModifier -= 5;
         } else if (ship.osat) {
@@ -14220,7 +14268,7 @@ window.ShipTooltip = function () {
                 if (!gamedata.isMyShip(ship)) {
                     this.addEntryElement('OEW: ' + ew.getOffensiveEW(this.selectedShip, ship), this.selectedShip !== ship && ship.flight !== true && this.selectedShip.flight !== true);
                 }
-            }    
+            }
 
         } else {
             //this.addEntryElement("Iniative Order: " + shipManager.getIniativeOrder(ship) + "    (D100 + " + ship.iniativebonus + ")");
@@ -14282,8 +14330,8 @@ window.ShipTooltip = function () {
                 this.addEntryElement('Detect Mines: ' + MDEW);
             }
 
-            var BDEW = ew.getEWByType('BDEW', ship) * 0.25; 
-            BDEW = parseFloat(BDEW.toFixed(2));                        
+            var BDEW = ew.getEWByType('BDEW', ship) * 0.25;
+            BDEW = parseFloat(BDEW.toFixed(2));
             if (shipManager.isElint(ship)) {
                 if (gamedata.isStealthPresent) this.addEntryElement('Detect Stealth: ' + ew.getEWByType('Detect Stealth', ship), ship.flight !== true);
                 this.addEntryElement('Blanket DEW: ' + BDEW, ship.flight !== true);
@@ -15324,6 +15372,12 @@ window.ShipMovementCallbacks = function () {
 		if (event.which == 3) while (shipManager.movement.hasDeletableMovements(this.ship)){//r-click
 			shipManager.movement.deleteMove(this.ship);	
 		}
+        this.updateCallback({ ship: this.ship });
+    };
+
+    ShipMovementCallbacks.prototype.detachCallback = function (e) {
+        e.stopPropagation();
+        shipManager.movement.doDetach(this.ship);
         this.updateCallback({ ship: this.ship });
     };
 
@@ -17459,7 +17513,7 @@ getActiveShipName: function getActiveShipName() {
             td.className = "iniImage";
 
             var img = document.createElement("img");
-            img.src = ships[i].imagePath;
+            img.src = window.AssetManager.getSmartImagePath(ships[i].imagePath);
 
             if (ships[i].flight) {
                 td.classList.add("flight");
@@ -19385,10 +19439,12 @@ window.ajaxInterface = {
             newShip.systems = Array();
 
             if (ship.userid === gamedata.thisplayer) {
-                for (var a = ship.movement.length - 1; a >= 0; a--) {
-                    var move = ship.movement[a];
-                    if (move.turn == gamedata.turn) {
-                        newShip.movement[a] = move;
+                if (!(Object.keys(ship.attached).length !== 0 && !ship.detached)) {
+                    for (var a = ship.movement.length - 1; a >= 0; a--) {
+                        var move = ship.movement[a];
+                        if (move.turn == gamedata.turn) {
+                            newShip.movement[a] = move;
+                        }
                     }
                 }
 
@@ -21353,6 +21409,27 @@ window.weaponManager = {
             var html = "";
             var section = weaponManager.getShipHittingSide(selectedShip, ship);
 
+        // Attached pod logic
+        var attachedUnitHidden = false;    
+        if (selectedShip.hasAttached && Object.keys(selectedShip.hasAttached).length > 0) {
+            var keys = Object.keys(selectedShip.hasAttached);
+            if (keys.includes(ship.id.toString())) {
+                attachedUnitHidden = true; // Parent cannot target the attached pod
+            }
+        }
+        if (ship.attached && Object.keys(ship.attached).length > 0) {
+            var hostId = Object.keys(ship.attached)[0];
+            var podLocation = parseInt(ship.attached[hostId]);
+            if (!isNaN(podLocation) && podLocation !== 0) {
+                var hostShip = gamedata.getShip(hostId);
+                if (hostShip) {
+                    if (!section.includes(podLocation)) {
+                        attachedUnitHidden = true; // Pod is attached to a side not facing the shooter
+                    }
+                }
+            }
+        }
+
             for (var i = 0; i < section.length; i++) {
                 switch (section[i]) {
                     case 1:
@@ -21440,7 +21517,7 @@ window.weaponManager = {
                     value = weapon.firingModes[value];
                     var keys = Object.keys(weapon.firingModes);
 
-                    if (ship.Huge > 0) { //Cannot Target larger terrain.
+                    if (ship.Huge > 0 | attachedUnitHidden) { //Cannot Target larger terrain or POds that are attached to non-facing sides
                         $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotTarget"> Cannot Target</span></div>').appendTo(f);
                     } else if (loSBlocked) {
                         // LOS is blocked - only display the blocked message
@@ -21816,6 +21893,7 @@ window.weaponManager = {
     //calculate hit chance for Boarding Action - different procedure
     calculateBoardingAction: function calculateBoardingAction(shooter, target, weapon) {
         if (target.flight || target.userid == -5) return 0;//Cannot board fighters or terrain, null FC stops this but showing 0% is more informative for players!
+        if (target.attached[shooter.id] !== undefined) return 100; // Pod attacking parent gets 100% chance to hit         
         var jinking = shipManager.movement.getJinking(shooter); //Raider pods can jink, but can't attach at same time.
         if (jinking > 0) return 0;
 
@@ -21876,7 +21954,29 @@ window.weaponManager = {
     calculateHitChange: function calculateHitChange(shooter, target, weapon, calledid) {
 
         if (weapon.autoHit) return 100; //Some weapons always hit, let's just show 100% chance to prevent confusion at firing. DK - 12 Apr 2024
-
+        /*
+        // Attached pod logic
+        if (target.attached[shooter.id] !== undefined) return 100; // Pod attacking parent gets 100% chance to hit
+        if (shooter.hasAttached && Object.keys(shooter.hasAttached).length > 0) {
+            var keys = Object.keys(shooter.hasAttached);
+            if (keys.includes(target.id.toString())) {
+                return 0; // Parent cannot target the attached pod
+            }
+        }
+        if (target.attached && Object.keys(target.attached).length > 0) {
+            var hostId = Object.keys(target.attached)[0];
+            var podLocation = parseInt(target.attached[hostId]);
+            if (!isNaN(podLocation) && podLocation !== 0) {
+                var hostShip = gamedata.getShip(hostId);
+                if (hostShip) {
+                    var hittableSides = weaponManager.getShipHittingSide(shooter, hostShip);
+                    if (!hittableSides.includes(podLocation)) {
+                        return 0; // Pod is attached to a side not facing the shooter
+                    }
+                }
+            }
+        }
+        */
         /*//If skin-dancing shots which have a front arc automatically hit.
         if (gamedata.gamephase == 3 && !weapon.ballistic && shooter.skinDancing[target.id] === true) {
             var inFrontArc = mathlib.isInArc(0, weapon.startArc, weapon.endArc);
@@ -24762,7 +24862,7 @@ window.shipManager = {
                 $("canvas.hexshipcanvas", e).attr("id", "shipcanvas_");
                 e.attr("id", "hexship_");
                 var img = new Image();
-                img.src = ship.imagePath;
+                img.src = window.AssetManager.getSmartImagePath(ship.imagePath);
                 shipManager.shipImages[ship.id] = {
                     orginal: img,
                     modified: null,
@@ -25264,6 +25364,8 @@ window.shipManager = {
             return;
         }
 
+        if (ship.destroyed) return true; // Early exit if server-side status is already set - DK 04/26
+
         if (ship.flight) {
             for (var i in ship.systems) {
                 var fighter = ship.systems[i];
@@ -25438,16 +25540,20 @@ window.shipManager = {
 
     //New getInitiativeOrder function to accommodate terrain units like asteroids.
     getIniativeOrder: function getIniativeOrder(ship) {
-        var previousInitiative = -100000; // same Ini move together now!
+        var previousInitiative = -100000;
         var order = 0;
 
-        // Filter out destroyed ships and those with shipSizeClass === 5 e.g. terrain
+        // Filter and SORT by initiative before calculating order - DK 04/26
         var validShips = gamedata.ships.filter(function (s) {
             return !shipManager.isDestroyed(s) && !gamedata.isTerrain(s.shipSizeClass, s.userid) && !s.mine && !(shipManager.getTurnDeployed(s) > gamedata.turn);
+        }).sort(function (a, b) {
+            if (a.iniative > b.iniative) return 1;
+            if (a.iniative < b.iniative) return -1;
+            return a.id - b.id; // Stability
         });
 
         for (var i in validShips) {
-            if (validShips[i].iniative > previousInitiative) { // new Ini higher than previous!
+            if (validShips[i].iniative > previousInitiative) {
                 order++;
                 previousInitiative = validShips[i].iniative;
             }
@@ -25864,7 +25970,11 @@ shipManager.movement = {
     },
 
     isMovementReady: function isMovementReady(ship) {
-        return shipManager.movement.getRemainingMovement(ship) == 0 || shipManager.isDestroyed(ship) || gamedata.isTerrain(ship.shipSizeClass, ship.userid) || (shipManager.getTurnDeployed(ship) > gamedata.turn);
+        return shipManager.movement.getRemainingMovement(ship) == 0 ||
+            shipManager.isDestroyed(ship) ||
+            gamedata.isTerrain(ship.shipSizeClass, ship.userid) ||
+            (shipManager.getTurnDeployed(ship) > gamedata.turn) ||
+            (Object.keys(ship.attached).length !== 0 && !ship.detached);
     },
 
     checkHasUncommitted: function checkHasUncommitted(ship) {
@@ -25878,6 +25988,8 @@ shipManager.movement = {
     },
 
     hasDeletableMovements: function hasDeletableMovements(ship) {
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!        
+
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
@@ -25901,16 +26013,18 @@ shipManager.movement = {
             if (gamedata.gamephase == 3 && (movement.value != "combatpivot" || movement.type != "pivotleft" && movement.type != "pivotright")) return;
 
             // adjust the current turn delay if the new speed changes the turn delay
-            var oldspeed = shipManager.movement.getSpeed(ship);
+            //var oldspeed = shipManager.movement.getSpeed(ship);
             shipManager.movement.revertAutoThrust(ship);
             ship.movement.splice(ship.movement.length - 1, 1);
-            var speed = shipManager.movement.getSpeed(ship);
+            //var speed = shipManager.movement.getSpeed(ship);
             //shipManager.movement.adjustTurnDelay(ship, oldspeed, speed);
             ship.currentturndelay = shipManager.movement.calculateCurrentTurndelay(ship);
-            var shipwindow = $(".shipwindow_" + ship.id);
+            //var shipwindow = $(".shipwindow_" + ship.id);
             //shipWindowManager.cancelAssignThrust(ship);
             if (movement.type == "contract") shipManager.movement.amendContractValue(ship, -movement.value);//For Contraction, need to amend level.
         }
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
 
@@ -25928,6 +26042,8 @@ shipManager.movement = {
                 var speed = shipManager.movement.getSpeed(ship);
                 //                            shipManager.movement.adjustTurnDelay(ship, oldspeed, speed);
                 ship.currentturndelay = shipManager.movement.calculateCurrentTurndelay(ship);
+
+                shipManager.movement.copyMovementOrders(ship);
                 return true;
             }
         }
@@ -25936,6 +26052,7 @@ shipManager.movement = {
 
     canJink: function canJink(ship, accel) {
         if (gamedata.gamephase != 2) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!          
         if (!ship.flight && ship.jinkinglimit <= 0) return false;
         if (accel == 0) return true;
         if (shipManager.movement.getRemainingEngineThrust(ship) <= 0) return false;
@@ -26009,6 +26126,8 @@ shipManager.movement = {
 
     canRoll: function canRoll(ship) {
         if (gamedata.gamephase != 2) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
+
         if (ship.flight || ship.osat) return false;
         if (shipManager.isDestroyed(ship) || shipManager.isAdrift(ship)) return false;
         if (shipManager.systems.isEngineDestroyed(ship)) return false;
@@ -26079,6 +26198,7 @@ shipManager.movement = {
         };
         shipWindowManager.assignThrust(ship);
         ship.rolling = true;
+
     },
 
 
@@ -26109,6 +26229,7 @@ shipManager.movement = {
         };
         shipWindowManager.assignThrust(ship);
         ship.rolling = true;
+
     },
 
 
@@ -26176,6 +26297,8 @@ shipManager.movement = {
 
     canMove: function canMove(ship) {
         if (gamedata.gamephase != 2) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!       
+
         if (shipManager.isDestroyed(ship)) return false;
         return shipManager.movement.getRemainingMovement(ship) > 0;
     },
@@ -26207,6 +26330,8 @@ shipManager.movement = {
             forced: false,
             value: 0
         };
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
     /*just move ahead using all remaining movement*/
@@ -26214,9 +26339,44 @@ shipManager.movement = {
         while (shipManager.movement.getRemainingMovement(ship) > 0) shipManager.movement.doMove(ship);
     },
 
+    canDetach: function canDetach(ship) {
+        if (Object.keys(ship.attached).length === 0) return false;
+        if (shipManager.movement.hasDeletableMovements(ship)) return false;
+        return true;
+    },
+
+    doDetach: function doDetach(ship) {
+        var lm = ship.movement[ship.movement.length - 1];
+        ship.detached = true; //Mark detached this movement.        
+        ship.movement[ship.movement.length] = {
+            id: -1,
+            type: "detach",
+            position: lm.position,
+            xOffset: 0,
+            yOffset: 0,
+            facing: mathlib.addToHexFacing(lm.facing, 3), // Turn 180 degrees
+            heading: lm.heading,
+            speed: lm.speed,
+            animating: false,
+            animated: false,
+            animationtics: 0,
+            requiredThrust: Array(null, null, null, null, null),
+            assignedThrust: Array(),
+            commit: true,
+            preturn: false,
+            at_initiative: shipManager.getIniativeOrder(ship),
+            turn: gamedata.turn,
+            forced: false,
+            value: 0
+        };
+    },
+
+
 
     canSlip: function canSlip(ship, right) {
         if (gamedata.gamephase != 2) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
+
         if (shipManager.isDestroyed(ship) || shipManager.isAdrift(ship)) return false;
         if (shipManager.systems.isEngineDestroyed(ship)) return false;
         var name = right ? "slipright" : "slipleft";
@@ -26300,6 +26460,8 @@ shipManager.movement = {
             shipManager.movement.autoAssignThrust(ship);
             shipWindowManager.assignThrust(ship);
         }
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
     canRotate: function canRotate(ship) {
@@ -26371,6 +26533,8 @@ shipManager.movement = {
                 forced: true,
                 value: 0
             };
+
+            shipManager.movement.copyMovementOrders(ship);
         }
     },
 
@@ -26385,6 +26549,8 @@ shipManager.movement = {
 
     canPivot: function canPivot(ship, right) {
         if (shipManager.isDestroyed(ship) || shipManager.isAdrift(ship)) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
+
         if (shipManager.systems.isEngineDestroyed(ship)) return false;
         if (ship.osat && (!ship.flight)) return false;
         var name = right ? "pivotright" : "pivotleft";
@@ -26515,6 +26681,8 @@ shipManager.movement = {
         if (!ship.flight) {
             shipWindowManager.assignThrust(ship);
         }
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
     doForcedPivot: function doForcedPivot(ship) {
@@ -26561,6 +26729,8 @@ shipManager.movement = {
             forced: true,
             value: 0
         };
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
     isPivoting: function isPivoting(ship) {
@@ -26688,6 +26858,8 @@ shipManager.movement = {
 
     canContract: function canContract(ship, value) {
         if (gamedata.gamephase != 2) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
+
         var canContract = false;
         var contraction = 0;
         for (var i in ship.systems) {
@@ -26834,6 +27006,7 @@ shipManager.movement = {
         if (gamedata.gamephase != 2) return false;
         //if (ship.agile) returnVal = false; //agile ship should be able to turn into pivot all right...
         if (ship.flight) return false; //Every turn is a turn into pivot for fighters/shuttles, no need for extra movement type.
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
 
         /*cannot turn into pivot if unit is aligned...*/
         if (!shipManager.movement.isOutOfAlignment(ship)) return false;
@@ -26923,6 +27096,8 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
+        shipManager.movement.copyMovementOrders(ship);
+
     },
 
     hasPivoted: function hasPivoted(ship) {
@@ -26976,6 +27151,8 @@ shipManager.movement = {
         if (ship.osat || ship.base || gamedata.isTerrain(ship.shipSizeClass, ship.userid)) {
             return false;
         }
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!   
+
         if (gamedata.gamephase == -1 && ship.deploymove) return true;
         if (gamedata.gamephase != 2) {
             return false;
@@ -27121,6 +27298,8 @@ shipManager.movement = {
             shipManager.movement.autoAssignThrust(ship);
             shipWindowManager.assignThrust(ship);
         }
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
     getRemainingEngineThrust: function getRemainingEngineThrust(ship) {
@@ -27586,6 +27765,7 @@ shipManager.movement = {
 
     canTurn: function canTurn(ship, right) {
         if (ship.mine) return false;
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!         
         if (gamedata.gamephase == -1 && ship.deploymove) return true;
         if (gamedata.gamephase != 2) return false;
         if (ship.osat && (!ship.flight)) { //OSAT but not MicroSAT
@@ -27716,6 +27896,8 @@ shipManager.movement = {
             shipManager.movement.autoAssignThrust(ship);
             shipWindowManager.assignThrust(ship);
         }
+
+        shipManager.movement.copyMovementOrders(ship);
     },
 
 
@@ -28264,6 +28446,78 @@ shipManager.movement = {
         if (shipManager.movement.isPivotedPort(ship)) return false; //ship pivoted to Port is not pivoted to Starboard
         return true;
     },
+
+    getAttachedFacingOffset: function getAttachedFacingOffset(location) {
+        var locOffset = 0;
+        if (location == 1) locOffset = 3; // Forward section, pod faces Aft
+        else if (location == 2) locOffset = 0; // Aft section, pod faces Forward
+        else if (location == 3 || location == 32) locOffset = 1; // Port, pod faces Starboard-Forward
+        else if (location == 31) locOffset = 2; // Port-Forward, pod faces Starboard-Aft
+        else if (location == 4 || location == 42) locOffset = 5; // Starboard, pod faces Port-Forward
+        else if (location == 41) locOffset = 4; // Starboard-Forward, pod faces Port-Aft
+        return locOffset;
+    },
+
+    isFighterFlight: function isFighterFlight(ship) {
+        return ship && ship.flight === true;
+    },
+
+    copyMovementOrders: function copyMovementOrders(ship, silent) {
+        if (!ship.hasAttached || Object.keys(ship.hasAttached).length === 0) return false;
+
+        var changed = false;
+
+        for (var attachedId in ship.hasAttached) {
+            var location = ship.hasAttached[attachedId];
+            var attachedShip = gamedata.getShip(attachedId);
+
+            if (!attachedShip || attachedShip.detached || shipManager.isDestroyed(attachedShip)) continue;
+
+            var newMovements = [];
+            
+            // 1. Maintain the pod's movement history for previous turns
+            for (var m = 0; m < attachedShip.movement.length; m++) {
+                if (attachedShip.movement[m].turn < gamedata.turn) {
+                    newMovements.push(attachedShip.movement[m]);
+                }
+            }
+
+            var locOffset = shipManager.movement.getAttachedFacingOffset(location);
+            var facingAdjustment = 0;
+
+            // Apply 180-degree flip for pods on rolled host ships (FighterFlight logic)
+            if (shipManager.movement.isFighterFlight(attachedShip) && shipManager.movement.isRolled(ship)) {
+                facingAdjustment = 3;
+            }
+
+            // 2. Clone parent movements for the CURRENT turn
+            for (var i = 0; i < ship.movement.length; i++) {
+                var move = ship.movement[i];
+                if (move.turn != gamedata.turn) continue;
+
+                // Full clone of the host's move order
+                var attachedMove = JSON.parse(JSON.stringify(move));
+                attachedMove.id = -1;
+                attachedMove.type = "attached";
+
+                // Ensure facing is calculated correctly based on attachment point and roll state
+                attachedMove.facing = mathlib.addToHexFacing(move.facing, locOffset + facingAdjustment);
+
+                // Note: Position, Heading, Speed, and Offsets are already mirrored by the clone.
+                newMovements.push(attachedMove);
+            }
+
+            attachedShip.movement = newMovements;
+            
+            if (!silent) {
+                gamedata.shipStatusChanged(attachedShip);
+            }
+
+            changed = true;
+        }
+
+        return changed;
+    }
 
 };
 ;
@@ -30178,6 +30432,7 @@ window.UI = {
             UI.shipMovement.morejinkElement = $("#morejink", ui);
             UI.shipMovement.lessjinkElement = $("#lessjink", ui);
             UI.shipMovement.cancelElement = $("#cancel", ui);
+            UI.shipMovement.detachElement = $("#detach", ui);
 
             UI.shipMovement.halfphaseElement = $("#halfphase", ui);
 
@@ -30187,6 +30442,7 @@ window.UI = {
             UI.shipMovement.contractionvalueElement = UI.shipMovement.contractionElement.find(".contractionvalue");
 
             UI.shipMovement.cancelElement.on("click touchstart contextmenu", UI.shipMovement.cancelCallback);
+            UI.shipMovement.detachElement.on("click touchstart contextmenu", UI.shipMovement.detachCallback);
             UI.shipMovement.moveElement.on("click touchstart contextmenu", UI.shipMovement.moveCallback);
 
             UI.shipMovement.turnrightElement.on("click touchstart", UI.shipMovement.turnrightCallback);
@@ -30254,6 +30510,10 @@ window.UI = {
 
         cancelCallback: function cancelCallback(e) {
             UI.shipMovement.callbackHandler.cancelCallback(e);
+        },
+
+        detachCallback: function detachCallback(e) {
+            UI.shipMovement.callbackHandler.detachCallback(e);
         },
 
         morejinkCallback: function morejinkCallback(e) {
@@ -30393,10 +30653,10 @@ window.UI = {
             var shipY = ship.movement[ship.movement.length - 1].y;
 
             var pos = { x: 400, y: 400 };
-            //ui.css("top", pos.y +"px").css("left", pos.x +"px");
+
+            var s = 40;
 
             var move = UI.shipMovement.moveElement;
-            var s = 40;
 
             if (shipManager.movement.canMove(ship)) {
                 UI.shipMovement.drawUIElement(move, pos.x, pos.y, s * 1.3, dis * 1.4, angle, "img/move.png", "movecanvas", shipHeading);
@@ -30651,6 +30911,16 @@ window.UI = {
                 roll.hide();
                 emergencyroll.hide();
                 UI.shipMovement.rollActiveElement.hide();
+            }
+
+            var detach = UI.shipMovement.detachElement;
+            if (shipManager.movement.canDetach(ship)) {
+                //var detachOrientation = shipManager.getShipHeadingAngle(ship) - shipManager.getShipDoMAngle(ship);                
+                var relativeFacing = shipManager.getShipHeadingAngle(ship) - shipManager.getShipDoMAngle(ship);
+                var detachAngle = mathlib.addToDirection(relativeFacing, 180);
+                UI.shipMovement.drawUIElement(detach, pos.x, pos.y, s, dis * 1.4, detachAngle, "img/detach.png", "detachcanvas", relativeFacing);
+            } else {
+                detach.hide();
             }
 
             //JINKING
@@ -31141,7 +31411,8 @@ window.shipWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -31965,9 +32236,9 @@ window.shipWindowManager = {
 
 		systemwindow.addClass(system.name);
 		if (system.iconPath) {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.iconPath + ")");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.iconPath) + ")");
 		} else {
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/" + system.name + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/" + system.name + ".png") + ")");
 		}
 
 		systemwindow.addClass(system.name);
@@ -32063,7 +32334,7 @@ window.shipWindowManager = {
 
 		if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 		}
 
 		shipWindowManager.removeSystemClasses(systemwindow);
@@ -32247,7 +32518,7 @@ window.shipWindowManager = {
 			}
 		} else if (system.name == "thruster") {
 			systemwindow.data("direction", system.direction);
-			systemwindow.find(".icon").css("background-image", "url(./img/systemicons/thruster" + system.direction + ".png)");
+			systemwindow.find(".icon").css("background-image", "url(" + window.AssetManager.getSmartImagePath("./img/systemicons/thruster" + system.direction + ".png") + ")");
 
 			var channeled = shipManager.movement.getAmountChanneled(ship, system);
 			if (channeled > output) {
@@ -32964,7 +33235,8 @@ window.flightWindowManager = {
 	},
 
 	populateShipWindow: function populateShipWindow(ship, shipwindow) {
-		shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		// shipwindow.find(".icon img").attr("src", "./" + ship.imagePath);
+		shipwindow.find(".icon img").attr("src", window.AssetManager.getSmartImagePath(ship.imagePath));
 
 		if (gamedata.turn != 0) {
 			shipwindow.find(".topbar .value.name").html("");
@@ -35020,10 +35292,13 @@ var Ship = function Ship(json) {
 
     this.hexOffsets = json.hexOffsets || this.hexOffsets || null;
 
-    // Optimization #2: Server omits empty/default ship-level properties.
+    // Optimization: Server omits empty/default ship-level properties.
     if (this.EW === undefined || this.EW === null) this.EW = [];
     if (this.spawned === undefined) this.spawned = -1;
     if (this.skinDancing === undefined) this.skinDancing = false;
+    if (this.hasAttached === undefined || this.hasAttached === false) this.hasAttached = {};
+    if (this.attached === undefined || this.attached === false) this.attached = {};
+
     if (json.enhancementOptions === undefined && (window.gamedata && window.gamedata.status !== 'LOBBY')) {
         this.enhancementOptions = [];
     }
@@ -35413,6 +35688,7 @@ var ShipSystem = function ShipSystem(json, ship) {
 	if (this.damage === undefined) this.damage = [];
 	if (this.criticals === undefined) this.criticals = [];
 	if (this.critData === undefined) this.critData = [];
+	if (this.fireOrders === undefined) this.fireOrders = [];		
 	if (this.power === undefined) this.power = [];
 	if (this.specialAbilities === undefined) this.specialAbilities = [];
 	if (this.outputMod === undefined) this.outputMod = 0;

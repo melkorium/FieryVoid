@@ -3596,7 +3596,7 @@ spl_autoload_register(
                 'proxminedpar' => '/server/model/ships/narn/proxMineDPar.php',
                 'captorminedgoth' => '/server/model/ships/narn/captorMineDGoth.php', 
                 'dewminedmal' => '/server/model/ships/narn/dewMineDMal.php',                                  
-                'dewminebtath' => '/server/model/ships/narn/dewMineDTath.php', 
+                'dewminedtath' => '/server/model/ships/narn/dewMineDTath.php', 
                 'dewminedkak' => '/server/model/ships/narn/dewMineDKak.php', 
                 'dewminedshal' => '/server/model/ships/narn/dewMineDShal.php',   
                 
@@ -3646,7 +3646,8 @@ spl_autoload_register(
                 //Descari Mines - 3
                 'captorminesirna' => '/server/model/ships/descari/captorMineSirna.php',                 
                 'dewminesircha' => '/server/model/ships/descari/dewMineSircha.php', 
-                'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php', 
+                'dewminesircho' => '/server/model/ships/descari/dewMineSircho.php',
+                'dewminedd3' => '/server/model/ships/descari/dewMineDD3.php',                 
                 
                 //Dilgar Mines - 10
                 'proxmineintavia' => '/server/model/ships/dilgar/proxMineIntaviA.php',
