@@ -9534,6 +9534,9 @@ shipManager.movement = {
     hasDeletableMovements: function hasDeletableMovements(ship) {
         if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!        
 
+        var lastMove = ship.movement[ship.movement.length - 1];
+        if (lastMove && lastMove.type === "attached") return false; // Mirrored moves are not deletable manually
+
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
@@ -9543,7 +9546,7 @@ shipManager.movement = {
                     return true;
                 }
             } else {
-                if (!movement.preturn && !movement.forced && movement.type != "deploy") return true;
+                if (!movement.preturn && !movement.forced && movement.type != "deploy" && movement.type != "attached") return true;
             }
         }
 
@@ -9553,8 +9556,14 @@ shipManager.movement = {
 
     deleteMove: function deleteMove(ship) {
         var movement = ship.movement[ship.movement.length - 1];
+        if (movement.type == "attached") return; // Cannot delete mirrored moves
+
         if (!movement.preturn && !movement.forced && movement.turn == gamedata.turn) {
             if (gamedata.gamephase == 3 && (movement.value != "combatpivot" || movement.type != "pivotleft" && movement.type != "pivotright")) return;
+
+            if (movement.type == "detach") {
+                ship.detached = false;
+            }
 
             // adjust the current turn delay if the new speed changes the turn delay
             //var oldspeed = shipManager.movement.getSpeed(ship);
@@ -9568,7 +9577,7 @@ shipManager.movement = {
             if (movement.type == "contract") shipManager.movement.amendContractValue(ship, -movement.value);//For Contraction, need to amend level.
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
 
@@ -9587,7 +9596,7 @@ shipManager.movement = {
                 //                            shipManager.movement.adjustTurnDelay(ship, oldspeed, speed);
                 ship.currentturndelay = shipManager.movement.calculateCurrentTurndelay(ship);
 
-                shipManager.movement.copyMovementOrders(ship);
+
                 return true;
             }
         }
@@ -9875,7 +9884,7 @@ shipManager.movement = {
             value: 0
         };
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
     /*just move ahead using all remaining movement*/
@@ -9891,6 +9900,7 @@ shipManager.movement = {
 
     doDetach: function doDetach(ship) {
         var lm = ship.movement[ship.movement.length - 1];
+        var hostShipId = Object.keys(ship.attached)[0];      
         ship.detached = true; //Mark detached this movement.        
         ship.movement[ship.movement.length] = {
             id: -1,
@@ -9911,7 +9921,7 @@ shipManager.movement = {
             at_initiative: shipManager.getIniativeOrder(ship),
             turn: gamedata.turn,
             forced: false,
-            value: 0
+            value: hostShipId
         };
     },
 
@@ -10005,7 +10015,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
     canRotate: function canRotate(ship) {
@@ -10042,7 +10052,7 @@ shipManager.movement = {
         }
     },
 
-    doRotate: function doRotate(ship) {
+    doRotate: function doRotate(ship, silent) {
         if (gamedata.turn > 0) {
             var name;
             var step = ship.movement[1].value;
@@ -10078,7 +10088,7 @@ shipManager.movement = {
                 value: 0
             };
 
-            shipManager.movement.copyMovementOrders(ship);
+
         }
     },
 
@@ -10226,10 +10236,10 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
-    doForcedPivot: function doForcedPivot(ship) {
+    doForcedPivot: function doForcedPivot(ship, silent) {
         var pivoting = shipManager.movement.isPivoting(ship);
         if (pivoting == "no") return;
 
@@ -10274,7 +10284,7 @@ shipManager.movement = {
             value: 0
         };
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
     isPivoting: function isPivoting(ship) {
@@ -10640,7 +10650,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
 
     },
 
@@ -10712,14 +10722,20 @@ shipManager.movement = {
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
-            if (movement.preturn == false && movement.forced == false && movement.type != "speedchange" && movement.type != "deploy") return false;
+            if (movement.preturn == false &&
+                movement.forced == false &&
+                movement.type != "speedchange" &&
+                movement.type != "deploy" && 
+                movement.type != "sync" &&
+                movement.type != "attached" &&                  
+                movement.type != "detach") return false;
         }
 
         //gravitic ship with enough thrust can accelerate, no matter her alignment
         if (ship.gravitic) return true;
 
         //ship cannot accelerate if it's not aligned OR pivoting    
-        if (shipManager.movement.isOutOfAlignment(ship) || shipManager.movement.isPivoting(ship) != "no") return false;
+        if ((shipManager.movement.isOutOfAlignment(ship) || shipManager.movement.isPivoting(ship) != "no") && !ship.detached) return false;
 
         return true;
     },
@@ -10843,7 +10859,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
     getRemainingEngineThrust: function getRemainingEngineThrust(ship) {
@@ -11441,7 +11457,7 @@ shipManager.movement = {
             shipWindowManager.assignThrust(ship);
         }
 
-        shipManager.movement.copyMovementOrders(ship);
+
     },
 
 
@@ -12002,66 +12018,8 @@ shipManager.movement = {
         return locOffset;
     },
 
-    isFighterFlight: function isFighterFlight(ship) {
-        return ship && ship.flight === true;
-    },
 
-    copyMovementOrders: function copyMovementOrders(ship, silent) {
-        if (!ship.hasAttached || Object.keys(ship.hasAttached).length === 0) return false;
 
-        var changed = false;
-
-        for (var attachedId in ship.hasAttached) {
-            var location = ship.hasAttached[attachedId];
-            var attachedShip = gamedata.getShip(attachedId);
-
-            if (!attachedShip || attachedShip.detached || shipManager.isDestroyed(attachedShip)) continue;
-
-            var newMovements = [];
-            
-            // 1. Maintain the pod's movement history for previous turns
-            for (var m = 0; m < attachedShip.movement.length; m++) {
-                if (attachedShip.movement[m].turn < gamedata.turn) {
-                    newMovements.push(attachedShip.movement[m]);
-                }
-            }
-
-            var locOffset = shipManager.movement.getAttachedFacingOffset(location);
-            var facingAdjustment = 0;
-
-            // Apply 180-degree flip for pods on rolled host ships (FighterFlight logic)
-            if (shipManager.movement.isFighterFlight(attachedShip) && shipManager.movement.isRolled(ship)) {
-                facingAdjustment = 3;
-            }
-
-            // 2. Clone parent movements for the CURRENT turn
-            for (var i = 0; i < ship.movement.length; i++) {
-                var move = ship.movement[i];
-                if (move.turn != gamedata.turn) continue;
-
-                // Full clone of the host's move order
-                var attachedMove = JSON.parse(JSON.stringify(move));
-                attachedMove.id = -1;
-                attachedMove.type = "attached";
-
-                // Ensure facing is calculated correctly based on attachment point and roll state
-                attachedMove.facing = mathlib.addToHexFacing(move.facing, locOffset + facingAdjustment);
-
-                // Note: Position, Heading, Speed, and Offsets are already mirrored by the clone.
-                newMovements.push(attachedMove);
-            }
-
-            attachedShip.movement = newMovements;
-            
-            if (!silent) {
-                gamedata.shipStatusChanged(attachedShip);
-            }
-
-            changed = true;
-        }
-
-        return changed;
-    }
 
 };
 ;
@@ -20693,14 +20651,28 @@ MineControllerDEW.prototype.constructor = MineControllerDEW;
 
 MineControllerDEW.prototype.initializationUpdate = function () {
 	var ship = this.ship;
-	/*var stealthSystem = shipManager.systems.getSystemByName(ship, "mineStealth");
-	if (stealthSystem && !stealthSystem.isMineRevealed(ship)) {
-		this.range = 0;
-	}*/
+
+	if (gamedata.gamephase == -2 && !this.FCRefreshed){//Buying phase, need to set FC for DEW weapons in Front End only.
+		this.refreshFireControl();
+	}
 
 	this.refreshData();
 	return this
 }
+
+MineControllerDEW.prototype.refreshFireControl = function () { //refresh description to show correct values
+
+	var ship = this.ship;
+	for (var i in ship.systems) {
+		var weapon = ship.systems[i];
+		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
+			if (weapon.fireControl[0] !== null)  weapon.fireControl[0] = this.data["Accuracy"];
+			if (weapon.fireControl[1] !== null)  weapon.fireControl[1] = this.data["Accuracy"];
+			if (weapon.fireControl[2] !== null)  weapon.fireControl[2] = this.data["Accuracy"];								
+		}
+	}
+	this.FCRefreshed = true;
+};
 
 MineControllerDEW.prototype.getCurrClass = function () { //get current FC class for display; if none, find first!
 	if (this.currClass == '') {
@@ -21202,10 +21174,10 @@ FtrInterdictor.prototype.constructor = FtrInterdictor;
 
 
 var ThirdspaceShield = function ThirdspaceShield(json, ship) {
-	ShipSystem.call(this, json, ship);
+	Shield.call(this, json, ship);
 	this.defensiveType = "none";
 };
-ThirdspaceShield.prototype = Object.create(ShipSystem.prototype);
+ThirdspaceShield.prototype = Object.create(Shield.prototype);
 ThirdspaceShield.prototype.constructor = ThirdspaceShield;
 ThirdspaceShield.prototype.getDefensiveHitChangeMod = function (target, shooter, weapon) {
 	//this is made to be a shield just to display arc visually, no actual protection
