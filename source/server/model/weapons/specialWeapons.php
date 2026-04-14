@@ -7333,7 +7333,7 @@ class Marines extends Weapon implements SpecialAbility{
 
 	public $damageType = "Special";
 	public $damageTypeArray = array(1=> "Special", 2=> "Standard", 3=> "Special");
-	public $weaponClass = "Matter";
+	public $weaponClass = "Boarding";
 	public $firingModes = array(
 		1 => "Capture Ship",
 		2 => "Sabotage",
@@ -7413,7 +7413,7 @@ class Marines extends Weapon implements SpecialAbility{
 			$fireOrder->needed = 100;
 			$fireOrder->updated = true;
 			$fireOrder->chosenLocation = $target->hasAttached[$shooter->id];
-			$fireOrder->pubnotes .= "<br> Pod already attached, automatic hit.";
+			//$fireOrder->pubnotes .= "<br> Pod already attached, automatic hit."; //Remove to declutter Combat Log
 			return;
 		}
 		
@@ -7558,11 +7558,13 @@ class Marines extends Weapon implements SpecialAbility{
 						if($cnc){
 								if($this->eliteMarines){//Are Marines Elite?
 									$crit = new CaptureShipElite(-1, $ship->id, $cnc->id, 'CaptureShipElite', $gamedata->turn+1); //Takes effect next turn.
+									$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 									$crit->updated = true;
 									$cnc->criticals[] =  $crit;
 									Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	
 								}else{//Not Elite Marines					
 									$crit = new CaptureShip(-1, $ship->id, $cnc->id, 'CaptureShip', $gamedata->turn+1);  //Takes effect next turn.
+									$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 									$crit->updated = true;
 									$cnc->criticals[] =  $crit;
 									Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	
@@ -7577,11 +7579,13 @@ class Marines extends Weapon implements SpecialAbility{
 							$fireOrder->pubnotes .= "<br>Roll(Mod): $deliveryRoll($rollMod) - A marine unit will attempt to sabotage " . $system->displayName ." system next turn.";
 						if($this->eliteMarines){//Are Marines Elite?
 							$crit = new SabotageElite(-1, $ship->id, $system->id, 'SabotageElite', $gamedata->turn+1); //Takes effect next turn.
+							$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 							$crit->updated = true;
 							$system->criticals[] =  $crit;
 							Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	
 						}else{//Not Elite Marines			
 							$crit = new Sabotage(-1, $ship->id, $system->id, 'Sabotage', $gamedata->turn+1); //Takes effect next turn.
+							$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 							$crit->updated = true;
 							$system->criticals[] =  $crit;
 							Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	
@@ -7591,11 +7595,13 @@ class Marines extends Weapon implements SpecialAbility{
 							if($cnc){
 									if($this->eliteMarines){//Are Marines Elite?
 										$crit = new SabotageElite(-1, $ship->id, $cnc->id, 'SabotageElite', $gamedata->turn+1); //Takes effect next turn.
+										$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 										$crit->updated = true;
 										$cnc->criticals[] =  $crit;
 										Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.							
 									}else{//Not Elite Marines					
 										$crit = new Sabotage(-1, $ship->id, $cnc->id, 'Sabotage', $gamedata->turn+1);  //Takes effect next turn.
+										$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 										$crit->updated = true;
 										$cnc->criticals[] =  $crit;
 										Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	
@@ -7611,11 +7617,13 @@ class Marines extends Weapon implements SpecialAbility{
 						if($cnc){
 								if($this->eliteMarines){//Are Marines Elite?
 									$crit = new RescueMissionElite(-1, $ship->id, $cnc->id, 'RescueMissionElite', $gamedata->turn+1); //Takes effect next turn.
+									$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 									$crit->updated = true;
 									$cnc->criticals[] =  $crit;
 									Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note marines have boarded this turn
 								}else{//Not Elite Marines					
 									$crit = new RescueMission(-1, $ship->id, $cnc->id, 'RescueMission', $gamedata->turn+1);  //Takes effect next turn.
+									$crit->param = array('id' => $shooter->id, 'userid' => $shooter->userid, 'team' => $shooter->team);
 									$crit->updated = true;
 									$cnc->criticals[] =  $crit;
 									Marines::recordBoarding($fireOrder->targetid);//Add id entry to static variable to note pod attached this turn.	

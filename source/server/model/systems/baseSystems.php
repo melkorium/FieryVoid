@@ -4291,6 +4291,7 @@ class AdaptiveArmorController extends ShipSystem{
 		}
 		$weaponClassArray[] = $weapon->weaponClass;
 		foreach($weaponClassArray as $weaponClass){
+			if($weaponClass == "Boarding") continue; //Exclude unnecessary types of weapon.
 			//check if already defined, if not - add to both tables
 			if (!isset($this->allocatedAA[$weaponClass])){
 				$this->availableAA[$weaponClass] = 0;

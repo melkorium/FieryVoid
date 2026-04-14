@@ -429,6 +429,76 @@ class ShipSystem {
 		return $systemDestroyed;
 	}
 
+	public function returnMarines($gamedata, $ship, $podInfo) {
+		if (!$podInfo || !is_array($podInfo)) return false;
+
+		$shooterId = (int)$podInfo['id'];
+		$userid = $podInfo['userid'];
+		$team = $podInfo['team'];
+
+		// 1. Try to find the original pod first (Priority)
+		$originalPod = $gamedata->getShipById($shooterId);
+		if ($originalPod && !$originalPod->isDestroyed() && $originalPod->team == $team && isset($originalPod->attached[$ship->id])) {
+			if ($this->incrementMarineAmmo($originalPod, $gamedata)) return true;
+		}
+
+		// 2. Identify all other attached ships for fallback
+		$attachedSameUser = array();
+		$attachedSameTeam = array();
+
+		foreach ($ship->hasAttached as $attachedShipId => $loc) {
+			if ($attachedShipId == $shooterId) continue; // Skip as already checked in step 1
+
+			$attachedShip = $gamedata->getShipById($attachedShipId);
+			if (!$attachedShip || $attachedShip->isDestroyed()) continue;
+
+			if ($attachedShip->userid == $userid && $attachedShip->team == $team) {
+				$attachedSameUser[] = $attachedShip;
+			} else if ($attachedShip->team == $team) {
+				$attachedSameTeam[] = $attachedShip;
+			}
+		}
+
+		// 3. Fallback Priority 1: Same User's pods attached to this ship
+		foreach ($attachedSameUser as $fallbackShip) {
+			if ($this->incrementMarineAmmo($fallbackShip, $gamedata)) return true;
+		}
+
+		// 4. Fallback Priority 2: Any Team pod attached to this ship
+		foreach ($attachedSameTeam as $fallbackShip) {
+			if ($this->incrementMarineAmmo($fallbackShip, $gamedata)) return true;
+		}
+
+		return false;
+	}
+
+	private function incrementMarineAmmo($pod, $gamedata) {
+		// If it is a fighter flight, the Marines system is on individual fighters
+		if ($pod instanceof FighterFlight) {
+			foreach ($pod->systems as $fighter) {
+				if ($fighter instanceof Fighter && !$fighter->isDestroyed()) {
+					foreach ($fighter->systems as $system) {
+						if ($system->name == "Marines") {
+							$system->ammunition++;
+							Manager::updateAmmoInfo($pod->id, $system->id, $gamedata->id, $system->firingMode, $system->ammunition, $gamedata->turn);
+							return true;
+						}
+					}
+				}
+			}
+		} else {
+			// Normal ship
+			foreach ($pod->systems as $system) {
+				if ($system->name == "Marines") {
+					$system->ammunition++;
+					Manager::updateAmmoInfo($pod->id, $system->id, $gamedata->id, $system->firingMode, $system->ammunition, $gamedata->turn);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	public function doWreakHavocMission($critical, $ship, $gamedata){
 		$newFireOrder = $this->initMarineMission($critical, $ship, $gamedata, 'WreakHavoc');
 		if (!$newFireOrder) return;
@@ -444,6 +514,7 @@ class ShipSystem {
 				} while ($attackedSystem instanceof Structure);
 	
 				$damageDealt = Dice::d(6, 1);
+				$damageDealt = min($damageDealt, $this->getRemainingHealth());				
 				$newFireOrder->pubnotes .= "<br>Roll(Mod): $wreakHavocRoll($rollMod) - WREAK HAVOC - A marine unit deals $damageDealt damage to the " . $attackedSystem->displayName .".";
 				$this->applyMarineDamage($ship, $gamedata, $attackedSystem, $damageDealt, 'WreakHavoc', $newFireOrder);
 				break;
@@ -516,7 +587,7 @@ class ShipSystem {
 		if (!$newFireOrder) return;
 
 		$rollMod = $this->getMarineRollMod($critical, $ship, $gamedata);						    			
-		$sabotageRoll = max(0, Dice::d(10) + $rollMod);
+		$sabotageRoll = 1;
 
 		$damageDealt = 0;
 		$eliminated = false;
@@ -525,14 +596,17 @@ class ShipSystem {
 
 		if ($sabotageRoll <= 1) {
 			$damageDealt = Dice::d(6, 3) + 2;
+			$damageDealt = min($damageDealt, $this->getRemainingHealth());			
 			$canMoveToCnC = true;
-			$msg = "causes $damageDealt damage and will continue operations.";
+			$msg = "causes $damageDealt damage";
 		} else if ($sabotageRoll <= 3) {
 			$damageDealt = Dice::d(6, 1) + 2;
+			$damageDealt = min($damageDealt, $this->getRemainingHealth());
 			$canMoveToCnC = true;
-			$msg = "causes $damageDealt damage and will continue operations.";
+			$msg = "causes $damageDealt damage";
 		} else if ($sabotageRoll <= 5) {
 			$damageDealt = Dice::d(6, 1) + 2;
+			$damageDealt = min($damageDealt, $this->getRemainingHealth());			
 			$eliminated = true;
 			$msg = "causes $damageDealt damage, but is eliminated.";
 		} else if ($sabotageRoll <= 8) {
@@ -548,15 +622,25 @@ class ShipSystem {
 		if ($damageDealt > 0) {
 			$destroyed = $this->applyMarineDamage($ship, $gamedata, $this, $damageDealt, 'Sabotage', $newFireOrder);
 			if ($destroyed && $canMoveToCnC) {
+				if ($this->returnMarines($gamedata, $ship, $critical->param)) {
+                    $newFireOrder->pubnotes .= " and returns to a friendly pod.";
+                    $this->endMarineMission($critical, $gamedata);
+                    return;
+                }
+
 				$cnc = $ship->getSystemByName("CnC");				
 				if ($cnc) {
 					$critClass = ($critical->phpclass == "SabotageElite") ? 'SabotageElite' : 'Sabotage';
 					$wreackCrit = new $critClass(-1, $ship->id, $cnc->id, $critClass, $gamedata->turn+1);
+					$wreackCrit->param = $critical->param; // Pass on the pod info!
 					$wreackCrit->updated = true;
 					$cnc->criticals[] = $wreackCrit;
+                    $newFireOrder->pubnotes .= " and switches to Wreak Havoc mission.";
 				}
 				$this->endMarineMission($critical, $gamedata); // Terminate this specific system sabotage, moved to CnC.
 				return;
+			}else{
+                $newFireOrder->pubnotes .= " and will continue sabotage operations next turn.";
 			}
 		}
 
@@ -641,7 +725,37 @@ class ShipSystem {
 					$rammingSystem->fireOrders[] = $newFireOrder;
 				}				
 				
-				$newFireOrder->pubnotes = "<br>Attacking Marines overcome defenders and disable the ship for the rest of the scenario.";	
+				$newFireOrder->pubnotes = "<br>Attacking Marines overcome defenders and disable the ship for the rest of the scenario.";
+
+				// All but one marine unit should return to their pods if they can.
+				$marineUnits = array();
+				foreach ($ship->systems as $system) {
+					foreach ($system->criticals as $crit) {
+						if (in_array($crit->phpclass, array('CaptureShip', 'CaptureShipElite', 'Sabotage', 'SabotageElite', 'RescueMission', 'RescueMissionElite'))) {
+							if ($crit->turnend == 0 || $crit->turnend > $gamedata->turn) {
+								$marineUnits[] = $crit;
+							}
+						}
+					}
+				}
+
+				if (count($marineUnits) > 1) {
+					$stayIndex = 0;
+					foreach ($marineUnits as $i => $unit) {
+						if ($unit->phpclass == "CaptureShip" || $unit->phpclass == "CaptureShipElite") {
+							$stayIndex = $i;
+							break;
+                        }
+                    }
+
+					foreach ($marineUnits as $i => $unit) {
+						if ($i == $stayIndex) continue;
+						if ($this->returnMarines($gamedata, $ship, $unit->param)) {
+							$this->endMarineMission($unit, $gamedata);
+							$newFireOrder->pubnotes .= "<br>A marine unit returns to its pod.";
+                        }
+                    }
+                }
 			}										
 		}
 	}//endof checkShipCaptured()
@@ -655,7 +769,7 @@ class ShipSystem {
 		if ($cnc) {
 			foreach ($cnc->criticals as $critDisabled) {
 				if ($critDisabled->phpclass == "ShipDisabled" && $critDisabled->turn <= $gamedata->turn) {
-					$newFireOrder->pubnotes .= "<br>RESCUE - Enemy ship has been captured, marines automatically completes their rescue mission!";					
+					$newFireOrder->pubnotes .= "<br>RESCUE - Enemy ship captured, marines automatically complete rescue mission!";					
 					return;
 				}
 			}
@@ -667,6 +781,19 @@ class ShipSystem {
 		switch (true) {
 			case ($rescueRoll <= 2):
 				$this->endMarineMission($critical, $gamedata, $newFireOrder, "<br>Roll(Mod): $rescueRoll($rollMod) - RESCUE - Marines successfully complete their rescue mission!");
+				if ($this->returnMarines($gamedata, $ship, $critical->param)) {
+                    $newFireOrder->pubnotes .= " Marines return to pod.";
+                } else {
+					$cnc = $ship->getSystemByName("CnC");				
+					if ($cnc) {
+						$critClass = (strpos($critical->phpclass, 'Elite') !== false) ? 'SabotageElite' : 'Sabotage';
+						$wreackCrit = new $critClass(-1, $ship->id, $cnc->id, $critClass, $gamedata->turn+1);
+						$wreackCrit->param = $critical->param; // Pass on the pod info!
+						$wreackCrit->updated = true;
+						$cnc->criticals[] = $wreackCrit;
+						$newFireOrder->pubnotes .= " No pods available, marines switch to Wreak Havoc mission.";
+					}
+				}
 				break;
 			case ($rescueRoll <= 4):
 				$this->endMarineMission($critical, $gamedata, $newFireOrder, "<br>Roll(Mod): $rescueRoll($rollMod) - RESCUE - Marines complete their rescue mission, but take heavy causalties.");
@@ -675,7 +802,7 @@ class ShipSystem {
 				$newFireOrder->pubnotes .= "<br>Roll(Mod): $rescueRoll($rollMod) - RESCUE - Marines fail to complete a rescue mission. They will try again next turn.";
 				break;
 			default:
-				$this->endMarineMission($critical, $gamedata, $newFireOrder, "<br>Roll(Mod): $rescueRoll($rollMod) - RESCUE - Marines are eliminated attempting their rescue mission.");
+				$this->endMarineMission($critical, $gamedata, $newFireOrder, "<br>Roll(Mod): $rescueRoll($rollMod) - RESCUE - Marines are eliminated attempting a rescue mission.");
 				break;
 		}
 	}

@@ -892,7 +892,13 @@ class DBManager
 				} else if ( $critical->id < 1 ){ //actual new critical
 					//important to use $critical->turn: critical does NOT need to have turn equal to current! 
 					//this is importnat for criticals that need to have limited time window yet last longer than 1 turn (go out 1 turn after issuing - so issue must be later)
-					$sql = "INSERT INTO `tac_critical` VALUES(null, $gameid, " . $critical->shipid . ", " . $critical->systemid . ",'" . $critical->phpclass . "'," . $critical->turn . ", " . $critical->turnend . ",'" . $critical->param . "')";
+					$param = $critical->param;
+					if (is_array($param) || is_object($param)) {
+						$param = json_encode($param);
+					}
+					$param = $this->DBEscape($param);
+
+					$sql = "INSERT INTO `tac_critical` VALUES(null, $gameid, " . $critical->shipid . ", " . $critical->systemid . ",'" . $critical->phpclass . "'," . $critical->turn . ", " . $critical->turnend . ",'" . $param . "')";
 				} else continue;
                 $this->update($sql);
             }
@@ -2341,8 +2347,17 @@ class DBManager
 				if(($turnEnd ==0) || ($turnEnd >=$fetchTurn)) $doAddCrit = true;
 				if(($type=='ForcedOfflineOneTurn') || ($type=='ForcedOfflineForTurns')) $doAddCrit = true;
 				if($doAddCrit){				
+					if ($param && ($param[0] == '{' || $param[0] == '[')) {
+						$decoded = json_decode($param, true);
+						if (is_array($decoded)) {
+							$param = $decoded;
+						}
+					}
+
+					$crit = new $type($id, $shipid, $systemid, $type, $turn, $turnEnd);
+					$crit->param = $param;
 					$gamedata->getShipById($shipid)->getSystemById($systemid)->setCritical(
-						new $type($id, $shipid, $systemid, $type, $turn, $turnEnd, $param),
+						$crit,
 						$gamedata->turn
 					);
 				}
