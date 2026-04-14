@@ -1681,7 +1681,13 @@ window.weaponManager = {
         var splitTargeted = [];
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
-
+            if (weapon.isBoardingAction && weapon.firingMode == 2 && !system){
+                if(gamedata.rules.desperate === undefined || (gamedata.rules.desperate !== ship.team && gamedata.rules.desperate !== -1)){
+                    var html = "You cannot choose to Wreak Havoc unless Desperate scenario rules are in effect.";
+                    confirm.warning(html);  
+                    return;                  
+                }                
+            }    
             //Only need to check first weapon
             if (blockedLosHex && blockedLosHex.length > 0 && !loSBlocked) {
                 var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);
