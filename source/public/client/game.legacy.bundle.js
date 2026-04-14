@@ -21557,7 +21557,7 @@ window.weaponManager = {
         var loSBlocked = false; //Default to LoS not blocked.
         var skinDanceBlocked = null;
         // Attached pod logic
-        var attachedUnitHidden = false;    
+        var attachedUnitHidden = false;
         if (selectedShip.hasAttached && Object.keys(selectedShip.hasAttached).length > 0) {
             var keys = Object.keys(selectedShip.hasAttached);
             if (keys.includes(ship.id.toString())) {
@@ -21569,7 +21569,7 @@ window.weaponManager = {
             var podLocation = parseInt(ship.attached[hostId]);
             if (!isNaN(podLocation) && podLocation !== 0) {
                 var hostShip = gamedata.getShip(hostId);
-                var hostSections = weaponManager.getShipHittingSide(selectedShip, hostShip);                
+                var hostSections = weaponManager.getShipHittingSide(selectedShip, hostShip);
                 if (hostShip) {
                     if (!hostSections.includes(podLocation)) {
                         attachedUnitHidden = true; // Pod is attached to a side not facing the shooter
@@ -22274,7 +22274,7 @@ window.weaponManager = {
             noLockPenalty = 0.5;
         }
 
-		if(shooter.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
+        if (shooter.mine) noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.       
 
         //noLockMod =  rangePenalty * noLockPenalty; //moved lower   
         var jammermod = 0;
@@ -22727,7 +22727,7 @@ window.weaponManager = {
         debug && console.log("weaponManager target ship", ship, system);
 
         if (shipManager.isDestroyed(selectedShip)) return;
-        if(selectedShip.mine && ship.mine) return;  //Mine can't shoot mines.      
+        if (selectedShip.mine && ship.mine) return;  //Mine can't shoot mines.      
         if (ship.Huge > 0) return; //Do not allow targeting of large muti-hex terrain.
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
         if (weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.
@@ -22745,7 +22745,13 @@ window.weaponManager = {
         var splitTargeted = [];
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
-
+            if (weapon.isBoardingAction && weapon.firingMode == 2 && !system){
+                if(gamedata.rules.desperate === undefined || (gamedata.rules.desperate !== ship.team && gamedata.rules.desperate !== -1)){
+                    var html = "You cannot choose to Wreak Havoc unless Desperate scenario rules are in effect.";
+                    confirm.warning(html);  
+                    return;                  
+                }                
+            }    
             //Only need to check first weapon
             if (blockedLosHex && blockedLosHex.length > 0 && !loSBlocked) {
                 var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);
@@ -23244,17 +23250,17 @@ window.weaponManager = {
                 var fighter = ship.systems[i];
                 for (var a in fighter.systems) {
                     var system = fighter.systems[a];
-                    if(system.weapon){
+                    if (system.weapon) {
                         var orders = weaponManager.getAllFireOrdersFromSystem(system);
                         if (orders.length > 0) return true;
-                    }  
+                    }
                 }
             } else {
                 var system = ship.systems[i];
-                if(system.weapon){
+                if (system.weapon) {
                     var orders = weaponManager.getAllFireOrdersFromSystem(system);
                     if (orders.length > 0) return true;
-                }    
+                }
             }
         }
         return false;
@@ -23607,7 +23613,7 @@ window.weaponManager = {
         const shortLogTypes = [
             "HyperspaceJump", "JumpFailure", "SelfDestruct", "ContainmentBreach",
             "Reactor", "Sabotage", "WreakHavoc", "Capture", "Rescue", "LimpetBore",
-            "MagazineExplosion", "NoHangar", "TerrainCollision", "HalfPhase", "TranverseCrit"
+            "MagazineExplosion", "NoHangar", "TerrainCollision", "HalfPhase", "TranverseCrit", "Boarding"
         ];
 
         return shortLogTypes.includes(fire.damageclass);
@@ -26461,6 +26467,7 @@ shipManager.movement = {
     },
 
     canDetach: function canDetach(ship) {
+        if (gamedata.gamephase != 2) return false;        
         if (Object.keys(ship.attached).length === 0) return false;
         if (shipManager.movement.hasDeletableMovements(ship)) return false;
         return true;
@@ -39153,9 +39160,9 @@ MineControllerDEW.prototype.refreshFireControl = function () { //refresh descrip
 	for (var i in ship.systems) {
 		var weapon = ship.systems[i];
 		if (weapon instanceof Weapon && weapon.name !== "RammingAttack") {
-			if (weapon.fireControl[0] !== null)  weapon.fireControl[0] = this.data["Accuracy"];
-			if (weapon.fireControl[1] !== null)  weapon.fireControl[1] = this.data["Accuracy"];
-			if (weapon.fireControl[2] !== null)  weapon.fireControl[2] = this.data["Accuracy"];								
+			if (weapon.fireControl[0] !== null)  weapon.fireControl[0] = weapon.fireControl[0] + this.data["Accuracy"];
+			if (weapon.fireControl[1] !== null)  weapon.fireControl[1] = weapon.fireControl[1] + this.data["Accuracy"];
+			if (weapon.fireControl[2] !== null)  weapon.fireControl[2] = weapon.fireControl[2] + this.data["Accuracy"];								
 		}
 	}
 	this.FCRefreshed = true;
