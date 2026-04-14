@@ -447,6 +447,7 @@ shipManager.movement = {
     },
 
     canDetach: function canDetach(ship) {
+        if (gamedata.gamephase != 2) return false;        
         if (Object.keys(ship.attached).length === 0) return false;
         if (shipManager.movement.hasDeletableMovements(ship)) return false;
         return true;
