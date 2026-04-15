@@ -857,3 +857,11 @@
     display: block;
     min-width: 480px;
 }
+
+.factionsubgroup-header {
+    margin-left: 20px;
+}
+
+.factionsubgroup-header + .faction-group-container {
+    margin-left: 20px;
+}
