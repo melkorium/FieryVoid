@@ -652,27 +652,82 @@ class ShipSystem {
 		
 
 	public function doCaptureMission($critical, $ship, $gamedata){ 
+		$rammingSystem = $ship->getSystemByName("RammingAttack");
+		if ($rammingSystem) {
+			foreach ($rammingSystem->fireOrders as $fo) {
+				if ($fo->turn == $gamedata->turn && $fo->damageclass == 'Capture') {
+					return; // Already resolved this turn!
+				}
+			}
+		}
+
+		$cnc = $ship->getSystemByName("CnC");
+		if (!$cnc) return;
+
+		$attackers = array();
+		foreach ($cnc->criticals as $crit) {
+			if (($crit->phpclass == "CaptureShip" || $crit->phpclass == "CaptureShipElite") && $crit->turn <= $gamedata->turn && ($crit->turnend == 0 || $crit->turnend > $gamedata->turn)) {
+				$attackers[] = $crit;
+			}
+		}
+
+		if (empty($attackers)) return;
+
+		$currentMarines = $ship->howManyMarines(); 
+
 		$newFireOrder = $this->initMarineMission($critical, $ship, $gamedata, 'Capture');
 		if (!$newFireOrder) return;
 
-		$rollMod = $this->getMarineRollMod($critical, $ship, $gamedata);
-		$attackerRoll = max(0, Dice::d(100) + ($rollMod * 10));
-
-		if ($attackerRoll <= 50) {
-			$cnc = $ship->getSystemByName("CnC");
-			if ($cnc) {
-				$this->addCritical($ship->id, 'DefenderLost', $gamedata);
-			}						
-			$newFireOrder->pubnotes .= "<br>Roll(Mod): $attackerRoll(" . ($rollMod * 10) . ") - CAPTURE - Marines eliminate a defender.";    	      	
-		} else {
-			$newFireOrder->pubnotes .= "<br>Roll(Mod): $attackerRoll(" . ($rollMod * 10) . ") - CAPTURE - Marines do not eliminate a defender.";
+		$attackerHits = 0;
+		foreach ($attackers as $attacker) {
+			$rollMod = $this->getMarineRollMod($attacker, $ship, $gamedata);
+			$roll = Dice::d(10);
+			$modifiedRoll = $roll + $rollMod;
+			if ($modifiedRoll <= 5) {
+				$attackerHits++;
+			}
 		}
 
-		$defenderRoll = max(0, Dice::d(100) + ($rollMod * 10));
-		if ($defenderRoll >= 75) {
-			$this->endMarineMission($critical, $gamedata, $newFireOrder, " Defenders eliminate a marine unit. Roll(Mod): $defenderRoll(" . ($rollMod * 10) . ").");
-		} else {
-			$newFireOrder->pubnotes .= " Defenders do not eliminate any marines. Roll(Mod): $defenderRoll(" . ($rollMod * 10) . ").";					
+		$defenderRollMod = 0;
+		if ($ship->faction == "Narn Regime" || $ship->faction == "Gaim Intelligence") $defenderRollMod -= 1;
+		foreach ($ship->enhancementOptions as $enhancement) {
+			$enhID = $enhancement[0];
+			$enhCount = $enhancement[2];
+			if ($enhCount > 0) {
+				if ($enhID == 'ELITE_CREW') $defenderRollMod -= $enhCount;
+				if ($enhID == 'POOR_CREW') $defenderRollMod += $enhCount;
+				if ($enhID == 'MARK_FERV') $defenderRollMod -= $enhCount;
+			}
+		}
+
+		$defenderHits = 0;
+		for ($i = 0; $i < $currentMarines; $i++) {
+			$roll = Dice::d(10);
+			$modifiedRoll = $roll + $defenderRollMod;
+			if ($modifiedRoll <= 5) {
+				$defenderHits++;
+			}
+		}
+
+		$attackerHits = min($attackerHits, $currentMarines);
+		$defenderHits = min($defenderHits, count($attackers));
+
+		$newFireOrder->pubnotes .= "<br><b>Boarding Combat Summary: </b>" . count($attackers) . " attackers eliminated $attackerHits defenders. $currentMarines defenders eliminated $defenderHits attackers.";
+
+		// Eliminate defenders
+		for ($i = 0; $i < $attackerHits; $i++) {
+			if ($currentMarines > 0) {
+				$this->addCritical($ship->id, 'DefenderLost', $gamedata);
+				$currentMarines--;
+			}
+		}
+
+		// Eliminate attackers
+		for ($i = 0; $i < $defenderHits; $i++) {
+			if (count($attackers) > 0) {
+				$killedAttacker = array_pop($attackers);
+				$this->endMarineMission($killedAttacker, $gamedata);
+			}
 		}
 			
 		$this->checkShipCaptured($critical, $ship, $gamedata);
