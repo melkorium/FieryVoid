@@ -7355,12 +7355,13 @@ class Marines extends Weapon implements SpecialAbility{
 	}
 
 	public function setSystemDataWindow($turn){
-		parent::setSystemDataWindow($turn);      
+		parent::setSystemDataWindow($turn);  
+		$this->data["Marine Units"] = $this->ammunition;    
 		$this->data["Special"] = "<br>If on same hex as an enemy ship, can attempt to board that vessel.";	
 		$this->data["Special"] .= "<br>Marines may attempt three 'Missions' by selecting the appropriate Firing Mode.";  		 		
 		$this->data["Special"] .= "<br> - Capture Ship: Marines can attempt to overcome defenders on enemy ship and disable it."; 
 		$this->data["Special"] .= "<br> - Sabotage: Can be directed at a specific system (i.e. called shot) or for general sabotage operations on enemy ship.";
-		$this->data["Special"] .= "<br> - Rescue: Scenarios only, Marines will board enemy ship and attempt to rescue target."; 						 
+		$this->data["Special"] .= "<br> - Rescue: Scenarios only, Marines will board enemy ship and attempt to rescue a target."; 						 
 		$this->data["Special"] .= "<br>See 'Common Systems & Enhancements' file for full information on Boarding Actions.";  		                     
 		if($this->eliteMarines){
 			$this->data["Elite"] = "Yes";
@@ -7715,12 +7716,13 @@ class GrapplingClaw extends Weapon{
 
 	
 	public function setSystemDataWindow($turn){
-		parent::setSystemDataWindow($turn);      
+		parent::setSystemDataWindow($turn);   
+		$this->data["Marine Units"] = $this->ammunition;    		   
 		$this->data["Special"] = "<br>If on same hex as an enemy ship, and in arc, this weapon attempt to deliver Marines to that vessel.";	
 		$this->data["Special"] .= "<br>Marines may attempt three 'Missions' by selecting the appropriate Firing Mode.";  		
 		$this->data["Special"] .= "<br> - Capture Ship: Marines can attempt to overcome defenders on enemy ship and disable it."; 
 		$this->data["Special"] .= "<br> - Sabotage: Can be directed at a specific system (i.e. called shot) or for general sabotage operations on enemy ship."; 
-		$this->data["Special"] .= "<br> - Rescue: Scenarios only, Marines will board enemy ship and attempt to rescue target."; 
+		$this->data["Special"] .= "<br> - Rescue: Scenarios only, Marines will board enemy ship and attempt to rescue a target."; 
 		$this->data["Special"] .= "<br>NOTE - You cannot Grapple ships which rolled higher initiative than you this turn, even if you are in the same Initiative bracket using Simultaneous Movement rules."; 
 		$this->data["Special"] .= "<br>See 'Common Systems & Enhancements' file for full information on Boarding Actions.";  		                     
 		if($this->eliteMarines){
