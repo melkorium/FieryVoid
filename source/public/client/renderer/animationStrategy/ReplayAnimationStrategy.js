@@ -137,7 +137,7 @@ window.ReplayAnimationStrategy = function () {
 
                     if (index > hostIndex) {
                         // Pod detaches and its initiative is AFTER the host.
-                        // The host's slot already created a SlavedIconAnimation for it.
+                        // The host's slot already created a SyncedIconAnimation for it.
                         // Now we create its independent post-detach animation.
                         isDetachingPodAfterHost = true;
                     }
@@ -146,9 +146,9 @@ window.ReplayAnimationStrategy = function () {
                 }
             }
 
-            // Build the group: the ship itself, plus any pods to slave
+            // Build the group: the ship itself, plus any pods to sync
             var group = [ship];
-            var podsToSlave = [];
+            var podsToSync = [];
 
             if (!isDetachingPodAfterHost) {
                 // Find pods attached to this ship via their movement orders
@@ -158,7 +158,7 @@ window.ReplayAnimationStrategy = function () {
                     var otherHostId = getHostIdFromMovements(otherShip);
                     if (otherHostId && otherHostId == ship.id) {
                         var otherDetaches = hasDetachOrder(otherShip);
-                        podsToSlave.push({ ship: otherShip, detaches: otherDetaches });
+                        podsToSync.push({ ship: otherShip, detaches: otherDetaches });
                     }
                 });
             }
@@ -204,18 +204,18 @@ window.ReplayAnimationStrategy = function () {
                 animatedShips[member.id] = true;
             }, this);
 
-            // Create slaved animations for attached pods
-            if (hostAnimation && podsToSlave.length > 0) {
-                podsToSlave.forEach(function (entry) {
+            // Create synced animations for attached pods
+            if (hostAnimation && podsToSync.length > 0) {
+                podsToSync.forEach(function (entry) {
                     var podIcon = this.shipIconContainer.getByShip(entry.ship);
                     var detachMove = entry.detaches ? getDetachMove(entry.ship) : null;
-                    var slavedAnim = new SlavedIconAnimation(podIcon, hostAnimation, detachMove);
+                    var syncedAnim = new SyncedIconAnimation(podIcon, hostAnimation, detachMove);
 
-                    groupAnimations.push({ ship: entry.ship, animation: slavedAnim });
+                    groupAnimations.push({ ship: entry.ship, animation: syncedAnim });
 
                     if (entry.detaches) {
                         // Pod will get its own independent animation at its own initiative slot
-                        podIcon.hasPriorSlavedAnimation = true;
+                        podIcon.hasPriorSyncedAnimation = true;
                     } else {
                         // Permanently attached - no independent animation needed
                         animatedShips[entry.ship.id] = true;
@@ -730,7 +730,7 @@ window.ReplayAnimationStrategy = function () {
     }
     */
 
-    function SlavedIconAnimation(shipIcon, hostAnimation, detachMove) {
+    function SyncedIconAnimation(shipIcon, hostAnimation, detachMove) {
         Animation.call(this);
         this.shipIcon = shipIcon;
         this.hostAnimation = hostAnimation;
@@ -751,27 +751,27 @@ window.ReplayAnimationStrategy = function () {
             if (this.hostAnimation.totalCurveLength > 0 && found) {
                 this.detachFraction = hostLengthToDetach / this.hostAnimation.totalCurveLength;
             } else {
-                this.detachFraction = 1; // Can't find detach point, slave for entire duration
+                this.detachFraction = 1; // Can't find detach point, sync for entire duration
             }
         } else {
-            this.detachFraction = 1; // Permanently slaved
+            this.detachFraction = 1; // Permanently synced
         }
 
         this.duration = this.hostAnimation.getDuration();
         this.time = 0;
     }
 
-    SlavedIconAnimation.prototype = Object.create(Animation.prototype);
+    SyncedIconAnimation.prototype = Object.create(Animation.prototype);
 
-    SlavedIconAnimation.prototype.getDuration = function () {
+    SyncedIconAnimation.prototype.getDuration = function () {
         return this.duration;
     };
 
-    SlavedIconAnimation.prototype.setTime = function (time) {
+    SyncedIconAnimation.prototype.setTime = function (time) {
         this.time = time;
     };
 
-    SlavedIconAnimation.prototype.render = function (now, total, last, delta, zoom, back, paused) {
+    SyncedIconAnimation.prototype.render = function (now, total, last, delta, zoom, back, paused) {
         // For detaching pods, clamp the query time to the detach point
         // so the pod stays at the separation position after detach
         var queryTime = total;
@@ -787,7 +787,7 @@ window.ReplayAnimationStrategy = function () {
         this.shipIcon.setFacing(-hostPosAndFacing.facing);
     };
 
-    SlavedIconAnimation.prototype.cleanUp = function (scene) {};
+    SyncedIconAnimation.prototype.cleanUp = function (scene) {};
 
     return ReplayAnimationStrategy;
 }();

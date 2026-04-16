@@ -7,7 +7,7 @@ window.ShipMovementAnimation = function () {
         this.turn = turn;
         this.shipIconContainer = shipIconContainer;
         this.detachMoveToSkipUntil = detachMoveToSkipUntil || null;
-        this.hasPriorSlavedAnimation = shipIcon.hasPriorSlavedAnimation || false;
+        this.hasPriorSyncedAnimation = shipIcon.hasPriorSyncedAnimation || false;
         this.hexAnimations = buildCurves.call(this, this.shipIcon, this.turn);
         this.totalCurveLength = calculateTotalCurveLength(this.hexAnimations);
         this.duration = 5000;
@@ -53,7 +53,7 @@ window.ShipMovementAnimation = function () {
 
     ShipMovementAnimation.prototype.render = function (now, total, last, delta, zoom, back, paused) {
 
-        if (this.hasPriorSlavedAnimation && total < this.time) {
+        if (this.hasPriorSyncedAnimation && total < this.time) {
             return;
         }
 
