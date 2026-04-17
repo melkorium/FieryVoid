@@ -209,6 +209,8 @@ window.MineDeployment = (function () {
             return ship.mine &&
                 ship.userid == gamedata.thisplayer &&
                 !shipManager.isDestroyed(ship) &&
+                gamedata.turn == 1 &&
+                ship.spawned == -1 &&
                 shipManager.getTurnDeployed(ship) <= gamedata.turn;
         }).sort(function (a, b) {
             // Prefer mines without a deploy move (not yet placed)

@@ -1564,11 +1564,12 @@ getActiveShipName: function getActiveShipName() {
         var existingMineBtn = document.getElementById('mineDeployBtn');
         if (existingMineBtn) existingMineBtn.parentNode.removeChild(existingMineBtn);
 
-        if (gamedata.gamephase === -1) {
+        if (gamedata.gamephase === -1 && gamedata.turn == 1) {
             var playerHasMines = gamedata.ships.some(function (ship) {
                 return ship.mine &&
                     ship.userid == gamedata.thisplayer &&
                     !shipManager.isDestroyed(ship) &&
+                    ship.spawned == -1 &&
                     shipManager.getTurnDeployed(ship) <= gamedata.turn;
             });
 
