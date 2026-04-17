@@ -117,9 +117,12 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
         <h3 id="boarding" style="margin-top: 15px;">Boarding Actions & Marines</h3>
         <ul>
-            <li>Many factions have access to Breaching Pods, which come equipped with marines that can undertake boarding actions.</li>
+            <li>Many factions have access to Breaching Pods, which come equipped with marines that can undertake boarding actions.  
+                During Fleet Selection, one pod can be purchased for every medium ship or HCV with hangar capacity for medium fighters, heavy fighter or assault shuttles, 
+                two for every capital ship with these hangars, and four for enormous units or bases.  Assault ships (i.e., those vessels containing ‘Assault’ in their name) can carry double these allowances
+                providing they have the hangar space to permit it.</li>
             <br>              
-            <li>During the Firing Phase, Pods can attempt to attach to enemy ships in the same hex and deliver Marines to undertake a selection of missions (Capture Ship, Sabotage and Rescue).</li>
+            <li>in battle, Pods can attempt to attach to enemy ships in the same hex and deliver Marines to undertake a selection of missions (Capture Ship, Sabotage and Rescue) during the Firing Phase.</li>
             <li>Pods will initially roll to attach on a d10 in the same way that normal weapons roll to hit enemies, 
                 but the calculation is very different and success is automatic if they are moving faster than the target ship and the speed difference between the two units is not higher than pod's thrust rating. 
                 If the speed difference to target is greater than pod thrust rating it is simply unable to attach. 

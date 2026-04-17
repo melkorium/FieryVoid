@@ -1388,9 +1388,9 @@ window.gamedata = {
 			checkResult += " <b><span style='color: red;'>FAILURE!</span></b>";
 			if (unassignedBPs > 0) {
 				if (totalBPUsage > totalBPCapacity) {
-					checkResult += " (Fleet BP capacity exceeded)";
+					checkResult += " (Not enough Breaching Pod Capacity)";
 				} else {
-					checkResult += " (Not enough hangar slots on ships with BP capacity)";
+					checkResult += " (Not enough hangar slots on ships with Breaching Pod capacity)";
 				}
 			}
 			problemFound = true;
