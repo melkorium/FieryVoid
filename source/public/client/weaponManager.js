@@ -499,7 +499,7 @@ window.weaponManager = {
             if (keys.includes(ship.id.toString())) {
                 attachedUnitHidden = true; // Parent cannot target the attached pod
             }
-        }
+        }     
         if (ship.attached && Object.keys(ship.attached).length > 0) {
             var hostId = Object.keys(ship.attached)[0];
             var podLocation = parseInt(ship.attached[hostId]);
@@ -517,6 +517,7 @@ window.weaponManager = {
 
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
+            var attachedWeaponHidden = false;
 
             if (weaponManager.isOnWeaponArc(selectedShip, ship, weapon)) {
                 if (weaponManager.checkIsInRange(selectedShip, ship, weapon)) {
@@ -549,6 +550,12 @@ window.weaponManager = {
                             if (!selectedShip.skinDancing[ship.id] && (targetBearing < 60 || targetBearing > 300) && !sharedSkinDancing) skinDanceBlocked = 'Shooter';
                         }
                     }
+                    //New check to prevent attached ship from firing at it's host UNLESS it's a boarding weapon.    
+                    if (selectedShip.attached && selectedShip.attached[ship.id] !== undefined) {
+                        if (!weapon.isBoardingAction) {
+                            attachedWeaponHidden = true; // Prevent pods and ships from firing weapons at each others.
+                        }
+                    }   
 
                     if (blockedLosHex.length > 0 && !loSBlocked) {
                         var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);
@@ -563,7 +570,7 @@ window.weaponManager = {
                     value = weapon.firingModes[value];
                     var keys = Object.keys(weapon.firingModes);
 
-                    if (ship.Huge > 0 | attachedUnitHidden) { //Cannot Target larger terrain or POds that are attached to non-facing sides
+                    if (ship.Huge > 0 || attachedUnitHidden || attachedWeaponHidden) { //Cannot Target larger terrain or POds that are attached to non-facing sides
                         $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotTarget"> Cannot Target</span></div>').appendTo(f);
                     } else if (loSBlocked) {
                         // LOS is blocked - only display the blocked message
