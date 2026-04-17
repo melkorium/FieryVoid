@@ -494,11 +494,9 @@ window.weaponManager = {
         var skinDanceBlocked = null;
         // Attached pod logic
         var attachedUnitHidden = false;
-        if (selectedShip.hasAttached && Object.keys(selectedShip.hasAttached).length > 0) {
-            var keys = Object.keys(selectedShip.hasAttached);
-            if (keys.includes(ship.id.toString())) {
-                attachedUnitHidden = true; // Parent cannot target the attached pod
-            }
+        // Host targeting Pod restriction
+        if (selectedShip.hasAttached && selectedShip.hasAttached[ship.id] !== undefined) {
+            attachedUnitHidden = true; // Parent cannot target the attached pod
         }     
         if (ship.attached && Object.keys(ship.attached).length > 0) {
             var hostId = Object.keys(ship.attached)[0];
@@ -551,9 +549,12 @@ window.weaponManager = {
                         }
                     }
                     //New check to prevent attached ship from firing at it's host UNLESS it's a boarding weapon.    
-                    if (selectedShip.attached && selectedShip.attached[ship.id] !== undefined) {
-                        if (!weapon.isBoardingAction) {
-                            attachedWeaponHidden = true; // Prevent pods and ships from firing weapons at each others.
+                    //If selected ship is a flight, it cannot fire ANY non-boarding weapons at ANY target while attached.
+                    if (selectedShip.attached && Object.keys(selectedShip.attached).length > 0) {
+                        if (selectedShip.flight || selectedShip.attached[ship.id] !== undefined) {
+                            if (!weapon.isBoardingAction) {
+                                attachedWeaponHidden = true; // Prevent pods and ships from firing weapons at each others.
+                            }
                         }
                     }   
 
@@ -1688,7 +1689,22 @@ window.weaponManager = {
         var splitTargeted = [];
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
-            if (weapon.isBoardingAction && weapon.firingMode == 2 && !system){
+
+            // Attachment firing restriction: Flights attached to anything, or non-flights targeting their host.
+            if (selectedShip.attached && Object.keys(selectedShip.attached).length > 0) {
+                if (selectedShip.flight || selectedShip.attached[ship.id] !== undefined) {
+                    if (!weapon.isBoardingAction) {
+                        continue;
+                    }
+                }
+            }
+
+            // Host targeting Pod restriction
+            if (selectedShip.hasAttached && selectedShip.hasAttached[ship.id] !== undefined) {
+                continue; // Parent cannot target the attached pod
+            }
+
+            if (weapon.isBoardingAction && weapon.firingMode == 2 && !system) {
                 if(gamedata.rules.desperate === undefined || (gamedata.rules.desperate !== ship.team && gamedata.rules.desperate !== -1)){
                     var html = "You cannot choose to Wreak Havoc unless Desperate scenario rules are in effect.";
                     confirm.warning(html);  
@@ -1938,6 +1954,13 @@ window.weaponManager = {
         var splitTargeted = [];
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
+
+            // Attachment firing restriction: Flights attached to anything cannot target hexes with non-boarding weapons.
+            if (selectedShip.flight && selectedShip.attached && Object.keys(selectedShip.attached).length > 0) {
+                if (!weapon.isBoardingAction) {
+                    continue;
+                }
+            }
 
             if (hidden && weapon.name !== 'TransverseDrive' && weapon.name !== 'MicroJumpSystem') {
                 var html = "You cannot fire weapons on a turn when you are stealthed.";
