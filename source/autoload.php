@@ -3579,8 +3579,6 @@ spl_autoload_register(
                 'dewmined2' => '/server/model/ships/EA/dewMineD2.php',
                 'dewmined3' => '/server/model/ships/EA/dewMineD3.php',                                
 
-
-
                 //Minbari Mines - 5
                 'proxminesivhal' => '/server/model/ships/minbari/proxMineSivhal.php',
                 'proxminesivhaljam' => '/server/model/ships/minbari/proxMineSivhalJam.php',   
@@ -3611,8 +3609,6 @@ spl_autoload_register(
                 'dewmineestava' => '/server/model/ships/abbai_old/dewMineEstavA.php', 
                 'dewmineestavb' => '/server/model/ships/abbai_old/dewMineEstavB.php', 
                 'dewmineestavc' => '/server/model/ships/abbai_old/dewMineEstavC.php',                                                 
-                
-
                 'spawncaptorwotcrabbaia' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiA.php',	                                
                 'spawncaptorwotcrabbaib' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiB.php',                 
                 
@@ -3629,6 +3625,12 @@ spl_autoload_register(
                 'dewminebt' => '/server/model/ships/drazi/dewMineBT.php',  
                 'dewminebp' => '/server/model/ships/drazi/dewMineBP.php', 
                 'dewminebr' => '/server/model/ships/drazi/dewMineBR.php', 
+
+                //Drazi WotCR - 4
+                'proxmineca' => '/server/model/ships/drazi_old/proxMineCA.php',  
+                'proxminect' => '/server/model/ships/drazi_old/proxMineCT.php',
+                'dewmineaf' => '/server/model/ships/drazi_old/dewMineAF.php',                                
+                'dewmineax' => '/server/model/ships/drazi_old/dewMineAX.php',                
 
                 //Gaim Mines - 4
                 'proxminegaim20' => '/server/model/ships/gaim/proxMineGaim20.php',  
