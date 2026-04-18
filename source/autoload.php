@@ -3546,12 +3546,6 @@ spl_autoload_register(
                 'proxmineterrain' => '/server/model/ships/terrain/proxMineTerrain.php', 
                 'dewmineterrainbeam' => '/server/model/ships/terrain/dewMineTerrainBeam.php', 
                 'dewmineterrainmissile' => '/server/model/ships/terrain/dewMineTerrainMissile.php',                                              
-
-                //Abbai WotCR - 4
-                'captorwotcrabbaia' => '/server/model/ships/abbai_old/captorWotcrAbbaiA.php',	                                
-                'captorwotcrabbaib' => '/server/model/ships/abbai_old/captorWotcrAbbaiB.php',                     
-                'spawncaptorwotcrabbaia' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiA.php',	                                
-                'spawncaptorwotcrabbaib' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiB.php', 
                 
                 //Centauri Mines - 12
                 'proxmineraji' => '/server/model/ships/centauri/proxMineRaji.php',  
@@ -3609,6 +3603,18 @@ spl_autoload_register(
                 'captorminebaica2' => '/server/model/ships/abbai/captorMineBaica2.php',  
                 'dewmineeliria1' => '/server/model/ships/abbai/dewMineEliria1.php',                   
                 'dewmineeliria2' => '/server/model/ships/abbai/dewMineEliria2.php', 
+
+                //Abbai WotCR - 6
+                'proxmineasiff' => '/server/model/ships/abbai_old/proMineAsiff.php',                 
+                'captorwotcrbistifa' => '/server/model/ships/abbai_old/captorBistifA.php',	                                
+                'captorwotcrbistifb' => '/server/model/ships/abbai_old/captorBistifB.php', 
+                'dewmineestava' => '/server/model/ships/abbai_old/dewMineEstavA.php', 
+                'dewmineestavb' => '/server/model/ships/abbai_old/dewMineEstavB.php', 
+                'dewmineestavc' => '/server/model/ships/abbai_old/dewMineEstavC.php',                                                 
+                
+
+                'spawncaptorwotcrabbaia' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiA.php',	                                
+                'spawncaptorwotcrabbaib' => '/server/model/ships/abbai_old/spawnCaptorWotcrAbbaiB.php',                 
                 
                 //Brakiri Mines - 3
                 'proxminerehsap' => '/server/model/ships/brakiri/proxMineRehsaP.php',  

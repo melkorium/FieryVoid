@@ -1,38 +1,37 @@
 <?php
-class captorBistifA extends Mine{
+class proMineAsiff extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 11;
+		$this->pointCost = 9;
 		$this->faction = "Abbai Matriarchate (WotCR)";
-        $this->phpclass = "captorBistifA";
+        $this->phpclass = "proMineAsiff";
         $this->imagePath = "img/ships/AbbaiWotcrMine.png";
-        $this->shipClass = "Bisitif-A Captor Mine";
+        $this->shipClass = "Asiff Proximity Mine";
 		$this->occurence = "common";
-        $this->isd = 1935;
+		//$this->variantOf = 'NONE';
+        $this->isd = 2200;
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
-        $this->signature = 5;      
+        $this->signature = 4;        
         
         $this->turncost = 0;
         $this->turndelaycost = 0;
         $this->accelcost = 0;
         $this->rollcost = 0;
         $this->pivotcost = 0;	
-        $this->iniativebonus = -200;
-        
-        $this->mineType = 'Captor';        
-        $this->spawned = true;
+        $this->iniativebonus = -200; 
+        $this->mineType = 'Proximity';         
        		    	    	    	    
-        //Block all enhancements for Terrain units when bought
+        //Block all enhancements for Mine units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
 
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
-        $this->addPrimarySystem(new CaptorMine(0, 1, 1, 0, 360, 4, 2, 0, 0, 12)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $accuracy, $diceType, $dice, $damageBonus 
+        $this->addPrimarySystem(new ProximityMine(0, 1, 1, 0, 360, 1, 1, 0, 14)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $diceType, $dice, $damageBonus 
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(0, 1));

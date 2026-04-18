@@ -1,16 +1,16 @@
 <?php
-class captorWotcrAbbaiB extends Mine{
+class captorBistifB extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 12;
+		$this->pointCost = 17;
 		$this->faction = "Abbai Matriarchate (WotCR)";
-        $this->phpclass = "captorWotcrAbbaiB";
+        $this->phpclass = "captorBistifB";
         $this->imagePath = "img/ships/AbbaiWotcrMine.png";
         $this->shipClass = "Bisitif-B Captor Mine";
 		$this->occurence = "common";
-		$this->variantOf = 'NONE';
+		$this->variantOf = "Bisitif-A Captor Mine";
         $this->isd = 1935;
         
         $this->forwardDefense = 12;
