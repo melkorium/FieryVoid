@@ -3742,20 +3742,20 @@ spl_autoload_register(
                 'proxminehdb' => '/server/model/ships/hurr/proxMineHDB.php', 
                 'proxminehdx' => '/server/model/ships/hurr/proxMineHDX.php', 
                 'proxminehpalfa' => '/server/model/ships/hurr/proxMineHPalfa.php',                
-
                 'captorminehc1' => '/server/model/ships/hurr/captorMineHC1.php',
                 'captorminehc2' => '/server/model/ships/hurr/captorMineHC2.php',
                 'captorminehcoranta' => '/server/model/ships/hurr/captorMineHCorantA.php',
                 'captorminehcorantb' => '/server/model/ships/hurr/captorMineHCorantB.php', 
                 'captorminehtilor' => '/server/model/ships/hurr/captorMineHTilor.php',                                 
-
                 'dewminehd2' => '/server/model/ships/hurr/dewMineHD2.php',                
                 'dewminehekosa' => '/server/model/ships/hurr/dewMineHEkosA.php',               
                 'dewminehbp' => '/server/model/ships/hurr/dewMineHBP.php', 
                 'dewminehcorti' => '/server/model/ships/hurr/dewMineHCorti.php',   
-
-                'minehff' => '/server/model/ships/hurr/mineHFF.php',                                 
-
+                'minehff' => '/server/model/ships/hurr/mineHFF.php',   
+                
+                //Rogolon Mines - 2
+                'proxminetava' => '/server/model/ships/rogolon/proxMineTava.php',
+                'dewminevalor' => '/server/model/ships/hurr/dewMineValor.php',                 
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
