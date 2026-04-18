@@ -7376,19 +7376,72 @@ class Marines extends Weapon implements SpecialAbility{
 		$this->ammunition = $amount;
 	}
 
+	public static function getAttachedPodCount($target, $gamedata){
+		$noOfPods = 0;//Initialise	
+
+		foreach ($target->hasAttached as $podID => $location){
+			$podUnit = $gamedata->getShipById($podID);
+			if($podUnit instanceof FighterFlight){ //Breaching Pods, not Grappling Ship
+				foreach($podUnit->systems as $pod){
+					if(!$pod->isDestroyed()) $noOfPods++; //Attached to target ship and not destroyed.
+				}
+			}	
+		}
+
+		return $noOfPods;
+	}
+
+	public static function getMissionCount($target){
+		$noOfMissions = 0;//Initialise
+
+		foreach (Marines::$boardedThisTurn as $boardedId) {//Check static variable for how many marines missions have boarded THIS turn.
+	        if ($boardedId == $target->id) {
+	            $noOfMissions++;
+	        }
+	    }
+
+		return $noOfMissions;
+	}
+
+	private function checkAttachedAmount($target, $gamedata, $fireOrder){	
+		$tooMany = false;//Initialise
+		$noOfPods = Marines::getAttachedPodCount($target, $gamedata);
+
+		//Different amount of Breaching Pods missions possible depending on size of ships.
+		if(	($target->shipSizeClass > 3 && $noOfPods >= 12) ||
+			($target->shipSizeClass == 3 && $noOfPods >= 8) ||
+		   	($target->shipSizeClass == 2 && $noOfPods >= 4) || 
+		   	($target->shipSizeClass == 1 && $noOfPods >= 2) ||
+		   	($target->shipSizeClass < 1 && $noOfPods > 1)) {
+		 									
+			$tooMany = true; //There are too many
+		}	
+
+		return $tooMany;	
+		
+	}//endof checkAttachedAmount()
+
 	public function calculateHitBase($gamedata, $fireOrder)
 	{
 		//Needs it's own custom routine for hit chance.
 		$shooter = $gamedata->getShipById($fireOrder->shooterid);	
 		$target = $gamedata->getShipById($fireOrder->targetid);			
 
-		if($target->factionAge > 2) {//Cannot attach to Ancients.  Might be impossible if Front End chance is also made 0%
-			$fireOrder->pubnotes .= "<br> Breaching pods cannot attach to Ancient ships.";
+		if($target->advancedArmor) {//Cannot attach to Ancients.  Might be impossible if Front End chance is also made 0%
+			$fireOrder->pubnotes .= "<br> Breaching pods cannot attach to Advanced Armour.";
 			$fireOrder->needed = 0;
 			$fireOrder->updated = true;						
 			return; 
 		}
-		
+
+		//check if there are too many apods attached already on target ship.
+		if($this->checkAttachedAmount($target, $gamedata, $fireOrder)){//If it returns true, there are too many attaching pods to attach even one pod.  Cancel attempt early..							
+			$fireOrder->needed = 0;
+			$fireOrder->updated = true;	
+			$fireOrder->pubnotes .= "<br>Too many Breaching Pods attached on target, attachment attempt cancelled.";		
+			return;
+		}			
+
 		//Now roll to see if the Breaching Pod attaches on this turn.
 		$shooterMove = $shooter->getLastMovement();
 		$shooterSpeed = $shooterMove->speed;		
@@ -7461,24 +7514,20 @@ class Marines extends Weapon implements SpecialAbility{
 	    Marines::$boardedThisTurn[] = $targetId;
 	}	
 	
+
+
 	private function checkMissionAmount($target, $gamedata, $fireOrder){	
 		$tooMany = false;//Initialise
-		$noOfPods = 0;//Initialise	
-
-	    foreach (Marines::$boardedThisTurn as $boardedId) {//Check static variable for how many marines missions have boarded THIS turn.
-	        if ($boardedId == $target->id) {
-	            $noOfPods++;
-	        }
-	    }	
+		$noOfMissions = Marines::getMissionCount($target);
 		
 		//Different amount of marine missions possible depending on size of ships.
-		if(	($target->shipSizeClass > 3 && $noOfPods >= 12) ||
-			($target->shipSizeClass == 3 && $noOfPods >= 8) ||
-		   	($target->shipSizeClass == 2 && $noOfPods >= 4) || 
-		   	($target->shipSizeClass == 1 && $noOfPods >= 2) ||
-		   	($target->shipSizeClass < 1 && $noOfPods > 1)) {
+		if(	($target->shipSizeClass > 3 && $noOfMissions >= 12) ||
+			($target->shipSizeClass == 3 && $noOfMissions >= 8) ||
+		   	($target->shipSizeClass == 2 && $noOfMissions >= 4) || 
+		   	($target->shipSizeClass == 1 && $noOfMissions >= 2) ||
+		   	($target->shipSizeClass < 1 && $noOfMissions > 1)) {
 		 									
-			$tooMany = true; //There are too many, change to false.
+			$tooMany = true; //There are too many
 		}	
 
 		return $tooMany;	
@@ -7521,12 +7570,12 @@ class Marines extends Weapon implements SpecialAbility{
 			$fireOrder->pubnotes .= "<br> Marines cannot attack systems with advanced armor.";				
 			return; 	
 		}
-
-		//check if there are too many marines already on target ship.
+				
+		//check if there are too many pods attached already on target ship.
 		if($this->checkMissionAmount($target, $gamedata, $fireOrder)){//If it returns true, there are too many attaching pods.							
 			$this->ammunition++;//Marines weren't eliminated.  Give ammunition back to weapon.
 			Manager::updateAmmoInfo($fireOrder->shooterid, $this->id, $gamedata->id, $this->firingMode, $this->ammunition, $gamedata->turn);	
-			$fireOrder->pubnotes .= "<br>Too many Breaching Pods/Grappling Claws attached on target, boarding attempt cancelled.";		
+			$fireOrder->pubnotes .= "<br>Too many Breaching Pods trying to deliver marines, boarding attempt cancelled.";		
 			return;
 		}	
 			
