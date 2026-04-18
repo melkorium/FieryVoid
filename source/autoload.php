@@ -3755,7 +3755,24 @@ spl_autoload_register(
                 
                 //Rogolon Mines - 2
                 'proxminetava' => '/server/model/ships/rogolon/proxMineTava.php',
-                'dewminevalor' => '/server/model/ships/hurr/dewMineValor.php',                 
+                'dewminevalor' => '/server/model/ships/hurr/dewMineValor.php', 
+                
+                //Balosian Mines - 12
+                'proxminerajibal' => '/server/model/ships/balosian/proxMineRajiBal.php',                
+                'proxminep1bal' => '/server/model/ships/balosian/proxMineP1Bal.php', 
+                'proxminep2bal' => '/server/model/ships/balosian/proxMineP2Bal.php',                 
+                'proxminep3bal' => '/server/model/ships/balosian/proxMineP3Bal.php',
+                'proxminedefenderbal' => '/server/model/ships/balosian/proxMineDefenderBal.php',                
+
+                'captorminecorantabal' => '/server/model/ships/balosian/captorMineCorantABal.php',                  
+                'captorminec1bal' => '/server/model/ships/balosian/captorMineC1Bal.php',
+                'captorminec2bal' => '/server/model/ships/balosian/captorMineC2Bal.php',
+                'captorminec3bal' => '/server/model/ships/balosian/captorMineC3Bal.php', 
+                'captorminepaladinbal' => '/server/model/ships/balosian/captorMinePaladinBal.php', 
+
+                'dewminehafkaa' => '/server/model/ships/balosian/dewMineHafkaA.php',                 
+                'dewmined2bal' => '/server/model/ships/balosian/dewMineD2Bal.php',  
+                
 
 						//Satyra (Wolfgang campaign)
 						'satyrashield' => '/server/model/weapons/customDevelopment.php',
