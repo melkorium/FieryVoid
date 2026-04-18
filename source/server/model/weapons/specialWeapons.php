@@ -7376,6 +7376,25 @@ class Marines extends Weapon implements SpecialAbility{
 		$this->ammunition = $amount;
 	}
 
+
+	private function checkAttachedAmount($target, $gamedata, $fireOrder){	
+		$tooMany = false;//Initialise
+		$noOfPods = Marines::getAttachedPodCount($target, $gamedata);
+
+		//Different amount of Breaching Pods missions possible depending on size of ships.
+		if(	($target->shipSizeClass > 3 && $noOfPods >= 12) ||
+			($target->shipSizeClass == 3 && $noOfPods >= 8) ||
+		   	($target->shipSizeClass == 2 && $noOfPods >= 4) || 
+		   	($target->shipSizeClass == 1 && $noOfPods >= 2) ||
+		   	(($target->hangarRequired == 'LCVs' || $target instanceof OSAT) && $noOfPods > 1)) {
+		 									
+			$tooMany = true; //There are too many
+		}	
+
+		return $tooMany;	
+		
+	}//endof checkAttachedAmount()
+
 	public static function getAttachedPodCount($target, $gamedata){
 		$noOfPods = 0;//Initialise	
 
@@ -7403,29 +7422,36 @@ class Marines extends Weapon implements SpecialAbility{
 		return $noOfMissions;
 	}
 
-	private function checkAttachedAmount($target, $gamedata, $fireOrder){	
+	private function checkMissionAmount($target, $gamedata, $fireOrder){	
 		$tooMany = false;//Initialise
-		$noOfPods = Marines::getAttachedPodCount($target, $gamedata);
-
-		//Different amount of Breaching Pods missions possible depending on size of ships.
-		if(	($target->shipSizeClass > 3 && $noOfPods >= 12) ||
-			($target->shipSizeClass == 3 && $noOfPods >= 8) ||
-		   	($target->shipSizeClass == 2 && $noOfPods >= 4) || 
-		   	($target->shipSizeClass == 1 && $noOfPods >= 2) ||
-		   	($target->shipSizeClass < 1 && $noOfPods > 1)) {
+		$noOfMissions = Marines::getMissionCount($target);
+		
+		//Different amount of marine missions possible depending on size of ships.
+		if(	($target->shipSizeClass > 3 && $noOfMissions >= 12) ||
+			($target->shipSizeClass == 3 && $noOfMissions >= 8) ||
+		   	($target->shipSizeClass == 2 && $noOfMissions >= 4) || 
+		   	($target->shipSizeClass == 1 && $noOfMissions >= 2) ||
+		   	(($target->hangarRequired == 'LCVs' || $target instanceof OSAT) && $noOfPods > 1)) {
 		 									
 			$tooMany = true; //There are too many
 		}	
 
 		return $tooMany;	
 		
-	}//endof checkAttachedAmount()
+	}//endof checkMissionAmount()
+
 
 	public function calculateHitBase($gamedata, $fireOrder)
 	{
 		//Needs it's own custom routine for hit chance.
 		$shooter = $gamedata->getShipById($fireOrder->shooterid);	
-		$target = $gamedata->getShipById($fireOrder->targetid);			
+		$target = $gamedata->getShipById($fireOrder->targetid);	
+		
+        if($target instanceof Mine || $target instanceof Terrain){
+			$fireOrder->pubnotes .= "<br> Breaching pods cannot attach to this kind of target.";			
+			$fireOrder->needed = 0;
+			$fireOrder->updated = true;		
+		}		
 
 		if($target->advancedArmor) {//Cannot attach to Ancients.  Might be impossible if Front End chance is also made 0%
 			$fireOrder->pubnotes .= "<br> Breaching pods cannot attach to Advanced Armour.";
@@ -7514,25 +7540,6 @@ class Marines extends Weapon implements SpecialAbility{
 	    Marines::$boardedThisTurn[] = $targetId;
 	}	
 	
-
-
-	private function checkMissionAmount($target, $gamedata, $fireOrder){	
-		$tooMany = false;//Initialise
-		$noOfMissions = Marines::getMissionCount($target);
-		
-		//Different amount of marine missions possible depending on size of ships.
-		if(	($target->shipSizeClass > 3 && $noOfMissions >= 12) ||
-			($target->shipSizeClass == 3 && $noOfMissions >= 8) ||
-		   	($target->shipSizeClass == 2 && $noOfMissions >= 4) || 
-		   	($target->shipSizeClass == 1 && $noOfMissions >= 2) ||
-		   	($target->shipSizeClass < 1 && $noOfMissions > 1)) {
-		 									
-			$tooMany = true; //There are too many
-		}	
-
-		return $tooMany;	
-		
-	}//endof checkMissionAmount()
 
 	private function getDeliveryRollMod($shooter, $target, $gamedata, $fireOrder){
 		$rollMod = 0;

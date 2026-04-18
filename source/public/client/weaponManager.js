@@ -497,7 +497,7 @@ window.weaponManager = {
         // Host targeting Pod restriction
         if (selectedShip.hasAttached && selectedShip.hasAttached[ship.id] !== undefined) {
             attachedUnitHidden = true; // Parent cannot target the attached pod
-        }     
+        }
         if (ship.attached && Object.keys(ship.attached).length > 0) {
             var hostId = Object.keys(ship.attached)[0];
             var podLocation = parseInt(ship.attached[hostId]);
@@ -556,7 +556,7 @@ window.weaponManager = {
                                 attachedWeaponHidden = true; // Prevent pods and ships from firing weapons at each others.
                             }
                         }
-                    }   
+                    }
 
                     if (blockedLosHex.length > 0 && !loSBlocked) {
                         var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);
@@ -946,7 +946,7 @@ window.weaponManager = {
 
     //calculate hit chance for Boarding Action - different procedure
     calculateBoardingAction: function calculateBoardingAction(shooter, target, weapon) {
-        if (target.flight || target.userid == -5) return 0;//Cannot board fighters or terrain, null FC stops this but showing 0% is more informative for players!
+        if (target.flight || target.shipSizeClass == 5 || target.mine) return 0;//Cannot board fighters,  terrain, or mines!
         if (target.attached[shooter.id] !== undefined) return 100; // Pod attacking parent gets 100% chance to hit         
         var jinking = shipManager.movement.getJinking(shooter); //Raider pods can jink, but can't attach at same time.
         if (jinking > 0) return 0;
@@ -1705,12 +1705,12 @@ window.weaponManager = {
             }
 
             if (weapon.isBoardingAction && weapon.firingMode == 2 && !system) {
-                if(gamedata.rules.desperate === undefined || (gamedata.rules.desperate !== ship.team && gamedata.rules.desperate !== -1)){
+                if (gamedata.rules.desperate === undefined || (gamedata.rules.desperate !== ship.team && gamedata.rules.desperate !== -1)) {
                     var html = "You cannot choose to Wreak Havoc unless Desperate scenario rules are in effect.";
-                    confirm.warning(html);  
-                    return;                  
-                }                
-            }    
+                    confirm.warning(html);
+                    return;
+                }
+            }
             //Only need to check first weapon
             if (blockedLosHex && blockedLosHex.length > 0 && !loSBlocked) {
                 var sPosShooter = weaponManager.getFiringHex(selectedShip, weapon);

@@ -128,6 +128,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 If the speed difference to target is greater than pod thrust rating it is simply unable to attach. 
                 If the target is moving faster, each point of speed difference is -10% chance to attach.  
                 Pods cannot attach to ships with Advanced Armor and certain factions like Llort have +1 to attach rolls.</li>
+            <li>There is a limit to how many pods can attached to enemy ships based on their size, 12 pods can attach to bases, 8 to Capital Ships, 4 to HCVs, 2 to Medium Ships and only 1 to LCVs and OSATS. 
+                If more than this number try to attach and/or deliver marines then extra attacks over these limits will automatically fail.</li>    
             <li>Breaching Pods will remain attached to a vessels facing structure block until they choose to Detach in the Movement Phase, or the vessel is destroyed 
                 (providing that the structure location the pod is attached to is NOT also destryed).  If the structure block a pod is attached to IS detroyed before the Pod detaches, then the Pod is automatically destroyed.  
                 While attached, Pods matach speed and heading with their host ship, and suffer -10 Initiative penalty.  When the Detach they will automatically face away from the host ship to which they were attached.</li>
