@@ -3755,7 +3755,7 @@ spl_autoload_register(
                 
                 //Rogolon Mines - 2
                 'proxminetava' => '/server/model/ships/rogolon/proxMineTava.php',
-                'dewminevalor' => '/server/model/ships/hurr/dewMineValor.php', 
+                'dewminevalor' => '/server/model/ships/rogolon/dewMineValor.php', 
                 
                 //Balosian Mines - 12
                 'proxminerajibal' => '/server/model/ships/balosian/proxMineRajiBal.php',                
