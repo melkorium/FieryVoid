@@ -3603,9 +3603,9 @@ spl_autoload_register(
                 'dewmineeliria2' => '/server/model/ships/abbai/dewMineEliria2.php', 
 
                 //Abbai WotCR - 6
-                'proxmineasiff' => '/server/model/ships/abbai_old/proMineAsiff.php',                 
-                'captorwotcrbistifa' => '/server/model/ships/abbai_old/captorBistifA.php',	                                
-                'captorwotcrbistifb' => '/server/model/ships/abbai_old/captorBistifB.php', 
+                'proxmineasiff' => '/server/model/ships/abbai_old/proxMineAsiff.php',                 
+                'captorbistifa' => '/server/model/ships/abbai_old/captorBistifA.php',	                                
+                'captorbistifb' => '/server/model/ships/abbai_old/captorBistifB.php', 
                 'dewmineestava' => '/server/model/ships/abbai_old/dewMineEstavA.php', 
                 'dewmineestavb' => '/server/model/ships/abbai_old/dewMineEstavB.php', 
                 'dewmineestavc' => '/server/model/ships/abbai_old/dewMineEstavC.php',                                                 

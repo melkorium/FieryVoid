@@ -1,12 +1,12 @@
 <?php
-class proMineAsiff extends Mine{
+class proxMineAsiff extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 9;
 		$this->faction = "Abbai Matriarchate (WotCR)";
-        $this->phpclass = "proMineAsiff";
+        $this->phpclass = "proxMineAsiff";
         $this->imagePath = "img/ships/AbbaiWotcrMine.png";
         $this->shipClass = "Asiff Proximity Mine";
 		$this->occurence = "common";

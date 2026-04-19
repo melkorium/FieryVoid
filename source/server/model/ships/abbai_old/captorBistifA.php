@@ -1,16 +1,15 @@
 <?php
-class captorBistifB extends Mine{
+class captorBistifA extends Mine{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 17;
+		$this->pointCost = 11;
 		$this->faction = "Abbai Matriarchate (WotCR)";
-        $this->phpclass = "captorBistifB";
+        $this->phpclass = "captorBistifA";
         $this->imagePath = "img/ships/AbbaiWotcrMine.png";
-        $this->shipClass = "Bisitif-B Captor Mine";
+        $this->shipClass = "Bisitif-A Captor Mine";
 		$this->occurence = "common";
-		$this->variantOf = "Bisitif-A Captor Mine";
         $this->isd = 1935;
         
         $this->forwardDefense = 12;
@@ -22,10 +21,9 @@ class captorBistifB extends Mine{
         $this->accelcost = 0;
         $this->rollcost = 0;
         $this->pivotcost = 0;	
-        $this->iniativebonus = -200; 
-
-        $this->mineType = 'Captor';         
-        $this->spawned = true;
+        $this->iniativebonus = -200;
+        
+        $this->mineType = 'Captor';        
        		    	    	    	    
         //Block all enhancements for Terrain units when bought
 		Enhancements::nonstandardEnhancementSet($this, 'Mines');	 
@@ -33,7 +31,7 @@ class captorBistifB extends Mine{
         $this->addPrimarySystem(new OSATCnC(0, 1, 0, 0));
         $this->addPrimarySystem(new MagGravReactorTechnical(0, 1, 0, 2));
         $this->addPrimarySystem(new mineStealth(0, 1, 1));
-        $this->addPrimarySystem(new CaptorMine(0, 1, 1, 0, 360, 7, 2, 0, 0, 12)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $accuracy, $diceType, $dice, $damageBonus 
+        $this->addPrimarySystem(new CaptorMine(0, 1, 1, 0, 360, 4, 2, 0, 0, 12)); //$armour, $maxhealth, $powerReq, $startArc, $endArc, $range, $accuracy, $diceType, $dice, $damageBonus 
         
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addPrimarySystem(new Structure(0, 1));
