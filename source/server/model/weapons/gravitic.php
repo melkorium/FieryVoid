@@ -981,18 +981,7 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 
         if($target->gravitic || $target->factionAge >= 3){ 
             $fireOrder->needed -= 15; //-15% to hit gravitic and/or Ancient targets. 
-        }
-
-        /* //Removed since OEW lock on allies enabled - DK 17.1.26  
-        if($shooter->team == $target->team){ //Let's make penalty only for enemy units
-		    $launchPos = $this->getFiringHex($gamedata, $fireOrder); 
-		    $targetPos = $target->getHexPos();                       
-            $distance = mathlib::getDistanceHex($launchPos, $targetPos);
-
-            $rangePen = $this->calculateRangePenalty($distance);
-            $fireOrder->needed += $rangePen *5; //refund range penalty for friendly units since OEW lock on allies not possible.            
-        } 
-        */       
+        }      
 	}    
         
     public function fire($gamedata, $fireOrder){                   
@@ -1001,7 +990,10 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 
     protected function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){
         if ($ship->Enormous) return; //No effect on Enormous units
-        if ($ship instanceof Mine) return; //No point.
+        if ($ship instanceof Mine){
+            $fireOrder->pubnotes = "<br>Mines are not affected by Gravitic Shifters.";
+            return; //No point.                         
+        } 
 
 		$lastMove = $ship->getLastMovement();
         $newFacing = $lastMove->facing; //Initialise as current facing.
