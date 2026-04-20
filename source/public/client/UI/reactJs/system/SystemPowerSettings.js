@@ -47,6 +47,7 @@ const Row = styled.div`
 const Label = styled.div`
     flex: 1;
     padding-left: 8px;
+    padding-right: 8px;
 `;
 
 const Controls = styled.div`
@@ -128,6 +129,34 @@ const ActionButton = styled.div`
         &:hover {
             background: #998100; 
             border: 1px solid #ffda00;      
+            color: #ffffff;
+            opacity: 1;
+        }
+    `}
+
+    ${props => props.$active && props.$variant === 'risk' && `
+        background: #a65d00; 
+        color: white;
+        border: 1px solid #ff9800;
+        opacity: 1;
+
+        &:hover {
+            background: #cc7a00; 
+            border: 1px solid #ffb74d;      
+            color: #ffffff;
+            opacity: 1;
+        }
+    `}
+
+    ${props => props.$active && props.$variant === 'info' && `
+        background: #2c4766;
+        color: white;
+        border: 1px solid #496791;
+        opacity: 1;
+
+        &:hover {
+            background: #36577a;
+            border: 1px solid #6db5ed;
             color: #ffffff;
             opacity: 1;
         }
@@ -257,6 +286,13 @@ class SystemPowerSettings extends Component {
         const boostLevel = shipManager.power.getBoost(system);
         const isOverloading = shipManager.power.isOverloading(ship, system);
 
+        const isReactor = system.name === 'reactor';
+        const isJumpEngine = system.name === 'jumpEngine';
+
+        let boostLabel = "Boost Level";
+        if (isReactor) boostLabel = "Self-Destruct";
+        if (isJumpEngine) boostLabel = "Jump to Hyperspace";
+
         return (
             <Container>
                 <Header>Power Settings</Header>
@@ -273,12 +309,34 @@ class SystemPowerSettings extends Component {
 
                 {showBoost && (
                     <Row>
-                        <Label>Boost Level</Label>
-                        <Controls>
-                            <ActionButton onClick={() => this.handleDeBoost()} $narrow={true}>-</ActionButton>
-                            <Value>{boostLevel}</Value>
-                            <ActionButton onClick={() => this.handleBoost()} $narrow={true}>+</ActionButton>
-                        </Controls>
+                        <Label>{boostLabel}</Label>
+                        {(isReactor || isJumpEngine) ? (
+                            <Controls>
+                                <ActionButton
+                                    onClick={() => this.handleBoost()}
+                                    disabled={boostLevel > 0 || !this.canBoost()}
+                                    $active={boostLevel > 0}
+                                    $variant={isReactor ? "deactivate" : "risk"}
+                                >
+                                    Yes
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={() => this.handleDeBoost()}
+                                    disabled={boostLevel === 0 || !this.canDeBoost()}
+                                    $active={boostLevel === 0}
+                                    $variant="activate"
+                                >
+                                    No
+                                </ActionButton>
+                            </Controls>
+                        ) : (
+                            <Controls>
+                                <ActionButton onClick={() => this.handleDeBoost()} $narrow={true}>-</ActionButton>
+                                <Value>{boostLevel}</Value>
+                                <ActionButton onClick={() => this.handleBoost()} $narrow={true}>+</ActionButton>
+                            </Controls>
+                        )
+                        }
                     </Row>
                 )}
 
