@@ -833,8 +833,9 @@ class ThirdspaceShield extends Shield implements DefensiveSystem { //defensive v
 			$this->data["Special"] = "Defensive system which absorbs damage from incoming shots within its arc.";
 			$this->data["Special"] .= "<br>Absorbs up to its maximum capacity before allowing damage to ship.";		
 			$this->data["Special"] .= "<br>Cannot be flown under, and does not reduce the damage dealt or hit chance of enemy weapons.";
-	        $this->data["Special"] .= "<br>The Shield's Generator will regenerate Shields up to their Base Rating at the end of each turn, any excess will be allocate to another shield where possible.";			
+	        $this->data["Special"] .= "<br>Shield Generator will regenerate Shields up to their Base Rating at the end of each turn, any excess will be allocate to another shield where possible.";			
 			$this->data["Special"] .= "<br>Has a +3 Armor against attacks by Fighters.";	
+			$this->data["Special"] .= "<br>Cannot be destroyed.";			
  			$this->data["Base Rating"] = $this->baseRating; 									
 			$this->currentHealth = $this->getRemainingCapacity();//override on-icon display default
 			$this->outputDisplay = $this->currentHealth;//override on-icon display default					
@@ -1101,8 +1102,8 @@ class ThoughtShield extends Shield implements DefensiveSystem {
 			$this->data["Special"] = "Defensive system which absorbs damage from incoming shots within its arc.";
 			$this->data["Special"] .= "<br>Can absorb up to its maximum capacity before allowing damage to ship.";		
 			$this->data["Special"] .= "<br>Shield system's structure represents damage capacity, if it is reduced to zero system will cease to function.";
-			$this->data["Special"] .= "<br>Can't be destroyed unless associated structure block is also destroyed.";
 			$this->data["Special"] .= "<br>Cannot be flown under, and does not reduce the damage dealt or hit chance of enemy weapons.";
+			$this->data["Special"] .= "<br>Cannot be destroyed.";			
 			$this->currentHealth = $this->getRemainingCapacity();//override on-icon display default
 			$this->outputDisplay = $this->currentHealth;//override on-icon display default					
 		}	
