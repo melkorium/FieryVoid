@@ -803,7 +803,8 @@ class ThirdspaceShield extends Shield implements DefensiveSystem { //defensive v
 		public $baseRating = 0; //Will be set when contructed.		
 		public $changeThisTurn = 0;	//When shields moved around, change it tracked here to be made into Damage Entry.	
 		public $currentHealth = 0; //Value for front-end when moving shield power around.
-		public $side = '';//Required for prioritising a shield using Generator Presets.		
+		public $side = '';//Required for prioritising a shield using Generator Presets.	
+		protected $survivesStructureDestruction = true;				
 	    
 	    function __construct($armor, $startHealth, $rating, $startArc, $endArc, $side = 'F'){ //parameters: $armor, $startHealth, $Rating, $arc from/to - F/A/L/R suggests whether to use left or right graphics
 			$this->iconPath = 'ThirdspaceShield' . $side . '.png';
@@ -1016,6 +1017,17 @@ class ThirdspaceShield extends Shield implements DefensiveSystem { //defensive v
 	 		  
 	}//endof onIndividualNotesLoaded
 
+	public function criticalPhaseEffects($ship, $gamedata)
+    { 
+		parent::criticalPhaseEffects($ship, $gamedata);//Call parent to apply effects like Limpet Bore.	    
+		
+		if($this->survivesStructureDestruction){ //Should always be true
+			foreach ($this->damage as $damage ) if(($damage->turn == $gamedata->turn) && ($damage->destroyed)){ 
+					$damage->destroyed = false;
+			}
+		}
+    } //endof function criticalPhaseEffects	
+
 		
 	public function stripForJson() {
 	    $strippedSystem = parent::stripForJson();
@@ -1048,7 +1060,8 @@ class ThoughtShield extends Shield implements DefensiveSystem {
 		public $currentHealth = 0; //Value for front-end when moving shield power around.
 		public $side = '';//Required for prioritising a shield using Generator Presets.
 		public $baseRating = 0; //Will be set when contructed.
-		public $defenceMod = 0;	//To allow shield to be reinfored and act as an EM shield as well.	
+		public $defenceMod = 0;	//To allow shield to be reinfored and act as an EM shield as well.
+		protected $survivesStructureDestruction = true;	
 	    
 	    function __construct($armor, $startHealth, $rating, $startArc, $endArc, $side = 'F'){ //parameters: $armor, $startHealth, $Rating, $arc from/to - F/A/L/R suggests whether to use left or right graphics
 			$this->iconPath = 'ThirdspaceShield' . $side . '.png';
@@ -1206,7 +1219,12 @@ class ThoughtShield extends Shield implements DefensiveSystem {
 			
 			parent::criticalPhaseEffects($ship, $gamedata);//Call parent to apply effects like Limpet Bore.
 	
-			if($this->isDestroyed()) return; //destroyed shield does not work...shouldn't happen.
+			//if($this->isDestroyed()) return; //destroyed shield does not work...shouldn't happen.
+			if($this->survivesStructureDestruction){ //Should always be true
+				foreach ($this->damage as $damage ) if(($damage->turn == $gamedata->turn) && ($damage->destroyed)){ 
+						$damage->destroyed = false;
+				}
+			}			
 
 				$baseRegen = $this->baseRating;
 				$generator = $ship->getSystemByName("ThoughtShieldGenerator");

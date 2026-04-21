@@ -41,6 +41,7 @@ class ShipSystem {
 	public $hardAdvancedArmor = false; //indicates that system has hardened advanced armor
     
     protected $structureSystem;
+    protected $survivesStructureDestruction = false;
 	
     protected $parentSystem = null;
     protected $unit = null; //unit on which system is mounted
@@ -1220,7 +1221,7 @@ class ShipSystem {
 		/*18.02.2023: DO check base Structure for Structure, stopping at PRIMARY Structure :) */
         //if ( (!($this instanceof Structure)) && $this->structureSystem && $this->structureSystem->isDestroyed($prevTurn)) return true;
 		if ( !($this instanceof Structure) ) { //not Structure
-			if ($this->structureSystem && $this->structureSystem->isDestroyed($prevTurn)) return true; //underlying Structure is destroyed
+			if ($this->structureSystem && $this->structureSystem->isDestroyed($prevTurn) && !$this->survivesStructureDestruction) return true; //underlying Structure is destroyed
 		} else if ($this->location!=0) { //Structure (checked earlier) but not PRIMARY one
 			$primaryStruct = $this->unit->getStructureSystem(0);
 			if($primaryStruct && $primaryStruct->isDestroyed($prevTurn)) return true;
