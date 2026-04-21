@@ -14,7 +14,7 @@ class PolarenWyrith extends HeavyCombatVesselLeftRight{
 	    $this->isd = 1714;
         $this->canvasSize = 125;
 
-        $this->fighters = array("assault shuttles"=>1); //1 breaching pod    
+        $this->fighters = array("breaching pods"=>1); //1 breaching pod    
 
         $this->forwardDefense = 15;
         $this->sideDefense = 15;

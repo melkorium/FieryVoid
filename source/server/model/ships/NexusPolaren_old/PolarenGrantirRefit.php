@@ -15,7 +15,7 @@ class PolarenGrantirRefit extends MediumShipLeftRight{
         $this->canvasSize = 110;
 	    $this->isd = 2117;
 
-        $this->fighters = array("assault shuttles"=>1); //1 breaching pod    
+        $this->fighters = array("breaching pods"=>1); //1 breaching pod    
 	    $this->notes = 'Atmospheric capable';
         
         $this->forwardDefense = 12;
