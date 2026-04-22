@@ -36,7 +36,7 @@ class SalbezSeltver extends BaseShip{
 		
         $this->addFrontSystem(new Thruster(3, 10, 0, 3, 1));
         $this->addFrontSystem(new Thruster(3, 10, 0, 3, 1));
-		$this->addFrontSystem(new NexusLightMagGun(3, 7, 6, 300, 60));
+		$this->addFrontSystem(new HeavyPlasma(3, 8, 5, 300, 60));
 		$this->addFrontSystem(new NexusImprovedParticleBeam(2, 3, 1, 270, 90));
 		$this->addFrontSystem(new NexusImprovedParticleBeam(2, 3, 1, 270, 90));
 
@@ -79,7 +79,7 @@ class SalbezSeltver extends BaseShip{
 			),
 			1=> array(
 					6 => "Thruster",
-					8 => "Light Mag Gun",
+					8 => "Heavy Plasma Cannon",
 					10 => "Improved Particle Beam",
 					18 => "Structure",
 					20 => "Primary",
