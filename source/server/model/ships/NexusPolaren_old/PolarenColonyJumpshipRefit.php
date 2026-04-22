@@ -16,7 +16,7 @@ class PolarenColonyJumpshipRefit extends BaseShip{
 		$this->unofficial = true;
 		$this->isd = 2121;
          
-        $this->fighters = array("breaching pods"=>4); //2 breaching pods    
+        $this->fighters = array("assault shuttles"=>4); //2 breaching pods    
 		
         $this->forwardDefense = 17;
         $this->sideDefense = 19;
