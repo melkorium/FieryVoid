@@ -14,7 +14,7 @@ class SalbezShvrez extends MediumShip{
 
 	    $this->isd = 2125;
 
-        $this->fighters = array("assault shuttles"=>1);
+        $this->fighters = array("breaching pods"=>1);
         
         $this->forwardDefense = 12;
         $this->sideDefense = 12;
