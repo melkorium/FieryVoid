@@ -1678,4 +1678,92 @@ class AntigravityBeam extends Gravitic{
 }//end of class AntigravityBeam
 
 
+
+class GraviticMine extends Weapon{
+	public $name = "GraviticMine";
+	public $displayName = "Gravitic Mine";
+	public $iconPath = "graviticMine.png";
+	
+	public $damageType = "Standard";
+    public $noPrimaryHits = true; //To replicate flash with no collateral 
+	public $weaponClass = "Gravitic";
+	public $hextarget = true;
+	public $hidetarget = true;
+	public $ballistic = true;
+	public $uninterceptable = true;
+	public $doNotIntercept = true; //just in case
+	public $priority = 1;
+	public $range = 40;
+	public $loadingtime = 2;
+	public $animation = "ball";
+    public $animationColor = array(250, 251, 196);
+	public $animationExplosionScale = 1;
+	public $firingModes = array(
+		1 => "Gravitic Mine"
+	);
+		
+	protected static $alreadyGravMined = array(); //list of IDs of units already affected in this firing phase - to avoid multiplying effects on overlap
+	
+		
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);  
+		//some effects should originally work for current turn, but it won't work with FV handling of ballistics. Moving everything to next turn.
+		//it's Ion (not EM) weapon with no special remarks regarding advanced races and system - so works normally on AdvArmor/Ancients etc
+		$this->data["Special"] = "Targets a hex and affects all units within 2 hexes of that location.";      
+		$this->data["Special"] .= "";
+	}	
+	
+	function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc)
+	{
+		//maxhealth and power reqirement are fixed; left option to override with hand-written values
+		if ( $maxhealth == 0 ) $maxhealth = 6;
+		if ( $powerReq == 0 ) $powerReq = 6;
+		parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+	}
+	
+	public function calculateHitBase($gamedata, $fireOrder)
+	{
+		$fireOrder->needed = 100; //always true
+		$fireOrder->updated = true;
+	}
+	
+    public function fire($gamedata, $fireOrder)
+    { 
+        $shooter = $gamedata->getShipById($fireOrder->shooterid);
+
+        $movement = $shooter->getLastTurnMovement($fireOrder->turn);
+        $posLaunch = $movement->position;//at moment of launch!!!
+
+        //sometimes player does manage to target ship after all..
+        if ($fireOrder->targetid != -1) {
+            $targetship = $gamedata->getShipById($fireOrder->targetid);
+            //insert correct target coordinates: last turns' target position
+            $movement = $targetship->getLastTurnMovement($fireOrder->turn);
+            $fireOrder->x = $movement->position->q;
+            $fireOrder->y = $movement->position->r;
+            $fireOrder->targetid = -1; //correct the error
+        }
+
+        $rolled = Dice::d(100);
+        $fireOrder->rolled = $rolled; //...and hit, regardless of value rolled
+		$fireOrder->pubnotes .= "Gravitic Mine distorts space around its position. ";
+		$fireOrder->shotshit++;            
+
+        $fireOrder->rolled = max(1, $fireOrder->rolled);//Marks that fire order has been handled, just in case it wasn't marked yet!
+    } //endof function fire	
+
+	
+    public function beforePreFiringOrderResolution($gamedata){
+        //Add logic for actual effects of Gravitic Mine movement and shearing.            
+
+
+    }                
+	
+	
+        public function getDamage($fireOrder){       return 0; /*no actual damage, just various effects*/  }
+        public function setMinDamage(){     $this->minDamage = 0 ;      }
+        public function setMaxDamage(){     $this->maxDamage = 0 ;      }
+	
+}//endof class GraviticMine
+
 ?>

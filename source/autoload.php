@@ -392,6 +392,7 @@ spl_autoload_register(
                 'gravitonpulsar' => '/server/model/weapons/gravitic.php',
                 'gravlance' => '/server/model/weapons/gravitic.php',
                 'graviticshifter' => '/server/model/weapons/gravitic.php',
+                'graviticmine' => '/server/model/weapons/gravitic.php',                
                 'gravitynet' => '/server/model/weapons/gravitic.php',
                 'gravitynethandler' => '/server/model/weapons/gravitic.php',
                 'greysharlin' => '/server/model/ships/minbari/greySharlin.php',
