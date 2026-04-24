@@ -1206,7 +1206,18 @@ public function getStartLoading()
                 }
             }
         }
-        */        
+        */
+        /*
+        // Firing Arc Blocker for Grappling Claws - Also handled in Front End
+        if (!$this->isBoardingAction && $this->isTargetInGrapplingClawBlindSpot($shooter, $target)) {
+            $notes = ' Cannot Target: in a Grappling Claw blind spot. ';
+            $fireOrder->needed = 0; //auto-miss
+            $fireOrder->notes .= $notes;
+            $fireOrder->updated = true;
+            return;
+        }
+        */
+
         $pos = $shooter->getHexPos();
 		$targetPos = $target->getHexPos();
         $jammermod = 0;
@@ -1566,7 +1577,39 @@ public function getStartLoading()
         $fireOrder->notes = $notes;
         $fireOrder->updated = true;
     } //endof calculateHitBase
-
+    
+    /*
+    protected function isTargetInGrapplingClawBlindSpot($shooter, $target) {
+        if ($shooter instanceof FighterFlight) return false;
+        
+        $hasClawAttached = false;
+        foreach ($shooter->systems as $system) {
+            if ($system instanceof GrapplingClaw && !$system->isDestroyed()) {
+                if (isset($system->hostShipId) && $system->hostShipId > 0) {
+                    $hasClawAttached = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!$hasClawAttached) return false;
+        
+        $relativeBearing = $shooter->getBearingOnUnit($target);
+        
+        foreach ($shooter->systems as $system) {
+            if ($system instanceof GrapplingClaw && !$system->isDestroyed()) {
+                if (isset($system->hostShipId) && $system->hostShipId > 0) {
+                    // Check if target is in this claw's arc
+                    if (mathlib::isInArc($relativeBearing, $system->startArc, $system->endArc)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    */
 
     public function getIntercept($gamedata, $fireOrder)
     {

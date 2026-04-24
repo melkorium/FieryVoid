@@ -125,24 +125,30 @@ window.ReplayAnimationStrategy = function () {
             var isDetachingPodAfterHost = false;
 
             if (hostIdFromMoves) {
-                var host = this.gamedata.getShip(hostIdFromMoves);
-                if (host) {
-                    var hostIndex = this.gamedata.ships.indexOf(host);
-                    var detached = hasDetachOrder(ship);
+                var isAttachedAtStart = Object.keys(ship.attached || {}).length > 0;
+                if (!isAttachedAtStart) {
+                    // It attached mid-turn (e.g. Grappling Claw). Treat as independent ship for this turn.
+                    hostIdFromMoves = null;
+                } else {
+                    var host = this.gamedata.getShip(hostIdFromMoves);
+                    if (host) {
+                        var hostIndex = this.gamedata.ships.indexOf(host);
+                        var detached = hasDetachOrder(ship);
 
-                    if (!detached) {
-                        // Permanently attached this turn - fully handled by host's slot
-                        return;
-                    }
+                        if (!detached) {
+                            // Permanently attached this turn - fully handled by host's slot
+                            return;
+                        }
 
-                    if (index > hostIndex) {
-                        // Pod detaches and its initiative is AFTER the host.
-                        // The host's slot already created a SyncedIconAnimation for it.
-                        // Now we create its independent post-detach animation.
-                        isDetachingPodAfterHost = true;
+                        if (index > hostIndex) {
+                            // Pod detaches and its initiative is AFTER the host.
+                            // The host's slot already created a SyncedIconAnimation for it.
+                            // Now we create its independent post-detach animation.
+                            isDetachingPodAfterHost = true;
+                        }
+                        // If index < hostIndex: pod detaches but moves BEFORE host.
+                        // Falls through normally to animate all its moves independently.
                     }
-                    // If index < hostIndex: pod detaches but moves BEFORE host.
-                    // Falls through normally to animate all its moves independently.
                 }
             }
 
@@ -157,8 +163,11 @@ window.ReplayAnimationStrategy = function () {
 
                     var otherHostId = getHostIdFromMovements(otherShip);
                     if (otherHostId && otherHostId == ship.id) {
-                        var otherDetaches = hasDetachOrder(otherShip);
-                        podsToSync.push({ ship: otherShip, detaches: otherDetaches });
+                        var isOtherAttachedAtStart = Object.keys(otherShip.attached || {}).length > 0;
+                        if (isOtherAttachedAtStart) {
+                            var otherDetaches = hasDetachOrder(otherShip);
+                            podsToSync.push({ ship: otherShip, detaches: otherDetaches });
+                        }
                     }
                 });
             }
