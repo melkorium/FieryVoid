@@ -141,7 +141,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
       </div>
       <div class="create-col">
         <a class="btn btn-success create-game-btn" href="creategame.php">Create Game</a>
-        <button class="btn btn-secondary btn-fleet-test" onclick="gamedata.submitFleetTest()">Fleet Test</button>
+        <button class="btn btn-secondary btn-fleet-test" onclick="gamedata.submitFleetTest()">Fleet Builder</button>
         <button class="btn btn-secondary btn-ladder btn-view-ladder" data-show-calc="false">View Ladder</button>
         <button class="btn btn-secondary btn-recent-games" onclick="loadFireList()">Recent Games</button>
       </div>
