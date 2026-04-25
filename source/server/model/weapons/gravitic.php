@@ -1019,8 +1019,10 @@ class GraviticShifter extends Weapon implements SpecialAbility{
         if($fireOrder->shotshit > 0){
             $fireOrder->pubnotes = "<br>Ship has been forced to turn 60 degrees " . $direction . " by a Gravitic Shifter.";                       
         }   
-		//Add shifted movement order to database
-		Manager::insertSingleMovement($gamedata->id, $ship->id, $shift);	
+		//Add shifted movement order to database and in-memory movement array
+		//so subsequent prefire weapons see the updated heading/facing.
+		Manager::insertSingleMovement($gamedata->id, $ship->id, $shift);
+		$ship->setMovement($shift);	
     }    
 
 	public function getDamage($fireOrder){       return 0;   } //no actual damage
@@ -1169,8 +1171,10 @@ class GravityNet extends Weapon implements SpecialAbility{
                 //$id, $type, OffsetCoordinate $position, $xOffset, $yOffset, $speed, $heading, $facing, $pre, $turn, $value, $at_initiative)
                 $gravNetMove = new MovementOrder(null, "prefire", new OffsetCoordinate($xpos, $ypos), 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gamedata->turn, $graviticOrderID, 0);
 
-                //Add shifted movement order to database
-                Manager::insertSingleMovement($gamedata->id, $target->id, $gravNetMove);				
+                //Add shifted movement order to database and in-memory movement array
+                //so subsequent prefire weapons see the updated position.
+                Manager::insertSingleMovement($gamedata->id, $target->id, $gravNetMove);
+                $target->setMovement($gravNetMove);				
                 break;
             }
         }         
@@ -1850,7 +1854,6 @@ class GraviticMine extends Weapon{
             // Find this unit's mines within 5 hexes.
             $minesInRange = array();
             foreach ($activeMines as $entry) {
-                if ($entry['unit']->id === $unit->id) continue;
                 $dist = $entry['pos']->distanceTo($unitPos);
                 Debug::log("  vs mine id={$entry['unit']->id} pos=({$entry['pos']->q},{$entry['pos']->r}) dist={$dist}");
                 if ($dist <= 5) {
@@ -1992,6 +1995,7 @@ class GraviticMine extends Weapon{
         // can pair this movement with that order and animate the pull after the mine fires.
         $forced = new MovementOrder(null, "prefire", $newHex, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gamedata->turn, $pullOrder->id, 0);
         Manager::insertSingleMovement($gamedata->id, $unit->id, $forced);
+        $unit->setMovement($forced);
         GraviticMineHandler::$alreadyMovedTargetIds[$unit->id] = true;
     }
 
