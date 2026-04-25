@@ -8092,7 +8092,43 @@ class GrapplingClaw extends Weapon implements SpecialAbility{
 		}			
 	}//endof onDamagedSystem() 		
 	
+
+	public function criticalPhaseEffects($ship, $gamedata){	
+		parent::criticalPhaseEffects($ship, $gamedata);//Call parent to apply effects like Limpet Bore.
+
+		foreach ($this->damage as $damage ) if(($damage->turn == $gamedata->turn) && ($damage->destroyed)){ 
+			$this->exchangeMarines($ship, $gamedata);
+		}
+			
+	}		
 	
+	public function exchangeMarines($ship, $gamedata){	
+		Debug::log("GrapplingClaw exchangeMarines for claw ID " . $this->id . " on ship " . $ship->id);
+	
+		foreach ($this->damage as $damage ) {
+			if(($damage->turn == $gamedata->turn) && ($damage->destroyed)){ 
+				$currAmmo = $this->ammunition;//How many marines were left when weapon was destroyed.
+				Debug::log("Claw ID " . $this->id . " was destroyed this turn. Curr ammo: " . $currAmmo);
+				
+				if($currAmmo > 0) {
+					foreach($ship->systems as $claw){
+						if($claw->name == "GrapplingClaw" && $claw->id != $this->id){
+							Debug::log("Found GrapplingClaw ID " . $claw->id . ". isDestroyed() = " . ($claw->isDestroyed() ? "true" : "false"));
+							if(!$claw->isDestroyed()){
+								Debug::log("Transferring " . $currAmmo . " ammo to claw ID " . $claw->id);
+								$claw->ammunition += $currAmmo; //Add remaining marines to first claw we find, if any.
+								$this->ammunition = 0; //Set number of Marines in destroyed Claw to 0.
+								Manager::updateAmmoInfo($ship->id, $claw->id, $gamedata->id, $claw->firingMode, $claw->ammunition, $gamedata->turn);
+								Manager::updateAmmoInfo($ship->id, $this->id, $gamedata->id, $this->firingMode, $this->ammunition, $gamedata->turn);
+								break;							
+							}	
+						}
+					}		
+				}
+			}
+		}
+	}	
+
 	public function getDamage($fireOrder){ //Damage is handled in criticalPhaseEffects()
 		return 0;
 	}

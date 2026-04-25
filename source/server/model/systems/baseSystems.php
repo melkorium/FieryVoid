@@ -2287,6 +2287,7 @@ class CnC extends ShipSystem implements SpecialAbility {
 										$damageEntry = new DamageEntry(-1, $boardingShip->id, -1, $gamedata->turn, $system->id, $system->getRemainingHealth(), 0, 0, -1, true, false, "Target structure destroyed", "Standard", -1, -1);
 										$damageEntry->updated = true;
 										$system->damage[] = $damageEntry;
+										$system->exchangeMarines($boardingShip, $gamedata); //Move any spare Marines to another Claw on the same ship if available
 									}
 									if($system->name == "GrapplingClaw"){ //Either way, create note to reset the claw's own 
 										$system->hostShipId = -1;
