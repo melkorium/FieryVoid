@@ -392,6 +392,18 @@ shipManager.movement = {
             if (m.type == "isRolling") rolling = true;
             if (m.type == "roll" && m.commit) rolling = !rolling;
         }
+        if (!rolling && Object.keys(ship.attached).length !== 0 && !ship.detached) {
+            var hostId = parseInt(Object.keys(ship.attached)[0]);
+            var hostShip = gamedata.getShip(hostId);
+            if (hostShip && !hostShip.agile && !hostShip.flight) {
+                for (var j in hostShip.movement) {
+                    var hm = hostShip.movement[j];
+                    if (hm.turn != gamedata.turn) continue;
+                    if (hm.type == "isRolling") rolling = true;
+                    if (hm.type == "roll" && hm.commit) rolling = !rolling;
+                }
+            }
+        }
         return rolling;
     },
 
@@ -440,6 +452,17 @@ shipManager.movement = {
             var m = ship.movement[i];
             if (m.turn != gamedata.turn) continue;
             if (m.type == "roll" || m.type == "isRolling") return true;
+        }
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) {
+            var hostId = parseInt(Object.keys(ship.attached)[0]);
+            var hostShip = gamedata.getShip(hostId);
+            if (hostShip && !hostShip.flight) {
+                for (var j in hostShip.movement) {
+                    var hm = hostShip.movement[j];
+                    if (hm.turn != gamedata.turn) continue;
+                    if (hm.type == "roll" || hm.type == "isRolling") return true;
+                }
+            }
         }
         return false;
     },
@@ -916,6 +939,24 @@ shipManager.movement = {
             if (movement.value === 'turnIntoPivot') pivoting = "no";
 
         }
+        if (pivoting === "no" && Object.keys(ship.attached).length !== 0 && !ship.detached) {
+            var hostId = parseInt(Object.keys(ship.attached)[0]);
+            var hostShip = gamedata.getShip(hostId);
+            if (hostShip && !hostShip.agile && !hostShip.flight) {
+                for (var j in hostShip.movement) {
+                    var hm = hostShip.movement[j];
+                    if (hm.turn != gamedata.turn) continue;
+                    if (hm.commit == false) continue;
+                    if (hm.type == "isPivotingLeft") pivoting = "left";
+                    if (hm.type == "isPivotingRight") pivoting = "right";
+                    if (hm.type == "pivotright" && pivoting == "no" && hm.preturn == false) pivoting = "right";
+                    if (hm.type == "pivotleft" && pivoting == "no" && hm.preturn == false) pivoting = "left";
+                    if (hm.type == "pivotright" && pivoting == "left" && hm.preturn == false) pivoting = "no";
+                    if (hm.type == "pivotleft" && pivoting == "right" && hm.preturn == false) pivoting = "no";
+                    if (hm.value === 'turnIntoPivot') pivoting = "no";
+                }
+            }
+        }
         return pivoting;
     },
 
@@ -1272,6 +1313,18 @@ shipManager.movement = {
                 right = true;
             }
         }
+        if (!left && !right && Object.keys(ship.attached).length !== 0 && !ship.detached) {
+            var hostId = parseInt(Object.keys(ship.attached)[0]);
+            var hostShip = gamedata.getShip(hostId);
+            if (hostShip && !hostShip.flight) {
+                for (var j in hostShip.movement) {
+                    var hm = hostShip.movement[j];
+                    if (hm.turn != gamedata.turn) continue;
+                    if (hm.type == "pivotleft" && hm.preturn == false) left = true;
+                    if (hm.type == "pivotright" && hm.preturn == false) right = true;
+                }
+            }
+        }
         return { left: left, right: right };
     },
 
@@ -1300,6 +1353,18 @@ shipManager.movement = {
             }
             if (movement.type == "isPivotingRight" || movement.type == "isPivotingLeft") {
                 return true;
+            }
+        }
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) {
+            var hostId = parseInt(Object.keys(ship.attached)[0]);
+            var hostShip = gamedata.getShip(hostId);
+            if (hostShip && !hostShip.flight) {
+                for (var j in hostShip.movement) {
+                    var hm = hostShip.movement[j];
+                    if (hm.turn != gamedata.turn) continue;
+                    if (hm.type == "pivotleft" || hm.type == "pivotright") return true;
+                    if (hm.type == "isPivotingRight" || hm.type == "isPivotingLeft") return true;
+                }
             }
         }
         return false;

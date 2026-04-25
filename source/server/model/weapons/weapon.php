@@ -1305,12 +1305,12 @@ public function getStartLoading()
         }
 
 		if (!($shooter instanceof FighterFlight) && !$shooter->ignoreManoeuvreMods) {//Mindriders ignore pivot and roll penalties - DK 17.7.24
-            if ((!$shooter->agile) && Movement::isRolling($shooter, $gamedata->turn)) { //non-agile ships suffer as long as they're ROLLING
+            if ((!$shooter->agile) && Movement::isRolling($shooter, $gamedata->turn, $gamedata)) { //non-agile ships suffer as long as they're ROLLING
                 $mod -= 3;
-            } else if ($shooter->agile && Movement::hasRolled($shooter, $gamedata->turn)) { //Agile ships suffer on the turn they actually rolled!
+            } else if ($shooter->agile && Movement::hasRolled($shooter, $gamedata->turn, $gamedata)) { //Agile ships suffer on the turn they actually rolled!
 				$mod -= 3;
 			}
-            if (Movement::hasPivoted($shooter, $gamedata->turn) /*&& !$this->ballistic*/) {
+            if (Movement::hasPivoted($shooter, $gamedata->turn, $gamedata) /*&& !$this->ballistic*/) {
                 $mod -= 3;
             }
         }
