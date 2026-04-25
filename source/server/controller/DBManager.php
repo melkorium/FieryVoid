@@ -938,7 +938,8 @@ class DBManager
                 intercepted = ?,
                 x = ?,
                 y = ?,
-		resolutionorder = ?
+		resolutionorder = ?,
+		type = ?
             WHERE
                 id = ?
             "
@@ -947,7 +948,7 @@ class DBManager
         if ($stmt) {
             foreach ($fireOrders as $fire) {
                 $stmt->bind_param(
-                    'iiiissiiiiiii',
+                    'iiiissiiiiiisi',
                     $fire->targetid,
                     $fire->firingMode,
                     $fire->needed,
@@ -960,6 +961,7 @@ class DBManager
                     $fire->x,
                     $fire->y,
 		    $fire->resolutionOrder,
+		    $fire->type,
                     $fire->id
                 );
                 $stmt->execute();
