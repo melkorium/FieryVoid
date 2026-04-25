@@ -34,7 +34,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <li><a href="#differences">DIFFERENCES FROM BABYLON 5 WARS</a></li>                        
         <li><a href="#mechanics">ADVANCED MECHANICS</a>
            <ul class="sub-list">
-                <li><a href="#boarding">Boarding Actions & Marines</a></li>
+                <li><a href="#boarding">Boarding Actions</a></li>
                 <li><a href="#called">Called Shots</a></li>
                 <li><a href="#delayed">Delayed Deployment</a></li>                
                 <li><a href="#enormous">Enormous Units</a></li>
@@ -73,7 +73,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <ul style="margin-top: 10px;">
             <li>Alot has been automated in Fiery Void compared to B5 Wars, such as dice rolling, and players have a little less control over certain minutiae, but overall the game is more streamlined.</li>
             <li>By default the game is played in a fixed, rectangular map. It does not enforce anything about the boundaries — it’s up to the players to ensure ships leaving the map behave as disengaged.</li>
-            <li>Fiery Void does not enforce fleet design rules. Fleet requirement rules can be checked using the Check button during Fleet Selection.</li>
+            <li>Fiery Void does not enforce standard fleet design rules. Fleet requirement rules can however still be checked using the 'Check Fleet' button during Fleet Selection.</li>
             <li>The game mechanics are based on d100 rolls (instead of d20), so most values are displayed as percentages (e.g., 1 point on a d20 equates to 5%).</li>
             <li>There are no separate Power and Electronic Warfare (EW) phase. These are combined into a single Initial Orders phase, along with ballistic firing, which happens after the Initiative roll.</li>
         </ul>
@@ -115,9 +115,9 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
     <h2 id="mechanics">INFO ON ADVANCED MECHANICS</h2>
 
-        <h3 id="boarding" style="margin-top: 15px;">Boarding Actions & Marines</h3>
+        <h3 id="boarding" style="margin-top: 15px;">Boarding Actions</h3>
         <ul>
-            <li>Many factions have access to Breaching Pods, which come equipped with marines that can undertake boarding actions.  
+            <li>Many factions have access to Breaching Pods and Grappling Claws, which come equipped with marines that can undertake boarding actions.  
                 During Fleet Selection, one pod can be purchased for every medium ship or HCV with hangar capacity for medium fighters, heavy fighter or assault shuttles, 
                 two for every capital ship with these hangars, and four for enormous units or bases.  Assault ships (i.e., those vessels containing ‘Assault’ in their name) can carry double these allowances
                 providing they have the hangar space to permit it.</li>
@@ -211,8 +211,22 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                     </li>                      
                 </ul>
             </li>
-            <br>   
-            <li>Note - Ships euipped with Grappling Claws use the same rules to attach and deliver Marines as described above, however they do not currently attach to the enemy vessel in the same way as Breaching Pods.</li>
+            <br> 
+            <p><strong>GRAPPLING CLAWS:</strong></p>              
+            <li>Some ships are equipped with Grappling Claws, which largely use the same rules to attach and deliver Marines as described above, however there are a few notable differences outlined below:
+                    <ul class="circle-list">
+                        <li>The attaching unit cannot perform any maneuvers, but the host ship may do so, if it is of the same size or larger than the attached ship. 
+                            The host ship's turn costs and turn delays are increased to the sum of both units’ values (e.g., a ship with a 1/3 turn cost attached to one with a 2/3 turn cost would produce a total turn cost of around 1). 
+                            The target unit moves the conglomerate group when its turn arrives in the initiative sequence, and it may maneuver normally.</li>
+                        <li>No more than one ships can use grappling claws to attach to a medium ship or heavy combat vessel (shipSizesClasses 1 and 2). 
+                            Two grapple units can attach to a capital ship, but both must be on opposite ends. One unit can attach to each section of an enormous base. </li>
+                        <li>If the structure the attached ship has grappled is destroyed during the battle (or if the host ship itself is destroyed), the claw‐equipped vessel is broken free and any claws that are still attached are destroyed. 
+                            The destruction of either ship will not affect the other.</li>
+                        <li>Once the attacking ship has attached itself to the target, all fire by weapons through the claw’s firing arcs is blocked by the target’s hull (they cannot fire at the target unit for safety reasons). 
+                            If the attached unit’s weapons are capable of firing into other arcs or into a wider range, they can shoot at targets in those positions. 
+                            The unit to which the ship is attached is not prevented from firing any weapons (except at the attached unit)</li> 
+                    </ul>                                               
+                </li>
         </ul>
         <a class="back-to-top" href="#top">↩ Back to Top</a>
 
