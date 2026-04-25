@@ -722,7 +722,13 @@ class TacGamedata {
 
     private function hideSystemFireOrders($ship){
         $playerTeam = $this->getPlayerTeam();
-        $isAlly = ($ship->userid == $this->forPlayer || $ship->team == $playerTeam);
+        // Fighter objects (individual fighters within a FighterFlight) have no userid/team; look up the parent flight
+        if ($ship instanceof Fighter) {
+            $flight = $this->getShipById($ship->flightid);
+            $isAlly = $flight ? $flight->userid == $this->forPlayer || $flight->team == $playerTeam : false;
+        } else {
+            $isAlly = $ship->userid == $this->forPlayer || $ship->team == $playerTeam;
+        }
         foreach ($ship->systems as $system){
             for ($i = sizeof($system->fireOrders)-1; $i>=0; $i--){
                 $fire = $system->fireOrders[$i];
