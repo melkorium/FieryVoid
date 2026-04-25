@@ -1740,6 +1740,11 @@ class GraviticMine extends Weapon{
             Debug::log("GraviticMine fire: after parent::fire shots={$fireOrder->shots} shotshit={$fireOrder->shotshit} rolled={$fireOrder->rolled}");
             return;
         }
+        // Per-target pull marker: created by applyMovement(), already persisted with rolled=1.
+        // Animation/log only — no damage rolls, no parent::fire().
+        if ($fireOrder->damageclass === 'graviticPull') {
+            return;
+        }
 
         $shooter = $gamedata->getShipById($fireOrder->shooterid);
 
@@ -1960,8 +1965,32 @@ class GraviticMine extends Weapon{
     private function applyMovement($unit, OffsetCoordinate $newHex, $gamedata){
         $lastMove = $unit->getLastMovement();
         if ($lastMove === null) return;
+
+        // Create a per-target "graviticPull" fire order so the moved unit appears in
+        // its own incomingFire stream (replay animation matches movement.value to a
+        // fire order targeting the moved ship; the original hex-target order has
+        // targetid=-1 and would never match). Persist it now to grab a real DB id;
+        // addToDB=false afterwards prevents PreFiringGamePhase from inserting a duplicate.
+        $shooterShipId = $this->getUnit()->id;
+        $pullOrder = new FireOrder(
+            -1, "prefiring", $shooterShipId, $unit->id,
+            $this->id, -1, $gamedata->turn, 1,
+            100, 1, 1, 1, 0,
+            $newHex->q, $newHex->r, 'graviticPull', 1001
+        );
+        $pullOrder->pubnotes = "<br>{$unit->name} is moved towards a nearby Gravitic Mine.";
+        $pullOrder->addToDB = true;
+        $newId = Manager::insertSingleFiringOrder($gamedata, $pullOrder);
+        if ($newId) {
+            $pullOrder->id = (int)$newId;
+        }
+        $pullOrder->addToDB = false;
+        $this->fireOrders[] = $pullOrder;
+
         // Preserve heading/facing/speed; mark as a forced prefire shift, mirroring GravityNet.
-        $forced = new MovementOrder(null, "prefire", $newHex, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gamedata->turn, 0, 0);
+        // The 11th arg ($value) carries the pull fire order's id so ReplayAnimationStrategy
+        // can pair this movement with that order and animate the pull after the mine fires.
+        $forced = new MovementOrder(null, "prefire", $newHex, 0, 0, $lastMove->speed, $lastMove->heading, $lastMove->facing, false, $gamedata->turn, $pullOrder->id, 0);
         Manager::insertSingleMovement($gamedata->id, $unit->id, $forced);
         GraviticMineHandler::$alreadyMovedTargetIds[$unit->id] = true;
     }

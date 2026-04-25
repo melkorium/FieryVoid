@@ -256,7 +256,7 @@ window.AllWeaponFireAgainstShipAnimation = function () {
         //Standardise color method and let noProjectile marker work here too - DK 01/25
         var color;
         var hasParticle = true; //Extra variable for Bolt Effect, to remove particle if needed e.g. rammingAttack       	
-        if (weapon.noProjectile || incomingFire.fireOrder.damageclass == 'graviticShear') { //Some weapon like Spark Field shouldn't have projectiles - DK - 4 Jan 24
+        if (weapon.noProjectile || incomingFire.fireOrder.damageclass == 'graviticShear' || incomingFire.fireOrder.damageclass == 'graviticPull') { //Some weapon like Spark Field shouldn't have projectiles - DK - 4 Jan 24
             color = new THREE.Color((0 / 255, 0 / 255, 0 / 255));
             hasParticle = false;
         } else {

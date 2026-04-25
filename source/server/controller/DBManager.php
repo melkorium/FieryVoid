@@ -2833,6 +2833,7 @@ class DBManager
 
             $this->update($sql);
 
+            return mysqli_insert_id($this->connection);
     }
 
 
