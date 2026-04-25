@@ -1063,7 +1063,7 @@ class GravityNet extends Weapon implements SpecialAbility{
 
     public $firingModes = array(
 		1 => "Standard - GN",
-        2 => "Priorty - GN"
+        2 => "Priority - GN"
 	);
 	    
     protected $possibleCriticals = array(14 => "ReducedRange");

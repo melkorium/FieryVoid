@@ -37,7 +37,7 @@ window.BallisticIconContainer = function () {
 					if (shooterIcon) {
 						const weapon = shipManager.systems.getSystem(shooterIcon.ship, ballistic.weaponid);
 						const modeName = weapon?.firingModes?.[ballistic.firingMode] || null;
-						if (modeName === 'Gravitic Mine') return;
+						if (modeName === 'Gravitic Mine' || modeName === 'Standard - GN' || modeName === 'Priority - GN') return;
 					}
 				}
 				createOrUpdateBallistic.call(this, ballistic, iconContainer, gamedata.turn, !!replayData);
@@ -220,7 +220,6 @@ window.BallisticIconContainer = function () {
 		if (weapon) {
 			modeName = weapon?.firingModes?.[ballistic.firingMode] || null;
 		}
-		if (gamedata.gamephase == 3 && modeName == 'Gravitic Mine' && !replay) return; //Don't make icons for Grav Mines that have already exploded.
 
 		let hideTargetAlways = false;
 
@@ -276,7 +275,7 @@ window.BallisticIconContainer = function () {
 				'Transverse Jump': { type: 'hexBlue', text: 'Transverse Jump', color: '#787800' },
 				'Warp Jump': { type: 'hexBlue', text: 'Warp Jump', color: '#787800' },
 				'Standard - GN': { type: 'hexGreen', text: 'Gravity Net Standard', color: '#008000' },
-				'Priorty - GN': { type: 'hexGreen', text: 'Gravity Net PRIORITY', color: '#787800' },
+				'Priority - GN': { type: 'hexGreen', text: 'Gravity Net PRIORITY', color: '#787800' },
 				'Gravitic Mine': { type: 'hexGreen', text: 'Gravitic Mine', color: '#008000' },
 			};
 
