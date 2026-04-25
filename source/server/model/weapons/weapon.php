@@ -129,6 +129,7 @@ class Weapon extends ShipSystem
     // Used to indicate a parent in case of dualWeapons
     public $parentId = -1;
 	public $preFires = false; //Denotes whether weapon fires in pre-firing phase on normal firing phase
+	public $revealAfterPreFire = false; //If true, hidetarget reveals fire-order target info to opponents in phases 3/4 (after PreFire resolution at end of phase 5).
     public $firingMode = 1;
     public $firingModes = array(1 => "Standard"); //just a convenient name for firing mode
     public $modeLetters = 1;//Default to show only first letter of alt firing modes.  Up to 3 letter looks ok.
@@ -182,7 +183,7 @@ class Weapon extends ShipSystem
 	protected $canTargetAlliesArray = array(); //To allow front end to target allies.
     public $canTargetAll = false; //Allows weapon to target allies AND enemies, pass to Front End in strpForJson()
 	protected $canShootMines = false; //marker to let weapons that normally can't shoot MCVs to shoot mines.    
-
+    protected $noCollateral = false; //To denote Flash weapons that don't cause collateral damage in hex.
 	//Weapons are repaired before "average system", but after really important things! 
 	public $repairPriority = 5;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
     
@@ -1856,6 +1857,8 @@ public function getStartLoading()
     /*collateral damage from a Flash explosion (if any), called from function damage*/
     public function doCollateralDamage($target, $shooter, $fireOrder, $gamedata, $flashDamageAmount)
     {
+        if ($this->noCollateral) return; //Some flash weapons don't actually damage ships in hex e.g. Gravitic Mines.
+
         $explosionPos = $target->getCoPos();
         $ships1 = $gamedata->getShipsInDistance($target, 0);
         foreach ($ships1 as $ship) {

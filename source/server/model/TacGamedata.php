@@ -720,10 +720,12 @@ class TacGamedata {
         $this->hideStealthShipMovement(); //Send empty arrays if current player's team can't see the ship.
     }
 
-    private function hideSystemFireOrders($ship){         
-        foreach ($ship->systems as $system){             
-            for ($i = sizeof($system->fireOrders)-1; $i>=0; $i--){                 
-                $fire = $system->fireOrders[$i]; 
+    private function hideSystemFireOrders($ship){
+        $playerTeam = $this->getPlayerTeam();
+        $isAlly = ($ship->userid == $this->forPlayer || $ship->team == $playerTeam);
+        foreach ($ship->systems as $system){
+            for ($i = sizeof($system->fireOrders)-1; $i>=0; $i--){
+                $fire = $system->fireOrders[$i];
                 $weapon = $ship->getSystemById($fire->weaponid);
                 
                 if ($fire->turn == $this->turn && !$weapon->ballistic && $this->phase == 3 && !$weapon->preFires){
@@ -741,7 +743,10 @@ class TacGamedata {
                
 				$weapon->changeFiringMode($fire->firingMode); //Select the current mode so the correct variables are considered, important for Stealth missile.                
 
-                if ($fire->turn == $this->turn && $weapon->hidetarget && $this->phase < 6 && $ship->userid != $this->forPlayer){ //Change to <6 to prevent hidden orders appearing during pre-firing - DK Nov 2025
+                $hideTargetPhase = $weapon->revealAfterPreFire
+                    ? ($this->phase == 1 || $this->phase == 2 || $this->phase == 5) //Reveal in phases 3/4 after PreFire resolution.
+                    : ($this->phase < 6);
+                if ($fire->turn == $this->turn && $weapon->hidetarget && $hideTargetPhase && !$isAlly){ //Change to <6 to prevent hidden orders appearing during pre-firing - DK Nov 2025
                     $fire->targetid = -1;
                     $fire->x = "null";
                     $fire->y = "null";
