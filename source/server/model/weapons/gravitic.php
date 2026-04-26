@@ -1730,18 +1730,18 @@ class GraviticMine extends Weapon{
 
 	public function calculateHitBase($gamedata, $fireOrder)
 	{
-		Debug::log("GraviticMine calculateHitBase called: id={$fireOrder->id} type={$fireOrder->type} target={$fireOrder->targetid} turn={$fireOrder->turn} dc=" . ($fireOrder->damageclass ?? 'null'));
+		//Debug::log("GraviticMine calculateHitBase called: id={$fireOrder->id} type={$fireOrder->type} target={$fireOrder->targetid} turn={$fireOrder->turn} dc=" . ($fireOrder->damageclass ?? 'null'));
 		$fireOrder->needed = 100; //always true
 		$fireOrder->updated = true;
 	}
 
     public function fire($gamedata, $fireOrder)
     {
-        Debug::log("GraviticMine fire called: id={$fireOrder->id} type={$fireOrder->type} target={$fireOrder->targetid} turn={$fireOrder->turn} dc=" . ($fireOrder->damageclass ?? 'null'));
+        //Debug::log("GraviticMine fire called: id={$fireOrder->id} type={$fireOrder->type} target={$fireOrder->targetid} turn={$fireOrder->turn} dc=" . ($fireOrder->damageclass ?? 'null'));
         if ($fireOrder->damageclass === 'graviticShear') {
-            Debug::log("GraviticMine fire: shear branch, chosenLoc=" . ($fireOrder->chosenLocation ?? 'null') . " x={$fireOrder->x} y={$fireOrder->y}");
+            //Debug::log("GraviticMine fire: shear branch, chosenLoc=" . ($fireOrder->chosenLocation ?? 'null') . " x={$fireOrder->x} y={$fireOrder->y}");
             parent::fire($gamedata, $fireOrder);
-            Debug::log("GraviticMine fire: after parent::fire shots={$fireOrder->shots} shotshit={$fireOrder->shotshit} rolled={$fireOrder->rolled}");
+            //Debug::log("GraviticMine fire: after parent::fire shots={$fireOrder->shots} shotshit={$fireOrder->shotshit} rolled={$fireOrder->rolled}");
             return;
         }
         // Per-target pull marker: created by applyMovement(), already persisted with rolled=1.
@@ -1829,7 +1829,7 @@ class GraviticMine extends Weapon{
                 $seenFireOrderIds[$fo->id] = true;
 
                 $minePos = new OffsetCoordinate((int)$fo->x, (int)$fo->y);
-                Debug::log("  active mine: carrier={$mineUnit->id} orderId={$fo->id} firePos=({$minePos->q},{$minePos->r})");
+                //Debug::log("  active mine: carrier={$mineUnit->id} orderId={$fo->id} firePos=({$minePos->q},{$minePos->r})");
 
                 $activeMines[] = array(
                     'weapon' => $mineWeapon,
@@ -1839,30 +1839,30 @@ class GraviticMine extends Weapon{
             }
         }
         if (empty($activeMines)) {
-            Debug::log("GraviticMine beforePreFiring: no active mines found, skipping");
+            //Debug::log("GraviticMine beforePreFiring: no active mines found, skipping");
             return;
         }
-        Debug::log("GraviticMine beforePreFiring: " . count($activeMines) . " active mine(s)");
+        //Debug::log("GraviticMine beforePreFiring: " . count($activeMines) . " active mine(s)");
 
         foreach ($gamedata->ships as $unit) {
             if ($this->isImmuneTarget($unit, $gamedata)) continue;
 
             $unitPos = $unit->getHexPos();
             if (!($unitPos instanceof OffsetCoordinate)) continue;
-            Debug::log("GraviticMine: checking unit id={$unit->id} name={$unit->name} pos=({$unitPos->q},{$unitPos->r})");
+            //Debug::log("GraviticMine: checking unit id={$unit->id} name={$unit->name} pos=({$unitPos->q},{$unitPos->r})");
 
             // Find this unit's mines within 5 hexes.
             $minesInRange = array();
             foreach ($activeMines as $entry) {
                 $dist = $entry['pos']->distanceTo($unitPos);
-                Debug::log("  vs mine id={$entry['unit']->id} pos=({$entry['pos']->q},{$entry['pos']->r}) dist={$dist}");
+                //Debug::log("  vs mine id={$entry['unit']->id} pos=({$entry['pos']->q},{$entry['pos']->r}) dist={$dist}");
                 if ($dist <= 5) {
                     $entry['distance'] = $dist;
                     $minesInRange[] = $entry;
                 }
             }
             if (empty($minesInRange)) {
-                Debug::log("  no mines in range, skipping");
+                //Debug::log("  no mines in range, skipping");
                 continue;
             }
 
@@ -1874,13 +1874,13 @@ class GraviticMine extends Weapon{
                 $minePositions = array();
                 foreach ($minesInRange as $m) $minePositions[] = $m['pos'];
                 $inZone = $this->isUnitInShearingZone($unitPos, $minePositions);
-                Debug::log("  shearing check: {$unit->name} with " . count($minesInRange) . " mines in range -> inZone=" . ($inZone ? 'YES' : 'NO'));
+                //Debug::log("  shearing check: {$unit->name} with " . count($minesInRange) . " mines in range -> inZone=" . ($inZone ? 'YES' : 'NO'));
                 if ($inZone) {
                     if (!isset(GraviticMineHandler::$alreadyShearedTargetIds[$unit->id])) {
-                        Debug::log("  -> applying shearing");
+                        //Debug::log("  -> applying shearing");
                         $this->applyShearing($unit, $unitPos, $minesInRange, $gamedata);
                     } else {
-                        Debug::log("  -> already sheared this turn, skipping");
+                        //Debug::log("  -> already sheared this turn, skipping");
                     }
                     continue;
                 }
@@ -1895,14 +1895,14 @@ class GraviticMine extends Weapon{
                 if ($m['distance'] === $closestDist) $tied[] = $m;
             }
             $chosenMine = $tied[array_rand($tied)];
-            Debug::log("  pulling toward mine id={$chosenMine['unit']->id} pos=({$chosenMine['pos']->q},{$chosenMine['pos']->r}) dist={$chosenMine['distance']}");
+            //Debug::log("  pulling toward mine id={$chosenMine['unit']->id} pos=({$chosenMine['pos']->q},{$chosenMine['pos']->r}) dist={$chosenMine['distance']}");
 
             $newHex = $this->pickMoveHex($unitPos, $chosenMine['pos'], $gamedata);
             if ($newHex === null) {
-                Debug::log("  pickMoveHex returned null (no valid candidates), no movement");
+                //Debug::log("  pickMoveHex returned null (no valid candidates), no movement");
                 continue;
             }
-            Debug::log("  moving unit to ({$newHex->q},{$newHex->r})");
+            //Debug::log("  moving unit to ({$newHex->q},{$newHex->r})");
 
             $this->applyMovement($unit, $newHex, $gamedata);
         }
@@ -1946,9 +1946,9 @@ class GraviticMine extends Weapon{
 
     private function pickMoveHex(OffsetCoordinate $unitPos, OffsetCoordinate $minePos, $gamedata){
         $currDist = $unitPos->distanceTo($minePos);
-        Debug::log("  pickMoveHex: unit=({$unitPos->q},{$unitPos->r}) mine=({$minePos->q},{$minePos->r}) currDist={$currDist}");
+        //Debug::log("  pickMoveHex: unit=({$unitPos->q},{$unitPos->r}) mine=({$minePos->q},{$minePos->r}) currDist={$currDist}");
         if ($currDist <= 0) {
-            Debug::log("  pickMoveHex: unit is on the mine hex, no movement");
+            //Debug::log("  pickMoveHex: unit is on the mine hex, no movement");
             return null;
         }
 
@@ -1957,7 +1957,7 @@ class GraviticMine extends Weapon{
             $hex = new OffsetCoordinate((int)$n['q'], (int)$n['r']);
             $newDist = $hex->distanceTo($minePos);
             $blocked = $this->isImmovableHex($hex, $gamedata);
-            Debug::log("    neighbour ({$hex->q},{$hex->r}) distToMine={$newDist} blocked=" . ($blocked ? 'yes' : 'no'));
+            //Debug::log("    neighbour ({$hex->q},{$hex->r}) distToMine={$newDist} blocked=" . ($blocked ? 'yes' : 'no'));
             if ($newDist >= $currDist) continue;
             if ($blocked) continue;
             $candidates[] = $hex;
@@ -2002,9 +2002,9 @@ class GraviticMine extends Weapon{
 
     private function applyShearing($unit, OffsetCoordinate $unitPos, array $minesInRange, $gamedata){
         $factor = $this->getShearingFactor($unit);
-        Debug::log("  applyShearing: unit={$unit->name} shearingFactor={$factor}");
+        //Debug::log("  applyShearing: unit={$unit->name} shearingFactor={$factor}");
         if ($factor <= 0) {
-            Debug::log("  applyShearing: factor=0, no damage (immune/unknown class)");
+            //Debug::log("  applyShearing: factor=0, no damage (immune/unknown class)");
             // Tagged anyway so the once-per-turn guard holds even for mines/zero-factor units.
             GraviticMineHandler::$alreadyShearedTargetIds[$unit->id] = true;
             return;
@@ -2012,7 +2012,7 @@ class GraviticMine extends Weapon{
 
         $nearestDist = $minesInRange[0]['distance'];
         $damage = ((int)$nearestDist + 1) * $factor;
-        Debug::log("  applyShearing: nearestDist={$nearestDist} factor={$factor} damage={$damage}");
+        //Debug::log("  applyShearing: nearestDist={$nearestDist} factor={$factor} damage={$damage}");
 
         // Furthest mine within 5 hexes determines the impact side; randomise on tie.
         $furthestDist = $minesInRange[count($minesInRange) - 1]['distance'];
@@ -2047,8 +2047,6 @@ class GraviticMine extends Weapon{
         $shearOrder->addToDB = true;
         $this->fireOrders[] = $shearOrder;
 
-        Debug::log("  applyShearing: fire order created shooter={$shooterShipId} target={$unit->id} sourceHex=({$sourceHex->q},{$sourceHex->r}) hitLoc={$hitLocation} damage={$damage} weaponid={$this->id}");
-
         GraviticMineHandler::$alreadyShearedTargetIds[$unit->id] = true;
     }
 
@@ -2082,24 +2080,24 @@ class GraviticMine extends Weapon{
         $minePx = array();
         foreach ($minePositions as $p) $minePx[] = Mathlib::hexCoToPixel($p);
 
-        Debug::log("    isUnitInShearingZone: unitHex=({$unitPos->q},{$unitPos->r}) unitPx=({$unitPx['x']},{$unitPx['y']})");
-        foreach ($minePositions as $i => $p) {
-            Debug::log("      mine[$i] hex=({$p->q},{$p->r}) px=({$minePx[$i]['x']},{$minePx[$i]['y']})");
-        }
+        //Debug::log("    isUnitInShearingZone: unitHex=({$unitPos->q},{$unitPos->r}) unitPx=({$unitPx['x']},{$unitPx['y']})");
+        //foreach ($minePositions as $i => $p) {
+        //    Debug::log("      mine[$i] hex=({$p->q},{$p->r}) px=({$minePx[$i]['x']},{$minePx[$i]['y']})");
+        //}
 
         if ($count === 2) {
             // Line touches the unit's hex iff perpendicular distance ≤ ½ hex-width
             // (Mathlib::hexCoToPixel uses unit hex-width = sqrt(3), so half-width = sqrt(3)/2).
             $tolerance = sqrt(3) / 2;
             $dist = $this->pointToSegmentDistance($unitPx, $minePx[0], $minePx[1]);
-            Debug::log("    2-mine check: segDist={$dist} tolerance={$tolerance} inZone=" . ($dist <= $tolerance ? 'YES' : 'NO'));
+            //Debug::log("    2-mine check: segDist={$dist} tolerance={$tolerance} inZone=" . ($dist <= $tolerance ? 'YES' : 'NO'));
             return $dist <= $tolerance;
         }
 
         // 3+ mines: convex hull point-in-polygon.
         $hull = $this->convexHull($minePx);
         $inside = $this->pointInPolygon($unitPx, $hull);
-        Debug::log("    3+-mine check: hullSize=" . count($hull) . " inside=" . ($inside ? 'YES' : 'NO'));
+        //Debug::log("    3+-mine check: hullSize=" . count($hull) . " inside=" . ($inside ? 'YES' : 'NO'));
         return $inside;
     }
 
@@ -2171,7 +2169,7 @@ class GraviticMine extends Weapon{
         public function getDamage($fireOrder){
             if ($fireOrder->damageclass === 'graviticShear') {
                 $dmg = GraviticMineHandler::$shearDamageByTargetId[$fireOrder->targetid] ?? 0;
-                Debug::log("GraviticMine getDamage: shear order target={$fireOrder->targetid} returning dmg={$dmg} (registry keys: " . implode(',', array_keys(GraviticMineHandler::$shearDamageByTargetId)) . ")");
+                //Debug::log("GraviticMine getDamage: shear order target={$fireOrder->targetid} returning dmg={$dmg} (registry keys: " . implode(',', array_keys(GraviticMineHandler::$shearDamageByTargetId)) . ")");
                 return $dmg;
             }
             return 0; /*no actual damage, just various effects*/
