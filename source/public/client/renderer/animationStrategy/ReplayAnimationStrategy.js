@@ -321,9 +321,21 @@ window.ReplayAnimationStrategy = function () {
                             handledMovementsByShip[ship.id] = [];
                         }
 
-                        // Animate all preFire movements for this ship
+                        // Only animate preFire moves caused by THIS ship's own hex-targeted
+                        // weapons (e.g. self-displacement like Hyperspace Jump). Moves caused
+                        // by another ship's per-target effect — e.g. a GraviticMine pulling
+                        // its own launcher — have movement.value pointing to that effect's
+                        // fire order, which isn't in `hexes`. Let Pass 2 handle them so the
+                        // explosion against the moved ship plays before the move (matching
+                        // the behaviour seen for non-launcher pulled ships).
+                        var ownHexFireOrderIds = hexes.map(function (h) { return h.fireOrder ? h.fireOrder.id : null; });
+
                         for (var i in shooterIcon.preFireMovements) {
                             var movement = shooterIcon.preFireMovements[i];
+
+                            if (ownHexFireOrderIds.indexOf(movement.value) === -1) {
+                                continue;
+                            }
 
                             var endState = {
                                 position: new hexagon.Offset(movement.position),
