@@ -225,6 +225,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                         <li>Once the attacking ship has attached itself to the target, all fire by weapons through the claw’s firing arcs is blocked by the target’s hull (they cannot fire at the target unit for safety reasons). 
                             If the attached unit’s weapons are capable of firing into other arcs or into a wider range, they can shoot at targets in those positions. 
                             The unit to which the ship is attached is not prevented from firing any weapons (except at the attached unit)</li> 
+                        <li>If a Grappling Claw is destroyed, and it still had Marine units available, then these will be transferred to any surviving Grappling Claws on the ship.
+                            Marine Units held in Grappling Claw systems will count towards the total marines available for defence if an opponenet tries to capture the ship.</li>    
                     </ul>                                               
                 </li>
         </ul>
