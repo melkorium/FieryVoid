@@ -527,7 +527,8 @@ window.BallisticIconContainer = function () {
 				'Shredder': 'blue',
 				'Defensive Plasma Web': 'green',
 				'Anti-Fighter Plasma Web': 'green',
-				'Transverse Jump': 'blue'
+				'Transverse Jump': 'blue',
+				'Gravitic Mine': 'green'
 			};
 
 			if (modeColorMap[modeName]) {
