@@ -991,8 +991,9 @@ class DBManager
             if ($fire->type != "prefiring" && $phase == 5)
                 continue;            
 
-            $sql = "INSERT INTO `tac_fireorder` VALUES (null, '" . $fire->type . "', " . $fire->shooterid . ", " . $fire->targetid . ", " . $fire->weaponid . ", " . $fire->calledid . ", " . $fire->turn . ", "
-                . $fire->firingMode . ", " . $fire->needed . ", " . $fire->rolled . ", $gameid, '" . $fire->notes . "', " . $fire->shotshit . ", " . $fire->shots . ", '" . $fire->pubnotes . "', 0, '" . $fire->x . "', '" . $fire->y . "', '" . $fire->damageclass . "', '" . $fire->resolutionOrder . "')";
+            $c = $this->connection;
+            $sql = "INSERT INTO `tac_fireorder` VALUES (null, '" . $c->real_escape_string($fire->type) . "', " . $fire->shooterid . ", " . $fire->targetid . ", " . $fire->weaponid . ", " . $fire->calledid . ", " . $fire->turn . ", "
+                . $fire->firingMode . ", " . $fire->needed . ", " . $fire->rolled . ", $gameid, '" . $c->real_escape_string($fire->notes) . "', " . $fire->shotshit . ", " . $fire->shots . ", '" . $c->real_escape_string($fire->pubnotes) . "', 0, '" . $c->real_escape_string($fire->x) . "', '" . $c->real_escape_string($fire->y) . "', '" . $c->real_escape_string($fire->damageclass) . "', '" . $c->real_escape_string($fire->resolutionOrder) . "')";
 
             $this->update($sql);
         }
@@ -2830,8 +2831,9 @@ class DBManager
 
     public function submitSingleFireorder($gameid, $fireOrder)
     {
-            $sql = "INSERT INTO `tac_fireorder` VALUES (null, '" . $fireOrder->type . "', " . $fireOrder->shooterid . ", " . $fireOrder->targetid . ", " . $fireOrder->weaponid . ", " . $fireOrder->calledid . ", " . $fireOrder->turn . ", "
-                . $fireOrder->firingMode . ", " . $fireOrder->needed . ", " . $fireOrder->rolled . ", $gameid, '" . $fireOrder->notes . "', " . $fireOrder->shotshit . ", " . $fireOrder->shots . ", '" . $fireOrder->pubnotes . "', 0, '" . $fireOrder->x . "', '" . $fireOrder->y . "', '" . $fireOrder->damageclass . "', '" . $fireOrder->resolutionOrder . "')";
+            $c = $this->connection;
+            $sql = "INSERT INTO `tac_fireorder` VALUES (null, '" . $c->real_escape_string($fireOrder->type) . "', " . $fireOrder->shooterid . ", " . $fireOrder->targetid . ", " . $fireOrder->weaponid . ", " . $fireOrder->calledid . ", " . $fireOrder->turn . ", "
+                . $fireOrder->firingMode . ", " . $fireOrder->needed . ", " . $fireOrder->rolled . ", $gameid, '" . $c->real_escape_string($fireOrder->notes) . "', " . $fireOrder->shotshit . ", " . $fireOrder->shots . ", '" . $c->real_escape_string($fireOrder->pubnotes) . "', 0, '" . $c->real_escape_string($fireOrder->x) . "', '" . $c->real_escape_string($fireOrder->y) . "', '" . $c->real_escape_string($fireOrder->damageclass) . "', '" . $c->real_escape_string($fireOrder->resolutionOrder) . "')";
 
             $this->update($sql);
 
