@@ -1911,8 +1911,8 @@ class GraviticMine extends Weapon{
 
     private function isImmuneTarget($unit, $gamedata){
         if ($unit instanceof Terrain) return true;
-        if (!empty($unit->base) && !empty($unit->Enormous)) return true; // fixed Enormous bases throw off the field
-        if (!empty($unit->mine)) return true;
+        if ($unit instanceof Mine) return true;        
+        if ($unit->base && $unit->Enormous) return true; // fixed bases throw off the field     
         if ($unit->isDestroyed()) return true;
         if ($unit->getTurnDeployed($gamedata) > $gamedata->turn) return true;
         if (isset($unit->shipSizeClass) && (int)$unit->shipSizeClass === 5) return true; // Terrain catch-all
@@ -1929,10 +1929,11 @@ class GraviticMine extends Weapon{
     }
 
     private function getShearingFactor($unit){
-        if (!empty($unit->mine)) return 0;
+        if ($unit instanceof Mine) return 0;
         if ($unit instanceof FighterFlight) return 1;
-        if (!empty($unit->osat)) return 1;
-        if (!empty($unit->Enormous) && empty($unit->base)) return 6;
+        if ($unit instanceof OSAT) return 1;
+        if ($unit->Enormous) return 6;
+        if ($unit->hangarRequired = 'LCVs') return 2;         
         if (!isset($unit->shipSizeClass)) return 0;
         switch ((int)$unit->shipSizeClass) {
             case 0: return 2; // Light combat vessels
