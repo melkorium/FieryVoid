@@ -110,6 +110,26 @@ window.DeploymentPhaseStrategy = function () {
         }
     };
 
+    DeploymentPhaseStrategy.prototype.onShipsClicked = function (ships, payload) {
+        // Shift+Click bypass: place directly without showing the SelectFromShips picker when:
+        //   - selected unit is a fighter/mine (drops onto stacked ships/mines/fighters), OR
+        //   - selected unit is a regular ship and every stacked unit in the hex is a mine/fighter.
+        if (payload && payload.shiftKey && this.selectedShip
+            && shipManager.getTurnDeployed(this.selectedShip) >= gamedata.turn
+            && validateDeploymentPosition(this.selectedShip, payload.hex, this.deploymentSprites)) {
+            var selIsFighterMine = this.selectedShip.mine || this.selectedShip.flight;
+            var allStackedFighterMine = ships.every(function (s) {
+                return s.id === this.selectedShip.id || s.mine || s.flight;
+            }, this);
+            if (selIsFighterMine || allStackedFighterMine) {
+                this.onHexClicked(payload);
+                return;
+            }
+        }
+
+        PhaseStrategy.prototype.onShipsClicked.call(this, ships, payload);
+    };
+
     DeploymentPhaseStrategy.prototype.onShipClicked = function (ship, payload) {//30 June 2024 - DK - Added for Ally targeting.
         if (shipManager.shouldBeHidden(ship)) return;  //Stealth equipped and undetected enemy, or not deployed yet - DK May 2025
 
@@ -137,6 +157,13 @@ window.DeploymentPhaseStrategy = function () {
                     var selectedPos = new hexagon.Offset(rawPos);
 
                     if (!selectedPos || selectedPos.q !== payload.hex.q || selectedPos.r !== payload.hex.r) {
+                        // Shift+Click: skip the "Deploy here" popup and place directly on this hex.
+                        // Allowed when the selected unit is a fighter/mine, or when the only thing in
+                        // the hex (other than terrain, already excluded above) is a fighter/mine.
+                        if (payload.shiftKey && (this.selectedShip.mine || this.selectedShip.flight || ship.mine || ship.flight)) {
+                            this.onHexClicked(payload);
+                            return;
+                        }
                         this.showSelectFromShips([ship], payload);
                         return;
                     } else {

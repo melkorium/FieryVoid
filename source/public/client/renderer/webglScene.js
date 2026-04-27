@@ -364,6 +364,10 @@ window.webglScene = function () {
         var hexPos = this.coordinateConverter.fromGameToHex(gamePos, true);
         var payload = getPositionObject.call(this, pos, gamePos, hexPos);
         payload.button = event.button;
+        payload.ctrlKey = event.ctrlKey;
+        payload.altKey = event.altKey;
+        payload.shiftKey = event.shiftKey;
+        payload.metaKey = event.metaKey;
 
         //console.log(payload);        
         if (this.lastPositionClicked) {
