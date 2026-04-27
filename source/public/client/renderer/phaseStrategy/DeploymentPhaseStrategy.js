@@ -138,6 +138,25 @@ window.DeploymentPhaseStrategy = function () {
             mathlib.clearLosSprite();
         }
 
+        // Double-click on a friendly ship while a fighter/mine is selected: select that ship
+        // directly instead of letting the SelectFromShips "Deploy here" popup intercept the click.
+        var now = Date.now();
+        var isDoubleClick = this._lastShipClickId === ship.id
+            && (now - (this._lastShipClickTime || 0)) < 400;
+        this._lastShipClickId = ship.id;
+        this._lastShipClickTime = now;
+
+        if (isDoubleClick && this.gamedata.isMyShip(ship)) {
+            var depTurn = shipManager.getTurnDeployed(ship);
+            if (depTurn === gamedata.turn || (depTurn < gamedata.turn && ship.canPreOrder)) {
+                if (this.selectedShip && this.selectedShip.id !== ship.id) {
+                    this.deselectShip(this.selectedShip);
+                }
+                this.selectShip(ship, payload);
+                return;
+            }
+        }
+
         // If we have a selected ship actively ready to deploy, and we click a valid DIFFERENT ship that is already placed on the map
         if (this.selectedShip && this.selectedShip.id !== ship.id) {
             var isPlacedOnMap = false;
