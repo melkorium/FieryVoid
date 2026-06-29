@@ -15,13 +15,15 @@ class kirishiacWarriorTest extends FighterFlight{
         $this->forwardDefense = 8;
         $this->sideDefense = 8;
         $this->freethrust = 14;
-        $this->offensivebonus = 1;
+        $this->offensivebonus = 7;
         $this->jinkinglimit = 6;
         $this->turncost = 0.33;
 		
         $this->gravitic = true;
 		$this->advancedArmor = true;   
 		$this->hardAdvancedArmor = true;   
+
+        $this->dropOutBonus = 0;
         
 		$this->iniativebonus = 90;
         $this->populate();
@@ -44,8 +46,10 @@ class kirishiacWarriorTest extends FighterFlight{
 			$hitPenalty = 0;
 //			$fighter->addFrontSystem(new DirectRam(0, 360, 1));
 //			$fighter->addFrontSystem(new WarriorRam(0, 0, 360, 0, $hitPenalty, true, 0));
-			$fighter->addFrontSystem(new WarriorRam(true));  // True is to specify it is allowed to ram in all scenarios
-			$fighter->addFrontSystem(new DirectRam(true));  // True is to specify it is allowed to ram in all scenarios
+//			$fighter->addFrontSystem(new WarriorRam(true));  // True is to specify it is allowed to ram in all scenarios
+//			$fighter->addFrontSystem(new DirectRam(true));  // True is to specify it is allowed to ram in all scenarios
+			$fighter->addFrontSystem(new GlancingRam(0, 360));
+			$fighter->addFrontSystem(new WarriorRam(0, 360));
 			
 			$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack
 			

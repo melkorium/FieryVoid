@@ -85,6 +85,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         </li>                
         <li><a href="#ancientfactions">ANCIENT FACTIONS</a>
            <ul class="sub-list">
+                <li><a href="#kirishiac">KIRISHIAC LORDS</a></li>             
                 <li><a href="#mindriders">THE MINDRIDERS</a></li>             
                 <li><a href="#shadows">SHADOW ASSOCIATION</a></li>
                 <li><a href="#thirdspace">THIRDSPACE (Unofficial)</a></li> 
@@ -1003,6 +1004,24 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
             If a Self-Repair system is destroyed or damaged, unused repair points are not lost.</li>
     </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a> 
+
+
+
+    <h4 id="kirishiac" >KIRISHIAC LORDS</h4>
+    <p>Below is a list of systems the Kirishiac Lords, the youngest of the Ancient factions, use, with short description of effect and any notable design differences from their original tabletop versions.</p>
+
+<h5>Hardened Advanced Armor</h5>
+	
+		<li>Kirishiac armor is incredibly dense. It conveys all of the benefits of advanced armor, but also earns several other advantages ... even against Ancient-class weapons! 
+            <ul class="circle-list">
+                <li>Against weapons that would normally ignore advanced armor, hardened advance armor counts as half, rounding fractions down. This includes Ancient weapons and raking sub-vollies.</li>
+                <li>Against flash weapons, hardened advanced armor is counted as double.</li>                   
+                <li>Against plasma weapons, the armor is not halved, even against Ancient weapons.</li>                   
+            </ul>            
+        </li>
+
+<a class="back-to-top" href="#top">↩ Back to Top</a> 
+
 
     <h4 id="mindriders" >THE MINDRIDERS</h4>
     <p>Below is a list of systems The Mindriders use, with short description of effect and any notable design differences from their original tabletop versions.</p>

@@ -1528,6 +1528,8 @@ class MedAntigravityBeam extends Gravitic{
 
         public $factionAge = 4;//Primordial weapon, which sometimes has consequences!
 
+		private $pairing = null;	//Which orbital is it paired with?	
+
         public $intercept = 2;
 		public $priority = 5; 		
     	public $gunsArray = array(1=>1, 2=>2); //one mount, but two Beam shots!
@@ -1546,7 +1548,8 @@ class MedAntigravityBeam extends Gravitic{
         public $canSplitShots = false; //Allows Firing Mode 2 to split shots.
         public $canSplitShotsArray = array(1=>false, 2=>true );          
 
-		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+			$this->pairing = $pairing;
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 2;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
@@ -1595,6 +1598,10 @@ class MedAntigravityBeam extends Gravitic{
 					$this->maxDamage = 12; //Split Beam
 					break;	
 			}
+		}
+
+	public function getPairing(){ //getter for pairing, allows to get attached/paired systems/weps
+				return $this->pairing;
 		}
 		
 }//end of class MedAntigravityBeam
