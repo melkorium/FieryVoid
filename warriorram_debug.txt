@@ -1,2 +1,0 @@
-this->id=3 | fighter->id=1 | remaining=18 | totalDamage=0
-this->id=3 | fighter->id=1 | remaining=18 | totalDamage=0
