@@ -42,7 +42,7 @@ class kirishiacWarriorTest extends FighterFlight{
 			$fighter->displayName = "Warrior";
 			$fighter->imagePath = "img/ships/kirishiacWarrior2.png";
 			$fighter->iconPath = "img/ships/kirishiacWarrior_large2.png";
-			
+ 			
 			$hitPenalty = 0;
 //			$fighter->addFrontSystem(new DirectRam(0, 360, 1));
 //			$fighter->addFrontSystem(new WarriorRam(0, 0, 360, 0, $hitPenalty, true, 0));
