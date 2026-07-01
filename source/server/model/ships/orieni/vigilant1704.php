@@ -8,7 +8,7 @@ class Vigilant1704 extends BaseShip{
 		$this->faction = "Orieni Imperium";
         $this->phpclass = "Vigilant1704";
         $this->imagePath = "img/ships/vigilant.png";
-        $this->shipClass = "Vigilant Combat Support Ship (early)";
+        $this->shipClass = "Vigilant Combat Support Ship (Early)";
         //$this->variantOf = "Vigilant Combat Support Ship";
 	        $this->variantOf = 'OBSOLETE'; //awaiting all games it's used in, then is to be removed from active ships list
  
@@ -33,7 +33,7 @@ class Vigilant1704 extends BaseShip{
         $this->addPrimarySystem(new Engine(5, 25, 0, 9, 4));
         $this->addPrimarySystem(new Hangar(4, 14, 6));
         $this->addPrimarySystem(new JumpEngine(5, 30, 6, 25));
-        $this->addPrimarySystem(new HKControlNode(5, 12, 1, 1));
+        $this->addPrimarySystem(new HKControlNodeOrieni(5, 12, 1, 1));
         $this->addPrimarySystem(new SoMissileRack(5, 6, 0, 0, 360));
         $this->addPrimarySystem(new ReloadRack(6, 9));
         

@@ -328,6 +328,22 @@ class ReducedIniative extends Critical{
     }
 }
 
+/* HK Jamming: applied to a remote-controlled fighter flight (Orieni Hunter-Killer)
+ * whose command link was severed by ELINT Jamming (disruption roll 19+). The flight
+ * is "Uncontrolled" for ONE turn: the player loses control and (Strategy B) it drifts
+ * straight-line at a -3 initiative penalty. Placed on the flight's sample fighter
+ * (systems[1]) during the crit phase, in effect the FOLLOWING turn (oneturn semantics,
+ * matching the ReducedIniativeOneTurn that accompanies it). The -3 ini for the
+ * uncontrolled turn is carried by this crit's outputMod-independent read in
+ * BaseShip::getCommonIniModifiers. */
+class Uncontrolled extends Critical{
+    public $description = "Uncontrolled!";
+    public $oneturn = true;
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
+    }
+}
+
 class ShipDisabledOneTurn extends Critical{
     public $description = "Ship disabled for ";
     public $oneturn = true;
@@ -352,6 +368,17 @@ class ReducedRange extends Critical{
 
 class ReducedDamage extends Critical{
     public $description = "Damage reduced";
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+            parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
+    }
+}
+
+//Twin Array special crit (roll 20+): one of the two guns is destroyed (-1 gun).
+//Applied in TwinArray::effectCriticals (reduces $guns); two of these destroys the
+//whole weapon (handled in TwinArray::criticalPhaseEffects). Permanent - can't repair.
+class GunLost extends Critical{
+    public $description = "Gun Lost";
+	public $repairPriority = 0;//Can't repair.
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
     }

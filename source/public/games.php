@@ -132,16 +132,14 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
     </div>
 
     <div class="resources">
-      <h3>Latest Updates — June 2026</h3>
+      <h3>Latest Updates — July 2026</h3>
       <ul class="updates-list">
-        <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->
-        <li><strong>The Barada Imperium</strong> - New custom faction that specializes in Particle Beam weaponry and Carriers.  Thanks to Lunara!</li>        
-        <li><strong>Hangar Operations</strong> - Fighter flights can now deploy, launch and land in ship hangars!  See the Fiery Void FAQ above for full details.</li>     
-        <li><strong>Hangar Refinements</strong> - LCV / Fighter Rails, and corrections to hangar system stats, huge thanks to Nato for providing the info needed to correct these!</li>  
-        <li><strong>Shadow Fighter Bomb</strong> - Shadow fighters are now purchased as enhancements, and can launch and be re-absorbed by their carrier ships.</li>                                   
-        <li><strong>Replay Speed Setting</strong> - You can now decrease and/or increase the speed that the Replay Phase animates. </li>
-        <li><strong>Torata Updates</strong> - New images added for the Torata Regency, and three new custom ships from the Dilagar war era added, thanks to Lunura. </li>        
-        <li><strong>Escalation Wars</strong> -  Breaching pods, mines and fixed defenses added to Escalation factions, plus four new ships, thanks to Geoff!</li>                                                                                       
+        <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->    
+        <li><strong>HK Control Nodes</strong> - Hunker-Kiler drones which don't have a control node will not become 'Uncontrolled'. Uncontrolled HKs will now attempt to avoid Terrain.</li>      
+        <li><strong>HK Jamming</strong> - ELINT vessels can use EW to try and jam Orieni Hunter-Killer drones.  More details available in the the new EW section of FAQ.</li>  
+        <li><strong>Shadow Fighter Bomb</strong> - Shadow fighters are now purchased as enhancements, and can launch and be re-absorbed by their carrier ships.</li>                                         
+        <li><strong>Fleet Selection</strong> -  The ‘Show Custom’ checkbox is now ticked by default in Fleet Builder screens, and games where Custom Factions are marked as ‘Allowed’.</li>                                                                                       
+        <li><strong>New Critical</strong> - Quad and Twin Arrays can be affected by the 'Gun Lost' critical.</li>  
         <li><strong>General Fixes</strong> - Many other small bug fixes/updates. Thanks for the reports!</li>           
         <!--<li><strong>6 Jun</strong> - Overlay colors, deployment zone tweaks, UI fixes. Pulsar mine fixed, tooltip/text readability improved.</li>-->
       </ul>
