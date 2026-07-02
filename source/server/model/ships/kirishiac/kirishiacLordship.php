@@ -42,34 +42,65 @@ class kirishiacLordship extends BaseShip{
         $this->addPrimarySystem(new JumpEngine(8, 25, 6, 8));
         $this->addPrimarySystem(new SelfRepair(7, 12, 6)); //armor, structure, output
 
-        $this->addFrontSystem(new KirishiacOrbital(6, 18, 'R', 'B', -7, $orbitalHitChart)); //Armor, stucture, orientation, pairing, profileAdjust, hitchart
+
+		$orbitalA = new KirishiacOrbital(6, 18, 'L', 'A', -7, $orbitalHitChart);
+		$beamA = new AntigravityBeam(6, 6, 3, 270, 90, 'A');
+		$orbitalA->addMirror($beamA);
+		$this->addFrontSystem($orbitalA);
+		$this->addFrontSystem($beamA);
+
+		$orbitalB = new KirishiacOrbital(6, 18, 'R', 'B', -7, $orbitalHitChart);
+		$beamB = new AntigravityBeam(6, 6, 3, 270, 90, 'B');
+		$orbitalB->addMirror($beamB);
+		$this->addFrontSystem($orbitalB);
+		$this->addFrontSystem($beamB);
+
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));		
-        $this->addFrontSystem(new KirishiacOrbital(6, 18, 'L', 'A', -7, $orbitalHitChart));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));       
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
-        $this->addFrontSystem(new AntigravityBeam(6, 6, 3, 270, 90, false, 'B'));	    
-        $this->addFrontSystem(new AntigravityBeam(6, 6, 3, 270, 90, false, 'A'));	
-		
-        
-        $this->addAftSystem(new AntigravityBeam(6, 6, 3, 90, 270, false, 'F'));
-        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));	
-        $this->addAftSystem(new AntigravityBeam(6, 6, 3, 90, 270, false, 'E'));          
-        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
-        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
-        $this->addAftSystem(new KirishiacOrbital(6, 18, 'R','F', -7, $orbitalHitChart));
-        $this->addAftSystem(new KirishiacOrbital(6, 18, 'L', 'E', -7, $orbitalHitChart));  
-       
 
-        $this->addLeftSystem(new AntigravityBeam(6, 6, 3, 120, 300, false, 'G'));
-        $this->addLeftSystem(new KirishiacOrbital(6, 18,'R', 'G', -7, $orbitalHitChart));              
-        $this->addLeftSystem(new AntigravityBeam(6, 6, 3, 240, 60, false, 'H'));
-         $this->addLeftSystem(new KirishiacOrbital(6, 18, 'L', 'H', -7, $orbitalHitChart)); 
+		$orbitalF = new KirishiacOrbital(6, 18, 'R', 'F', -7, $orbitalHitChart);
+		$beamF = new AntigravityBeam(6, 6, 3, 90, 270, 'F');
+		$orbitalF->addMirror($beamF);
+		$this->addAftSystem($orbitalF);
+		$this->addAftSystem($beamF);
+
+		$orbitalE = new KirishiacOrbital(6, 18, 'L', 'E', -7, $orbitalHitChart);
+		$beamE = new AntigravityBeam(6, 6, 3, 90, 270, 'E');
+		$orbitalB->addMirror($beamE);
+		$this->addAftSystem($orbitalE);
+		$this->addAftSystem($beamE);
+        
+        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));	
+        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
+        $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
+       
+		$beamG = new AntigravityBeam(6, 6, 3, 120, 300, 'G');
+		$orbitalG = new KirishiacOrbital(6, 18, 'R', 'G', -7, $orbitalHitChart);
+		$orbitalG->addMirror($beamG);
+		$this->addLeftSystem($beamG);
+		$this->addLeftSystem($orbitalG);
+
+		$beamH = new AntigravityBeam(6, 6, 3, 240, 60, 'H');
+		$orbitalH = new KirishiacOrbital(6, 18, 'L', 'H', -7, $orbitalHitChart);
+		$orbitalH->addMirror($beamH);
+		$this->addLeftSystem($beamH);
+		$this->addLeftSystem($orbitalH);
+
         $this->addLeftSystem(new GraviticThruster(7, 25, 0, 7, 3));
 
-		$this->addRightSystem(new AntigravityBeam(6, 6, 3, 60, 240, false, 'C'));
-        $this->addRightSystem(new KirishiacOrbital(6, 18, 'L','C', -7, $orbitalHitChart));   
-        $this->addRightSystem(new KirishiacOrbital(6, 18, 'R', 'D', -7, $orbitalHitChart));              
-        $this->addRightSystem(new AntigravityBeam(6, 6, 3, 300, 120, false, 'D'));	        
+		$beamC = new AntigravityBeam(6, 6, 3, 60, 240, 'C');
+		$orbitalC = new KirishiacOrbital(6, 18, 'L', 'C', -7, $orbitalHitChart);
+		$orbitalC->addMirror($beamC);
+		$this->addRightSystem($beamC);
+		$this->addRightSystem($orbitalC);
+
+		$beamD = new AntigravityBeam(6, 6, 3, 300, 120, 'D');
+		$orbitalD = new KirishiacOrbital(6, 18, 'R', 'D', -7, $orbitalHitChart);
+		$orbitalD->addMirror($beamD);
+		$this->addRightSystem($beamD);
+		$this->addRightSystem($orbitalD);
+
         $this->addRightSystem(new GraviticThruster(7, 25, 0, 7, 4));
 
 

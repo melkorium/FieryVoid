@@ -27,6 +27,12 @@ class kirishiacConqueror extends HeavyCombatVessel{
         $this->rollcost = 3;
         $this->pivotcost = 2;
 		$this->iniativebonus = 8 *5;
+
+
+        $orbitalHitChart = array( 
+            6 => "Medium Antigravity Beam",
+            20 => "Structure"
+            );
 		
         $this->addPrimarySystem(new CnC(7, 16, 0, 0));
 		$scanner = new Scanner(6, 24, 0, 10);
@@ -38,20 +44,50 @@ class kirishiacConqueror extends HeavyCombatVessel{
         $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 3));
         $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 4));
 		$this->addPrimarySystem(new JumpEngine(6, 16, 6, 12));
+
+		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
+		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
+		$orbitalA->addMirror($beamA);
+		$this->addFrontSystem($orbitalA);
+		$this->addFrontSystem($beamA);
+
+		$orbitalB = new KirishiacOrbitalLight(5, 15, 'C', 'B', -7, $orbitalHitChart);
+		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
+		$orbitalB->addMirror($beamB);
+		$this->addFrontSystem($orbitalB);
+		$this->addFrontSystem($beamB);
+
+		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
+		$beamC = new MedAntigravityBeam(5, 6, 2, 330, 150, 'C');
+		$orbitalC->addMirror($beamC);
+		$this->addFrontSystem($orbitalC);
+		$this->addFrontSystem($beamC);
 		
-		$this->addFrontSystem(new MedAntigravityBeam(5, 6, 2, 210, 30));
         $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 240, 360));
         $this->addFrontSystem(new HypergravitonBeam(6, 20, 12, 300, 60));	
-        $this->addFrontSystem(new MedAntigravityBeam(5, 6, 2, 270, 90));
-        $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 0, 120));
         $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 300, 60));
-        $this->addFrontSystem(new MedAntigravityBeam(5, 6, 2, 330, 150));
+        $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 0, 120));
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
 
-        $this->addAftSystem(new MedAntigravityBeam(5, 6, 2, 150, 330));
-        $this->addAftSystem(new MedAntigravityBeam(5, 6, 2, 90, 270));
-        $this->addAftSystem(new MedAntigravityBeam(5, 6, 2, 30, 210));
+		$orbitalF = new KirishiacOrbitalLight(5, 15, 'R', 'F', -7, $orbitalHitChart);
+		$beamF = new MedAntigravityBeam(5, 6, 2, 30, 210, 'F');
+		$orbitalF->addMirror($beamF);
+		$this->addAftSystem($orbitalF);
+		$this->addAftSystem($beamF);
+
+		$orbitalE = new KirishiacOrbitalLight(5, 15, 'C', 'E', -7, $orbitalHitChart);
+		$beamE = new MedAntigravityBeam(5, 6, 2, 90, 270, 'E');
+		$orbitalE->addMirror($beamE);
+		$this->addAftSystem($orbitalE);
+		$this->addAftSystem($beamE);
+
+		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
+		$beamD = new MedAntigravityBeam(5, 6, 2, 330, 150, 'D');
+		$orbitalD->addMirror($beamD);
+		$this->addAftSystem($orbitalD);
+		$this->addAftSystem($beamD);
+
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));

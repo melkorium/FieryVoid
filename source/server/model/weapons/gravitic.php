@@ -2016,7 +2016,7 @@ class HypergravitonBeam extends Weapon {
 
 class MedAntigravityBeam extends Gravitic{
 		public $name = "MedAntigravityBeam";
-        public $displayName = "Medium Antigravity Beam";
+//        public $displayName = "Medium Antigravity Beam";
         public $iconPath = "MedAntigravityBeam.png";
         public $animation = "laser";
         public $animationColor = array(250, 251, 196);
@@ -2024,6 +2024,7 @@ class MedAntigravityBeam extends Gravitic{
         public $factionAge = 4;//Primordial weapon, which sometimes has consequences!
 
 		private $pairing = null;	//Which orbital is it paired with?	
+		private $mirror= null;
 
         public $intercept = 2;
 		public $priority = 5; 		
@@ -2045,6 +2046,7 @@ class MedAntigravityBeam extends Gravitic{
 
 		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
 			$this->pairing = $pairing;
+			$this->displayName = 'Medium Antigravity Beam ' . $pairing . '';
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 2;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
@@ -2105,12 +2107,15 @@ class MedAntigravityBeam extends Gravitic{
 
 class AntigravityBeam extends Gravitic{
 		public $name = "AntigravityBeam";
-        public $displayName = "Antigravity Beam";
+//        public $displayName = "Antigravity Beam";
         public $iconPath = "AntigravityBeam.png";
         public $animation = "laser";
         public $animationColor = array(250, 251, 196);
 
         public $factionAge = 3;//Primordial weapon, which sometimes has consequences!
+
+		private $pairing = null;	//Which orbital is it paired with?	
+		private $mirror= null;
 
         public $intercept = 3;
 		public $priority = 5; 		
@@ -2127,10 +2132,12 @@ class AntigravityBeam extends Gravitic{
 		public $weaponClassArray = array(1=>'Gravitic', 2=>'Gravitic');
 		public $firingModes = array( 1 => "Single", 2=> "Triple Beams");
 		public $firingMode = 1;
-        public $canSplitShots = false; //Allows Firing Mode 2 to split shots.
+        public $canSplitShots = false; //Allows Firing Mode 3 to split shots.
         public $canSplitShotsArray = array(1=>false, 2=>true );          
 
-		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+			$this->pairing = $pairing;
+			$this->displayName = 'Antigravity Beam ' . $pairing . '';
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 3;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
