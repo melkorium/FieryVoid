@@ -114,7 +114,8 @@ const CloseButton = styled.div`
     padding-left: 5px;
     ${Clickable}
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 30px;
         font-size: 28px;
@@ -129,7 +130,8 @@ const SubContainer = styled(Container)`
     display: flex;
     flex-direction: column;
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 98%;
         margin: 5px auto;
     }
@@ -140,7 +142,8 @@ const Paragraph = styled.p`
     margin: 5px 0 5px 0;
     color: #6689ba;
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         font-size: 12px;
         margin: 2px 0 2px 0;
     }

@@ -327,7 +327,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     padding: 10px;
     font-weight: bold;
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         padding: 5px 10px;
         font-size: 14px;
     }
@@ -401,7 +402,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     padding-left: 5px;
     ${bi}
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 30px;
         font-size: 28px;
@@ -414,7 +416,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     display: flex;
     flex-direction: column;
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 98%;
         margin: 5px auto;
     }
@@ -423,7 +426,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     margin: 5px 0 5px 0;
     color: #6689ba;
 
-    @media (max-width: 765px) {
+    /* Portrait phones OR short landscape phones (wider than 765px). */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         font-size: 12px;
         margin: 2px 0 2px 0;
     }
@@ -449,7 +453,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     border-top: none;
     ${bi}
 
-    @media (max-width: 765px) {
+    /* Shrink on narrow phones (portrait) AND short landscape phones — a phone
+       held sideways is wider than 765px, so also match on short viewport height. */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 36px;
         font-size: 28px;
@@ -548,7 +554,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     border-top: none;
     ${bi}
 
-    @media (max-width: 765px) {
+    /* Shrink on narrow phones (portrait) AND short landscape phones — a phone
+       held sideways is wider than 765px, so also match on short viewport height. */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 30px;
         right: 40px;
@@ -560,7 +568,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     top: 60px;
     z-index: 4;
 
-    @media (max-width: 765px) {
+    /* Narrow phones (portrait) OR short landscape phones: nudge up.
+       Landscape phones report width > 765px, so key off short height too. */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         top: 50px;
     }
 
@@ -577,7 +587,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-size: cover;
     ${bi}
 
-    @media (max-width: 765px) {
+    /* Shrink on narrow phones (portrait) AND short landscape phones — a phone
+       held sideways is wider than 765px, so also match on short viewport height. */
+    @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 30px;
         font-size: 20px;
