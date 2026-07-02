@@ -533,7 +533,8 @@ class PsionicTorpedo extends Torpedo{ //Powerful Thirdspace weapon that detonate
             $armour = $armour-4;
             return $armour;
 		}elseif ($system->hardAdvancedArmor){
-			return (($armor/2)+2);
+            $armour = parent::getSystemArmourBase($target, $system, $gamedata, $fireOrder, $pos);            
+			return (($armour/2)+2);
 		}else{					
 			return 0;
         }
@@ -851,7 +852,7 @@ class LimpetBoreTorpedo extends Torpedo{
 				}		
 				
 			}
-			
+			parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);			
 	}//endof onDamagedSystem() 	
 		
 		

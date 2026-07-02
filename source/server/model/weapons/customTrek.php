@@ -1776,8 +1776,8 @@ class TrekIon extends Weapon{
 	
 	
     protected function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){ //make vulnerable to next critical
+		parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);	
 		if ($system->advancedArmor) return;
-//		if ($system->hardAdvancedArmor) return;  // Hardened Advanced Armor - GTS
 		
       $dmg = $damage - $armour;
       if($dmg<=0) return; //no damage was actually done
@@ -1789,6 +1789,7 @@ class TrekIon extends Weapon{
 	      $dmg--;
 	      $system->critRollMod++;
       }
+  
     }	
 	
 	

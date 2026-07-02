@@ -1203,6 +1203,7 @@
 				}               
 				$this->doRepeatDamageOnStructure($fireOrder,$target,$system,$damage, $gamedata);
 			}
+			parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);            
 		}//endof onDamagedSystem
 		
 		//overkill should return damaged system itself, even if it is destroyed! - necessary for redefined doDamage to work properly
