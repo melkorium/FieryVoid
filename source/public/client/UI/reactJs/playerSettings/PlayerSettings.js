@@ -48,8 +48,12 @@ const MainButton = styled(ContainerRoundedRightBottom)`
     @media (max-width: 765px), (max-height: 500px) and (orientation: landscape) {
         width: 30px;
         height: 36px;
-        font-size: 28px;
-        padding-left: 2px;
+        /* Sized to sit inside the smaller box (28px overflowed — the ⚙ advance is
+           wider than its font-size). This button is the flush top-RIGHT corner, so
+           nudge the glyph toward that corner: left+bottom padding shifts a
+           flex-centred glyph right+up so it doesn't read as low and left. */
+        font-size: 24px;
+        padding: 0 0 4px 4px;
     }
 `;
 

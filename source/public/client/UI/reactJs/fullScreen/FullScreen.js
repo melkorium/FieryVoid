@@ -54,7 +54,8 @@ const MainButton = styled(ContainerRounded)`
         width: 30px;
         height: 30px;
         right: 40px;
-        font-size: 20px;
+        /* "FS" sized to sit comfortably inside the 30px box (was 20px, too large). */
+        font-size: 16px;
     }
 `;
 
