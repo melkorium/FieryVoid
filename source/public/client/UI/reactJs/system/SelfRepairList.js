@@ -137,18 +137,24 @@ const ListItem = styled.div`
         }
     `}
 
-    /* BOTTOM-of-list drop: open a real gap below the last row. */
-    ${props => props.$gapAtEnd && `
-        margin-bottom: ${props.$gapSize}px;
+    /* BOTTOM-of-list drop: a marker line at the last row's BOTTOM edge. It is
+       deliberately NOT a real gap: a bottom margin-bottom grows the container's
+       scrollable content, and closing it (dragging back up one) clamps scrollTop
+       and shifts the pointer's content position up by a row — which made the
+       bottom row jump TWO slots (badly on mobile, where the list is always
+       scrolled and rows are tall). A line changes no layout, so no clamp. Nothing
+       sits below the last row, so a line here is unambiguous (unlike the TOP). */
+    ${props => props.$lineAtEnd && `
         &::after {
             content: "";
             position: absolute;
             left: 0;
             right: 0;
-            bottom: -${props.$gapSize}px;
-            height: ${props.$gapSize}px;
-            box-shadow: inset 0 0 0 2px #ffcc33, 0 0 6px 1px rgba(255, 204, 51, 0.5);
-            background-color: rgba(255, 204, 51, 0.12);
+            bottom: -1px;
+            height: 3px;
+            background-color: #c9a028;
+            border-radius: 2px;
+            z-index: 4;
             pointer-events: none;
         }
     `}
@@ -308,12 +314,20 @@ class SelfRepairList extends React.Component {
         // (gotcha: move/up live on window for the drag's duration).
         this.onDragMove = this.onDragMove.bind(this);
         this.onDragEnd = this.onDragEnd.bind(this);
+        this.autoScrollTick = this.autoScrollTick.bind(this);
+
+        // Edge auto-scroll while dragging (see onDragMove). rAF handle + the last
+        // known pointer Y so the loop can keep working when the pointer holds
+        // still at an edge (no more pointermove events fire).
+        this.autoScrollRAF = null;
+        this.autoScrollDir = 0; // -1 up, +1 down, 0 off
     }
 
     componentWillUnmount() {
-        // Defensive: never leave window listeners attached if the window closes
-        // mid-drag.
+        // Defensive: never leave window listeners / rAF loops running if the
+        // window closes mid-drag.
         this.removeDragListeners();
+        this.stopAutoScroll();
     }
 
     removeDragListeners() {
@@ -500,7 +514,7 @@ class SelfRepairList extends React.Component {
         // (see onDragMove) so the follow stays lag-free.
         if (this.dragRef && this.dragRef.started && this.listRef) {
             const el = this.listRef.querySelector('[data-keyid="' + this.dragRef.keyId + '"]');
-            if (el) this.positionDraggedEl(el, this.dragRef, this.dragRef.dy || 0);
+            if (el) this.positionDraggedEl(el, this.dragRef, this.dragRef.lastClientY);
         }
 
         // Sync state with props if they change externally (e.g. from server or other components)
@@ -630,22 +644,26 @@ class SelfRepairList extends React.Component {
         // height mid-transition) can't resize the auto-sized box.
         const lockHeight = this.listRef ? this.listRef.offsetHeight : 0;
         // Capture the row's geometry so we can pull it OUT OF FLOW (absolute) for
-        // the drag: pinned at its start offset + width, it follows the pointer via
-        // translateY from a FIXED origin — so gaps opening/closing elsewhere can
-        // never shift its baseline (which made it "detach" and snap home).
-        const anchorTop = rowEl ? rowEl.offsetTop : 0;   // offset within the scroll container
+        // the drag: absolute + pinned under the pointer, its position anchored to
+        // the POINTER's viewport Y (see positionDraggedEl) so it can't detach when
+        // gaps open elsewhere and keeps tracking the finger while auto-scrolling.
         const anchorWidth = rowEl ? rowEl.offsetWidth : 0;
+        // Where inside the row the pointer grabbed it — keeps the row under the
+        // finger (no jump) and is the offset the viewport-anchored positioning
+        // subtracts each frame.
+        const grabOffsetInRow = rowEl ? (e.clientY - rowEl.getBoundingClientRect().top) : 0;
 
         this.dragRef = {
             keyId: keyId,
             pointerId: e.pointerId,
-            startY: e.clientY,   // pointer Y when the row last took its baseline
+            startY: e.clientY,   // pointer Y at grab (used only for the 4px threshold)
             startIdx: startIdx,  // index in the visible (descending) list
             order: order,        // snapshot of the ordered items at grab time
             gapSize: gapSize,    // px of empty space to open at the drop target
             lockHeight: lockHeight, // px height to pin the container to while dragging
-            anchorTop: anchorTop,   // start offsetTop for the absolute drag
             anchorWidth: anchorWidth, // start width for the absolute drag
+            grabOffsetInRow: grabOffsetInRow, // pointer offset within the grabbed row
+            lastClientY: e.clientY, // most recent pointer Y (fed to the auto-scroll loop)
             started: false       // true once past the move threshold
         };
 
@@ -659,54 +677,58 @@ class SelfRepairList extends React.Component {
         const d = this.dragRef;
         if (!d || e.pointerId !== d.pointerId) return;
 
-        const dy = e.clientY - d.startY;
-
         // Small threshold so a tap/click isn't treated as a drag.
         if (!d.started) {
-            if (Math.abs(dy) < 4) return;
+            if (Math.abs(e.clientY - d.startY) < 4) return;
             d.started = true;
         }
         e.preventDefault();
 
-        // Which slot is the pointer currently over? Compare the pointer Y against
-        // each settled row's vertical centre (the dragged row is out of flow, so
-        // we SKIP it). dropIdx is produced directly in "grabbed-row-removed" index
-        // space, which the render mapping expects.
+        d.lastClientY = e.clientY;
+        this.updateDragForPointer(e.clientY);
+        this.updateAutoScroll(e.clientY);
+    }
+
+    // Core drag update for a given pointer viewport-Y: recompute the drop slot,
+    // reposition the dragged row, and (change-guarded) setState the dropIdx.
+    // Called by onDragMove AND by the auto-scroll loop (with the last pointer Y)
+    // so the indicator + row keep tracking while the container scrolls itself.
+    updateDragForPointer(clientY) {
+        const d = this.dragRef;
+        if (!d || !this.listRef) return;
+
+        // Which slot is the pointer currently over? Compare against each settled
+        // row's vertical centre (the dragged row is out of flow, so SKIP it).
+        // dropIdx is in "grabbed-row-removed" index space (render expects it).
         //
-        // Measure the SETTLED (resting) layout, not the live one. In the HYBRID
-        // scheme only the TOP gap (dropIdx === 0) displaces the rows we measure:
-        // its margin-top pushes ALL settled rows down by gapSize. The middle
-        // marker LINE opens no gap (no displacement), and the bottom gap is below
-        // everything (displaces nothing above it). So the only correction needed
-        // is to subtract gapSize from every row while the top gap is open —
-        // otherwise opening it would move the measurement target and flip dropIdx
-        // back, the oscillation that read as juddery dragging.
-        const rows = this.listRef
-            ? this.listRef.querySelectorAll('[data-keyid]')
-            : [];
+        // Work in CONTENT coordinates (offsetTop + scrollTop), NOT viewport rects.
+        // Viewport rects move when the container scrolls, and the BOTTOM gap
+        // (margin-bottom) grows the content so closing it clamps scrollTop and
+        // shifts every row up — which made "drag bottom row up one" jump TWO slots.
+        // Content coords are scroll-independent, so that whole class of shift is
+        // gone. The only gap that still moves a row's offsetTop is the TOP gap
+        // (its margin-top pushes all settled rows down by gapSize); subtract it so
+        // opening the top gap doesn't move the measurement target (oscillation).
+        const rows = this.listRef.querySelectorAll('[data-keyid]');
+        const listRect = this.listRef.getBoundingClientRect();
+        const pointerContentY = (clientY - listRect.top) + this.listRef.scrollTop;
         const topGapOpen = this.state.drag && this.state.drag.dropIdx === 0;
         const topGapOffset = topGapOpen ? d.gapSize : 0;
         let dropIdx = 0;
         let draggedEl = null;
         for (let i = 0; i < rows.length; i++) {
             if (rows[i].getAttribute('data-keyid') === String(d.keyId)) {
-                draggedEl = rows[i];            // the row we're dragging
-                continue;                       // skip it in the slot scan
+                draggedEl = rows[i];
+                continue;
             }
-            const r = rows[i].getBoundingClientRect();
-            const restingCentre = r.top - topGapOffset + r.height / 2;
-            if (e.clientY < restingCentre) break; // land above this row
+            const restingCentre = rows[i].offsetTop - topGapOffset + rows[i].offsetHeight / 2;
+            if (pointerContentY < restingCentre) break;
             dropIdx++;
         }
 
-        // Position the dragged row IMPERATIVELY so it tracks the pointer with zero
-        // React latency (routing this through setState/render makes it visibly lag
-        // on fast moves). The row is absolute (see $dragging CSS); we pin it to its
-        // captured start offset/width and follow the pointer via translateY. dy +
-        // geometry are stashed so componentDidUpdate can re-assert them after a
-        // dropIdx re-render.
-        d.dy = dy;
-        if (draggedEl) this.positionDraggedEl(draggedEl, d, dy);
+        // Position the dragged row IMPERATIVELY (zero React latency; setState-per-
+        // move lags on fast drags). Re-asserted in componentDidUpdate.
+        if (draggedEl) this.positionDraggedEl(draggedEl, d, clientY);
 
         const cur = this.state.drag;
         if (!cur || cur.keyId !== d.keyId || cur.dropIdx !== dropIdx) {
@@ -714,17 +736,17 @@ class SelfRepairList extends React.Component {
         }
     }
 
-    // Pin the absolute dragged row to its captured start geometry and follow the
-    // pointer via translateY. Fixed origin => gaps opening/closing elsewhere can't
-    // shift it. Used by onDragMove and re-asserted by componentDidUpdate.
-    // The row's visual top (anchorTop + dy) is CLAMPED to the container's content
-    // range so it can't slide up under the header (or past the bottom edge) — at
-    // the extremes it snaps to sit exactly in the top/bottom gap that opens there.
-    positionDraggedEl(el, d, dy) {
-        let top = d.anchorTop + dy;
-        const maxTop = this.listRef
-            ? Math.max(0, this.listRef.scrollHeight - d.gapSize)
-            : d.anchorTop + dy;
+    // Pin the absolute dragged row under the pointer. Anchored to the POINTER's
+    // viewport position (not a fixed grab-time dy) so it keeps tracking the finger
+    // while the container auto-scrolls beneath it: content-top = (pointer - list
+    // top) + scrollTop - grabOffset. CLAMPED to the content range so it can't slide
+    // up under the header or past the bottom — at the extremes it snaps into the
+    // top/bottom gap. Used by updateDragForPointer + re-asserted by
+    // componentDidUpdate (which passes dragRef.lastClientY).
+    positionDraggedEl(el, d, clientY) {
+        const listRect = this.listRef.getBoundingClientRect();
+        let top = (clientY - listRect.top) + this.listRef.scrollTop - d.grabOffsetInRow;
+        const maxTop = Math.max(0, this.listRef.scrollHeight - d.gapSize);
         if (top < 0) top = 0;
         else if (top > maxTop) top = maxTop;
 
@@ -734,12 +756,77 @@ class SelfRepairList extends React.Component {
         el.style.transform = 'none';
     }
 
+    // Edge auto-scroll: while the pointer sits within EDGE_ZONE px of the
+    // container's top/bottom edge, scroll the list toward that edge so the player
+    // can drag past the visible rows (essential on mobile, where touch-action:none
+    // disables native scroll mid-drag). Speed is PROPORTIONAL to how deep into the
+    // zone the pointer is. Runs on a rAF loop (below) because pointermove stops
+    // firing when the finger holds still at the edge.
+    // Decide direction + speed only (no scheduling — that lives in the two helpers
+    // below, guarded so there is never more than one rAF in flight).
+    updateAutoScroll(clientY) {
+        const list = this.listRef;
+        if (!list) { this.stopAutoScroll(); return; }
+        const EDGE_ZONE = 30; // px from an edge that triggers scroll
+        const rect = list.getBoundingClientRect();
+        const canUp = list.scrollTop > 0;
+        const canDown = list.scrollTop < list.scrollHeight - list.clientHeight - 1;
+
+        const distTop = clientY - rect.top;             // small near the top edge
+        const distBottom = rect.bottom - clientY;       // small near the bottom edge
+
+        if (canUp && distTop < EDGE_ZONE) {
+            this.autoScrollDir = -1;
+            // Deeper into the zone (smaller dist) => faster, ~2..14 px/frame.
+            this.autoScrollSpeed = 2 + 12 * (1 - Math.max(0, distTop) / EDGE_ZONE);
+            this.ensureAutoScrollRunning();
+        } else if (canDown && distBottom < EDGE_ZONE) {
+            this.autoScrollDir = 1;
+            this.autoScrollSpeed = 2 + 12 * (1 - Math.max(0, distBottom) / EDGE_ZONE);
+            this.ensureAutoScrollRunning();
+        } else {
+            this.stopAutoScroll();
+        }
+    }
+
+    ensureAutoScrollRunning() {
+        if (this.autoScrollRAF == null) {
+            this.autoScrollRAF = requestAnimationFrame(this.autoScrollTick);
+        }
+    }
+
+    stopAutoScroll() {
+        this.autoScrollDir = 0;
+        if (this.autoScrollRAF != null) {
+            cancelAnimationFrame(this.autoScrollRAF);
+            this.autoScrollRAF = null;
+        }
+    }
+
+    autoScrollTick() {
+        this.autoScrollRAF = null; // this frame consumed
+        const list = this.listRef;
+        const d = this.dragRef;
+        if (!list || !d || this.autoScrollDir === 0) return;
+
+        const before = list.scrollTop;
+        list.scrollTop = before + this.autoScrollDir * (this.autoScrollSpeed || 6);
+        if (list.scrollTop === before) { this.stopAutoScroll(); return; } // hit a limit
+
+        // Track the newly-revealed rows at the (held) pointer position, then
+        // re-evaluate whether to keep scrolling. updateAutoScroll re-schedules via
+        // ensureAutoScrollRunning (only one rAF ever in flight).
+        this.updateDragForPointer(d.lastClientY);
+        this.updateAutoScroll(d.lastClientY);
+    }
+
     onDragEnd(e) {
         const d = this.dragRef;
         if (!d) return;
         if (e && e.pointerId != null && e.pointerId !== d.pointerId) return;
 
         this.removeDragListeners();
+        this.stopAutoScroll();
 
         // Clear the imperative drag geometry off the node so nothing survives the
         // drop re-render (React doesn't manage these — we set them directly).
@@ -868,12 +955,14 @@ class SelfRepairList extends React.Component {
                         const drag = this.state.drag;
                         const isDragging = drag && drag.keyId === item.keyId;
                         // Drop-target indicator, in "grabbed-row-removed" index
-                        // space mapped back to the rendered list. HYBRID: middle
-                        // drops show a yellow MARKER LINE (no gap => no per-row
-                        // relayout as you cross slots => no judder); only the very
-                        // TOP and very BOTTOM open a real gap (a single row moves,
-                        // so it stays smooth) to disambiguate "above/below all".
-                        let gapBefore = false, gapAtEnd = false, lineBefore = false;
+                        // space mapped back to the rendered list. HYBRID: the very
+                        // TOP opens a real gap (disambiguates "above everything" vs
+                        // "into the first slot"); the very BOTTOM and every MIDDLE
+                        // slot use a yellow MARKER LINE — no gap => no per-row
+                        // relayout (no judder) and, critically for the bottom, no
+                        // content-height change (a bottom gap grew the scroll area
+                        // and its removal clamped scrollTop, jumping two slots).
+                        let gapBefore = false, lineAtEnd = false, lineBefore = false;
                         if (drag && !isDragging) {
                             const settledCount = repairableSystems.length - 1; // rows minus dragged
                             const nonDraggedBefore = index > drag.startIdx ? index - 1 : index;
@@ -881,7 +970,7 @@ class SelfRepairList extends React.Component {
                                 gapBefore = true;   // above everything -> top gap
                             } else if (drag.dropIdx === settledCount &&
                                        nonDraggedBefore === settledCount - 1) {
-                                gapAtEnd = true;    // below everything -> bottom gap (on last SETTLED row)
+                                lineAtEnd = true;   // below everything -> line at last row's bottom
                             } else if (drag.dropIdx === nonDraggedBefore) {
                                 lineBefore = true;  // middle -> marker line
                             }
@@ -892,7 +981,7 @@ class SelfRepairList extends React.Component {
                             data-keyid={item.keyId}
                             $dragging={isDragging}
                             $gapBefore={gapBefore}
-                            $gapAtEnd={gapAtEnd}
+                            $lineAtEnd={lineAtEnd}
                             $lineBefore={lineBefore}
                             $gapSize={drag ? drag.gapSize : 0}
                             onPointerDown={(e) => this.onRowPointerDown(e, item.keyId, index, repairableSystems)}
