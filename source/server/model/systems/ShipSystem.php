@@ -6,6 +6,7 @@ class ShipSystem {
     public $startArc, $endArc;
     public $location; //0:primary, 1:front, 2:rear, 3:left, 4:right;
     public $id, $armour, $maxhealth, $powerReq, $output, $name, $displayName;
+    private $parentFighter = null; // reference to parent fighter for flight-based weapons -- GTS
 	public $outputDisplay = ''; //if not empty - overrides default on-icon display text
     public $outputType = null;
     public $specialAbilities = array();
@@ -59,6 +60,26 @@ class ShipSystem {
 	protected $calledShotBonus = 0;//Some systems, like Aegis Sensor Pod are easier to hit with called shots.
 	protected $active = false;	//Needs to be passed to front end in stripForJson.  Denotes a system being active for any number of purposes / show as boosted	
 	protected $initializeOnLoad	= false; //Runs initialisationUpdate() immediately on page loading, useful for updating tooltips immediately.  Needs passed in strpForJson().
+
+
+
+public function getParentFighter() {
+    if (get_class($this) === 'WarriorRam') {
+        error_log("getParentFighter: system_hash=" . spl_object_id($this) . " returning fighter_hash=" . ($this->parentFighter !== null ? spl_object_id($this->parentFighter) : "NULL"));
+    }
+    return $this->parentFighter;
+}
+
+public function setParentFighter($fighter) {
+    $this->parentFighter = $fighter;
+    if (get_class($this) === 'WarriorRam') {
+        error_log("setParentFighter: system_hash=" . spl_object_id($this) . " fighter_hash=" . spl_object_id($fighter));
+    }
+}
+
+
+
+
 
     function __construct($armour, $maxhealth, $powerReq, $output){
         $this->armour = $armour;

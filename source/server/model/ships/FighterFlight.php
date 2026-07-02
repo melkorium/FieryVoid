@@ -326,6 +326,7 @@ class FighterFlight extends BaseShip
         foreach ($fighter->systems as $system) {
             $system->setUnit($this);
             $system->id = $this->autoid;
+    error_log("assigning id=" . $this->autoid . " to " . get_class($system));
             $this->autoid++;
             $fighterSys[$system->id] = $system;
         }
