@@ -1259,7 +1259,7 @@ body {
     #phaseheader {
         width: auto;
         min-width: 220px;
-        max-width: 55vw;
+        max-width: 72vw;
         height: 22px;
         padding-top: 2px;
         padding-right: 45px;
@@ -1272,13 +1272,27 @@ body {
         overflow: hidden;
         text-overflow: ellipsis;
         display: inline-block;
-        /*max-width: calc(100% - 10px);*/
-        max-width: 50%;
+        /* No hard per-span cap: let the phase name use the available header
+           width; ellipsis stays as a last-resort fallback for tiny screens. */
+        max-width: none;
         vertical-align: bottom;
     }
 
     #phaseheader .value.activeship {
         margin-left: 5px;
+    }
+
+    /* Narrowest phones: nudge the font down so long phase names
+       ("MOVEMENT PHASE") fit without clipping. */
+    @media only screen and (max-width: 420px) {
+        #phaseheader .value {
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
+        #phaseheader .value.activeship {
+            margin-left: 4px;
+        }
     }
 
     #phaseheader .finished,
