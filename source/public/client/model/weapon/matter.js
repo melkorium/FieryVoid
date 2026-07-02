@@ -107,3 +107,35 @@ var SniperCannon = function SniperCannon(json, ship) {
 };
 SniperCannon.prototype = Object.create(Matter.prototype);
 SniperCannon.prototype.constructor = SniperCannon;
+
+var GlancingRam = function GlancingRam(json, ship) {
+    Matter.call(this, json, ship);
+};
+GlancingRam.prototype = Object.create(Matter.prototype);
+GlancingRam.prototype.constructor = GlancingRam;
+
+var WarriorRam = function WarriorRam(json, ship) {
+    Matter.call(this, json, ship);
+};
+WarriorRam.prototype = Object.create(Matter.prototype);
+WarriorRam.prototype.constructor = WarriorRam;
+WarriorRam.prototype.changeFiringMode = function(mode, ship) {
+    Matter.prototype.changeFiringMode.call(this, mode, ship);
+    // Override damage display with live fighter health
+    if (ship && ship.flight && ship.systems) {
+        for (var i in ship.systems) {
+            var fighter = ship.systems[i];
+            if (fighter && fighter.systems) {
+                for (var j in fighter.systems) {
+                    if (fighter.systems[j] === this) {
+                        var remaining = fighter.maxhealth - damageManager.getDamage(ship, fighter);
+                        if (remaining < 0) remaining = 0;
+                        this.maxDamage = remaining;
+                        this.data["Damage"] = remaining > 1 ? "1-" + remaining : "1";
+                        return;
+                    }
+                }
+            }
+        }
+    }
+};

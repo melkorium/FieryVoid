@@ -183,7 +183,7 @@
 	public function addFrontSystem($system){
 			$this->addSystem($system, 1);
         }
-        
+
         public function addAftSystem($system){
 		$this->addSystem($system, 2);
         }
@@ -191,15 +191,20 @@
 		
 	protected function addSystem($system, $loc){
             $system->location = $loc;
-            $this->systems[] = $system;
+    $system->setParentFighter($this);
+error_log("Fighter::addSystem: fighter_hash=" . spl_object_id($this) . " fighter_id=" . $this->id . " system=" . get_class($system) . " system_hash=" . spl_object_id($system));
+		$this->systems[] = $system;
         }
-			
-		public function setSystemDataWindow($turn){
-			parent::setSystemDataWindow($turn);			
-			foreach ($this->systems as $system){
-				$system->setSystemDataWindow($turn);	
-			}
-		}
+
+public function setSystemDataWindow($turn){
+    parent::setSystemDataWindow($turn);			
+    foreach ($this->systems as $system){
+        if (get_class($system) === 'WarriorRam') {
+            error_log("Fighter::setSystemDataWindow: fighter_hash=" . spl_object_id($this) . " system_hash=" . spl_object_id($system));
+        }
+        $system->setSystemDataWindow($turn);	
+    }
+}
 		
 		public function onConstructed($ship, $turn, $phase){
 			parent::onConstructed($ship, $turn, $phase);	
