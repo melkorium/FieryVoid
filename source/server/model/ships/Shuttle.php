@@ -81,6 +81,8 @@ class Shuttle extends FighterFlight
                 return array('img/ships/ShuttleCent.png', 'img/ships/ShuttleCent_large.png'); 
             case 'Corillani Theocracy':
                 return array('img/ships/shuttleCorillani.png', 'img/ships/shuttleCorillani_large.png');
+            case 'Deneth Tribes':
+                return array('img/ships/shuttleDeneth.png', 'img/ships/shuttleDeneth_large.png'); 
             case 'Descari Committees':
                 return array('img/ships/shuttleDescari.png', 'img/ships/shuttleDescari_large.png');                                       
             case 'Dilgar Imperium': 
