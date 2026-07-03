@@ -333,6 +333,8 @@ window.weaponManager = {
             return;
         }
 
+        if(weapon.stowed) return;
+
         if (weapon.autoFireOnly) return; //this is auto-fire only weapon, should not be fired manually!
 
         //Spent & locked Gravitic Augmenter: already committed its order for the turn and is outside

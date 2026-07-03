@@ -559,6 +559,7 @@ window.ShipIcon = function () {
 
     ShipIcon.prototype.showWeaponArc = function (ship, weapon) {
         if (!(weapon instanceof Weapon) && !(weapon instanceof Thruster) && !(weapon instanceof Shield)) return null; // Only show arcs for weapons
+        if(weapon.stowed) return null; //E.g. weapon on Kirshiac Orbitals 
 
         var hexDistance = window.coordinateConverter.getHexDistance();
 
