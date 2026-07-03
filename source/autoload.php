@@ -4177,7 +4177,8 @@ spl_autoload_register(
 
                 //Kelly's Star Trek
                 'kellytrekconstitution' => '/server/model/ships/StarTrekKelly/KellyTrekConstitution.php',
-
+				'trekphaserkelly' => '/server/model/weapons/customTrek.php',            
+				'trekphotontorpkelly' => '/server/model/weapons/customTrek.php',        
 
 
 						
