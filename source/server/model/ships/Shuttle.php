@@ -107,6 +107,8 @@ class Shuttle extends FighterFlight
             case 'Minbari Federation':
             case 'Minbari Protectorate':
                 return array('img/ships/MinbariFlyer.png', 'img/ships/MinbariFlyer_Large.png');
+            case 'Markab Theocracy':
+                return array('img/ships/shuttleMarkab.png', 'img/ships/shuttleMarkab_large.png');                 
             case 'Narn Regime':
                 return array('img/ships/ShuttleNarn.png', 'img/ships/ShuttleNarn_large.png'); 
             case 'Orieni Imperium':
