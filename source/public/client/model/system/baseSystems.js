@@ -941,110 +941,101 @@ var KirishiacOrbital = function KirishiacOrbital(json, ship){
 KirishiacOrbital.prototype = Object.create(ShipSystem.prototype);
 KirishiacOrbital.prototype.constructor = KirishiacOrbital;
 
-KirishiacOrbital.prototype.initializationUpdate = function () {
-	if (this.active) {
-		this.outputDisplay = "[" + this.turnsDocked + "/5" + "]\n" + "Docked";
+//a destroyed orbital may still be recovered (docked) for regeneration - keep its menu clickable
+KirishiacOrbital.prototype.clickableWhenDestroyed = true;
+
+//show only the applicable action button (Dock while deployed, Deploy while docked)
+KirishiacOrbital.prototype.singleActivationButton = true;
+
+//active here means DOCKED, not power-boosted - suppress the yellow boosted highlight...
+KirishiacOrbital.prototype.suppressActiveBoost = true;
+
+//...and use the docked visual instead (blue fade + cyan healthbar, keyed on activeEffective)
+KirishiacOrbital.prototype.showDockedVisual = true;
+
+//active = latest ORDERED docking state (sent to the server).
+//activeEffective = state in EFFECT this turn - a firing-phase order only kicks in next turn.
+//Both come from the server via stripForJson. An ORDER is pending when the two differ.
+KirishiacOrbital.prototype.hasPendingDockingOrder = function () {
+	return Boolean(this.active) !== Boolean(this.activeEffective);
+};
+
+//tooltip Status line: Deployed / Docked (steady) or Docking / Deploying (order pending);
+//refreshed on every initializationUpdate and immediately on button clicks
+KirishiacOrbital.prototype.updateDockingStatus = function () {
+	if (!this.data) this.data = {};
+	if (this.activeEffective) {
+		this.data["Status"] = this.hasPendingDockingOrder() ? "Deploying" : "Docked";
 	} else {
-		this.outputDisplay = "ORB";
+		this.data["Status"] = this.hasPendingDockingOrder() ? "Docking" : "Deployed";
 	}
-	
+};
+
+KirishiacOrbital.prototype.initializationUpdate = function () {
+	if (this.activeEffective) {
+		//the [n/5] regeneration counter is only meaningful while actually regenerating
+		//(the OrbitalRepairing marker is only created when there was damage to repair)
+		var regenerating = shipManager.criticals.hasCritical(this, "OrbitalRepairing");
+		this.outputDisplay = regenerating ? "[" + Math.min(this.turnsDocked, 5) + "/5]" : "-";
+	} else {
+		this.outputDisplay = "-";
+	}
+
+	this.updateDockingStatus();
+
 	return this;
 }
 
-KirishiacOrbital.prototype.canActivate = function () {
-	if(gamedata.gamephase == -1 && !this.active) return true;
-	
+//The single button is keyed on the CURRENT state (not the pending order): a deployed
+//orbital always shows "Dock", a docked one always shows "Deploy". Clicking toggles the
+//pending order on/off (the button lights up while an order is set) - it never swaps label.
+//No destroyed-check: a destroyed orbital may still be recovered for regeneration.
+KirishiacOrbital.prototype.canActivate = function () { //Dock (shown while deployed)
+	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && !this.activeEffective) return true;
+
 	return false;
 };
 
-KirishiacOrbital.prototype.canDeactivate = function () {
-	if(gamedata.gamephase == -1 && this.active) return true;
-	
+KirishiacOrbital.prototype.canDeactivate = function () { //Deploy (shown while docked)
+	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && this.activeEffective) return true;
+
 	return false;
 };
 
-KirishiacOrbital.prototype.doActivate = function () {
-	this.active = true;	
+KirishiacOrbital.prototype.getActivateLabel = function () {
+	return "Dock";
 };
 
-KirishiacOrbital.prototype.doDeactivate = function () {
-	this.active = false;
+KirishiacOrbital.prototype.getDeactivateLabel = function () {
+	return "Deploy";
+};
+
+KirishiacOrbital.prototype.doActivate = function () { //toggle the Dock order on/off
+	this.active = !this.active;
+	this.updateDockingStatus();
+};
+
+KirishiacOrbital.prototype.doDeactivate = function () { //toggle the Deploy order on/off
+	this.active = !this.active;
+	this.updateDockingStatus();
 };
 
 KirishiacOrbital.prototype.doIndividualNotesTransfer = function () {
-
-	if (gamedata.gamephase == -1) {
-		var active = this.active; //Was docked this turn.		
+	//always send the ordered state explicitly (1 = docked, 0 = deployed) so the server can
+	//persist it without guessing; absence of a transfer means "no orbital input this request"
+	if (gamedata.gamephase == -1 || gamedata.gamephase == 3) {
 		this.individualNotesTransfer = Array();
-		if (active) {
-			this.individualNotesTransfer.push(1);
-		}
+		this.individualNotesTransfer.push(this.active ? 1 : 0);
 	}
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//lighter Orbital variant (Kirishiac Conqueror) - identical client behaviour
 var KirishiacOrbitalLight = function KirishiacOrbitalLight(json, ship){
-	ShipSystem.call(this, json, ship);
+	KirishiacOrbital.call(this, json, ship);
 };
 
-KirishiacOrbitalLight.prototype = Object.create(ShipSystem.prototype);
+KirishiacOrbitalLight.prototype = Object.create(KirishiacOrbital.prototype);
 KirishiacOrbitalLight.prototype.constructor = KirishiacOrbitalLight;
-
-KirishiacOrbitalLight.prototype.initializationUpdate = function () {
-	if (this.active) {
-		this.outputDisplay = "[" + this.turnsDocked + "/5" + "]\n" + "Docked";
-	} else {
-		this.outputDisplay = "ORB";
-	}
-	
-	return this;
-}
-
-KirishiacOrbitalLight.prototype.canActivate = function () {
-	if(gamedata.gamephase == -1 && !this.active) return true;
-	
-	return false;
-};
-
-KirishiacOrbitalLight.prototype.canDeactivate = function () {
-	if(gamedata.gamephase == -1 && this.active) return true;
-	
-	return false;
-};
-
-KirishiacOrbitalLight.prototype.doActivate = function () {
-	this.active = true;	
-};
-
-KirishiacOrbitalLight.prototype.doDeactivate = function () {
-	this.active = false;
-};
-
-KirishiacOrbitalLight.prototype.doIndividualNotesTransfer = function () {
-
-	if (gamedata.gamephase == -1) {
-		var active = this.active; //Was docked this turn.		
-		this.individualNotesTransfer = Array();
-		if (active) {
-			this.individualNotesTransfer.push(1);
-		}
-	}
-};
 
 
 

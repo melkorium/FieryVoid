@@ -1418,13 +1418,23 @@ window.weaponManager = {
     },
 
     // Returns weapon fire-control value, including HyachComputer bonus and ballistic LoS-blocked logic.
-    computeFireControl: function computeFireControl(shooter, target, weapon, sPosTarget) {
-        var firecontrol = weaponManager.getFireControl(target, weapon);
+    // calledid (optional): a called shot at a system carrying fireControlIndexOverride (Kirishiac
+    // Orbital: "targeted as if a fighter") uses that FC category instead of the target ship's.
+    computeFireControl: function computeFireControl(shooter, target, weapon, sPosTarget, calledid) {
+        var fcIndexOverride = null;
+        if (calledid > 0) {
+            var calledFCSystem = shipManager.systems.getSystem(target, calledid);
+            if (calledFCSystem && calledFCSystem.fireControlIndexOverride != null) {
+                fcIndexOverride = calledFCSystem.fireControlIndexOverride;
+            }
+        }
+
+        var firecontrol = (fcIndexOverride != null) ? weapon.fireControl[fcIndexOverride] : weaponManager.getFireControl(target, weapon);
         if (target.mine && weapon.canShootMines) weapon.fireControl[1] = -4; //preserved as-is from old code; mutates next-call FC
 
         if (shipManager.hasSpecialAbility(shooter, "HyachComputer")) {
             var computer = shipManager.systems.getSystemByName(shooter, "hyachComputer");
-            var FCIndex = weaponManager.getFireControlIndex(target);
+            var FCIndex = (fcIndexOverride != null) ? fcIndexOverride : weaponManager.getFireControlIndex(target);
             var bonusfirecontrol = computer.getFCAllocated(FCIndex);
             firecontrol += bonusfirecontrol;
         }
@@ -1603,7 +1613,7 @@ window.weaponManager = {
         var jammer = weaponManager.computeJammerNoLock(shooter, target, weapon, ewLock.oew, distance, rangePenalty);
         if (jammer.oewSuppressed) { ewLock.oew = 0; ewLock.soew = 0; }
         else if (jammer.soewSuppressed) ewLock.soew = 0;
-        var fireControl = weaponManager.computeFireControl(shooter, target, weapon, sPosTarget);
+        var fireControl = weaponManager.computeFireControl(shooter, target, weapon, sPosTarget, calledid);
         var shotMods = weaponManager.computeShotModifiers(shooter, target, weapon, calledid, distance);
 
         //Goal: identical to old formula (baseDef - jammermod - noLockMod - rangePenalty + oew + soew + firecontrol + mod)
@@ -2101,6 +2111,7 @@ window.weaponManager = {
     canSelfInterceptSingle: function checkSelfIntercept(ship, weapon) {
         if (gamedata.gamephase != 3) return false;//declaration in firing phase only
         if (!weapon.weapon) return false;//only weapons can intercept ;)
+        if (weapon.stowed) return false;//stowed (Kirishiac Orbital docked) - non-operational
         var loadingTimeActual = Math.max(weapon.loadingtime, weapon.normalload);//Accelerator (or multi-mode) weapons may have loading time of 1, yet reach full potential only after longer charging
         if ((weapon.intercept < 1) && !(weaponManager.canWeaponInterceptAtAll(weapon)) || (loadingTimeActual <= 1)) return false;//cannot intercept or quick to recharge anyway and will be auto-assigned
         if (weapon.ballistic && !(weaponManager.canWeaponInterceptAtAll(weapon))) return false;//no interception using ballistic weapons    
@@ -2298,8 +2309,8 @@ window.weaponManager = {
 
             if (loSBlocked && !weapon.ignoresLoS) continue;
 
-            if (shipManager.systems.isDestroyed(selectedShip, weapon) || !weaponManager.isLoaded(weapon)) {
-                debug && console.log("Weapon destroyed or not loaded");
+            if (shipManager.systems.isDestroyed(selectedShip, weapon) || !weaponManager.isLoaded(weapon) || weapon.stowed) {
+                debug && console.log("Weapon destroyed, not loaded, or stowed (Kirishiac Orbital docked)");
                 continue;
             }
 

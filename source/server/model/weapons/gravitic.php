@@ -2025,8 +2025,8 @@ class MedAntigravityBeam extends Gravitic{
 
         public $factionAge = 4;//Primordial weapon, which sometimes has consequences!
 
-		private $pairing = null;	//Which orbital is it paired with?	
-		private $mirror= null;
+		private $pairing = null;	//Which orbital is it paired with?
+		public $linkedOrbital = null; //set by KirishiacOrbital::addOrbitalWeapon - null on standalone mounts
 
         public $intercept = 2;
 		public $priority = 5; 		
@@ -2046,13 +2046,44 @@ class MedAntigravityBeam extends Gravitic{
         public $canSplitShots = false; //Allows Firing Mode 2 to split shots.
         public $canSplitShotsArray = array(1=>false, 2=>true );          
 
-		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
 			$this->pairing = $pairing;
-			$this->displayName = 'Medium Antigravity Beam ' . $pairing . '';
+			$this->displayName = ($pairing !== null) ? 'Medium Antigravity Beam ' . $pairing : 'Medium Antigravity Beam';
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 2;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
+
+		/*paired-beam overkill: while the Orbital is deployed, excess damage passes into the
+		Orbital's structure; if the Orbital is already gone the excess is lost. Standalone
+		mounts behave normally.*/
+		public function getOverkillDestination($target){
+			if ($this->linkedOrbital === null) return null; //standalone mount - normal flow
+			if ($this->linkedOrbital->activeEffective) return null; //docked - beam cannot be hit anyway
+			if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false; //orbital gone - overkill lost
+			return $this->linkedOrbital;
+		}
+
+		public function calculateHitBase($gamedata, $fireOrder){
+			if ($this->stowed){ //docked with its Orbital - cannot fire (D4 ruling)
+				$fireOrder->needed = 0;
+				$fireOrder->shotshit = 0;
+				$fireOrder->pubnotes .= " Beam is stowed (Orbital docked) - cannot fire.";
+				$fireOrder->updated = true;
+				return;
+			}
+			parent::calculateHitBase($gamedata, $fireOrder);
+		}
+
+		public function stripForJson(){
+			$strippedSystem = parent::stripForJson();
+			if ($this->linkedOrbital !== null){ //paired with an Orbital - dynamic state the client needs on every load
+				$strippedSystem->stowed = (bool)$this->stowed;
+				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
+				$strippedSystem->isTargetable = $this->isTargetable;
+			}
+			return $strippedSystem;
+		}
 
         public function setSystemDataWindow($turn){
 			parent::setSystemDataWindow($turn);   
@@ -2061,9 +2092,13 @@ class MedAntigravityBeam extends Gravitic{
 			}else{
 				$this->data["Special"] .= '<br>';
 			}
-			$this->data["Special"] .= "Can fire as either:";  
-			$this->data["Special"] .= "<br> - A single medium antigravity beam (2d10+4)."; 
-			$this->data["Special"] .= "<br> - Split into two beams (1d10+2, each)."; 
+			$this->data["Special"] .= "Can fire as either:";
+			$this->data["Special"] .= "<br> - A single medium antigravity beam (2d10+4).";
+			$this->data["Special"] .= "<br> - Split into two beams (1d10+2, each).";
+			if ($this->linkedOrbital !== null){
+				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
+				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down.";
+			}
 		}
 	
 		public function getDamage($fireOrder){
@@ -2116,8 +2151,8 @@ class AntigravityBeam extends Gravitic{
 
         public $factionAge = 3;//Primordial weapon, which sometimes has consequences!
 
-		private $pairing = null;	//Which orbital is it paired with?	
-		private $mirror= null;
+		private $pairing = null;	//Which orbital is it paired with?
+		public $linkedOrbital = null; //set by KirishiacOrbital::addOrbitalWeapon - null on standalone mounts (Mastership, Kingship)
 
         public $intercept = 3;
 		public $priority = 5; 		
@@ -2137,13 +2172,44 @@ class AntigravityBeam extends Gravitic{
         public $canSplitShots = false; //Allows Firing Mode 3 to split shots.
         public $canSplitShotsArray = array(1=>false, 2=>true );          
 
-		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
 			$this->pairing = $pairing;
-			$this->displayName = 'Antigravity Beam ' . $pairing . '';
+			$this->displayName = ($pairing !== null) ? 'Antigravity Beam ' . $pairing : 'Antigravity Beam';
 			if ( $maxhealth == 0 ) $maxhealth = 6;
 			if ( $powerReq == 0 ) $powerReq = 3;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
+
+		/*paired-beam overkill: while the Orbital is deployed, excess damage passes into the
+		Orbital's structure; if the Orbital is already gone the excess is lost. Standalone
+		mounts (Mastership, Kingship) behave normally.*/
+		public function getOverkillDestination($target){
+			if ($this->linkedOrbital === null) return null; //standalone mount - normal flow
+			if ($this->linkedOrbital->activeEffective) return null; //docked - beam cannot be hit anyway
+			if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false; //orbital gone - overkill lost
+			return $this->linkedOrbital;
+		}
+
+		public function calculateHitBase($gamedata, $fireOrder){
+			if ($this->stowed){ //docked with its Orbital - cannot fire (D4 ruling)
+				$fireOrder->needed = 0;
+				$fireOrder->shotshit = 0;
+				$fireOrder->pubnotes .= " Beam is stowed (Orbital docked) - cannot fire.";
+				$fireOrder->updated = true;
+				return;
+			}
+			parent::calculateHitBase($gamedata, $fireOrder);
+		}
+
+		public function stripForJson(){
+			$strippedSystem = parent::stripForJson();
+			if ($this->linkedOrbital !== null){ //paired with an Orbital - dynamic state the client needs on every load
+				$strippedSystem->stowed = (bool)$this->stowed;
+				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
+				$strippedSystem->isTargetable = $this->isTargetable;
+			}
+			return $strippedSystem;
+		}
 
         public function setSystemDataWindow($turn){
 			parent::setSystemDataWindow($turn);   
@@ -2152,9 +2218,13 @@ class AntigravityBeam extends Gravitic{
 			}else{
 				$this->data["Special"] .= '<br>';
 			}
-			$this->data["Special"] .= "Can fire as either:";  
-			$this->data["Special"] .= "<br> - A single antigravity beam (3d10+6)."; 
-			$this->data["Special"] .= "<br> - Split into three beams (1d10+2, each)."; 
+			$this->data["Special"] .= "Can fire as either:";
+			$this->data["Special"] .= "<br> - A single antigravity beam (3d10+6).";
+			$this->data["Special"] .= "<br> - Split into three beams (1d10+2, each).";
+			if ($this->linkedOrbital !== null){
+				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
+				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down.";
+			}
 		}
 	
 		public function getDamage($fireOrder){

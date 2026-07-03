@@ -63,6 +63,14 @@ shipManager.power = {
 			shipManager.power.setOnline(ship, system, true); //do skip message to player - if system cannot be powered up, it won't be powered up and that's it
 		}
 
+		//A power-locked system may not stay voluntarily offline (Antigravity Beam whose
+		//Kirishiac Orbital just deployed: it could be powered down while docked, but a
+		//deployed beam is always on). Force it back online without player input - same
+		//no-message convention as the forced-shutdown recovery above.
+		if (system.powerLocked && shipManager.power.isOffline(ship, system)) {
+			shipManager.power.setOnline(ship, system, true);
+		}
+
 		//If the system is forced offline THIS turn (cooldown crit etc.), make sure the
 		//offline power entry exists. This used to be created only as a side-effect of
 		//rendering the legacy ship status window (setPowerClasses), which is now built

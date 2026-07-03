@@ -29,9 +29,9 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		$this->iniativebonus = 8 *5;
 
 
-        $orbitalHitChart = array( 
-            6 => "Medium Antigravity Beam",
-            20 => "Structure"
+        $orbitalHitChart = array( //Orbital Hits sub-chart (d20): 1-6 the mounted weapon, 7-20 the orbital itself
+            6 => "Weapon",
+            20 => "Orbital"
             );
 		
         $this->addPrimarySystem(new CnC(7, 16, 0, 0));
@@ -47,19 +47,19 @@ class kirishiacConqueror extends HeavyCombatVessel{
 
 		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
 		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
-		$orbitalA->addMirror($beamA);
+		$orbitalA->addOrbitalWeapon($beamA);
 		$this->addFrontSystem($orbitalA);
 		$this->addFrontSystem($beamA);
 
 		$orbitalB = new KirishiacOrbitalLight(5, 15, 'C', 'B', -7, $orbitalHitChart);
 		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
-		$orbitalB->addMirror($beamB);
+		$orbitalB->addOrbitalWeapon($beamB);
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
 
 		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
 		$beamC = new MedAntigravityBeam(5, 6, 2, 330, 150, 'C');
-		$orbitalC->addMirror($beamC);
+		$orbitalC->addOrbitalWeapon($beamC);
 		$this->addFrontSystem($orbitalC);
 		$this->addFrontSystem($beamC);
 		
@@ -70,21 +70,21 @@ class kirishiacConqueror extends HeavyCombatVessel{
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
 
-		$orbitalF = new KirishiacOrbitalLight(5, 15, 'R', 'F', -7, $orbitalHitChart);
+		$orbitalF = new KirishiacOrbitalLight(5, 15, 'L', 'F', -7, $orbitalHitChart);
 		$beamF = new MedAntigravityBeam(5, 6, 2, 30, 210, 'F');
-		$orbitalF->addMirror($beamF);
+		$orbitalF->addOrbitalWeapon($beamF);
 		$this->addAftSystem($orbitalF);
 		$this->addAftSystem($beamF);
 
 		$orbitalE = new KirishiacOrbitalLight(5, 15, 'C', 'E', -7, $orbitalHitChart);
 		$beamE = new MedAntigravityBeam(5, 6, 2, 90, 270, 'E');
-		$orbitalE->addMirror($beamE);
+		$orbitalE->addOrbitalWeapon($beamE);
 		$this->addAftSystem($orbitalE);
 		$this->addAftSystem($beamE);
 
-		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
+		$orbitalD = new KirishiacOrbitalLight(5, 15, 'R', 'D', -7, $orbitalHitChart);
 		$beamD = new MedAntigravityBeam(5, 6, 2, 330, 150, 'D');
-		$orbitalD->addMirror($beamD);
+		$orbitalD->addOrbitalWeapon($beamD);
 		$this->addAftSystem($orbitalD);
 		$this->addAftSystem($beamD);
 
@@ -93,9 +93,9 @@ class kirishiacConqueror extends HeavyCombatVessel{
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
-        $this->addFrontSystem(new Structure(7, 108));  // NOTE: Currently does not have orbitals. 45 structure added to the forward structure
+        $this->addFrontSystem(new Structure(7, 72));  
         $this->addAftSystem(new Structure(7, 60));
-        $this->addPrimarySystem(new Structure(7, 105)); // NOTE: Currently does not have orbitals. 45 structure added to the aft structure
+        $this->addPrimarySystem(new Structure(7, 60)); 
 	
 		$this->hitChart = array(
 			0=> array( //PRIMARY
@@ -112,13 +112,13 @@ class kirishiacConqueror extends HeavyCombatVessel{
 				4 => "Thruster",
 				8 => "Hypergraviton Beam",
 				10 => "Ultra Matter Cannon",
-				11 => "Medium Antigravity Beam",
+				11 => "Kirishiac Orbital", //resolves via hitChartName alias; beams are only hit through the orbital sub-chart
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
 				6 => "Thruster",
-				7 => "Medium Antigravity Beam",
+				7 => "Kirishiac Orbital",
 				18 => "Structure",
 				20 => "Primary",
 			),

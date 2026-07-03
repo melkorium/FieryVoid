@@ -26,7 +26,8 @@ const Divider = styled.div`
 `;
 
 const CRIT_DESCRIPTIONS = {
-    MissileLost: "A missile was lost to damage"
+    MissileLost: "A missile was lost to damage",
+    //OrbitalRepairing: "REGENERATING - orbital and weapon fully restored after 5 docked turns"
 };
 
 export const Entry = styled(TooltipEntry)`

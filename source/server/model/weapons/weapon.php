@@ -173,6 +173,8 @@ class Weapon extends ShipSystem
 	
     public $exclusive = false; //for fighter guns - exclusive weapon can't bve fired together with others
 
+    public $stowed = false; //weapon is physically stowed and non-operational (Antigravity Beam whose Kirishiac Orbital is docked): cannot fire, cannot intercept; set from orbital state on notes load, sent to client via stripForJson
+
     public $useOEW = true;
     public $useOEWArray = array();    
     public $calledShotMod = -8;
@@ -303,6 +305,7 @@ class Weapon extends ShipSystem
 		if ($this instanceof Weapon) {
 			$strippedSystem->turnsloaded = $this->turnsloaded;
 			//Don't send empty arrays/strings in JSON payload
+			if ($this->stowed) $strippedSystem->stowed = true; //non-operational (Kirishiac Orbital docked)
 			if (!empty($this->turnsloadedArray)) $strippedSystem->turnsloadedArray = $this->turnsloadedArray;
 			if ($this->overloadturns !== 0) $strippedSystem->overloadturns = $this->overloadturns;
 			if ($this->overloadshots !== 0) $strippedSystem->overloadshots = $this->overloadshots;
@@ -1549,12 +1552,19 @@ public function getStartLoading()
             $mod -= ($CnC->hasCritical("tmphitreduction", $gamedata->turn, $gamedata->turn));
             $mod -= ($CnC->hasCritical("ShadowPilotPain", $gamedata->turn));
         }
-        $firecontrol = $this->fireControl[$target->getFireControlIndex()];
-        
+        $fcIndex = $target->getFireControlIndex();
+        if ($fireOrder->calledid != -1) { //called shot at a system that overrides FC category (Kirishiac Orbital: "targeted as if a fighter")
+            $calledFCSystem = $target->getSystemById($fireOrder->calledid);
+            if ($calledFCSystem !== null && $calledFCSystem->getFireControlIndexOverride() !== null) {
+                $fcIndex = $calledFCSystem->getFireControlIndexOverride();
+            }
+        }
+        $firecontrol = $this->fireControl[$fcIndex];
+
 		if ($shooter->hasSpecialAbility("HyachComputer")) { //Does ship have a Hyach Computer that might add bonus FC?
 			$bonusFireControl = 0; //initialise
 			$computer = $shooter->getSystemByName("HyachComputer"); //Find computer.
-			$FCIndex = $target->getFireControlIndex(); //Find out FC category of the target.
+			$FCIndex = $fcIndex; //Find out FC category of the target.
 			$bonusFireControl = $computer->getFCBonus($FCIndex, $gamedata->turn);  //Use FCIndex to check if Computer has any BFCP allocated to that FC category.
 			$firecontrol += $bonusFireControl; //Add to $firecontrol.
 		}
@@ -1902,6 +1912,12 @@ public function getStartLoading()
 
         if ($this->damageType == 'Flash') {// If overkill comes from flash damage, pick a new target in default way instead of typicaloverkill!
             $okSystem = $target->getHitSystem($shooter, $fireOrder, $this, $gamedata, $location); //for Flash it won't return destroyed system other than PRIMARY Structure
+        }
+
+        if (($okSystem == null) || $okSystem->isDestroyed() || ($okSystem->getRemainingHealth() == 0)) { //destroyed system may redirect its overkill (Kirishiac Orbital rules)
+            $redirect = $system->getOverkillDestination($target);
+            if ($redirect === false) return null; //overkill is lost entirely (deployed Orbital killed - excess dissipates)
+            if ($redirect !== null) $okSystem = $redirect; //e.g. Antigravity Beam -> its Orbital's structure
         }
 
         if (($okSystem == null) || $okSystem->isDestroyed() || ($okSystem->getRemainingHealth() == 0)) { //overkill to Structure system is mounted on

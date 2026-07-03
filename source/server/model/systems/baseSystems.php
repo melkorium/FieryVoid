@@ -4319,6 +4319,8 @@ class Structure extends ShipSystem{
     public $displayName = "Structure";
 	private $isIndestructible = false;
 
+	public $orbitalBump = 0; //portion of maxhealth contributed by docked Kirishiac Orbitals this load - excluded from combat value so a docked orbital's boxes aren't counted twice
+
 	//Structure is last to be repaired, except purely cosmetic systems like Hanngars
 	public $repairPriority = 2;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
 
@@ -4390,28 +4392,63 @@ class Structure extends ShipSystem{
 	
 } //endof Structure	
 
+/* Kirishiac Orbital - a weapon platform that floats above its section when DEPLOYED and
+ * attaches to the hull when DOCKED (undeployed). Full rules in KIRISHIAC_ORBITALS_PLAN.md.
+ * - Deployed: hittable via the section chart ('Kirishiac Orbital' rows) or a fighter-style
+ *   called shot; every hit rolls the Orbital Hits sub-chart (1-6 paired beam, 7-20 orbital);
+ *   beam overkill spills into the orbital, orbital overkill is LOST (flash still re-rolls);
+ *   the paired beam cannot be powered down.
+ * - Docked: untargetable, orbital chart rolls divert to Structure; the orbital's remaining
+ *   boxes merge into the section Structure's maxhealth; the beam is stowed (no fire/intercept,
+ *   may be powered down); after 5 complete docked turns orbital+beam fully regenerate
+ *   (tracked by the OrbitalRepairing marker crit; aborted if the structure block dies).
+ * - Dock/Deploy is ordered in the Firing Phase (client Dock/Deploy buttons -> notes) and takes
+ *   effect NEXT turn; the Deployment-phase choice sets the scenario-start state immediately.
+ *   No initiative or maneuvering restrictions apply in either direction. */
 class KirishiacOrbital extends ShipSystem{
 	public $name = "KirishiacOrbital";
-//    public $displayName = "Orbital";	
+//    public $displayName = "Orbital";
 	public $primary = false;
-	public $isAlwaysCalledShot = true; //ensure that Orbitals can be specifically targeted by all weapons. 
-	public $hasSystemHitChart = true; //use this var to track of a given system has a system specific hitchart so when hit it also needs to roll on this table.
-	public $systemHitChart = array(); //holds the hitchart for this specific system. 
+	public $repairPriority = 0; //SelfRepair never touches orbitals - docked regeneration is their only healer
+	public $hitChartName = "Kirishiac Orbital"; //ship hit chart alias - displayName stays 'Orbital A'..'H' (getSystemsByNameLoc matches either)
+	public $hasSystemHitChart = true; //informational: orbital resolves hits on its own sub-chart (rolled in resolveSubHitChart)
+	public $systemHitChart = array(); //sub-chart bands, ship-chart convention (highest d20 roll => band): 'Weapon' = paired beam, anything else = the orbital itself
 
 	private $pairing = null;
-	private $mirror= null;
+	private $pairedWeapon= null;
 
-	protected $active = false; //track each orbitals docking status
-	public $turnsDocked = 1; //track how long orbital has been docked
+	protected $active = false; //true = DOCKED as last ORDERED (latest note, incl. an order given this firing phase); orbitals start deployed
+	public $activeEffective = false; //docked state in EFFECT this turn (a firing-phase order only kicks in next turn)
+	public $turnsDocked = 0; //docked-turn ordinal of the current turn (0 while deployed; regeneration completes when it reaches 5)
 
-	protected $calledShotBonus = 8; //8 to remove called shot std malus, will be adjusted in constructure based on ship profile 
+	protected $calledShotBonus = 8; //8 to remove called shot std malus, will be adjusted in constructure based on ship profile
 
-       function addMirror($mirror){ //Function used to assign the mirrored antigravity beam on the orbital
-             $this->mirror = $mirror;
-        }
+	private $transferReceived = false; //client sent a dock/deploy choice this request (guards POST-side note writes)
+	private $appliedStructureBump = 0; //how much this orbital added to its structure block's maxhealth on this load (docked merge)
 
-	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){ //$orientation is L, R, or C - regarding graphics, 
-	// profile adjust is a value to add/subtract to calledShotBonus to ensure Orbital has effective profile of 8 (for Kirishiac lord this would be -7(15-7 = 8)). 
+	function addOrbitalWeapon($pairedWeapon){ //Function used to assign the paired antigravity beam on the orbital
+		$this->pairedWeapon = $pairedWeapon;
+		$pairedWeapon->linkedOrbital = $this; //back-reference: overkill routing + stowed/power state
+		$pairedWeapon->isTargetable = false; //"called shots may not be made on orbitals or weapons attached to them"
+		$pairedWeapon->repairPriority = 0; //regeneration is the only healer - keep SelfRepair away
+	}
+
+	public function getOrbitalWeapon(){
+		return $this->pairedWeapon;
+	}
+
+	/*the orbital's associated structure block. $this->structureSystem is only assigned in
+	onConstructed, which TacGamedata runs AFTER notes are loaded (DBManager::getTacGamedata:
+	getTacShips -> notes -> onConstructed) - so anything running at notes-load time must
+	resolve the block through the unit instead.*/
+	private function getStructureBlock(){
+		if ($this->structureSystem !== null) return $this->structureSystem;
+		$ship = $this->getUnit();
+		return ($ship !== null) ? $ship->getStructureSystem($this->location) : null;
+	}
+
+	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){ //$orientation is L, R, or C - regarding graphics,
+	// profile adjust is a value to add/subtract to calledShotBonus to ensure Orbital has effective profile of 8 (for Kirishiac lord this would be -7(15-7 = 8)).
 		$this->pairing = $pairing;
 		$this->calledShotBonus += $profileAdjust;
 		$this->systemHitChart = $systemHitChart;
@@ -4421,123 +4458,313 @@ class KirishiacOrbital extends ShipSystem{
 			$maxhealth = 18;
 		}
 
-		$this->iconPath = "KirishiacOrbital".$orientation.".png";
-		parent::__construct($armour, $maxhealth, 0, 0);	
+		$this->iconPath = "KirishiacOrbital".$orientation."1.png";	
+		parent::__construct($armour, $maxhealth, 0, 0);
 	}
 
-		//If Orbital is destroyed, destroy the paired antigravity beam as well.
+	/*hit allocation: any hit landing on the orbital (section chart row, flash, or a called shot)
+	rolls the Orbital Hits sub-chart while deployed; while docked the orbital is part of the hull,
+	so the hit diverts to the section Structure. Consumed from BaseShip::getHitSystem.*/
+	public function resolveSubHitChart(){
+		if ($this->activeEffective){ //DOCKED - treat any orbital hit as a Structure hit
+			$block = $this->getStructureBlock();
+			return ($block !== null) ? $block : $this;
+		}
+		//DEPLOYED - roll on the sub-chart (ship-chart convention: key = highest roll of the band)
+		$chart = $this->systemHitChart;
+		if (!is_array($chart) || count($chart) == 0) return $this;
+		ksort($chart);
+		$roll = Dice::d(20);
+		foreach ($chart as $maxRoll => $band){
+			if ($roll <= $maxRoll){
+				if ( (STRCASECMP($band,'Weapon')==0) || (STRCASECMP($band,'Antigravity Beam')==0) ){ //weapon band (legacy blueprint name accepted)
+					if ($this->pairedWeapon !== null) return $this->pairedWeapon; //may be destroyed - overkill routing then folds the hit back into the orbital
+				}
+				return $this; //any other band ('Orbital'; legacy 'Structure') = the orbital itself
+			}
+		}
+		return $this;
+	}
+
+	/*overkill on a destroyed DEPLOYED orbital is lost entirely (flash re-rolls before this hook
+	fires); while docked the orbital cannot be hit at all, so default flow applies*/
+	public function getOverkillDestination($target){
+		if (!$this->activeEffective) return false; //deployed - excess dissipates into space
+		return null;
+	}
+
+	//Deployed: an orbital destroyed takes its mounted weapon with it.
+	//Docked: abort regeneration if the structure block is lost; complete it after 5 full turns.
 	public function criticalPhaseEffects($ship, $gamedata)
 	{
 		parent::criticalPhaseEffects($ship, $gamedata);
+		$beam = $this->pairedWeapon;
 
-		if(!$this->isDestroyed()){
-			$mirror = $this->mirror;
-			$beamHealth = $mirror->getRemainingHealth();
-			if($beamHealth < 1){
-				$toBeFixed = $mirror->maxhealth;
-				$undestroy = true;
-				$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $mirror->id, -$toBeFixed, 0, 0, -1, false, $undestroy, 'SelfRepair', 'SelfRepair');
+		if (!$this->activeEffective){ //DEPLOYED
+			if ($this->isDestroyed() && $beam !== null && !$beam->isDestroyed()){
+				$beamHealth = $beam->getRemainingHealth();
+				$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $beam->id, $beamHealth, 0, 0, -1, true, false, "Orbital destroyed - Antigravity Beam lost", "OrbitalLoss");
 				$damageEntry->updated = true;
-				$mirror->damage[] = $damageEntry;
+				$beam->damage[] = $damageEntry;
 			}
 			return;
 		}
 
-		if($this->isDestroyed()){
-			$mirror = $this->mirror;
-			$beamHealth = $mirror->getRemainingHealth();
-			$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $mirror->id, $beamHealth, 0, 0, -1, true, false, "Orbital Destroyed - Antigravity Beam removed");
-			$damageEntry->updated = true;
-			$this->damage[] = $damageEntry;
+		//DOCKED
+		$block = $this->getStructureBlock();
+		if ($block !== null && $block->isDestroyed()){
+			//associated structure block lost - orbital dies with it and can never regenerate;
+			//expire the marker so a post-mortem regeneration can never fire
+			$this->cancelRegenerationCrit($gamedata);
+			return;
+		}
+		if ($this->turnsDocked >= 5){ //5 complete turns docked - full restoration (no-op if pristine)
+			$this->performRegeneration($ship, $gamedata);
 		}
 	}
+
+	/*full restoration of orbital + paired beam: all damage erased (including this turn's),
+	destroyed markers lifted, lingering criticals expired. Runs in the critical phase, so
+	post-firing state is what gets healed; the OrbitalRepairing marker expires via its turnend.*/
+	private function performRegeneration($ship, $gamedata){
+		$targets = array($this);
+		if ($this->pairedWeapon !== null) $targets[] = $this->pairedWeapon;
+		foreach ($targets as $sys){
+			$totalDamage = $sys->getTotalDamage();
+			if ( ($totalDamage > 0) || $sys->isDestroyed() ){
+				$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $sys->id, -$totalDamage, 0, 0, -1, false, true, 'Orbital Regeneration', 'OrbitalRegen');
+				$damageEntry->updated = true;
+				$sys->damage[] = $damageEntry;
+			}
+			foreach ($sys->criticals as $crit){ //clear lingering criticals, except the regen marker itself
+				if ($crit->phpclass == 'OrbitalRepairing') continue;
+				if ( ($crit->turnend == 0) || ($crit->turnend >= $gamedata->turn) ){
+					$crit->turnend = $gamedata->turn;
+					$crit->forceModify = true;
+					$crit->updated = true;
+				}
+			}
+		}
+	}
+
+	private function hasClearableCrits($sys, $turn){
+		foreach ($sys->criticals as $crit){
+			if ($crit->phpclass == 'OrbitalRepairing') continue;
+			if ( ($crit->turnend == 0) || ($crit->turnend >= $turn) ) return true;
+		}
+		return false;
+	}
+
+	/*docking just became effective: start the 5-turn regeneration clock (visible marker crit;
+	skipped when there is nothing to regenerate)*/
+	private function startRegeneration($ship, $gameData){
+		$beam = $this->pairedWeapon;
+		$needsRepair = ($this->getTotalDamage() > 0) || $this->isDestroyed() || $this->hasClearableCrits($this, $gameData->turn);
+		if (!$needsRepair && $beam !== null){
+			$needsRepair = ($beam->getTotalDamage() > 0) || $beam->isDestroyed() || $this->hasClearableCrits($beam, $gameData->turn);
+		}
+		if (!$needsRepair) return; //pristine orbital - nothing to regenerate, no marker needed
+		$crit = new OrbitalRepairing(-1, $ship->id, $this->id, "OrbitalRepairing", $gameData->turn + 1, $gameData->turn + 5);
+		$crit->updated = true;
+		$crit->newCrit = true;
+		$this->criticals[] = $crit;
+	}
+
+	private function cancelRegenerationCrit($gamedata){
+		foreach ($this->criticals as $crit){
+			if ($crit->phpclass != 'OrbitalRepairing') continue;
+			if ( ($crit->turnend != 0) && ($crit->turnend < $gamedata->turn) ) continue; //already over
+			$crit->turnend = $gamedata->turn;
+			$crit->forceModify = true;
+			$crit->updated = true;
+		}
+	}
+
+	/*undocking just became effective (end-of-turn advance): stop regeneration; and if the merged
+	structure block carries more damage than its remaining boxes account for, the excess was
+	soaked by THIS orbital's merged boxes - it leaves with the orbital (D3 ruling: block max
+	while docked = base + remaining health of each docked orbital; overkill past that total is
+	handled by the normal overkill workflow when the block dies)*/
+	private function finishUndocking($ship, $gameData){
+		$this->cancelRegenerationCrit($gameData);
+
+		$block = $this->getStructureBlock();
+		if ($block === null || $this->appliedStructureBump <= 0) return;
+		//withdraw this orbital's boxes from the block's pool (recomputed from scratch next load)
+		$block->maxhealth -= $this->appliedStructureBump;
+		$block->orbitalBump = max(0, $block->orbitalBump - $this->appliedStructureBump);
+		$this->appliedStructureBump = 0;
+		if ($block->isDestroyed()) return; //block already gone - damage stays where it fell
+		$overflow = $block->getTotalDamage() - $block->maxhealth; //damage beyond own boxes (+ any still-docked orbitals')
+		if ($overflow <= 0) return;
+		$transfer = min($overflow, max(0, $this->getRemainingHealth()));
+		if ($transfer <= 0) return;
+		$destroysOrbital = ($transfer >= $this->getRemainingHealth());
+		$orbEntry = new DamageEntry(-1, $ship->id, -1, $gameData->turn, $this->id, $transfer, 0, 0, -1, $destroysOrbital, false, 'Damage absorbed while docked', 'OrbitalUndock');
+		$orbEntry->updated = true;
+		$this->damage[] = $orbEntry;
+		$blockEntry = new DamageEntry(-1, $ship->id, -1, $gameData->turn, $block->id, -$transfer, 0, 0, -1, false, false, 'Damage carried away by undocking Orbital', 'OrbitalUndock');
+		$blockEntry->updated = true;
+		$block->damage[] = $blockEntry;
+	}
+
 	public function doIndividualNotesTransfer(){
-		//data received in variable individualNotesTransfer, further functions will look for it in currchangedAA
-		if(is_array($this->individualNotesTransfer)){			
-			foreach($this->individualNotesTransfer as $docking){			
-				if($docking == 1){
-					$this->active = true;
-				}else{
-					$this->active = false; //May start Deployment phase as true via notes
-				}									
+		//client sends the ordered docking state (1 = docked, 0 = deployed) with Deployment (phase -1)
+		//and Firing (phase 3) submissions; absence means "no orbital input in this request" - never
+		//write a note then (POST-side ships have no loaded notes; a default write would clobber state)
+		if (is_array($this->individualNotesTransfer) && count($this->individualNotesTransfer) > 0){
+			foreach($this->individualNotesTransfer as $docking){
+				$this->active = ($docking == 1);
 			}
-		} 
+			$this->transferReceived = true;
+		}
 		$this->individualNotesTransfer = array(); //empty, just in case
-	}			
+	}
 
-    public function generateIndividualNotes($gameData, $dbManager){ //dbManager is necessary for Initial phase only
+	public function generateIndividualNotes($gameData, $dbManager){ //dbManager kept for signature compatibility
 		$this->doIndividualNotesTransfer();
-		$ship = $this->getUnit();	
+		$ship = $this->getUnit();
 
-		//Load previous turn's notes to get turnsDocked count
-		if ($gameData->phase == 1) {
-			$listNotes = $dbManager->getIndividualNotesForShip($gameData, $gameData->turn - 1, $ship->id);
-			foreach ($listNotes as $currNote){
-				if($currNote->systemid==$this->id){
-					$this->addIndividualNote($currNote);
+		switch($gameData->phase){
+			case -1: //Deployment: scenario-start state choice, effective immediately
+			case 3: //Firing (player submission, via BaseShip::generateAdditionalNotes): dock/deploy order, effective NEXT turn
+				if ($this->transferReceived){
+					$notekey = $this->active ? 'Docked' : 'Undocked';
+					$noteHuman = $this->active ? 'Docked' : 'Deployed';
+					$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey,$noteHuman,1);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
 				}
-			}
-			$this->onIndividualNotesLoaded($gameData);
-		}
-		
-		switch($gameData->phase){			
-			case -1: //pre-phase
-				if ($this->active) {
-						$this->turnsDocked++;
-						$notekey = 'Docked';
-						$noteHuman = 'Docked this turn';
-						$noteValue = 1;
-						$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey,$noteHuman,$noteValue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
-				}else{
-						$notekey = 'Undocked';
-						$noteHuman = 'Not docked this turn';
-						$noteValue = 1;
-						$this->turnsDocked = 1;
-						$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey,$noteHuman,$noteValue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
-				}	
-				$notekey2 = 'turnsDocked';
-				$noteHuman2 = 'Turns Docked';
-				$noteValue2 = $this->turnsDocked;
-				$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,$notekey2,$noteHuman2,$noteValue2);
-			break;	
-			case 1: //inital phase
-				if(!$this->active){ //if not docked in inital phase reset the turnsDocked to 1
-					$this->turnsDocked = 1;
+				break;
+			case 4: //fire-phase advance (authoritative server gamedata, notes loaded): apply the pending order + advance the regeneration clock
+				$newDocked = $this->active; //latest ORDERED state, incl. this turn's firing-phase order
+				$oldDocked = $this->activeEffective;
+				if ($newDocked && !$oldDocked){
+					$this->startRegeneration($ship, $gameData);
+				} else if (!$newDocked && $oldDocked){
+					$this->finishUndocking($ship, $gameData);
 				}
-			break;
+				$previousCount = $this->turnsDocked;
+				$this->turnsDocked = $newDocked ? ($previousCount + 1) : 0;
+				if ($this->turnsDocked != $previousCount){ //no note spam while continuously deployed
+					$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,'turnsDocked','Turns Docked',$this->turnsDocked);
+				}
+				break;
 		}
-	}			
+	}
 
 	public function onIndividualNotesLoaded($gamedata){
+		$this->sortNotes(); //query already orders by turn/phase - defensive
+		$ordered = false; //orbitals are deployed unless noted otherwise
+		$effective = false;
+		$turnsDockedNote = 0;
 		foreach ($this->individualNotes as $currNote){
-			if($currNote->notekey == 'turnsDocked'){
-				$this->turnsDocked = $currNote->notevalue;
+			switch($currNote->notekey){
+				case 'Docked':
+				case 'Undocked':
+					$isDocked = ($currNote->notekey == 'Docked');
+					$ordered = $isDocked;
+					//a firing-phase order takes effect NEXT turn; older notes - and this turn's
+					//Deployment-phase choice - are already in effect
+					if ( ($currNote->turn < $gamedata->turn) || ($currNote->phase == -1) ){
+						$effective = $isDocked;
+					}
+					break;
+				case 'turnsDocked':
+					$turnsDockedNote = (int)$currNote->notevalue;
+					break;
 			}
 		}
-		$this->individualNotes = array();
+		$this->active = $ordered;
+		$this->activeEffective = $effective;
+		$this->turnsDocked = $effective ? $turnsDockedNote : 0;
+		$this->individualNotes = array(); //consumed
+
+		//apply this turn's state effects
+		$this->isTargetable = !$this->activeEffective; //docked orbital cannot be targeted at all
+		if ($this->pairedWeapon !== null){
+			$this->pairedWeapon->stowed = $this->activeEffective; //stowed beam: cannot fire or intercept
+			$this->pairedWeapon->canOffLine = $this->activeEffective; //may be powered down only while docked
+		}
+		//D3 docked merge: the orbital's remaining boxes join the section structure block
+		//(Structure::stripForJson always sends maxhealth, so the client sees the merged pool).
+		//MUST resolve the block via getStructureBlock() - $this->structureSystem is not yet
+		//assigned at notes-load time (onConstructed runs after notes).
+		$block = $this->getStructureBlock();
+		if ($this->activeEffective && $block !== null && !$block->isDestroyed()){
+			$this->appliedStructureBump = max(0, $this->getRemainingHealth());
+			$block->maxhealth += $this->appliedStructureBump;
+			$block->orbitalBump += $this->appliedStructureBump; //excluded from combat value (no double-count with the orbital's own boxes)
+		}
+	}
+
+	private function sortNotes() {
+		usort($this->individualNotes, function($a, $b) {
+			// Compare by turn first
+			if ($a->turn == $b->turn) {
+				// If turns are equal, compare by phase
+				return ($a->phase < $b->phase) ? -1 : 1;
+			}
+			return ($a->turn < $b->turn) ? -1 : 1;
+		});
+	}
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);
+		//Deployed / Docked (steady) or Docking / Deploying (order pending, changes next turn);
+		//the client refreshes this line live as the player toggles the order button
+		if ($this->activeEffective){
+			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Docked" : "Deploying";
+		}else{
+			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Deployed" : "Docking";
+		}
+		$this->data["Special"] = "Weapon platform floating above its section (deployed) or attached to the hull (docked).";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
+		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated).";
+		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
 	}
 
 	public function checkforCalledShotBonus(){
 		return $this->calledShotBonus;
 	}
-	
+
 	public function getPairing(){ //getter for pairing, allows to get attached/paired systems/weps
 			return $this->pairing;
 	}
-		
+
 	public function getFireControlIndexOverride(){
-		return 0; // Use Fighter Fire Control index
+		return 0; // "targeted as if they were fighters" - use Fighter Fire Control index
 	}
 
 	public function stripForJson() {
-        $strippedSystem = parent::stripForJson();   
-		$strippedSystem->active = $this->active; 
-        $strippedSystem->calledShotBonus = $this->calledShotBonus; 
-		$strippedSystem->turnsDocked = $this->turnsDocked;    
+		$strippedSystem = parent::stripForJson();
+		//enemy viewers don't get the pending dock/deploy order (active) - they receive the
+		//state already in effect, so the order only becomes visible once it actually happens
+		//$strippedSystem->active = $this->isRevealedToCurrentViewer() ? $this->active : $this->activeEffective; //latest ORDERED state - drives the Dock/Deploy buttons + pending-order glow
+		if(TacGamedata::$currentPhase == 3){
+			$strippedSystem->active = $this->isRevealedToCurrentViewer() ? $this->active : false; 
+		}else{
+			$strippedSystem->active = $this->active;
+		}		
+		$strippedSystem->activeEffective = $this->activeEffective; //state in effect THIS turn - drives display & targeting
+		$strippedSystem->turnsDocked = $this->turnsDocked;
+		$strippedSystem->isTargetable = $this->isTargetable; //dynamic: docked orbital untargetable
+		$strippedSystem->calledShotBonus = $this->calledShotBonus;
+		$strippedSystem->fireControlIndexOverride = $this->getFireControlIndexOverride(); //client hit-chance mirror (fighter FC)
 		$strippedSystem->outputDisplay = $this->outputDisplay;
-        return $strippedSystem;
+		return $strippedSystem;
 	}
-} 
+}
+
+/*lighter Orbital variant (Kirishiac Conqueror) - identical rules, smaller structure (default 15 boxes).
+Client has a matching KirishiacOrbitalLight class (client factory keys off $name).*/
+class KirishiacOrbitalLight extends KirishiacOrbital{
+	public $name = "KirishiacOrbitalLight";
+
+	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
+		if ( $maxhealth == 0 ) $maxhealth = 15;
+		parent::__construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart);
+	}
+}
 
 /*custon system for Nexus LCVs*/
 class NexusLCVController extends ShipSystem {
@@ -8687,9 +8914,15 @@ class MindriderHangar extends ShipSystem{
 			$strippedSystem->detected = $this->detected;
 			if (isset($this->detectedNew) && !empty($this->detectedNew)) {
 				$strippedSystem->detectedNew = $this->detectedNew;
-			}  			
+			}
 			//$strippedSystem->detectedNew = is_array($this->detectedNew) ? $this->detectedNew : array();
-			$strippedSystem->active = $this->active;				        
+			//enemy viewers never see the shading state directly - they find out through the
+			//detection rules and resolved fire (their hit preview shows the unshaded mod)
+			if(TacGamedata::$currentPhase == -1){
+				$strippedSystem->active = $this->isRevealedToCurrentViewer() ? $this->active : false; 
+			}else{
+				$strippedSystem->active = $this->active;
+			}
 			return $strippedSystem;
 		}
 
