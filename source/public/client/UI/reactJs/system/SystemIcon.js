@@ -102,6 +102,10 @@ const System = styled.div`
     
     ${SystemText} {
         display: ${props => props.$offline ? 'none' : 'flex'};
+        /*docked Kirishiac Orbital: keep the icon text ([n/5] regeneration counter) fully
+        readable above the blue fade - the ::before overlay is positioned, so the static
+        text would otherwise paint underneath it*/
+        ${props => props.$docked ? 'position: relative; z-index: 1;' : ''}
     }
 
 
