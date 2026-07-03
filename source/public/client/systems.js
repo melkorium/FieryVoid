@@ -786,12 +786,17 @@ shipManager.systems = {
         var declaredShuttle = parseInt(base["shuttles"], 10) || 0;
         var declaredCargo = parseInt(base["cargo shuttles"], 10) || 0;
         var declaredMedical = parseInt(base["medical shuttles"], 10) || 0; 
-        var declaredLifeboats = parseInt(base["lifeboats"], 10) || 0;                           
+        var declaredLifeboats = parseInt(base["lifeboats"], 10) || 0;  
+        var declaredPresidents = parseInt(base["presidential shuttle"], 10) || 0; 
+        var declaredYachts = parseInt(base["yacht"], 10) || 0;              
+
         if (declaredMsw > 0) rows.push({ type: "Minesweeping Shuttles", count: declaredMsw });
         if (declaredShuttle > 0) rows.push({ type: shipManager.systems.factionDefaultShuttleLabel(ship), count: declaredShuttle });
         if (declaredCargo > 0) rows.push({ type: "Cargo Shuttles", count: declaredCargo });
         if (declaredMedical > 0) rows.push({ type: "Medical Shuttles", count: declaredMedical }); 
         if (declaredLifeboats > 0) rows.push({ type: "Lifeboats", count: declaredLifeboats });                
+        if (declaredPresidents > 0) rows.push({ type: "Presidential Shuttles", count: declaredPresidents }); 
+        if (declaredYachts > 0) rows.push({ type: "Yacht", count: declaredYachts });                  
 
         var pool = capacity - declared;
         if (pool <= 0) return rows;

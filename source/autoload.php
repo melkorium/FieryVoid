@@ -3921,7 +3921,9 @@ spl_autoload_register(
                 'cargoshuttle' => '/server/model/ships/Shuttle.php',                                
                 'shuttle' => '/server/model/ships/Shuttle.php',
                 'medicalshuttle' => '/server/model/ships/Shuttle.php',
-                'lifeboat' => '/server/model/ships/Shuttle.php',                
+                'lifeboat' => '/server/model/ships/Shuttle.php', 
+                'presidentialshuttle' => '/server/model/ships/Shuttle.php',   
+                'emperorsyacht' => '/server/model/ships/Shuttle.php',                              
 
                 //FACTION DEFAULT SHUTTLES
                 'shuttleabbai' => '/server/model/ships/Shuttle.php',

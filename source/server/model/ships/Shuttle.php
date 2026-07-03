@@ -369,6 +369,92 @@ class Lifeboat extends Shuttle
 
 }
 
+class PresidentialShuttle extends Shuttle
+{
+    protected function setShuttleDefaults()
+    {
+        parent::setShuttleDefaults();
+        $this->phpclass = "PresidentialShuttle";
+        $this->shipClass = "Presidential Shuttle";
+        $this->hangarRequired = 'presidential shuttle';
+        $this->faction = "Earth Alliance";        
+        $this->offensivebonus = 0;
+        $this->forwardDefense = 7;
+        $this->sideDefense = 9;
+        $this->freethrust = 4;        
+    }
+
+    public function getImage()
+    {
+        return array('img/ships/shuttlePresident.png', 'img/ships/shuttlePresident_large.png');
+    }
+
+    public function populate()
+    {
+        $current = count($this->systems);
+        $new = $this->flightSize;
+        $toAdd = $new - $current;
+
+        for ($i = 0; $i < $toAdd; $i++) {
+            $armour = array(2, 2, 2, 2);
+            $fighter = new Fighter($this->phpclass, $armour, 11, $this->id);
+            $fighter->displayName = $this->shipClass;
+            $fighter->imagePath = $this->imagePath;
+            $fighter->iconPath = $this->iconPath;
+            
+            $frontGun = new PairedParticleGun(330, 30, 4, 1);
+            $frontGun->displayName = "Uni-Pulse Cannon";
+            $fighter->addFrontSystem($frontGun);            
+            $fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0));
+
+            $this->addSystem($fighter);
+        }
+    }
+
+}
+
+class EmperorsYacht extends Shuttle
+{
+    protected function setShuttleDefaults()
+    {
+        parent::setShuttleDefaults();
+        $this->phpclass = "EmperorYacht";
+        $this->shipClass = "Yacht";
+        $this->hangarRequired = 'yacht';
+        $this->faction = "Centauri republic";        
+        $this->offensivebonus = 2;
+        $this->forwardDefense = 10;
+        $this->sideDefense = 12;
+        $this->freethrust = 6;        
+    }
+
+    public function getImage()
+    {
+        return array('img/ships/shuttleCentEmp.png', 'img/ships/ShuttleCentEmp_large.png');
+    }
+
+    public function populate()
+    {
+        $current = count($this->systems);
+        $new = $this->flightSize;
+        $toAdd = $new - $current;
+
+        for ($i = 0; $i < $toAdd; $i++) {
+            $armour = array(2, 2, 2, 2);
+            $fighter = new Fighter($this->phpclass, $armour, 12, $this->id);
+            $fighter->displayName = $this->shipClass;
+            $fighter->imagePath = $this->imagePath;
+            $fighter->iconPath = $this->iconPath;
+            
+			$fighter->addFrontSystem(new PairedParticleGun(330, 30, 1));          
+            $fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0));
+
+            $this->addSystem($fighter);
+        }
+    }
+
+}
+
 class ShuttleAbbai extends Shuttle
 {
     protected function setShuttleDefaults()
