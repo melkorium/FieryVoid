@@ -4608,6 +4608,17 @@ class KirishiacOrbital extends ShipSystem{
 		$block->damage[] = $blockEntry;
 	}
 
+	/*deploy guard: would withdrawing this orbital's merged boxes leave the structure block
+	with no remaining structure? The block has been living off the orbital's docked boxes -
+	deploying would collapse the section, so such an order is refused (the client hides the
+	Deploy button too, but damage arriving after the order makes this server check authoritative)*/
+	public function undockingWouldBreachBlock(){
+		if ($this->appliedStructureBump <= 0) return false; //no merge in effect - undocking changes nothing
+		$block = $this->getStructureBlock();
+		if ($block === null || $block->isDestroyed()) return false; //block already gone - nothing left to protect
+		return ( ($block->maxhealth - $this->appliedStructureBump - $block->getTotalDamage()) <= 0 );
+	}
+
 	public function doIndividualNotesTransfer(){
 		//client sends the ordered docking state (1 = docked, 0 = deployed) with Deployment (phase -1)
 		//and Firing (phase 3) submissions; absence means "no orbital input in this request" - never
@@ -4640,7 +4651,16 @@ class KirishiacOrbital extends ShipSystem{
 				if ($newDocked && !$oldDocked){
 					$this->startRegeneration($ship, $gameData);
 				} else if (!$newDocked && $oldDocked){
-					$this->finishUndocking($ship, $gameData);
+					if ($this->undockingWouldBreachBlock()){
+						//deploy VETO: the block cannot spare this orbital's boxes - stay docked.
+						//The corrective note sorts after the player's phase-3 order (same turn,
+						//higher phase), so every future load sees Docked as the latest order.
+						$newDocked = true;
+						$this->active = true;
+						$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,'Docked','Docked (deploy refused - structure would collapse)',1);
+					} else {
+						$this->finishUndocking($ship, $gameData);
+					}
 				}
 				$previousCount = $this->turnsDocked;
 				$this->turnsDocked = $newDocked ? ($previousCount + 1) : 0;
@@ -4712,7 +4732,11 @@ class KirishiacOrbital extends ShipSystem{
 		//Deployed / Docked (steady) or Docking / Deploying (order pending, changes next turn);
 		//the client refreshes this line live as the player toggles the order button
 		if ($this->activeEffective){
-			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Docked" : "Deploying";
+			if ($this->undockingWouldBreachBlock()){ //deploy currently refused - the block depends on this orbital's boxes
+				$this->data["Status"] = "Docked (cannot deploy - structure would collapse)";
+			}else{
+				$this->data["Status"] = ($this->active == $this->activeEffective) ? "Docked" : "Deploying";
+			}
 		}else{
 			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Deployed" : "Docking";
 		}
@@ -4721,6 +4745,7 @@ class KirishiacOrbital extends ShipSystem{
 		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
 		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated).";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
+		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 
 	public function checkforCalledShotBonus(){

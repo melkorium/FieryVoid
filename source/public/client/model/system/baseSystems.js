@@ -960,12 +960,31 @@ KirishiacOrbital.prototype.hasPendingDockingOrder = function () {
 	return Boolean(this.active) !== Boolean(this.activeEffective);
 };
 
+//deploy guard (client mirror of the server veto): the block's merged maxhealth includes this
+//orbital's docked boxes - if withdrawing them would leave the block with no remaining
+//structure, the server refuses the deploy order, so don't offer the button in the first place
+KirishiacOrbital.prototype.deployWouldBreachStructure = function () {
+	if (!this.activeEffective || !this.ship) return false; //no merge in effect while deployed
+	var block = shipManager.systems.getStructureSystem(this.ship, this.location);
+	if (!block) block = shipManager.systems.getStructureSystem(this.ship, 0); //no section structure - block is PRIMARY
+	if (!block || shipManager.systems.isDestroyed(this.ship, block)) return false; //block already gone - nothing left to protect
+	var myBoxes = Math.max(0, this.maxhealth - damageManager.getDamage(this.ship, this)); //this orbital's contribution to the merged pool
+	var blockRemaining = block.maxhealth - damageManager.getDamage(this.ship, block);
+	return (blockRemaining - myBoxes) <= 0;
+};
+
 //tooltip Status line: Deployed / Docked (steady) or Docking / Deploying (order pending);
 //refreshed on every initializationUpdate and immediately on button clicks
 KirishiacOrbital.prototype.updateDockingStatus = function () {
 	if (!this.data) this.data = {};
 	if (this.activeEffective) {
-		this.data["Status"] = this.hasPendingDockingOrder() ? "Deploying" : "Docked";
+		if (this.hasPendingDockingOrder()) {
+			this.data["Status"] = "Deploying";
+		} else if (this.deployWouldBreachStructure()) {
+			this.data["Status"] = "Docked (cannot deploy - structure would collapse)";
+		} else {
+			this.data["Status"] = "Docked";
+		}
 	} else {
 		this.data["Status"] = this.hasPendingDockingOrder() ? "Docking" : "Deployed";
 	}
@@ -997,7 +1016,12 @@ KirishiacOrbital.prototype.canActivate = function () { //Dock (shown while deplo
 };
 
 KirishiacOrbital.prototype.canDeactivate = function () { //Deploy (shown while docked)
-	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && this.activeEffective) return true;
+	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && this.activeEffective) {
+		//deploying is refused while the block depends on this orbital's boxes; keep the
+		//button reachable if an order is somehow already pending, so it can be cancelled
+		if (!this.hasPendingDockingOrder() && this.deployWouldBreachStructure()) return false;
+		return true;
+	}
 
 	return false;
 };
