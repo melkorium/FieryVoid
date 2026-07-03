@@ -976,7 +976,7 @@ KirishiacOrbital.prototype.initializationUpdate = function () {
 		//the [n/5] regeneration counter is only meaningful while actually regenerating
 		//(the OrbitalRepairing marker is only created when there was damage to repair)
 		var regenerating = shipManager.criticals.hasCritical(this, "OrbitalRepairing");
-		this.outputDisplay = regenerating ? "[" + Math.min(this.turnsDocked, 5) + "/5]" : "-";
+		this.outputDisplay = regenerating ? "[" + Math.min(this.turnsDocked-1, 4) + "/5]" : "-";
 	} else {
 		this.outputDisplay = "-";
 	}
