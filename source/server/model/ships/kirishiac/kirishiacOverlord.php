@@ -86,7 +86,7 @@ class kirishiacOverlord extends BaseShip{
 		//Heavy Orbital C (left section): the mounted Hypergraviton Beam stays operational while
 		//docked, at the reduced stowed arc; the attached Self Repair may only service the
 		//orbital's own systems (doubled while docked)
-		$beamA = new HypergravitonBeam(7, 30, 12, 120, 300, 'A');
+		$beamA = new HypergravitonBeam(7, 30, 12, 150, 30, 'A');
 		$beamA->setStowedArcs(0, 60); //undeployed (docked) firing arc
         $selfRepairA = new SelfRepair(7, 4, 2); //armor, structure, output
 		$hOrbitalA = new KirishiacHeavyOrbital(7, 42, 'L', 'A', 0, $heavyOrbitalHitChart);
