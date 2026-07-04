@@ -9,6 +9,11 @@ const Container = styled.div`
     width: 100%;
     min-width: 250px;
     vertical-align: center;
+
+    @media (max-width: 768px) {
+        min-width: 250px;       
+    }  
+
 `;
 
 const Header = styled.div`

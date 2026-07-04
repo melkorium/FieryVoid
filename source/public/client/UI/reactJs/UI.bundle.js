@@ -927,6 +927,11 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     width: 100%;
     min-width: 250px;
     vertical-align: center;
+
+    @media (max-width: 768px) {
+        min-width: 250px;       
+    }  
+
 `,rM=j.div`
     padding: 3px;
     background-color: #2b3e51;
