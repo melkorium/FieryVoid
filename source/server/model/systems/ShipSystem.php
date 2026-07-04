@@ -263,6 +263,15 @@ public function setParentFighter($fighter) {
 		return null;
 	}
 
+	/*flat target profile override: non-null means a called shot at this system resolves against
+	this profile INSTEAD of the ship's bearing profile, with no called-shot penalty or bonus -
+	Kirishiac Orbitals are "targeted as if they were fighters" (standard 8, Light 7, Heavy 10).
+	Consumed in Weapon::calculateHitBase and client weaponManager (calculateHitChange /
+	computeShotModifiers, via the targetProfile JSON field).*/
+	public function getTargetProfileOverride(){
+		return null;
+	}
+
 	public function doIndividualNotesTransfer(){//optionally to be redefined if system can receive any private data from front endthat need immediate attention		
 	}
 

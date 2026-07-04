@@ -175,6 +175,32 @@ class Weapon extends ShipSystem
 
     public $stowed = false; //weapon is physically stowed and non-operational (Antigravity Beam whose Kirishiac Orbital is docked): cannot fire, cannot intercept; set from orbital state on notes load, sent to client via stripForJson
 
+    /*stowed firing arcs (Kirishiac HEAVY Orbital weapon): non-null means the weapon remains
+    OPERATIONAL while stowed/docked, just with this reduced arc. applyStowedArcs() swaps the
+    live startArc/endArc to match the current $stowed state - all arc consumers (server fire
+    validation, client arc display & targeting) then follow automatically. The client learns
+    the current arcs via stripForJson (sent whenever stowed arcs are configured).*/
+    public $stowedArcStart = null;
+    public $stowedArcEnd = null;
+    private $deployedArcStart = null; //ctor arcs, remembered on the first swap
+    private $deployedArcEnd = null;
+
+    public function setStowedArcs($startArc, $endArc){
+        $this->stowedArcStart = $startArc;
+        $this->stowedArcEnd = $endArc;
+    }
+
+    /*call AFTER setting $this->stowed (notes-load time) to point the live arcs at the right set*/
+    public function applyStowedArcs(){
+        if ($this->stowedArcStart === null) return; //no stowed arc set - stowed means non-operational, arcs irrelevant
+        if ($this->deployedArcStart === null){
+            $this->deployedArcStart = $this->startArc;
+            $this->deployedArcEnd = $this->endArc;
+        }
+        $this->startArc = $this->stowed ? $this->stowedArcStart : $this->deployedArcStart;
+        $this->endArc = $this->stowed ? $this->stowedArcEnd : $this->deployedArcEnd;
+    }
+
     public $useOEW = true;
     public $useOEWArray = array();    
     public $calledShotMod = -8;
@@ -1388,12 +1414,17 @@ public function getStartLoading()
             }
         }
 
+        $calledProfileOverride = null; //flat fighter-style profile of the called system (Kirishiac Orbitals - "targeted as if they were fighters")
         if ($fireOrder->calledid != -1) {
-            $mod += $this->getCalledShotMod();
-            if ($target->base) $mod += $this->getCalledShotMod();//called shots vs bases suffer double penalty!
-			//Add bonus to hit on Called Shots for certain systems, like Aegis Sensor Pod
             $calledSystem = $target->getSystemById($fireOrder->calledid);
-            $mod += $calledSystem->checkforCalledShotBonus();             	
+            if ($calledSystem !== null) $calledProfileOverride = $calledSystem->getTargetProfileOverride();
+            if ($calledProfileOverride === null) { //standard called shot
+                $mod += $this->getCalledShotMod();
+                if ($target->base) $mod += $this->getCalledShotMod();//called shots vs bases suffer double penalty!
+                //Add bonus to hit on Called Shots for certain systems, like Aegis Sensor Pod
+                $mod += $calledSystem->checkforCalledShotBonus();
+            }
+            //else: the system's own flat profile replaces the ship's bearing profile below - no called-shot penalty, no bonus
         }
 
         if ($shooter instanceof OSAT && Movement::hasTurned($shooter, $gamedata->turn)) { //leaving instanceof OSAT here - assuming MicroSATs will not suffer this penalty (Dovarum seems to be able to turn/pivot like a superheavy fighter it's based on)
@@ -1638,6 +1669,12 @@ public function getStartLoading()
             }           
         }    
      
+        //called shot at a system with a flat target profile ("targeted as if they were fighters" -
+        //Kirishiac Orbitals): the system's own profile replaces the ship's bearing profile entirely
+        if ($calledProfileOverride !== null) {
+            $defence = $calledProfileOverride;
+        }
+
         $goal = $defence + $hitBonuses - $hitPenalties;
 
 		

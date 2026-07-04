@@ -356,6 +356,11 @@ class SelfRepairList extends React.Component {
 
             if (sys.repairPriority === 0) continue; // Priority 0 cannot be repaired
 
+            // Restricted Self Repair (mounted on a Kirishiac Heavy Orbital): may only service
+            // the orbital's own systems - the allowed id list comes from the server each load
+            // (docked: weapon + combined Structure block; deployed: orbital + weapon + itself)
+            if (system.repairRestrictedTo && !system.repairRestrictedTo.includes(sys.id)) continue;
+
             //if Structure - skip if destroyed (can't be repaired anyway)
             if ((sys.name == 'structure') && (shipManager.systems.isDestroyed(sys.ship, sys))) continue;
             //if fitted to destroyed Structure - skip (can't be repaired anyway)

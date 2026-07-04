@@ -1210,12 +1210,16 @@ class BaseShip {
 			$this->structures[$loc] = $system->id;
 		}else if(($system->startArc ==0)&&($system->endArc ==0) && !($system instanceof Bulkhead)){ //20.01.2025 - add arc equal to section arc, if not set explicitly. Bulkheads protect by location only - giving them a section arc makes the arc gate in getSystemProtectingFromDamage falsely filter them out for shots from outside that arc.
 			//if arc is not set - copy from location!
-			if($loc==0){ //PRIMARY
+			//systems belonging to ANOTHER section's structure block (structureHomeLocation -
+			//Kirishiac orbitals displayed on the L/R sections) take their HOME block's arc:
+			//they can only be hit from the same directions as their associated structure
+			$arcLoc = $system->getStructureLocation();
+			if($arcLoc==0){ //PRIMARY
 				$system->startArc = 0;
 				$system->endArc = 360;
 			} else {
 				$locations = $this->getLocations();
-				foreach($locations as $line) if ($line["loc"]==$loc){
+				foreach($locations as $line) if ($line["loc"]==$arcLoc){
 					if( ($system->startArc == 0) && ($system->endArc == 0) ){ //for initial values - accept anything
 						$system->startArc = $line["min"];
 						$system->endArc = $line["max"];

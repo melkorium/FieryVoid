@@ -1063,6 +1063,18 @@ var KirishiacOrbitalLight = function KirishiacOrbitalLight(json, ship){
 KirishiacOrbitalLight.prototype = Object.create(KirishiacOrbital.prototype);
 KirishiacOrbitalLight.prototype.constructor = KirishiacOrbitalLight;
 
+//HEAVY Orbital variant (Kirishiac Overlord) - same dock/deploy client behaviour; it cannot
+//regenerate (no OrbitalRepairing crit is ever created, so the inherited initializationUpdate
+//never shows the [n/5] counter). Its mounted weapon stays operational while docked (reduced
+//arc via the weapon's stowedArcStart/End) and its attached Self Repair is restricted to the
+//orbital's systems (repairRestrictedTo, honoured by SelfRepairList).
+var KirishiacHeavyOrbital = function KirishiacHeavyOrbital(json, ship){
+	KirishiacOrbital.call(this, json, ship);
+};
+
+KirishiacHeavyOrbital.prototype = Object.create(KirishiacOrbital.prototype);
+KirishiacHeavyOrbital.prototype.constructor = KirishiacHeavyOrbital;
+
 
 
 

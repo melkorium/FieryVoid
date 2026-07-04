@@ -434,7 +434,7 @@ class SystemIcon extends React.Component {
                 $orderPending={hasPendingDockOrder(system)}
             >
                 <SystemText>{getText(ship, system)}</SystemText>
-                {(!fighter || hasCriticals(system)) && <HealthBar $scs={scs} $health={getStructureLeft(ship, system)} $criticals={hasCriticals(system)} $criticalsBenign={hasOnlyHangarOps(system)} $docked={isDockedOrbital(system)} />}
+                {(!fighter || hasCriticals(system)) && <HealthBar $scs={scs} $health={getStructureLeft(ship, system)} $criticals={hasCriticals(system)} $criticalsBenign={hasOnlyHangarOps(system)} $docked={hasDockedHealthbar(system)} />}
             </System>
         )
     }
@@ -466,9 +466,14 @@ const isOffline = (ship, system) => shipManager.power.isOffline(ship, system);
 const isOff = (system) => system.activeMeansOff && system.active;
 //suppressActiveBoost: system uses $active for state (Kirishiac Orbital docking) and must not read as power-boosted yellow
 const isBoosted = (ship, system) => shipManager.power.isBoosted(ship, system) || (system.active && !system.activeMeansOff && !system.suppressActiveBoost);
-//docked Kirishiac Orbital - and its stowed Antigravity Beam, which shares the same treatment:
-//blue fade + cyan healthbar (state in EFFECT this turn, not the pending order)
-const isDockedOrbital = (system) => Boolean((system.showDockedVisual && system.activeEffective) || system.stowed);
+//docked Kirishiac Orbital - full docked treatment (blue fade + cyan healthbar; state in EFFECT
+//this turn, not the pending order). Shared by: the orbital itself, a stowed non-operational
+//beam (standard orbital's Antigravity Beam), and a Heavy Orbital's attached Self Repair while
+//docked (dockedWithOrbital, sent by the server each load).
+const isDockedOrbital = (system) => Boolean((system.showDockedVisual && system.activeEffective) || (system.stowed && system.stowedArcStart == null) || system.dockedWithOrbital);
+//cyan healthbar WITHOUT the fade: a docked Heavy Orbital's weapon (stowed WITH a stowed arc
+//set) remains operational - the icon renders normally, only the bar marks the docked state.
+const hasDockedHealthbar = (system) => isDockedOrbital(system) || Boolean(system.stowed);
 //pending dock/deploy order (status changes next turn): cyan border + glow on the orbital icon
 const hasPendingDockOrder = (system) => Boolean(system.showDockedVisual
     && typeof system.hasPendingDockingOrder === 'function' && system.hasPendingDockingOrder());
@@ -516,8 +521,9 @@ const getText = (ship, system) => {
 
         //Stowed weapon (Antigravity Beam with its Kirishiac Orbital docked): not operational -
         //shares the orbital's docked treatment (blue fade + cyan bar via $docked), so show
-        //"Docked" instead of a misleading load counter.
-        if (system.stowed) {
+        //"Docked" instead of a misleading load counter. A stowed arc set (Heavy Orbital's beam)
+        //keeps the weapon operational: fall through to the normal weapon display.
+        if (system.stowed && system.stowedArcStart == null) {
             return "-";
         }
 

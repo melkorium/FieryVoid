@@ -4412,16 +4412,19 @@ class KirishiacOrbital extends ShipSystem{
 	public $repairPriority = 0; //DEPLOYED default: SelfRepair cannot reach a deployed orbital; docking makes it serviceable (priority 3, beam 6 - set on notes-load)
 	public $hitChartName = "Orbital"; //ship hit chart alias - displayName stays 'Orbital A'..'H' (getSystemsByNameLoc matches either)
 	public $hasSystemHitChart = true; //informational: orbital resolves hits on its own sub-chart (rolled in resolveSubHitChart)
-	public $systemHitChart = array(); //sub-chart bands, ship-chart convention (highest d20 roll => band): 'Weapon' = paired beam, anything else = the orbital itself
+	public $systemHitChart = array(); //sub-chart bands, ship-chart convention (highest d20 roll => band): 'Weapon' = paired beam, 'Self Repair' = attached repair system (Heavy), anything else = the orbital itself
 
 	private $pairing = null;
-	private $pairedWeapon= null;
+	protected $pairedWeapon= null;
+	protected $attachedSelfRepair = null; //Heavy Orbital only: its own Self Repair system (sub-chart band + destruction coupling)
+
+	public $targetProfile = 8; //flat defence profile ("targeted as if they were fighters"): 8 standard, 7 Light, 10 Heavy - replaces the ship's bearing profile on called shots, no called-shot penalty
+	public $canRegenerate = true; //Heavy Orbitals are too large to regenerate - they carry their own Self Repair instead
+	public $subChartWhileDocked = false; //Heavy Orbitals: docked hits still roll the Orbital chart (weapon/self-repair bands strike those systems); standard orbitals fold every docked roll into the Structure block
 
 	protected $active = false; //true = DOCKED as last ORDERED (latest note, incl. an order given this firing phase); orbitals start deployed
 	public $activeEffective = false; //docked state in EFFECT this turn (a firing-phase order only kicks in next turn)
 	public $turnsDocked = 0; //docked-turn ordinal of the current turn (0 while deployed; regeneration completes when it reaches 5)
-
-	protected $calledShotBonus = 8; //8 to remove called shot std malus, will be adjusted in constructure based on ship profile
 
 	private $transferReceived = false; //client sent a dock/deploy choice this request (guards POST-side note writes)
 	private $appliedStructureBump = 0; //how much this orbital added to its structure block's maxhealth on this load (docked merge)
@@ -4450,16 +4453,15 @@ class KirishiacOrbital extends ShipSystem{
 	onConstructed, which TacGamedata runs AFTER notes are loaded (DBManager::getTacGamedata:
 	getTacShips -> notes -> onConstructed) - so anything running at notes-load time must
 	resolve the block through the unit instead.*/
-	private function getStructureBlock(){
+	protected function getStructureBlock(){
 		if ($this->structureSystem !== null) return $this->structureSystem;
 		$ship = $this->getUnit();
 		return ($ship !== null) ? $ship->getStructureSystem($this->getStructureLocation()) : null;
 	}
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){ //$orientation is L, R, or C - regarding graphics,
-	// profile adjust is a value to add/subtract to calledShotBonus to ensure Orbital has effective profile of 8 (for Kirishiac lord this would be -7(15-7 = 8)).
+	// $profileAdjust is LEGACY and ignored: the flat defence profile is $targetProfile (class default - standard 8, Light 7, Heavy 10).
 		$this->pairing = $pairing;
-		$this->calledShotBonus += $profileAdjust;
 		$this->systemHitChart = $systemHitChart;
 		$this->displayName = 'Orbital ' . $pairing . '';
 		//maxhealth and power reqirement are fixed; left option to override with hand-written values
@@ -4469,35 +4471,51 @@ class KirishiacOrbital extends ShipSystem{
 
 		$this->iconPath = "KirishiacOrbital".$orientation."1.png";
 		parent::__construct($armour, $maxhealth, 0, 0);
-		//full-circle arc (equal start/end = always in arc): TAG hit-chart rows are arc-filtered
-		//and orbitals must stay hittable from any bearing; explicit non-(0,0) values also stop
-		//addSystem from stamping a section arc on them (which would bearing-filter TAG lookups)
-		$this->startArc = 360;
-		$this->endArc = 360;
+		//arcs deliberately left (0,0): addSystem stamps the HOME structure block's section arc
+		//(via getStructureLocation) - an orbital can only be hit from the same directions as its
+		//associated structure. NOTE: setStructureHome() must be called BEFORE addXSystem in
+		//blueprints, or the DISPLAY section's arc would be stamped instead.
 	}
 
 	/*hit allocation: any hit landing on the orbital (section chart row, flash, or a called shot)
-	rolls the Orbital Hits sub-chart while deployed; while docked the orbital is part of the hull,
-	so the hit diverts to the section Structure. Consumed from BaseShip::getHitSystem.*/
+	rolls the Orbital Hits sub-chart while deployed. While DOCKED:
+	- standard orbital: the whole orbital (weapon stowed inside) is part of the hull - every
+	  roll is treated as a hit on the combined Structure block;
+	- HEAVY orbital ($subChartWhileDocked): "any hits resolved to hitting the heavy weapon
+	  orbital use the heavy weapon orbital hit location chart as normal" - the weapon and
+	  self-repair bands strike those systems even while docked (their overkill then flows back
+	  into the ship normally); only orbital-structure results hit the combined Structure instead.
+	Consumed from BaseShip::getHitSystem.*/
 	public function resolveSubHitChart(){
-		if ($this->activeEffective){ //DOCKED - treat any orbital hit as a Structure hit
-			$block = $this->getStructureBlock();
-			return ($block !== null) ? $block : $this;
+		$docked = $this->activeEffective;
+		if ($docked && !$this->subChartWhileDocked){ //DOCKED standard orbital - treat any orbital hit as a Structure hit
+			return $this->orbitalStructureResult(true);
 		}
-		//DEPLOYED - roll on the sub-chart (ship-chart convention: key = highest roll of the band)
+		//roll on the sub-chart (ship-chart convention: key = highest roll of the band)
 		$chart = $this->systemHitChart;
-		if (!is_array($chart) || count($chart) == 0) return $this;
+		if (!is_array($chart) || count($chart) == 0) return $this->orbitalStructureResult($docked);
 		ksort($chart);
 		$roll = Dice::d(20);
 		foreach ($chart as $maxRoll => $band){
 			if ($roll <= $maxRoll){
 				if ( (STRCASECMP($band,'Weapon')==0) || (STRCASECMP($band,'Antigravity Beam')==0) ){ //weapon band (legacy blueprint name accepted)
-					if ($this->pairedWeapon !== null) return $this->pairedWeapon; //may be destroyed - overkill routing then folds the hit back into the orbital
+					if ($this->pairedWeapon !== null) return $this->pairedWeapon; //may be destroyed - overkill routing then folds the hit onwards (deployed: into the orbital; docked: back to the ship)
 				}
-				return $this; //any other band ('Orbital'; legacy 'Structure') = the orbital itself
+				if ( (STRCASECMP($band,'Self Repair')==0) && ($this->attachedSelfRepair !== null) ){ //Heavy Orbital: its own Self Repair system
+					return $this->attachedSelfRepair;
+				}
+				return $this->orbitalStructureResult($docked); //any other band ('Orbital'; legacy 'Structure') = the orbital's structure
 			}
 		}
-		return $this;
+		return $this->orbitalStructureResult($docked);
+	}
+
+	/*the 'orbital structure' chart result: the orbital itself while deployed, the combined
+	Structure block while docked (the orbital's boxes are merged into it)*/
+	private function orbitalStructureResult($docked){
+		if (!$docked) return $this;
+		$block = $this->getStructureBlock();
+		return ($block !== null) ? $block : $this;
 	}
 
 	/*overkill on a destroyed DEPLOYED orbital is lost entirely (flash re-rolls before this hook
@@ -4532,7 +4550,7 @@ class KirishiacOrbital extends ShipSystem{
 			$this->cancelRegenerationCrit($gamedata);
 			return;
 		}
-		if ($this->turnsDocked >= 5){ //5 complete turns docked - full restoration (no-op if pristine)
+		if ($this->canRegenerate && $this->turnsDocked >= 5){ //5 complete turns docked - full restoration (no-op if pristine)
 			$this->performRegeneration($ship, $gamedata);
 		}
 	}
@@ -4572,6 +4590,7 @@ class KirishiacOrbital extends ShipSystem{
 	/*docking just became effective: start the 5-turn regeneration clock (visible marker crit;
 	skipped when there is nothing to regenerate)*/
 	private function startRegeneration($ship, $gameData){
+		if (!$this->canRegenerate) return; //Heavy Orbital: too large to regenerate (has its own Self Repair instead)
 		$beam = $this->pairedWeapon;
 		$needsRepair = ($this->getTotalDamage() > 0) || $this->isDestroyed() || $this->hasClearableCrits($this, $gameData->turn);
 		if (!$needsRepair && $beam !== null){
@@ -4760,14 +4779,14 @@ class KirishiacOrbital extends ShipSystem{
 		}
 		$this->data["Special"] = "Weapon platform floating above its section (deployed) or attached to the hull (docked).";
 		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
-		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control, flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
 		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
 		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 
-	public function checkforCalledShotBonus(){
-		return $this->calledShotBonus;
+	public function getTargetProfileOverride(){
+		return $this->targetProfile; //flat profile replaces the ship's bearing profile on called shots (no called-shot penalty)
 	}
 
 	public function getPairing(){ //getter for pairing, allows to get attached/paired systems/weps
@@ -4791,7 +4810,7 @@ class KirishiacOrbital extends ShipSystem{
 		$strippedSystem->activeEffective = $this->activeEffective; //state in effect THIS turn - drives display & targeting
 		$strippedSystem->turnsDocked = $this->turnsDocked;
 		$strippedSystem->isTargetable = $this->isTargetable; //dynamic: docked orbital untargetable
-		$strippedSystem->calledShotBonus = $this->calledShotBonus;
+		$strippedSystem->targetProfile = $this->targetProfile; //flat fighter-style profile (client hit-chance mirror)
 		$strippedSystem->fireControlIndexOverride = $this->getFireControlIndexOverride(); //client hit-chance mirror (fighter FC)
 		$strippedSystem->outputDisplay = $this->outputDisplay;
 		$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while docked only (SelfRepair list gate)
@@ -4800,15 +4819,118 @@ class KirishiacOrbital extends ShipSystem{
 	}
 }
 
-/*lighter Orbital variant (Kirishiac Conqueror) - identical rules, smaller structure (default 15 boxes).
+/*lighter Orbital variant (Kirishiac Conqueror) - identical rules, smaller structure (default 15
+boxes) and a flat defence profile of 7 (vs the standard orbital's 8).
 Client has a matching KirishiacOrbitalLight class (client factory keys off $name).*/
 class KirishiacOrbitalLight extends KirishiacOrbital{
 	public $name = "KirishiacOrbitalLight";
-    public $displayName = "Light Orbital";	
+    public $displayName = "Light Orbital";
+	public $targetProfile = 7;
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
 		if ( $maxhealth == 0 ) $maxhealth = 15;
 		parent::__construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart);
+	}
+}
+
+/*HEAVY Orbital (Kirishiac Overlord) - a large weapon platform with a mounted heavy weapon and
+its OWN Self Repair system. Shares the standard orbital's dock/deploy state machine, docked
+structure merge, sub-chart and overkill rules, with these differences:
+- flat defence profile 10 (vs 8), targeted at MEDIUM-ship fire control (vs fighter FC);
+- TOO LARGE TO REGENERATE: no 5-turn docked restoration. Its attached Self Repair may only
+  service systems and structure on the orbital itself (orbital, weapon, itself); while DOCKED
+  its output is DOUBLED but it may then only service the weapon and the combined Structure
+  block. The main vessel's Self Repair services the orbital's systems as usual in EITHER state;
+- the mounted weapon REMAINS OPERATIONAL while docked, with a reduced firing arc (the weapon's
+  stowed arcs, set via setStowedArcs in the blueprint; swapped in on notes-load);
+- docked hits on the orbital STILL roll the Orbital chart ($subChartWhileDocked): the weapon and
+  self-repair bands strike those systems (overkill from them flows back into the ship normally);
+  only orbital-structure results divert to the combined Structure block.*/
+class KirishiacHeavyOrbital extends KirishiacOrbital{
+	public $name = "KirishiacHeavyOrbital";
+	public $hitChartName = "Heavy Orbital"; //ship hit chart alias (displayName is 'Heavy Orbital C' etc.)
+	public $targetProfile = 10;
+	public $canRegenerate = false;
+	public $subChartWhileDocked = true; //"any hits resolved to hitting the heavy weapon orbital use the heavy weapon orbital hit location chart as normal" - even docked; only structure results divert to the combined Structure
+
+	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
+		if ( $maxhealth == 0 ) $maxhealth = 42;
+		parent::__construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart);
+		$this->displayName = 'Heavy Orbital ' . $pairing . '';
+	}
+
+	public function getFireControlIndexOverride(){
+		return 1; //Heavy Orbitals are targeted at MEDIUM ship Fire Control, not fighter FC
+	}
+
+	/*blueprint wiring for the orbital's own Self Repair system (like addOrbitalWeapon)*/
+	public function addOrbitalSystem($selfRepair){
+		$this->attachedSelfRepair = $selfRepair;
+		$selfRepair->linkedOrbital = $this; //overkill routing back into the orbital + data window
+		$selfRepair->displayName = 'Orbital Self Repair ' . $this->getPairing(); //carries its orbital's letter, distinct from the ship's own Self Repair
+		$selfRepair->isTargetable = false; //"called shots may not be made on orbitals or weapons attached to them"
+		if ($this->structureHomeLocation !== null) $selfRepair->structureHomeLocation = $this->structureHomeLocation;
+	}
+
+	public function setStructureHome($location){
+		parent::setStructureHome($location);
+		if ($this->attachedSelfRepair !== null) $this->attachedSelfRepair->structureHomeLocation = $location;
+	}
+
+	public function onIndividualNotesLoaded($gamedata){
+		parent::onIndividualNotesLoaded($gamedata);
+		//the main vessel's Self Repair may service the orbital's systems "as usual in either
+		//state" - undo the parent's unrepairable-while-deployed rule (priority 0)
+		$this->repairPriority = 3;
+		if ($this->pairedWeapon !== null){
+			$this->pairedWeapon->repairPriority = 6;
+			//the heavy weapon remains operational while docked - swap its live arcs to the
+			//stowed (reduced) set; the client mirrors this via the weapon's stripForJson
+			$this->pairedWeapon->applyStowedArcs();
+		}
+		//attached Self Repair: restricted to systems ON the orbital. Docked it works at DOUBLE
+		//rate, but only on the weapon and the combined Structure block (the orbital's own boxes
+		//are merged into it); deployed it services orbital, weapon and itself.
+		$selfRepair = $this->attachedSelfRepair;
+		if ($selfRepair !== null){
+			$selfRepair->outputDoubled = $this->activeEffective;
+			$allowed = array();
+			if ($this->activeEffective){
+				if ($this->pairedWeapon !== null) $allowed[] = $this->pairedWeapon->id;
+				$block = $this->getStructureBlock();
+				if ($block !== null) $allowed[] = $block->id;
+			}else{
+				$allowed[] = $this->id;
+				$allowed[] = $selfRepair->id;
+				if ($this->pairedWeapon !== null) $allowed[] = $this->pairedWeapon->id;
+			}
+			$selfRepair->repairRestrictedTo = $allowed;
+		}
+	}
+
+	//a destroyed deployed orbital takes its attached Self Repair down with it
+	//(the parent already handles the mounted weapon and the docked/regeneration branches)
+	public function criticalPhaseEffects($ship, $gamedata)
+	{
+		parent::criticalPhaseEffects($ship, $gamedata);
+		$selfRepair = $this->attachedSelfRepair;
+		if (!$this->activeEffective && $this->isDestroyed() && $selfRepair !== null && !$selfRepair->isDestroyed()){
+			$srHealth = $selfRepair->getRemainingHealth();
+			$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $selfRepair->id, $srHealth, 0, 0, -1, true, false, "Orbital destroyed - Self Repair lost", "OrbitalLoss");
+			$damageEntry->updated = true;
+			$selfRepair->damage[] = $damageEntry;
+		}
+	}
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn); //Status line etc.
+		//replace the standard orbital rules text with the Heavy variant
+		$this->data["Special"] = "Heavy weapon platform floating above its section (deployed) or attached to the hull (docked).";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
+		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter, but at MEDIUM ship fire control (flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (weapon / self repair / orbital). Overkill on mounted systems passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: cannot be targeted directly; its remaining boxes reinforce the section Structure. Hits on the orbital still roll the Orbital chart: the weapon and its Self Repair may be struck (overkill passes to the ship normally), while orbital-structure results hit the combined Structure. Its weapon REMAINS OPERATIONAL with a reduced arc, and may be deactivated for extra power.";
+		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked (weapon and combined Structure only). The ship's Self Repair may service the orbital as usual in either state.";
+		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 }
 
@@ -6878,6 +7000,14 @@ class SelfRepair extends ShipSystem{
 	public $usedThisTurn=0;
 	public $priorityChanges = array();//priority overrides - in format systemID->priority; 0 don't repair, 20 priority repair, -1 cancel override :)
 	public $currentlyDisplayedSystem = -1; //for front end only
+
+	/*Kirishiac Heavy Orbital support: a Self Repair mounted ON an orbital may only service the
+	orbital's own systems (list of system ids recomputed on notes-load by the orbital; docked =
+	weapon + combined Structure block, deployed = orbital + weapon + itself) and works at DOUBLE
+	rate while the orbital is docked. null/false = standard whole-ship Self Repair.*/
+	public $repairRestrictedTo = null; //array of system ids this system may service; null = no restriction
+	public $outputDoubled = false; //docked Heavy Orbital: internal self repair works at double rate
+	public $linkedOrbital = null; //set by KirishiacHeavyOrbital::addOrbitalSystem - null on standard mounts
       
 	
 	//SelfRepair itself is most important to be repaired - as it's the condition of further repairs being effected!
@@ -6908,11 +7038,15 @@ class SelfRepair extends ShipSystem{
 		//some effects should originally work for current turn, but it won't work with FV handling of ballistics. Moving everything to next turn.
 		//it's Ion (not EM) weapon with no special remarks regarding advanced races and system - so works normally on AdvArmor/Ancients etc
 		$this->data["Repair points (used/max)"] = $this->usedRepairPoints . "/" . $this->maxRepairPoints;
-		$this->data["Special"] = "At end of turn phase automatically repairs damage to vessel. Cannot repair destroyed structure blocks.";       
-		$this->data["Special"] .= "<br>Default Priority: Fix criticals, revive destroyed systems, finally heal damaged systems.";  
+		$this->data["Special"] = "At end of turn phase automatically repairs damage to vessel. Cannot repair destroyed structure blocks.";
+		$this->data["Special"] .= "<br>Default Priority: Fix criticals, revive destroyed systems, finally heal damaged systems.";
 		$this->data["Special"] .= "<br>Core (and other particularly important) systems are repaired first, then weapons, then other systems.";
 		$this->data["Special"] .= "<br>Will not fix criticals and damage caused in current turn.";
 		$this->data["Special"] .= "<br>Player may modify repair priorities using the Manage Repair Queue menu.";
+		if ($this->linkedOrbital !== null){ //mounted on a Kirishiac Heavy Orbital
+			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": may only repair systems and structure on the orbital itself.";
+			$this->data["Special"] .= "<br>While the orbital is docked its output is DOUBLED, but it may only service the weapon and the combined Structure block.";
+		}
 	}
 
 	
@@ -6954,8 +7088,9 @@ class SelfRepair extends ShipSystem{
 
 		}				
       	$effectiveoutput = $output + $boost + $bonus;
-      	
-      	return $effectiveoutput; 
+		if ($this->outputDoubled) $effectiveoutput += $output; //docked Kirishiac Heavy Orbital - doubled base output
+
+      	return $effectiveoutput;
 		}		
 	
 	public function criticalPhaseEffects($ship, $gamedata)
@@ -6976,6 +7111,7 @@ class SelfRepair extends ShipSystem{
 		foreach($ship->systems as $system){
 			if ( $system->maxhealth <= $system->getRemainingHealth() ) continue; //skip undamaged systems...
 			if ( $system->repairPriority < 1 ) continue; //base priority 0 = cannot be repaired, even with a player override
+			if ( ($this->repairRestrictedTo !== null) && (!in_array($system->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital) - may only service its orbital's systems
 			//(overrides can only legitimately exist on repairable systems; guards systems whose priority is
 			//DYNAMIC - e.g. a Kirishiac orbital that was overridden while docked and has since redeployed)
 			//priority overrides...
@@ -7024,6 +7160,7 @@ class SelfRepair extends ShipSystem{
             //$availableRepairPoints check moved to execution loop
 
             if ($systemToRepair->repairPriority<1) continue;//skip systems that cannot be repaired
+            if ( ($this->repairRestrictedTo !== null) && (!in_array($systemToRepair->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital)
             if ($systemToRepair->isDestroyed($gamedata->turn)) continue;//don't repair criticals on destroyed system...
 
              // CALCULATE BASE PRIORITY FOR SYSTEM (Needed for Crit Default)
@@ -7174,14 +7311,30 @@ class SelfRepair extends ShipSystem{
 
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
-        $strippedSystem->data = $this->data;		
+        $strippedSystem->data = $this->data;
 		//$strippedSystem->output = $this->getOutput();	//actual output is constant, and outputMod is correctly shown in front end!
         if (isset($this->priorityChanges) && !empty($this->priorityChanges)) {
             $strippedSystem->priorityChanges = $this->priorityChanges;
-        }  				
-        //$strippedSystem->priorityChanges = $this->priorityChanges;	
+        }
+        //$strippedSystem->priorityChanges = $this->priorityChanges;
+		if ($this->linkedOrbital !== null){ //mounted on a Kirishiac Heavy Orbital - dynamic per-load state
+			$strippedSystem->repairRestrictedTo = ($this->repairRestrictedTo !== null) ? array_values($this->repairRestrictedTo) : null; //Manage Repair Queue filter
+			$strippedSystem->outputDoubled = $this->outputDoubled;
+			$strippedSystem->dockedWithOrbital = (bool)$this->linkedOrbital->activeEffective; //client docked visual (faded icon + cyan healthbar, like the orbital)
+		}
         return $strippedSystem;
     }
+
+	/*mounted on a Kirishiac Heavy Orbital: while deployed, overkill passes into the orbital's
+	structure (or is lost if the orbital is already gone). While DOCKED this system is still
+	hittable (docked sub-chart) but the orbital is part of the hull, so overkill follows the
+	normal ship flow (section = combined Structure). Standard mounts behave normally.*/
+	public function getOverkillDestination($target){
+		if ($this->linkedOrbital === null) return null; //standard mount - normal flow
+		if ($this->linkedOrbital->activeEffective) return null; //docked - overkill returns to the ship (combined Structure)
+		if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false; //orbital gone - overkill lost
+		return $this->linkedOrbital;
+	}
 	
 	/* data transferred from front end, if any - priority overrides!*/	
 	public function doIndividualNotesTransfer(){

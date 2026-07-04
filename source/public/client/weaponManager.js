@@ -333,7 +333,7 @@ window.weaponManager = {
             return;
         }
 
-        if(weapon.stowed) return;
+        if (weapon.stowed && weapon.stowedArcStart == null) return; //stowed weapons with a stowed arc set (Kirishiac Heavy Orbital) remain operational
 
         if (weapon.autoFireOnly) return; //this is auto-fire only weapon, should not be fired manually!
 
@@ -674,6 +674,11 @@ window.weaponManager = {
         if (!shooter) return false;
         if (system.isTargetable != true) return false; //cannot be targeted by called shots under any conditions
 
+        //a system may belong to ANOTHER section's structure block than the one it is displayed
+        //on (structureHomeLocation - Kirishiac orbitals): it can only be hit from its HOME
+        //block's facings, so match section arcs against the home location
+        var sysLoc = (system.structureHomeLocation !== undefined && system.structureHomeLocation !== null) ? system.structureHomeLocation : system.location;
+
         if (target.flight) return true; //allow called shots at fighters (in effect it will affect particular fighter, not fighter system)
 
         //Added fragment below to allow Limpet Bore Torpedo to target any exterior system, no other weapon should meet criteria at this time - DK - 16 Apr 2024
@@ -689,7 +694,7 @@ window.weaponManager = {
             var attachedLocation = parseInt(shooter.attached[hostId]);
             if (!isNaN(attachedLocation) && attachedLocation !== 0) {
                 // Only allow called shots against systems on the section the target is attached to
-                if (system.location === attachedLocation) {
+                if (sysLoc === attachedLocation) {
                     // Check if this section is eligible for called shots
                     for (var j = 0; j < target.outerSections.length; j++) {
                         if (target.outerSections[j].loc === attachedLocation && target.outerSections[j].call === true) {
@@ -712,7 +717,7 @@ window.weaponManager = {
             var currSectionData = target.outerSections[i];
             var arcFrom = 0;
             var arcTo = 0;
-            if (system.location == currSectionData.loc) {
+            if (sysLoc == currSectionData.loc) {
 
                 if (shipManager.movement.isRolled(target)) {
                     arcTo = mathlib.addToDirection(currSectionData.min, currSectionData.min * -2);
@@ -735,7 +740,7 @@ window.weaponManager = {
             //"loc" => $curr['loc'], "min" => $curr['min'], "max" => $curr['max'], "call" => $call
         }
         //options here: PRIMARY, incorrect facing of targeted section, section not eligible for called shots (eg. on MCVs)
-        if (system.location > 0 && sectionEligible == true) {
+        if (sysLoc > 0 && sectionEligible == true) {
             return false; //non-PRIMARY and eligible for called shots, but still here => must be out of arc!
         }
         //option here: section not normally eligible for target shots (PRIMARY or outer section on MCV)
@@ -1518,10 +1523,14 @@ window.weaponManager = {
         }
 
         if (calledid > 0) {
-            calledShot = weapon.calledShotMod;
-            if (target.base) calledShot += weapon.calledShotMod; //double penalty vs bases
             var calledSystem = shipManager.systems.getSystem(target, calledid);
-            if (calledSystem && calledSystem.calledShotBonus != null) calledShot += calledSystem.calledShotBonus;
+            if (calledSystem && calledSystem.targetProfile != null) {
+                calledShot = 0; //flat fighter-style profile (Kirishiac Orbital) - no called-shot penalty or bonus; the profile replaces base defence in calculateHitChange
+            } else {
+                calledShot = weapon.calledShotMod;
+                if (target.base) calledShot += weapon.calledShotMod; //double penalty vs bases
+                if (calledSystem && calledSystem.calledShotBonus != null) calledShot += calledSystem.calledShotBonus;
+            }
         }
 
         var ammo = weapon.getAmmo(null);
@@ -1601,6 +1610,16 @@ window.weaponManager = {
         } else {
             defence = weaponManager.getShipDefenceValue(shooter, target);
             distance = mathlib.getDistanceBetweenShipsInHex(shooter, target).toFixed(2);
+        }
+
+        //called shot at a system with a flat target profile ("targeted as if they were fighters" -
+        //Kirishiac Orbitals): the system's own profile replaces the ship's bearing profile entirely
+        //(computeShotModifiers skips the called-shot penalty/bonus for the same case)
+        if (calledid > 0) {
+            var calledProfileSystem = shipManager.systems.getSystem(target, calledid);
+            if (calledProfileSystem && calledProfileSystem.targetProfile != null) {
+                defence = calledProfileSystem.targetProfile;
+            }
         }
 
         var maxDistance = Math.max(weapon.range, weapon.distanceRange);
@@ -2311,8 +2330,8 @@ window.weaponManager = {
 
             if (loSBlocked && !weapon.ignoresLoS) continue;
 
-            if (shipManager.systems.isDestroyed(selectedShip, weapon) || !weaponManager.isLoaded(weapon) || weapon.stowed) {
-                debug && console.log("Weapon destroyed, not loaded, or stowed (Kirishiac Orbital docked)");
+            if (shipManager.systems.isDestroyed(selectedShip, weapon) || !weaponManager.isLoaded(weapon) || (weapon.stowed && weapon.stowedArcStart == null)) {
+                debug && console.log("Weapon destroyed, not loaded, or stowed (Kirishiac Orbital docked)"); //a stowed arc set (Heavy Orbital) keeps the weapon operational
                 continue;
             }
 

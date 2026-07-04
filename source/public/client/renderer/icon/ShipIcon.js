@@ -559,7 +559,7 @@ window.ShipIcon = function () {
 
     ShipIcon.prototype.showWeaponArc = function (ship, weapon) {
         if (!(weapon instanceof Weapon) && !(weapon instanceof Thruster) && !(weapon instanceof Shield)) return null; // Only show arcs for weapons
-        if(weapon.stowed) return null; //E.g. weapon on Kirshiac Orbitals 
+        if(weapon.stowed && weapon.stowedArcStart == null) return null; //stowed weapon with no stowed arc (Kirishiac Orbital docked) - non-operational, no arc to show. A stowed arc set (Heavy Orbital) keeps the weapon live: draw its current (reduced) arc.
 
         var hexDistance = window.coordinateConverter.getHexDistance();
 

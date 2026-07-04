@@ -1922,7 +1922,7 @@ class HypergravitonBlaster extends Weapon {
 class HypergravitonBeam extends Weapon {
         public $name = "HypergravitonBeam";
         public $displayName = "Hypergraviton Beam";
-        public $iconPath = "HypergravitonBeam.png";         
+        public $iconPath = "HypergravitonBeam.png";
 
         public $animation = "laser";
         public $animationColor = array(250, 251, 196);
@@ -1933,19 +1933,24 @@ class HypergravitonBeam extends Weapon {
         public $boostEfficiency = 0;//Weapon is boosted by Thrust, not power.  Handled in Front-End in getRemainingEngineThrust
         public $loadingtime = 1;
         public $priority = 6;
-		
+
         public $rangePenalty = 0.33;
-        public $fireControl = array(3, 4, 5); // fighters, <mediums, <capitals 
-        
+        public $fireControl = array(3, 4, 5); // fighters, <mediums, <capitals
+
 		public $raking = 15;
-		public $damageType = 'Raking'; 
+		public $damageType = 'Raking';
     	public $weaponClass = "Gravitic";
-    	
-		protected $thrustBoosted = true;//Variable FRont End looks for to use thrust as boost. 
+
+		protected $thrustBoosted = true;//Variable FRont End looks for to use thrust as boost.
 	    protected $thrustPerBoost = 4; //Variable showing how much thrust is used per boost.
 
-        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc)
+		private $pairing = null;	//Which Heavy Orbital is it paired with? (null on standalone mounts - Conqueror)
+		public $linkedOrbital = null; //set by KirishiacOrbital::addOrbitalWeapon - null on standalone mounts
+
+        function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null)
         {
+			$this->pairing = $pairing;
+			if ($pairing !== null) $this->displayName = 'Hypergraviton Beam ' . $pairing;
             //maxhealth and power reqirement are fixed; left option to override with hand-written values
             if ( $maxhealth == 0 ){
                 $maxhealth = 20;
@@ -1956,14 +1961,45 @@ class HypergravitonBeam extends Weapon {
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
 
+		/*paired-beam overkill: while the Heavy Orbital is deployed, excess damage passes into
+		the Orbital's structure; if the Orbital is already gone the excess is lost. While DOCKED
+		the beam is still hittable (docked sub-chart) but the orbital is part of the hull, so
+		overkill follows the normal ship flow (section = combined Structure). Standalone mounts
+		(Conqueror) behave normally.*/
+		public function getOverkillDestination($target){
+			if ($this->linkedOrbital === null) return null; //standalone mount - normal flow
+			if ($this->linkedOrbital->activeEffective) return null; //docked - overkill returns to the ship (combined Structure)
+			if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false; //orbital gone - overkill lost
+			return $this->linkedOrbital;
+		}
+
+		/*a Heavy Orbital's beam normally stays OPERATIONAL while docked (with its stowed arcs);
+		this guard only fires if a paired beam was never given stowed arcs in the blueprint*/
+		public function calculateHitBase($gamedata, $fireOrder){
+			if ($this->stowed && $this->stowedArcStart === null){
+				$fireOrder->needed = 0;
+				$fireOrder->shotshit = 0;
+				$fireOrder->pubnotes .= " Beam is stowed (Orbital docked) - cannot fire.";
+				$fireOrder->updated = true;
+				return;
+			}
+			parent::calculateHitBase($gamedata, $fireOrder);
+		}
+
         public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
 			$this->data["Special"] = "15-point rakes.";
 			$this->data["Special"] .= "<br>May apply thrust to boost damage output.";
 			$this->data["Special"] .= "<br>Every 4 thrust applied adds 5 damage.";
-            
+			if ($this->linkedOrbital !== null){
+				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
+				if ($this->stowedArcStart !== null){
+					$this->data["Special"] .= "<br>Remains operational while the Orbital is docked, with a reduced arc (" . $this->stowedArcStart . ".." . $this->stowedArcEnd . " - the Arc line above always shows the arc currently in effect). May be powered down only while docked.";
+				}
+			}
+
             parent::setSystemDataWindow($turn);
-        } 
+        }
 
         protected function getBoostLevel($turn){
             $boostLevel = 0;
@@ -2008,7 +2044,18 @@ class HypergravitonBeam extends Weapon {
 		public function stripForJson(){
 			$strippedSystem = parent::stripForJson();
 			$strippedSystem->thrustBoosted = $this->thrustBoosted;
-			$strippedSystem->thrustPerBoost = $this->thrustPerBoost;													
+			$strippedSystem->thrustPerBoost = $this->thrustPerBoost;
+			if ($this->linkedOrbital !== null){ //paired with a Heavy Orbital - dynamic state the client needs on every load
+				$strippedSystem->stowed = (bool)$this->stowed;
+				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
+				$strippedSystem->isTargetable = $this->isTargetable;
+				$strippedSystem->repairPriority = $this->repairPriority;
+				$strippedSystem->startArc = $this->startArc; //live arcs - reduced set while docked (applyStowedArcs)
+				$strippedSystem->endArc = $this->endArc;
+				$strippedSystem->stowedArcStart = $this->stowedArcStart; //non-null = operational while stowed (client fire/arc gates)
+				$strippedSystem->stowedArcEnd = $this->stowedArcEnd;
+				if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation;
+			}
 			return $strippedSystem;
 		}
 
