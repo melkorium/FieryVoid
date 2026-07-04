@@ -59,13 +59,13 @@ class kirishiacLordship extends BaseShip{
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));       
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
 
-		$orbitalG = new KirishiacOrbital(6, 18, 'L', 'G', -7, $orbitalHitChart);
+		$orbitalG = new KirishiacOrbital(6, 18, 'R', 'G', -7, $orbitalHitChart);
 		$beamG = new AntigravityBeam(6, 6, 3, 90, 270, 'G');
 		$orbitalG->addOrbitalWeapon($beamG);
 		$this->addAftSystem($orbitalG);
 		$this->addAftSystem($beamG);
 
-		$orbitalH = new KirishiacOrbital(6, 18, 'R', 'H', -7, $orbitalHitChart);
+		$orbitalH = new KirishiacOrbital(6, 18, 'L', 'H', -7, $orbitalHitChart);
 		$beamH = new AntigravityBeam(6, 6, 3, 90, 270, 'H');
 		$orbitalH->addOrbitalWeapon($beamH);
 		$this->addAftSystem($orbitalH);

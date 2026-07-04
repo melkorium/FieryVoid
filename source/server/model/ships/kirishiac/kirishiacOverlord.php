@@ -67,13 +67,13 @@ class kirishiacOverlord extends BaseShip{
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));       
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
 
-		$orbitalF = new KirishiacOrbital(6, 18, 'L', 'F', 0, $orbitalHitChart);
+		$orbitalF = new KirishiacOrbital(6, 18, 'R', 'F', 0, $orbitalHitChart);
 		$beamF = new AntigravityBeam(6, 6, 3, 90, 270, 'F');
 		$orbitalF->addOrbitalWeapon($beamF);
 		$this->addAftSystem($orbitalF);
 		$this->addAftSystem($beamF);
 
-		$orbitalE = new KirishiacOrbital(6, 18, 'R', 'E', 0, $orbitalHitChart);
+		$orbitalE = new KirishiacOrbital(6, 18, 'L', 'E', 0, $orbitalHitChart);
 		$beamE = new AntigravityBeam(6, 6, 3, 90, 270, 'E');
 		$orbitalE->addOrbitalWeapon($beamE);
 		$this->addAftSystem($orbitalE);
@@ -86,28 +86,28 @@ class kirishiacOverlord extends BaseShip{
 		//Heavy Orbital C (left section): the mounted Hypergraviton Beam stays operational while
 		//docked, at the reduced stowed arc; the attached Self Repair may only service the
 		//orbital's own systems (doubled while docked)
-		$beamC = new HypergravitonBeam(7, 30, 12, 120, 300, 'C');
-		$beamC->setStowedArcs(0, 60); //undeployed (docked) firing arc
-        $selfRepairC = new SelfRepair(7, 4, 2); //armor, structure, output
-		$orbitalC = new KirishiacHeavyOrbital(7, 42, 'L', 'C', 0, $heavyOrbitalHitChart);
-		$orbitalC->addOrbitalWeapon($beamC);
-        $orbitalC->addOrbitalSystem($selfRepairC);
-		$this->addLeftSystem($beamC);
-		$this->addLeftSystem($orbitalC);
-		$this->addLeftSystem($selfRepairC);
+		$beamA = new HypergravitonBeam(7, 30, 12, 120, 300, 'A');
+		$beamA->setStowedArcs(0, 60); //undeployed (docked) firing arc
+        $selfRepairA = new SelfRepair(7, 4, 2); //armor, structure, output
+		$hOrbitalA = new KirishiacHeavyOrbital(7, 42, 'L', 'A', 0, $heavyOrbitalHitChart);
+		$hOrbitalA->addOrbitalWeapon($beamA);
+        $hOrbitalA->addOrbitalSystem($selfRepairA);
+		$this->addLeftSystem($beamA);
+		$this->addLeftSystem($hOrbitalA);
+		$this->addLeftSystem($selfRepairA);
 
         $this->addLeftSystem(new GraviticThruster(7, 25, 0, 7, 3));
 
 
-		$beamD = new HypergravitonBeam(7, 30, 12, 330, 210, 'D');
-		$beamD->setStowedArcs(300, 360); //undeployed (docked) firing arc
-        $selfRepairD = new SelfRepair(7, 4, 2); //armor, structure, output
-		$orbitalD = new KirishiacHeavyOrbital(7, 42, 'R', 'D', 0, $heavyOrbitalHitChart);
-		$orbitalD->addOrbitalWeapon($beamD);
-        $orbitalD->addOrbitalSystem($selfRepairD);
-		$this->addRightSystem($beamD);
-		$this->addRightSystem($orbitalD);
-		$this->addRightSystem($selfRepairD);
+		$beamB = new HypergravitonBeam(7, 30, 12, 330, 210, 'B');
+		$beamB->setStowedArcs(300, 360); //undeployed (docked) firing arc
+        $selfRepairB = new SelfRepair(7, 4, 2); //armor, structure, output
+		$hOrbitalB = new KirishiacHeavyOrbital(7, 42, 'R', 'B', 0, $heavyOrbitalHitChart);
+		$hOrbitalB->addOrbitalWeapon($beamB);
+        $hOrbitalB->addOrbitalSystem($selfRepairB);
+		$this->addRightSystem($beamB);
+		$this->addRightSystem($hOrbitalB);
+		$this->addRightSystem($selfRepairB);
 
         $this->addRightSystem(new GraviticThruster(7, 25, 0, 7, 4));
 
