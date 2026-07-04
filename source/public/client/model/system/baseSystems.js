@@ -965,7 +965,9 @@ KirishiacOrbital.prototype.hasPendingDockingOrder = function () {
 //structure, the server refuses the deploy order, so don't offer the button in the first place
 KirishiacOrbital.prototype.deployWouldBreachStructure = function () {
 	if (!this.activeEffective || !this.ship) return false; //no merge in effect while deployed
-	var block = shipManager.systems.getStructureSystem(this.ship, this.location);
+	//the home block may differ from the display section (structureHomeLocation - Conqueror declutter)
+	var blockLoc = (this.structureHomeLocation !== undefined && this.structureHomeLocation !== null) ? this.structureHomeLocation : this.location;
+	var block = shipManager.systems.getStructureSystem(this.ship, blockLoc);
 	if (!block) block = shipManager.systems.getStructureSystem(this.ship, 0); //no section structure - block is PRIMARY
 	if (!block || shipManager.systems.isDestroyed(this.ship, block)) return false; //block already gone - nothing left to protect
 	var myBoxes = Math.max(0, this.maxhealth - damageManager.getDamage(this.ship, this)); //this orbital's contribution to the merged pool

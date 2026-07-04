@@ -2081,6 +2081,8 @@ class MedAntigravityBeam extends Gravitic{
 				$strippedSystem->stowed = (bool)$this->stowed;
 				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
+				$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+				if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 			}
 			return $strippedSystem;
 		}
@@ -2097,7 +2099,7 @@ class MedAntigravityBeam extends Gravitic{
 			$this->data["Special"] .= "<br> - Split into two beams (1d10+2, each).";
 			if ($this->linkedOrbital !== null){
 				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
-				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down.";
+				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down and serviced by Self Repair.";
 			}
 		}
 	
@@ -2207,6 +2209,8 @@ class AntigravityBeam extends Gravitic{
 				$strippedSystem->stowed = (bool)$this->stowed;
 				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
+				$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+				if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 			}
 			return $strippedSystem;
 		}
@@ -2223,7 +2227,7 @@ class AntigravityBeam extends Gravitic{
 			$this->data["Special"] .= "<br> - Split into three beams (1d10+2, each).";
 			if ($this->linkedOrbital !== null){
 				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
-				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down.";
+				$this->data["Special"] .= "<br>While the Orbital is docked this beam is stowed: cannot fire or intercept, but may be powered down and serviced by Self Repair.";
 			}
 		}
 	

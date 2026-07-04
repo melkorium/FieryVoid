@@ -3027,6 +3027,20 @@ class HeavyCombatVessel extends BaseShip{
     function __construct($id, $userid, $name, $slot){
         parent::__construct($id, $userid, $name,$slot);
     }
+
+    protected function addLeftFrontSystem($system){
+        $this->addSystem($system, 31);
+    }
+    protected function addLeftAftSystem($system){
+        $this->addSystem($system, 32);
+    }
+    protected function addRightFrontSystem($system){
+        $this->addSystem($system, 41);
+    }
+    protected function addRightAftSystem($system){
+        $this->addSystem($system, 42);
+    }
+
     public function getLocations(){
         $locs = array();
 

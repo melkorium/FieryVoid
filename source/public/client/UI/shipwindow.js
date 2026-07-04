@@ -755,7 +755,7 @@ window.shipWindowManager = {
 			list = Array();
 		}
 
-		if (!structDone) {
+		if (!structDone && structure) { //a side section may hold systems without its own structure block (Kirishiac Conqueror orbitals)
 			grouped.push(Array(structure));
 		}
 

@@ -4409,7 +4409,7 @@ class KirishiacOrbital extends ShipSystem{
 	public $name = "KirishiacOrbital";
 //    public $displayName = "Orbital";
 	public $primary = false;
-	public $repairPriority = 0; //SelfRepair never touches orbitals - docked regeneration is their only healer
+	public $repairPriority = 0; //DEPLOYED default: SelfRepair cannot reach a deployed orbital; docking makes it serviceable (priority 3, beam 6 - set on notes-load)
 	public $hitChartName = "Kirishiac Orbital"; //ship hit chart alias - displayName stays 'Orbital A'..'H' (getSystemsByNameLoc matches either)
 	public $hasSystemHitChart = true; //informational: orbital resolves hits on its own sub-chart (rolled in resolveSubHitChart)
 	public $systemHitChart = array(); //sub-chart bands, ship-chart convention (highest d20 roll => band): 'Weapon' = paired beam, anything else = the orbital itself
@@ -4430,7 +4430,16 @@ class KirishiacOrbital extends ShipSystem{
 		$this->pairedWeapon = $pairedWeapon;
 		$pairedWeapon->linkedOrbital = $this; //back-reference: overkill routing + stowed/power state
 		$pairedWeapon->isTargetable = false; //"called shots may not be made on orbitals or weapons attached to them"
-		$pairedWeapon->repairPriority = 0; //regeneration is the only healer - keep SelfRepair away
+		$pairedWeapon->repairPriority = 0; //DEPLOYED default - SelfRepair may service the beam only while docked (priority 6, set on notes-load)
+		if ($this->structureHomeLocation !== null) $pairedWeapon->structureHomeLocation = $this->structureHomeLocation; //beam docks to the same block
+	}
+
+	/*declutter support: the orbital (and its beam) may be DISPLAYED on the left/right section
+	while still docking to the front/aft structure block - destruction coupling, docked merge,
+	regeneration and SelfRepair all follow the home block, not the display section*/
+	public function setStructureHome($location){
+		$this->structureHomeLocation = $location;
+		if ($this->pairedWeapon !== null) $this->pairedWeapon->structureHomeLocation = $location;
 	}
 
 	public function getOrbitalWeapon(){
@@ -4444,7 +4453,7 @@ class KirishiacOrbital extends ShipSystem{
 	private function getStructureBlock(){
 		if ($this->structureSystem !== null) return $this->structureSystem;
 		$ship = $this->getUnit();
-		return ($ship !== null) ? $ship->getStructureSystem($this->location) : null;
+		return ($ship !== null) ? $ship->getStructureSystem($this->getStructureLocation()) : null;
 	}
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){ //$orientation is L, R, or C - regarding graphics,
@@ -4458,8 +4467,13 @@ class KirishiacOrbital extends ShipSystem{
 			$maxhealth = 18;
 		}
 
-		$this->iconPath = "KirishiacOrbital".$orientation."1.png";	
+		$this->iconPath = "KirishiacOrbital".$orientation."1.png";
 		parent::__construct($armour, $maxhealth, 0, 0);
+		//full-circle arc (equal start/end = always in arc): TAG hit-chart rows are arc-filtered
+		//and orbitals must stay hittable from any bearing; explicit non-(0,0) values also stop
+		//addSystem from stamping a section arc on them (which would bearing-filter TAG lookups)
+		$this->startArc = 360;
+		$this->endArc = 360;
 	}
 
 	/*hit allocation: any hit landing on the orbital (section chart row, flash, or a called shot)
@@ -4700,9 +4714,13 @@ class KirishiacOrbital extends ShipSystem{
 
 		//apply this turn's state effects
 		$this->isTargetable = !$this->activeEffective; //docked orbital cannot be targeted at all
+		//SelfRepair may service orbital + weapon while DOCKED only (rules clarification 2026-07-04);
+		//deployed they are out of reach (priority 0 = not repairable)
+		$this->repairPriority = $this->activeEffective ? 3 : 0;
 		if ($this->pairedWeapon !== null){
 			$this->pairedWeapon->stowed = $this->activeEffective; //stowed beam: cannot fire or intercept
 			$this->pairedWeapon->canOffLine = $this->activeEffective; //may be powered down only while docked
+			$this->pairedWeapon->repairPriority = $this->activeEffective ? 6 : 0; //standard weapon repair priority while docked
 		}
 		//D3 docked merge: the orbital's remaining boxes join the section structure block
 		//(Structure::stripForJson always sends maxhealth, so the client sees the merged pool).
@@ -4743,7 +4761,7 @@ class KirishiacOrbital extends ShipSystem{
 		$this->data["Special"] = "Weapon platform floating above its section (deployed) or attached to the hull (docked).";
 		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
 		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
-		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated).";
+		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
 		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
@@ -4776,6 +4794,8 @@ class KirishiacOrbital extends ShipSystem{
 		$strippedSystem->calledShotBonus = $this->calledShotBonus;
 		$strippedSystem->fireControlIndexOverride = $this->getFireControlIndexOverride(); //client hit-chance mirror (fighter FC)
 		$strippedSystem->outputDisplay = $this->outputDisplay;
+		$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while docked only (SelfRepair list gate)
+		if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 		return $strippedSystem;
 	}
 }
@@ -6952,18 +6972,21 @@ class SelfRepair extends ShipSystem{
         $ship=$this->getUnit();
 
         // 1. Gather Systems
-		foreach($ship->systems as $system){			
+		foreach($ship->systems as $system){
 			if ( $system->maxhealth <= $system->getRemainingHealth() ) continue; //skip undamaged systems...
+			if ( $system->repairPriority < 1 ) continue; //base priority 0 = cannot be repaired, even with a player override
+			//(overrides can only legitimately exist on repairable systems; guards systems whose priority is
+			//DYNAMIC - e.g. a Kirishiac orbital that was overridden while docked and has since redeployed)
 			//priority overrides...
             $prio = $system->repairPriority;
 			if(array_key_exists($system->id, $this->priorityChanges) && ($this->priorityChanges[$system->id]>=0)){
 				$prio = $this->priorityChanges[$system->id];
-			}			
-			
+			}
+
             //skip systems attached to destroyed structure blocks...
 			if($prio<1) continue;//skip systems that cannot be repaired
 			if(!($system instanceOf Structure)){ //non-Structure system - cannot repair if attached to destroyed Structure block
-				$strBlock = $ship->getStructureSystem($system->location);
+				$strBlock = $ship->getStructureSystem($system->getStructureLocation()); //home block may differ from display section (Kirishiac orbitals)
 				if($strBlock->isDestroyed($gamedata->turn)) continue;
 			}else{ //Structure block - cannot repair if destroyed
 				if($system->isDestroyed($gamedata->turn)) continue; //cannot repair destroyed Structure

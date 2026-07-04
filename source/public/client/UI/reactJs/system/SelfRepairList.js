@@ -354,8 +354,10 @@ class SelfRepairList extends React.Component {
             //if Structure - skip if destroyed (can't be repaired anyway)
             if ((sys.name == 'structure') && (shipManager.systems.isDestroyed(sys.ship, sys))) continue;
             //if fitted to destroyed Structure - skip (can't be repaired anyway)
-            if ((sys.name != 'structure') && (sys.location != 0)) {
-                var stru = shipManager.systems.getStructureSystem(sys.ship, sys.location);
+            //(structureHomeLocation: system may belong to another section's block than the one it is displayed in - Kirishiac orbitals)
+            const blockLoc = (sys.structureHomeLocation !== undefined && sys.structureHomeLocation !== null) ? sys.structureHomeLocation : sys.location;
+            if ((sys.name != 'structure') && (blockLoc != 0)) {
+                var stru = shipManager.systems.getStructureSystem(sys.ship, blockLoc);
                 if (stru && shipManager.systems.isDestroyed(sys.ship, stru)) continue;
             }
 

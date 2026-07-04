@@ -57,6 +57,11 @@ class ShipSystem {
 	protected $doCountForCombatValue = true; //false means this system is skipped when evaluating ships' combat value!
 	
 	protected $tagList = array(); //tags for TAG hit chart entry; REMEMBER TAGS SHOULD BE MADE USING CAPITAL LETTERS!
+
+	/*additive: system belongs to ANOTHER section's structure block than the one it is displayed/located in
+	(Kirishiac orbitals shown on the L/R sections while docking to the front/aft blocks). Default null = own
+	location. Drives structureSystem assignment (destruction coupling) and SelfRepair's block check.*/
+	public $structureHomeLocation = null;
 	
 	protected $calledShotBonus = 0;//Some systems, like Aegis Sensor Pod are easier to hit with called shots.
 	protected $active = false;	//Needs to be passed to front end in stripForJson.  Denotes a system being active for any number of purposes / show as boosted	
@@ -273,9 +278,15 @@ public function setParentFighter($fighter) {
         if($ship->getHardAdvancedArmor()==true){  // GTS Hardened Advanced Armor
             $this->hardAdvancedArmor = true;
         }
-        $this->structureSystem = $ship->getStructureSystem($this->location);
+        $this->structureSystem = $ship->getStructureSystem($this->getStructureLocation());
         $this->effectCriticals();
         $this->destroyed = $this->isDestroyed();
+    }
+
+    /*the section whose structure block this system belongs to - usually its own location,
+    unless $structureHomeLocation redirects it (systems displayed apart from their block)*/
+    public function getStructureLocation(){
+        return ($this->structureHomeLocation !== null) ? $this->structureHomeLocation : $this->location;
     }
 
     /* Hangar Ops: per-turn hook for a subsystem of a flight sitting docked
