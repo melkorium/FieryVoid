@@ -191,17 +191,16 @@
 		
 	protected function addSystem($system, $loc){
             $system->location = $loc;
-    $system->setParentFighter($this);
-error_log("Fighter::addSystem: fighter_hash=" . spl_object_id($this) . " fighter_id=" . $this->id . " system=" . get_class($system) . " system_hash=" . spl_object_id($system));
+		$system->setParentFighter($this);
 		$this->systems[] = $system;
         }
 
 public function setSystemDataWindow($turn){
     parent::setSystemDataWindow($turn);			
     foreach ($this->systems as $system){
-        if (get_class($system) === 'WarriorRam') {
-            error_log("Fighter::setSystemDataWindow: fighter_hash=" . spl_object_id($this) . " system_hash=" . spl_object_id($system));
-        }
+//        if (get_class($system) === 'WarriorRam') {
+//            error_log("Fighter::setSystemDataWindow: fighter_hash=" . spl_object_id($this) . " system_hash=" . spl_object_id($system));
+//        }
         $system->setSystemDataWindow($turn);	
     }
 }
