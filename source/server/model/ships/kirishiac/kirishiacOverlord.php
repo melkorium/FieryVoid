@@ -87,7 +87,7 @@ class kirishiacOverlord extends BaseShip{
 		//docked, at the reduced stowed arc; the attached Self Repair may only service the
 		//orbital's own systems (doubled while docked)
 		$beamA = new HypergravitonBeam(7, 30, 12, 150, 30, 'A');
-		$beamA->setStowedArcs(0, 60); //undeployed (docked) firing arc
+		$beamA->setStowedArcs(300, 360); //undeployed (docked) firing arc
         $selfRepairA = new SelfRepair(7, 4, 2); //armor, structure, output
 		$hOrbitalA = new KirishiacHeavyOrbital(7, 42, 'L', 'A', 0, $heavyOrbitalHitChart);
 		$hOrbitalA->addOrbitalWeapon($beamA);
@@ -100,7 +100,7 @@ class kirishiacOverlord extends BaseShip{
 
 
 		$beamB = new HypergravitonBeam(7, 30, 12, 330, 210, 'B');
-		$beamB->setStowedArcs(300, 360); //undeployed (docked) firing arc
+		$beamB->setStowedArcs(0, 60); //undeployed (docked) firing arc
         $selfRepairB = new SelfRepair(7, 4, 2); //armor, structure, output
 		$hOrbitalB = new KirishiacHeavyOrbital(7, 42, 'R', 'B', 0, $heavyOrbitalHitChart);
 		$hOrbitalB->addOrbitalWeapon($beamB);
