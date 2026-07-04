@@ -3547,15 +3547,15 @@ spl_autoload_register(
                 'graviticaugmenter' => '/server/model/weapons/supportWeapons.php',                								
                 'kirishiacorbital' => '/server/model/weapons/baseSystems.php',                								
 //                'kirishiacorbitallight' => '/server/model/weapons/baseSystems.php',                								
-//				'warriorram' => '/server/model/weapons/customDevelopment.php',								
-//				'directram' => '/server/model/weapons/customDevelopment.php',								
+				'warriorram' => '/server/model/weapons/matter.php',								
+				'glancingram' => '/server/model/weapons/matter.php',								
 
 //				'kirishiacconqueror' => '/server/model/ships/kirishiac/kirishiacConqueror.php',
 //				'kirishiackingship' => '/server/model/ships/kirishiac/kirishiacKingship.php',
 				'kirishiaclordship' => '/server/model/ships/kirishiac/kirishiacLordship.php',
 //				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',                
 //				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
-//				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
+				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
 
 
 						//Development systems
@@ -4192,6 +4192,9 @@ spl_autoload_register(
 				'hvygraviticbolt' => '/server/model/weapons/customs.php',
 				'hvyplasmagunftr' => '/server/model/weapons/customs.php',
 				'interceptorarray' => '/server/model/weapons/customs.php',
+
+				'ancientplasmaarc' => '/server/model/weapons/customDevelopment.php',
+
 
 	
 				//let's end this with unit enhancement class...		    

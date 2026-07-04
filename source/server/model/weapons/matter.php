@@ -1041,17 +1041,83 @@ public function fire($gamedata, $fireOrder){
     parent::fire($gamedata, $fireOrder);
 }
 
-public function beforeTurn($ship, $turn, $phase){
-    $thisFighter = $this->getParentFighter();
-    if ($thisFighter !== null) {
-        $this->lastCalculatedDamage = $thisFighter->getRemainingHealth();
-        error_log("beforeTurn: system_hash=" . spl_object_id($this) . " fighter_hash=" . spl_object_id($thisFighter) . " remaining=" . $thisFighter->getRemainingHealth() . " lastCalculatedDamage=" . $this->lastCalculatedDamage);
-    } else {
-        error_log("beforeTurn: system_hash=" . spl_object_id($this) . " thisFighter=NULL");
-    }
-    parent::beforeTurn($ship, $turn, $phase);
-}
 
+
+
+
+public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){
+
+        $warrior = $this->getParentFighter(); //The fighter this weapon belongs to.
+
+		$pos = mathlib::hexCoToPixel($this->getFiringHex($gamedata, $fireOrder));
+		$adaptive = $system->getArmourAdaptive($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Matter", $pos); // Need to get any adaptive armor values set to matter too!
+        $base = $system->getArmourBase($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Particle", $pos);  // Need to change the weapon class to particle so the returned armor value isn't zero
+// file_put_contents('/tmp/debug.log', "amount of matter adaptive armor is : " . $adaptive . "\n", FILE_APPEND);
+// file_put_contents('/tmp/debug.log', "amount of base armor is : " . $base . "\n", FILE_APPEND);
+		$armour = $base + $adaptive;
+// file_put_contents('/tmp/debug.log', "combined armor is : " . $armour . "\n", FILE_APPEND);
+
+// NOTE: $warriorArmor is availabe to be used if there is anything that could reduce a Warrior's armor
+//		$warriorArmor = $warrior->getArmourBase($gamedata->getShipById($fireOrder->shooterid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Particle", $pos); // Needed on the off chance the Warrior's armor is reduced
+// file_put_contents('/tmp/debug.log', "warrior armor is : " . $warriorArmor . "\n", FILE_APPEND);
+
+
+        //Warrior only takes recoil if the system it hit survived.
+        if ($warrior !== null && !$system->isDestroyed($gamedata->turn)){
+            //Warrior suffers 2x the punched-through system's armour value.
+            $warriorFlight = $this->getUnit();
+            $maxDamage = $warrior->getRemainingHealth();
+            $damageCaused = min((2 * $armour) - 6, $maxDamage); //Don't cause more damage than the warrior has left. Also, the -6 is to account for the Warrior's armor. Currently a jury-rigged fix
+// file_put_contents('/tmp/debug.log', "armour is : " . $armour . "\n", FILE_APPEND);
+// file_put_contents('/tmp/debug.log', "maxDamage is : " . $maxDamage . "\n", FILE_APPEND);
+// file_put_contents('/tmp/debug.log', "damageCaused: " . $damageCaused . "\n", FILE_APPEND);
+
+            if ($damageCaused > 0){
+                $destroyed = $damageCaused >= $maxDamage;
+                $damageEntry = new DamageEntry(-1, $warriorFlight->id, -1, $gamedata->turn, $warrior->id, $damageCaused, 0, 0, -1, $destroyed, false, "", "Warrior");
+                $damageEntry->updated = true;
+                $warrior->damage[] = $damageEntry;
+				
+				$warrior->forceCriticalRoll = true;
+				$warrior->critRollMod += 4;				
+				
+            }
+        }
+
+        parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);
+
+    }
+
+
+
+
+
+/*
+public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){
+
+        $warrior = $this->getParentFighter(); //The fighter this weapon belongs to.
+
+        //Warrior only takes recoil if the system it hit survived.
+        if ($warrior !== null && !$system->isDestroyed($gamedata->turn)){
+            //Warrior suffers 2x the punched-through system's armour value.
+            $warriorFlight = $this->getUnit();
+            $maxDamage = $warrior->getRemainingHealth();
+            $damageCaused = min(2 * $armour, $maxDamage); //Don't cause more damage than the warrior has left.
+file_put_contents('/tmp/debug.log', "armour is : " . $armour . "\n", FILE_APPEND);
+file_put_contents('/tmp/debug.log', "maxDamage is : " . $maxDamage . "\n", FILE_APPEND);
+file_put_contents('/tmp/debug.log', "damageCaused: " . $damageCaused . "\n", FILE_APPEND);
+            if ($damageCaused > 0){
+                $destroyed = $damageCaused >= $maxDamage;
+                $damageEntry = new DamageEntry(-1, $warriorFlight->id, -1, $gamedata->turn, $warrior->id, $damageCaused, 0, 0, -1, $destroyed, false, "", "Warrior");
+                $damageEntry->updated = true;
+                $warrior->damage[] = $damageEntry;
+           }
+        }
+
+        parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);
+
+    }
+*/
 
 public function getDamage($fireOrder) {
     $gd = $this->gamedata;
@@ -1068,34 +1134,6 @@ public function getDamage($fireOrder) {
 }
 
 
-
-
-/*
-		public function getDamage($fireOrder){ 
-			$shooter = $this->unit;
-			$gd = $this->gamedata;
-			$target = $gd->getShipById($fireOrder->targetid);
-	
-			$flight = $this->getUnit();
-			$thisFighter = null; //initialize
-		
-			foreach ($flight->systems as $ftr) {
-				foreach ($ftr->systems as $ftrsys) {
-					if ($ftrsys->id == $this->id) {
-						$thisFighter = $ftr; //Found the correct fighter
-						break 2; //Skip both loops and go to the next fighter
-					}
-				}
-			}
-		
-			if ($thisFighter !== null) {
-				$damage = $thisFighter->getRemainingHealth();
-			}
-
-			return $damage;
-		} //endof function getDamage
-*/
-
         public function setMinDamage(){     $this->minDamage = 1 ;      }
 //       public function setMaxDamage(){     $this->maxDamage = $thisFighter->getRemainingHealth() ;      }
 
@@ -1110,6 +1148,11 @@ public function setMaxDamage() {
 
 		
 	}// endof WarriorRam
+
+
+
+
+
 
 	
 ?>
