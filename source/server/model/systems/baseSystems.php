@@ -4410,7 +4410,7 @@ class KirishiacOrbital extends ShipSystem{
 //    public $displayName = "Orbital";
 	public $primary = false;
 	public $repairPriority = 0; //DEPLOYED default: SelfRepair cannot reach a deployed orbital; docking makes it serviceable (priority 3, beam 6 - set on notes-load)
-	public $hitChartName = "Kirishiac Orbital"; //ship hit chart alias - displayName stays 'Orbital A'..'H' (getSystemsByNameLoc matches either)
+	public $hitChartName = "Orbital"; //ship hit chart alias - displayName stays 'Orbital A'..'H' (getSystemsByNameLoc matches either)
 	public $hasSystemHitChart = true; //informational: orbital resolves hits on its own sub-chart (rolled in resolveSubHitChart)
 	public $systemHitChart = array(); //sub-chart bands, ship-chart convention (highest d20 roll => band): 'Weapon' = paired beam, anything else = the orbital itself
 
@@ -4804,6 +4804,7 @@ class KirishiacOrbital extends ShipSystem{
 Client has a matching KirishiacOrbitalLight class (client factory keys off $name).*/
 class KirishiacOrbitalLight extends KirishiacOrbital{
 	public $name = "KirishiacOrbitalLight";
+    public $displayName = "Light Orbital";	
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
 		if ( $maxhealth == 0 ) $maxhealth = 15;
