@@ -161,7 +161,7 @@ class technicalTargetDrone extends VreeCapital
                     20 => "C&C",
            		 ),
             1=> array(
-                    15 => "TAG:Weapon",
+//                    15 => "TAG:Weapon",
                     20 => "Structure",
            		 ),
             2=> array(

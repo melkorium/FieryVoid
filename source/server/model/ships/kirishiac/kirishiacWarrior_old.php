@@ -1,13 +1,13 @@
 <?php
-class kirishiacWarriorTest extends FighterFlight{
+class kirishiacWarrior extends FighterFlight{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 160*6;
 		$this->faction = "Kirishiac Lords";
-        $this->phpclass = "kirishiacWarriorTest";
-        $this->shipClass = "Warrior Projectile Test";
+        $this->phpclass = "kirishiacWarrior";
+        $this->shipClass = "Warrior Projectile";
 		$this->imagePath = "img/ships/kirishiacWarrior2.png";
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
@@ -22,8 +22,6 @@ class kirishiacWarriorTest extends FighterFlight{
         $this->gravitic = true;
 		$this->advancedArmor = true;   
 		$this->hardAdvancedArmor = true;   
-
-        $this->dropOutBonus = 0;
         
 		$this->iniativebonus = 90;
         $this->populate();
@@ -42,14 +40,10 @@ class kirishiacWarriorTest extends FighterFlight{
 			$fighter->displayName = "Warrior";
 			$fighter->imagePath = "img/ships/kirishiacWarrior2.png";
 			$fighter->iconPath = "img/ships/kirishiacWarrior_large2.png";
- 			
-			$hitPenalty = 0;
-//			$fighter->addFrontSystem(new DirectRam(0, 360, 1));
-//			$fighter->addFrontSystem(new WarriorRam(0, 0, 360, 0, $hitPenalty, true, 0));
-//			$fighter->addFrontSystem(new WarriorRam(true));  // True is to specify it is allowed to ram in all scenarios
-//			$fighter->addFrontSystem(new DirectRam(true));  // True is to specify it is allowed to ram in all scenarios
-			$fighter->addFrontSystem(new GlancingRam(0, 360));
-			$fighter->addFrontSystem(new WarriorRam(0, 360));
+			
+
+			
+			//$fighter->addFrontSystem(new GlancingRam(0, 360, 1));
 			
 			$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack
 			
