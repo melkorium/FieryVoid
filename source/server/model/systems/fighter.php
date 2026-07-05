@@ -198,9 +198,6 @@
 public function setSystemDataWindow($turn){
     parent::setSystemDataWindow($turn);			
     foreach ($this->systems as $system){
-//        if (get_class($system) === 'WarriorRam') {
-//            error_log("Fighter::setSystemDataWindow: fighter_hash=" . spl_object_id($this) . " system_hash=" . spl_object_id($system));
-//        }
         $system->setSystemDataWindow($turn);	
     }
 }

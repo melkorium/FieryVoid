@@ -70,17 +70,11 @@ class ShipSystem {
 
 
 public function getParentFighter() {
-//    if (get_class($this) === 'WarriorRam') {
-//        error_log("getParentFighter: system_hash=" . spl_object_id($this) . " returning fighter_hash=" . ($this->parentFighter !== null ? spl_object_id($this->parentFighter) : "NULL"));
-//    }
     return $this->parentFighter;
 }
 
 public function setParentFighter($fighter) {
     $this->parentFighter = $fighter;
-//    if (get_class($this) === 'WarriorRam') {
-//        error_log("setParentFighter: system_hash=" . spl_object_id($this) . " fighter_hash=" . spl_object_id($fighter));
-//    }
 }
 
 
