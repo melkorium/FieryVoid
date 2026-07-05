@@ -10,7 +10,7 @@ class kirishiacMastership extends BaseShip{
         $this->imagePath = "img/ships/kirishiacKingship.png";
         $this->shipClass = "Mastership";
         $this->shipSizeClass = 3;
-        $this->fighters = array("normal"=>18);
+        $this->fighters = array("normal"=>54);
         //$this->limited = 33;
 	    $this->isd = "Ancient";
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
