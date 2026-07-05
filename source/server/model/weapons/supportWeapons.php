@@ -1427,7 +1427,7 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 		$this->data["Special"] .= "<br> - Gravity Shifting (Pre-Firing): Rotates a target ship's facing up to 120 degrees (60 degrees max against Gravtiic targets). Only ONE Augmenter may shift a given ship per turn. No effect on Enormous units or Mines.";
 		if ($this->linkedOrbital !== null){
 			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
-			$this->data["Special"] .= "<br>While the Orbital is docked this Augmenter is stowed: cannot fire, but may be powered down and serviced by Self Repair.";
+			//$this->data["Special"] .= "<br>While the Orbital is docked this Augmenter is stowed: cannot fire, but may be powered down and serviced by Self Repair.";
 		}
 	}
 

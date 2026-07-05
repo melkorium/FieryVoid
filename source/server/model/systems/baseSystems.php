@@ -4793,12 +4793,12 @@ class KirishiacOrbital extends ShipSystem{
 		}else{
 			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Deployed" : "Docking";
 		}
-		$this->data["Special"] = "Weapon platform floating above its section (deployed) or attached to the hull (docked).";
-		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
-		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control, flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
-		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
+		$this->data["Special"] = "Weapon platform that can be deployed or docked to the hull.";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
+		$this->data["Special"] .= "<br>DEPLOYED: May be called shot using Fighter FC and has profile " . $this->targetProfile . "; Hits roll on Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: Orbital hits strike Structure instead; reinforces section Structure health; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
-		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
+		//$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 
 	public function getTargetProfileOverride(){
