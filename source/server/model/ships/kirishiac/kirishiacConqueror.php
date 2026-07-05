@@ -107,7 +107,7 @@ class kirishiacConqueror extends HeavyCombatVessel{
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
-        $this->addFrontSystem(new Structure(7, 72));  
+        $this->addFrontSystem(new Structure(7, 63));  
         $this->addAftSystem(new Structure(7, 60));
         $this->addPrimarySystem(new Structure(7, 60)); 
 	

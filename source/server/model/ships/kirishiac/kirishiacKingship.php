@@ -83,9 +83,9 @@ class kirishiacKingship extends BaseShip{
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addFrontSystem(new Structure( 8, 78));  
-        $this->addAftSystem(new Structure( 8, 96));   //18 added for missing orbitals
-        $this->addLeftSystem(new Structure( 8, 118));  //18 added for missing orbitals
-        $this->addRightSystem(new Structure( 8, 118));  //18 added for missing orbitals
+        $this->addAftSystem(new Structure( 8, 78));   
+        $this->addLeftSystem(new Structure( 8, 100));  
+        $this->addRightSystem(new Structure( 8, 100));  
         $this->addPrimarySystem(new Structure( 8, 84));
 
         $this->hitChart = array(
@@ -106,22 +106,22 @@ class kirishiacKingship extends BaseShip{
             ),
             2=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					12 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					13 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),
             3=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					10 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					11 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),
             4=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					10 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					11 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),

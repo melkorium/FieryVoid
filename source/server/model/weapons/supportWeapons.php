@@ -1322,6 +1322,9 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	public $displayName = "Gravitic Augmenter";
 	public $iconPath = "GraviticAugmenter.png";
 
+	private $pairing = null;	//Which orbital is it paired with? (Mastership Augmenter orbitals)
+	public $linkedOrbital = null; //set by KirishiacOrbital::addOrbitalWeapon - null on standalone mounts (Lordship/Kingship carry beams)
+
 	//"Standard" (not "Raking") so the 0-damage Mode-3 shot still reaches onDamagedSystem to rotate
 	//the target - the Raking damage branch skips doDamage()/onDamagedSystem at 0 damage. Matches the
 	//proven GraviticShifter. A "called shot" is meaningless here (0 damage; the whole ship rotates
@@ -1390,19 +1393,31 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	public static $alreadyAugmented = array();  //Mode 2: a warrior flight may only be enhanced once per turn.
 	private static $alreadyShifted = array();    //Mode 3: a ship may only be gravity-shifted once per turn.
 	 
-    function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+    function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null){
 		if ( $maxhealth == 0 ) $maxhealth = 12;
-        if ( $powerReq == 0 ) $powerReq = 7;                           
+        if ( $powerReq == 0 ) $powerReq = 7;
         parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
-        $this->startArc = $startArc;       	
+        $this->startArc = $startArc;
         $this->endArc = $endArc;
+		$this->pairing = $pairing; //orbital letter when mounted on a Mastership orbital, else null
+		if ($pairing !== null) $this->displayName = 'Gravitic Augmenter ' . $pairing; //standalone mounts keep the plain name
         //$this->output = $output;
- 		//$this->outputDisplay = $output;         
+ 		//$this->outputDisplay = $output;
     }
 
 	public function getSpecialAbilityValue($args){
 		return $this->specialAbilityValue;
-	}	
+	}
+
+	/*paired-mount overkill: while the Orbital is deployed, excess damage passes into the
+	Orbital's structure; if the Orbital is already gone the excess is lost. Standalone
+	mounts behave normally. Mirrors AntigravityBeam::getOverkillDestination. */
+	public function getOverkillDestination($target){
+		if ($this->linkedOrbital === null) return null; //standalone mount - normal flow
+		if ($this->linkedOrbital->activeEffective) return null; //docked - Augmenter cannot be hit anyway
+		if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false; //orbital gone - overkill lost
+		return $this->linkedOrbital;
+	}
 		    		
     public function setSystemDataWindow($turn){
         parent::setSystemDataWindow($turn);
@@ -1410,6 +1425,10 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 		$this->data["Special"] .= "<br> - Matter Weapon Enhancement (Initial Orders): Boosts fire control of friendly matter weapons in arc/range by +3 (+6 if ballistic), and degrades enemy matter weapons by the same amount. Cumulative.";
 		$this->data["Special"] .= "<br> - Warrior Enhancement (Initial Orders): Grants a Warrior flight +3 free thrust, +3 offensive bonus, -4 dropout, and 3 free jink levels. Not cumulative.";
 		$this->data["Special"] .= "<br> - Gravity Shifting (Pre-Firing): Rotates a target ship's facing up to 120 degrees (60 degrees max against Gravtiic targets). Only ONE Augmenter may shift a given ship per turn. No effect on Enormous units or Mines.";
+		if ($this->linkedOrbital !== null){
+			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
+			$this->data["Special"] .= "<br>While the Orbital is docked this Augmenter is stowed: cannot fire, but may be powered down and serviced by Self Repair.";
+		}
 	}
 
 	/* Mode 3 carries the player's chosen rotation in the fire order notes as "GA|<dir>|<amt>"
@@ -1420,6 +1439,7 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	{
 		if ($this->isDestroyed($gamedata->turn)) return;
 		if ($this->isOfflineOnTurn($gamedata->turn)) return;
+		if ($this->stowed) return; //docked with its Orbital - cannot fire (mirrors AntigravityBeam D4 ruling)
 
 		$ship = $this->getUnit();
 		$deployTurn = $ship->getTurnDeployed($gamedata);
@@ -1448,6 +1468,7 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	public function onIndividualNotesLoaded($gamedata){
 		if ($this->isDestroyed($gamedata->turn)) return;
 		if ($this->isOfflineOnTurn($gamedata->turn)) return;
+		if ($this->stowed) return; //docked with its Orbital - Modes 1 & 2 buffs must not apply while stowed
 		$ship = $this->getUnit();
 		if($ship->getTurnDeployed($gamedata) > $gamedata->turn) return;
 
@@ -1574,6 +1595,14 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 
 	public function calculateHitBase($gamedata, $fireOrder){
 
+		if ($this->stowed){ //docked with its Orbital - cannot fire (mirrors AntigravityBeam D4 ruling)
+			$fireOrder->needed = 0;
+			$fireOrder->shotshit = 0;
+			$fireOrder->pubnotes .= " Augmenter is stowed (Orbital docked) - cannot fire.";
+			$fireOrder->updated = true;
+			return;
+		}
+
 		switch ($fireOrder->firingMode) {
 
 			case 1: //Matter weapon enhancement
@@ -1699,13 +1728,20 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	public function setMaxDamage(){     $this->maxDamage = 0 ;      }
 
     public function stripForJson() {
-        $strippedSystem = parent::stripForJson();    
-        $strippedSystem->autoHit = $this->autoHit; 		
+        $strippedSystem = parent::stripForJson();
+        $strippedSystem->autoHit = $this->autoHit;
         $strippedSystem->canTargetAllies = $this->canTargetAllies;
         $strippedSystem->canTargetAlliesArray = $this->canTargetAlliesArray;
-        //$strippedSystem->noProjectileArray = $this->noProjectileArray;							                                        
+        //$strippedSystem->noProjectileArray = $this->noProjectileArray;
+		if ($this->linkedOrbital !== null){ //mounted on a Mastership orbital - dynamic docked state the client needs on every load (mirrors AntigravityBeam)
+			$strippedSystem->stowed = (bool)$this->stowed;
+			$strippedSystem->powerLocked = !$this->stowed; //deployed Augmenter cannot be powered down (client Off-button gate)
+			$strippedSystem->isTargetable = $this->isTargetable;
+			$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+			if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
+		}
         return $strippedSystem;
-	}	
+	}
 	
 	
 }//endof GraviticAugmenter
