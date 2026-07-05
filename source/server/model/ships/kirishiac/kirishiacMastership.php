@@ -44,17 +44,18 @@ class kirishiacMastership extends BaseShip{
         $this->addPrimarySystem(new JumpEngine(8, 25, 6, 8));
         $this->addPrimarySystem(new SelfRepair(7, 12, 6)); //armor, structure, output
 
-		$orbitalA = new KirishiacOrbital(6, 18, 'L', 'A', -7, $orbitalHitChart);
-		$augmenterA = new GraviticAugmenter(7, 0, 0, 270, 90, 'A');
-		$orbitalA->addOrbitalWeapon($augmenterA);
-		$this->addFrontSystem($orbitalA);
-		$this->addFrontSystem($augmenterA);
 
-		$orbitalB = new KirishiacOrbital(6, 18, 'C', 'B', -7, $orbitalHitChart);
+		$orbitalB = new KirishiacOrbital(6, 18, 'L', 'B', -7, $orbitalHitChart);
 		$beamB = new AntigravityBeam(6, 6, 3, 270, 90, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
+
+		$orbitalA = new KirishiacOrbital(6, 18, 'C', 'A', -7, $orbitalHitChart);
+		$augmenterA = new GraviticAugmenter(7, 0, 0, 270, 90, 'A');
+		$orbitalA->addOrbitalWeapon($augmenterA);
+		$this->addFrontSystem($orbitalA);
+		$this->addFrontSystem($augmenterA);        
 
 		$orbitalC = new KirishiacOrbital(6, 18, 'R', 'C', -7, $orbitalHitChart);
 		$beamC = new AntigravityBeam(6, 6, 3, 270, 90, 'C');
@@ -71,17 +72,19 @@ class kirishiacMastership extends BaseShip{
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
 
-		$orbitalJ = new KirishiacOrbital(6, 18, 'R', 'J', -7, $orbitalHitChart);
-		$augmenterJ = new GraviticAugmenter(7, 0, 0, 90, 270, 'J');
-		$orbitalJ->addOrbitalWeapon($augmenterJ);
-		$this->addAftSystem($orbitalJ);
-		$this->addAftSystem($augmenterJ);
 
-		$orbitalK = new KirishiacOrbital(6, 18, 'C', 'K', -7, $orbitalHitChart);
+
+		$orbitalK = new KirishiacOrbital(6, 18, 'R', 'K', -7, $orbitalHitChart);
 		$beamK = new AntigravityBeam(6, 6, 3, 90, 270, 'K');
 		$orbitalK->addOrbitalWeapon($beamK);
 		$this->addAftSystem($orbitalK);
 		$this->addAftSystem($beamK);
+
+		$orbitalJ = new KirishiacOrbital(6, 18, 'C', 'J', -7, $orbitalHitChart);
+		$augmenterJ = new GraviticAugmenter(7, 0, 0, 90, 270, 'J');
+		$orbitalJ->addOrbitalWeapon($augmenterJ);
+		$this->addAftSystem($orbitalJ);
+		$this->addAftSystem($augmenterJ);
 
 		$orbitalL = new KirishiacOrbital(6, 18, 'L', 'L', -7, $orbitalHitChart);
 		$beamL = new AntigravityBeam(6, 6, 3, 90, 270, 'L');
