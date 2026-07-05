@@ -74,14 +74,60 @@ window.ShipTooltipFireMenu = function () {
     };
     // Boxes consumed by a queued dock/deploy order of $count craft of the
     // flight referenced by the order, looked up for its unitSize.
+    // Warrior regen: a queued dock of a regenerating flight reserves its FULL
+    // roster (alive + destroyed) — not the docking count — so a 4-of-6 Warrior
+    // dock order already holds 6 boxes against any OTHER flight docking the same
+    // carrier that turn (mirrors the server buildDockBays full-roster reservation).
     window.hangarBoxesForQueuedCraft = function (flightId, count) {
         var n = parseInt(count || 0, 10);
         if (n <= 0) return 0;
         var f = (flightId != null) ? gamedata.getShip(flightId) : null;
         var bpc = f ? hangarBoxesPerCraftFromUnitSize(f.unitSize) : 1;
+        if (f && window.flightRegeneratesWhileDocked(f)) {
+            var roster = window.flightFullRosterCount(f);
+            if (roster > n) n = roster;   //reserve the whole roster, not just the docking count
+        }
         return n * bpc;
     };
     var hangarBoxesForQueuedCraft = window.hangarBoxesForQueuedCraft;
+    // Boxes already occupied on bay $sys of $ship by COMMITTED hangarUsage entries —
+    // this bay's own entries PLUS boxes that sibling bays' multi-bay (occupancy)
+    // entries place here. Mirrors the server usageCountFor + foreignOccupancyBoxesOn.
+    // KEY for Warrior regen: an entry with an occupancy list reserves its FULL roster
+    // (occupancy boxes) even though only its live flightSize occupies a slot now, so a
+    // mid-dwell docked Warrior still holds all 6 boxes against another docking flight.
+    // A no-occupancy entry (ordinary flight / legacy) counts flightSize × per-craft.
+    // Catapults count craft 1:1 and never participate in occupancy.
+    window.hangarUsedBoxesOnBay = function (ship, sys, isCat) {
+        var used = 0;
+        var bayId = parseInt(sys.id, 10);
+        if (Array.isArray(sys.hangarUsage)) {
+            sys.hangarUsage.forEach(function (e) {
+                if (!isCat && Array.isArray(e.occupancy)) {
+                    e.occupancy.forEach(function (occ) {
+                        if (parseInt(occ.systemId, 10) === bayId) used += parseInt(occ.boxes || 0, 10);
+                    });
+                    return;
+                }
+                var perCraft = isCat ? 1 : window.hangarBoxesPerCraftForEntry(e);
+                used += parseInt(e.flightSize || 1, 10) * perCraft;
+            });
+        }
+        if (!isCat && ship && Array.isArray(ship.systems)) {
+            ship.systems.forEach(function (other) {
+                if (!other || other === sys || !Array.isArray(other.hangarUsage)) return;
+                if (other.name !== 'hangar' && other.name !== 'fighterRail' && other.name !== 'catapult') return;
+                other.hangarUsage.forEach(function (e) {
+                    if (!Array.isArray(e.occupancy)) return;
+                    e.occupancy.forEach(function (occ) {
+                        if (parseInt(occ.systemId, 10) === bayId) used += parseInt(occ.boxes || 0, 10);
+                    });
+                });
+            });
+        }
+        return used;
+    };
+    var hangarUsedBoxesOnBay = window.hangarUsedBoxesOnBay;
 
     function targetWeapons() {
         weaponManager.targetShip(this.selectedShip, this.targetedShip);
@@ -424,19 +470,11 @@ window.findEligibleCarriersForDock = function (flight) {
                 }
                 effective = Math.max(0, parseInt(sys.maxhealth, 10) - netDamage);
             }
-            // Occupied boxes. unitSize<1 craft consume >1 box each, unitSize>1
-            // ultralights consume a FRACTIONAL box each (ordinary hangars only);
-            // a catapult counts craft 1:1 (single-fighter rail). Sum the box cost
-            // fractionally and round the TOTAL up once below — so 24 Zorth (12.0)
-            // and two separate half-box docks pack correctly rather than each
-            // reserving a whole box.
-            var usedBoxes = 0;
-            if (Array.isArray(sys.hangarUsage)) {
-                sys.hangarUsage.forEach(function (e) {
-                    var perCraft = isCat ? 1 : window.hangarBoxesPerCraftForEntry(e);
-                    usedBoxes += parseInt(e.flightSize || 1, 10) * perCraft;
-                });
-            }
+            // Occupied boxes (this bay's own committed entries + sibling bays'
+            // occupancy spilling here; a regen flight reserves its full roster).
+            // unitSize<1 craft consume >1 box each, ultralights a FRACTIONAL box;
+            // a catapult counts craft 1:1. Sum fractionally, round the TOTAL up below.
+            var usedBoxes = hangarUsedBoxesOnBay(ship, sys, isCat);
 
             // Ordinary hangars share a launch+land output budget; catapults don't.
             var budget;
@@ -680,6 +718,13 @@ window.findEligibleFlightsForDocking = function (carrier) {
         var category = categoryForFlightRecover(flight);
         var size = countActiveInFlight(flight);
         if (size <= 0) return hangars;
+        // Warrior regen: eligibility must require room for the FULL roster (6), not
+        // just the living craft (4) — the whole flight docks and reserves its whole
+        // potential size. reserveSize is what bay/combined capacity is measured against.
+        var reserveSize = size;
+        if (window.flightRegeneratesWhileDocked(flight)) {
+            reserveSize = Math.max(size, window.flightFullRosterCount(flight));
+        }
         var bpcFlight = window.hangarBoxesPerCraftFromUnitSize(flight.unitSize);   //boxes per craft for THIS flight
 
         // Stage 10.6.2: bulk recover only ever docks a FULL flight into a
@@ -728,16 +773,11 @@ window.findEligibleFlightsForDocking = function (carrier) {
                 }
                 effective = Math.max(0, parseInt(sys.maxhealth, 10) - netDamage);
             }
-            // Occupied boxes. unitSize<1 craft consume >1 box each, unitSize>1
-            // ultralights consume a FRACTIONAL box each (ordinary hangars only);
-            // a catapult counts craft 1:1. Sum fractionally, round the TOTAL up once.
-            var usedBoxes = 0;
-            if (Array.isArray(sys.hangarUsage)) {
-                sys.hangarUsage.forEach(function (e) {
-                    var perCraft = isCat ? 1 : window.hangarBoxesPerCraftForEntry(e);
-                    usedBoxes += parseInt(e.flightSize || 1, 10) * perCraft;
-                });
-            }
+            // Occupied boxes (this bay's own committed entries + sibling bays'
+            // occupancy spilling here; a regen flight reserves its full roster).
+            // unitSize<1 craft consume >1 box each, ultralights a FRACTIONAL box;
+            // a catapult counts craft 1:1. Sum fractionally, round the TOTAL up below.
+            var usedBoxes = hangarUsedBoxesOnBay(ship, sys, isCat);
 
             var budget;
             if (isCat) {
@@ -775,11 +815,12 @@ window.findEligibleFlightsForDocking = function (carrier) {
             var capacity = isCat ? free : Math.min(Math.floor(free / bpcFlight), budget);
             if (capacity <= 0) return;
             combinedCraft += capacity;                                  //counts toward combined-pool fit
-            if (capacity >= size) hangars.push({ hangar: sys, capacity: capacity });   //single-bay dock
+            if (capacity >= reserveSize) hangars.push({ hangar: sys, capacity: capacity });   //single-bay dock (holds full reservation)
         });
         //Combined-pool fit: the carrier's rails/bays together hold the flight even
-        //when no single bay does (the dialog then auto-distributes across bays).
-        hangars.combinedFit = (combinedCraft >= size);
+        //when no single bay does (the dialog then auto-distributes across bays). For a
+        //regen flight this is the full-roster reservation, not just the living craft.
+        hangars.combinedFit = (combinedCraft >= reserveSize);
         return hangars;
     }
 
