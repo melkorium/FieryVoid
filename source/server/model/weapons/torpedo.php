@@ -317,9 +317,10 @@
 
         public $priority = 5;
 
-		//Saturation Mode (ships) + individual fighter targeting are inherited from BallisticTorpedo
-		//(damageType='Pulse', grouping=3, getPulses/getExtraPulses/rollPulses, and the fighter-aware
-		//fire()). Only the upper bound differs: this launcher holds up to 9 torpedoes.
+		//Pulse machinery (damageType='Pulse', getPulses/getExtraPulses/rollPulses) is inherited from
+		//BallisticTorpedo. Unlike BallisticTorpedo, this launcher ALWAYS saturates - fighter flights get
+		//the same single-roll pulse volley as ships (see beforeFiringOrderResolution + fire() below).
+		//It also holds more torpedoes (9 vs 6).
         public $maxpulses = 9; //upper bound (matches max held torpedoes); real per-order cap set in fire()
 
 		public $canSplitShots = true;
@@ -327,12 +328,43 @@
 
 		private $pairing = null;	//Which Heavy Orbital is it paired with? (null on standalone mounts)
 		public $linkedOrbital = null; //set by KirishiacOrbital::addOrbitalWeapon - null on standalone mounts
+		private $rolledMod = 0; //Captures reduction of damage reduction per torpedo 
+		public $weaponClass = "Gravitic";
 
         function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null){
             $this->pairing = $pairing;
             if ($pairing !== null) $this->displayName = 'Phased Gravitic Torpedo ' . $pairing;
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
+
+
+		/*This weapon saturates fighter flights too (unlike BallisticTorpedo, which splits torpedoes
+		one-per-fighter). So merge ALL torpedoes aimed at the same target - ship OR flight - into one
+		fire order, summing shots, and leave calledid = -1 so a flight is hit by the standard Pulse
+		distribution (getHitSystem picks fighters as a normal pulse would).*/
+		public function beforeFiringOrderResolution($gamedata) {
+			$turn = $gamedata->turn;
+			$mergedOrders = [];
+			foreach ($this->fireOrders as $fire) {
+				if ($fire->weaponid != $this->id || $fire->turn != $turn) continue;
+				$targetId = $fire->targetid;
+				if (!isset($mergedOrders[$targetId])) {
+					$mergedOrders[$targetId] = $fire; //first order at this target becomes the carrier
+				} else {
+					$mergedOrders[$targetId]->shots += $fire->shots; //fold the rest of the torpedoes in
+				}
+			}
+			$this->fireOrders = array_values($mergedOrders);
+		}//endof beforeFiringOrderResolution()
+
+
+		/*Always a saturation volley - no fighter->Standard branch. The merged order carries every
+		torpedo aimed at this target; cap the pulse count at that and let Weapon::fire() do the single
+		to-hit roll and single interception.*/
+		public function fire($gamedata, $fireOrder){
+			$this->maxpulses = max(1, (int)$fireOrder->shots); //this order's torpedo count is the cap
+			Weapon::fire($gamedata, $fireOrder);
+		}
 
 
 		/*paired-launcher overkill: while the Heavy Orbital is deployed, excess damage passes into
@@ -373,11 +405,21 @@
 		}
 	
         public function shieldInteractionDamage($target, $shooter, $pos, $turn, $shield, $mod) {
-			if ($target->factionAge <= 2) return 0; //Younger factions damage reduction is ignored.           
-			$toReturn = max(0, $mod - Dice::d(10, 1)); //Ancient damage reduction system, reduce by d10 for phasing effect. 
+			$toReturn = $mod;
+			if ($target->factionAge <= 2 && !$shield instanceof EMShield){
+
+				//Add new criticals to DamageReductionReduced criticals here, $roll * criticals added until to == $mod 
+				//(which should be current reduction and therefore the maximum amount we cans till reduce). 
+				return 0; //Younger factions damage reduction is ignored.     		 	
+			}else{ 
+				$roll = Dice::d(10, 1);
+				//$this->rolledMod; //Save per Torpedo, then make null at the start of firing each time.
+				$toReturn = max(0, $mod - $roll); 
 //Debug::log("mod " . $mod);
 //Debug::log("toReturn " . $toReturn);			
-			return $toReturn; 		
+				return $toReturn; 	
+			}
+
         }    
         
         public function getDamage($fireOrder){        return Dice::d(10,2);   }
