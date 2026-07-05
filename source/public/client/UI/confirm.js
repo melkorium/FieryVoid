@@ -2973,9 +2973,16 @@ window.confirm = {
             });
         });
 
+        // Kirishiac Warrior regeneration: a regenerating flight docks WHOLE only —
+        // the player must allocate every craft (they may still spread them across
+        // bays, but can't leave any flying). The server forces whole-flight anyway;
+        // this makes the rule visible and stops a confusing "typed 3, got 5".
+        var mustDockWhole = !!(window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(flight));
+
         var headerText = carriers.length === 1
             ? 'Dock ' + flight.name + ' (' + flightCount + ' craft) into ' + carriers[0].ship.name
             : 'Dock ' + flight.name + ' (' + flightCount + ' craft) — allocate across carriers';
+        if (mustDockWhole) headerText += ' — regenerating flight: must dock as a whole';
 
         var e = $('<div class="confirm error multi-value-confirm hangar-confirm hangarDock"><div class="ui"><div class="confirmok"></div><div class="confirmcancel"></div></div></div>');
         $('<div class="multi-value-header">' + headerText + '</div>').prependTo(e);
@@ -3045,6 +3052,13 @@ window.confirm = {
             });
             if (allocated > flightCount) {
                 alert('Total allocated (' + allocated + ') exceeds flight size (' + flightCount + '). Reduce the count and try again.');
+                return;
+            }
+            // Regenerating flight (Warrior): must dock the WHOLE flight — reject an
+            // under-allocation (0 allocated is still allowed, to cancel a queued dock).
+            if (mustDockWhole && allocated > 0 && allocated < flightCount) {
+                //alert(flight.name + ' regenerates while docked and must dock as a whole flight (' + flightCount + ' craft). Allocate every craft, or clear all to cancel.');
+                confirm.warning(flight.name + ' regenerates while docked and must dock as a whole flight (' + flightCount + ' craft). Allocate every craft, or clear all to cancel.');                
                 return;
             }
             replaceDockOrdersForFlight(flight, newOrdersByHangar);

@@ -56,6 +56,22 @@ window.ShipTooltipFireMenu = function () {
         return hangarBoxesPerCraftFromUnitSize(entry ? entry.unitSize : 1);
     };
     var hangarBoxesPerCraftForEntry = window.hangarBoxesPerCraftForEntry;
+    // Kirishiac Warrior regeneration (mirrors HangarOps::isDockRegenFlight /
+    // fighterRosterCount). A flight whose class regenerates while docked
+    // (dockRegeneration > 0, serialized on the static blueprint) docks WHOLE only
+    // and reserves boxes for its FULL roster so destroyed craft can regrow. Exposed
+    // on window because findEligibleCarriersForDock lives outside this IIFE.
+    window.flightRegeneratesWhileDocked = function (flight) {
+        return !!(flight && parseInt(flight.dockRegeneration || 0, 10) > 0);
+    };
+    // Full potential roster = every Fighter system in the flight object, alive or
+    // destroyed (the flight's built size). This is what a regen flight reserves.
+    window.flightFullRosterCount = function (flight) {
+        if (!flight || !Array.isArray(flight.systems)) return 0;
+        var n = 0;
+        flight.systems.forEach(function (ftr) { if (ftr && ftr.fighter) n++; });
+        return n;
+    };
     // Boxes consumed by a queued dock/deploy order of $count craft of the
     // flight referenced by the order, looked up for its unitSize.
     window.hangarBoxesForQueuedCraft = function (flightId, count) {
@@ -332,6 +348,14 @@ window.findEligibleCarriersForDock = function (flight) {
         var total = 0;
         hangarsOnShip.forEach(function (h) { total += h.capacity; });
         if (total <= 0) continue;
+        // Kirishiac Warrior regeneration: a regenerating flight docks WHOLE only and
+        // the hangar must reserve its FULL potential roster (alive + destroyed) so the
+        // destroyed craft have room to regrow after the dwell. So the carrier is only
+        // eligible if its combined free capacity covers the whole roster — mirrors the
+        // server buildDockBays reservation, which rejects a dock that won't fit it.
+        if (window.flightRegeneratesWhileDocked(flight)) {
+            if (total < window.flightFullRosterCount(flight)) continue;
+        }
         out.push({ ship: ship, hangars: hangarsOnShip, totalCapacity: total });
     }
 

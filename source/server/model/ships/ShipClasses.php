@@ -39,6 +39,7 @@ class BaseShip {
     public $removedTurn = null; //Turn the ship docked into a hangar. Lets replay show the flight up to and including this turn.
     public $dockCoalesceDone = false; //Hangar Ops Stage 21: transient once-per-carrier guard for the whole-flight dock coalescer (no-split docking). Not persisted/serialized — fresh false each load; first non-catapult hangar's criticalPhaseEffects runs the coalescer, the rest skip it.
     public $launchCoalesceDone = false; //Hangar Ops Stage 21: transient once-per-carrier guard for the whole-flight launch coalescer. Same lifetime as dockCoalesceDone.
+    public $dockRegenSweepDone = false; //Kirishiac Warrior regeneration: transient once-per-carrier guard for HangarOps::applyDockedRegeneration. Same lifetime as dockCoalesceDone.
     public $faction = null;
 	public $factionAge = 1; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
     public $isd = 0; 

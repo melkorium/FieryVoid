@@ -3729,3 +3729,130 @@ NOT needed in the lobby (it uses `gamedata.allShips`, which already has the whol
 **Verified (user, Docker):** Suom lobby window → "6 Fighters" (primary) + "6 Reska Light Fighters" (aft); Suom in-game hangar
 tooltip → `Type: Reska`. `node --check` clean on all three client files. Pre-existing Hangar UI confirmed byte-for-byte
 unchanged for every empty-allow-list bay (the only behavioural change is on ships that declare a restricted bay).
+
+---
+
+## Kirishiac Warrior docked regeneration — IMPLEMENTED 2026-07-05 (smoke-tested standalone, NOT yet Docker game-tested)
+
+**B5W rule:** "A partially damaged flight of Warrior projectiles can land on a ship, spend 5 full turns on board
+and launch again fully regenerated. There must be at least one undestroyed Warrior projectile in the flight for
+the regeneration to take place." Launching before the dwell completes forfeits regeneration ENTIRELY (all-or-nothing).
+
+### Model
+- **`FighterFlight::$dockRegeneration = 0`** — generic flag: full turns spent docked after which the flight fully
+  regenerates (destroyed craft regrown + all damage healed). `kirishiacWarrior` sets **5**. No new classes → **no
+  autoload change**; no DB change; no static-JSON regen needed (client is entry-driven, see below).
+- **Dock stamp** (`performWholeFlightDock`): when the docking flight's class has `dockRegeneration > 0`, the stash
+  entry gets **`regenTurn = dockedTurn + N`**. The "≥1 undestroyed at the moment it docks" requirement is enforced
+  by the dock itself: `$dockableCount` uses ABSOLUTE current destroyed state (`Fighter::isDestroyed` ignores the
+  turn bound — verified) and dock processing runs AFTER `Firing::fireWeapons` in the Fire advance, so a flight whose
+  last Warrior died in that very firing phase never docks (returns 0) and is simply dead in space.
+- **Regen sweep** — new **`HangarOps::applyDockedRegeneration($carrier, $gamedata)`**, carrier-level, once per
+  carrier per turn (transient guard `BaseShip::$dockRegenSweepDone`, same pattern/lifetime as the Stage-21
+  coalescer guards). Called from `Hangar::criticalPhaseEffects` in BOTH the rail branch and the ordinary branch,
+  **after `serviceDockedFlights`, before `processWholeFlightLaunches`** — deliberately NOT behind the rail
+  half-cadence gate (regrowth is biological, not airlock throughput).
+- **Perf gate (per user, 2026-07-05):** the sweep's FIRST line is `if ($carrier->faction !== 'Kirishiac
+  Lords') return;`, placed BEFORE the `$dockRegenSweepDone` guard. Only Kirishiac craft regenerate and a
+  Warrior can only dock in a Kirishiac hull (they deploy with Kirishiac fleets), so no non-Kirishiac carrier
+  can ever hold a `regenTurn` entry — this skips `collectHangars` + the per-bay/per-entry walk for every
+  other carrier in the game, every turn. Widen to a faction allow-list if a second faction gains a
+  `$dockRegeneration` flight.
+
+### Timing semantics (deliberate — change `regenTurn` stamp if the user wants stricter)
+Docked end of turn T → aboard for all of T+1…T+5 → regenerates during the END-OF-TURN processing of turn T+5,
+BEFORE launch resolution. So a launch ordered ON turn T+5 resolves after the sweep and carries the freshly
+regenerated flight out (it deploys/acts turn T+6). Launching on T+1…T+4 drops the entry (and its stamp) with no
+benefit. If the ruling should instead be "earliest regenerated launch is T+6", stamp `+N+1` — one constant.
+
+### The regeneration operation (deterministic, replay-safe, no dice)
+Per regen-due entry (`regenTurn` set, `regenerated` absent, `dockedFlightId`-linked, flight still `removed`,
+`turn >= regenTurn`, ≥1 undestroyed craft still aboard):
+- Heal = **negative `DamageEntry` with `undestroyed=true`** — the exact SelfRepair mechanism; client `damage.js
+  getTurnDestroyed` already honours `undestroyed`, so revived fighters render alive with NO client damage-logic change.
+- Heal amount is the UNCLAMPED **`getTotalDamage()`** (NOT `maxhealth − getRemainingHealth()`, which floors at 0
+  and would leave overkill residue on a revived craft).
+- **Excluded craft:** disengaged / partial-dock DockedFighter / SplitLaunchedFighter / cut-off — they left the
+  flight and are not aboard. Consequence: on a PARTIAL dock only the docked fragment regenerates (heals its
+  wounded); destroyed members that stayed in space with the remnant never regrow. Full dock brings the whole
+  ship object (destroyed members included) aboard → full 6-craft restoration.
+- **Box capacity clamp:** regrown craft claim bay space like any docked craft. Revivals are capped by the free
+  boxes on the entry's own bay(s) at completion time (ceil-diff, fractional-bpc-safe loop); entry `flightSize`
+  (and `occupancy` boxes, multi-bay) grow to match. Single-bay entries carry no occupancy — flightSize alone
+  drives their footprint. NOT expanded into other bays (v1 limitation; Warriors are 1 box each on 18-box
+  Mastership bays, so this only bites a heavily damaged bay).
+- One-shot per dock cycle via **`$entry['regenerated'] = turn`** (stamped even when nothing needed fixing, so a
+  pristine flight doesn't re-sweep). Persistence is free: entry fields ride the existing `hangarUsage` snapshot
+  note; heal entries self-persist via `getNewDamages` → `submitDamages` (iterates ALL ships incl. removed —
+  verified). Writes a `hangarRegenEvent` IndividualNote (flightid:phpclass:revived:healed) for the audit trail.
+  Replays re-read persisted entries; the sweep only runs in the live Fire advance.
+
+### Client (legacy bundle — needs `yarn watch:legacy` / build)
+`model/system/baseSystems.js refreshHangarTooltip`: stored-craft line suffix from the entry stamps —
+`(Regenerating — complete end of turn N)` while pending, `(Regenerated)` after. Regen state is folded into the
+bucket key (like the wreck marker) so it never merges with a non-regen same-class line. Everything else is
+automatic: launch dialog reads entry `flightSize` (grows on regen), fleet-list value re-derives from the revived
+fighters' damage state.
+
+### Files
+- `source/server/model/ships/FighterFlight.php` — `$dockRegeneration` property
+- `source/server/model/ships/kirishiac/kirishiacWarrior.php` — `= 5`
+- `source/server/model/ships/ShipClasses.php` — `$dockRegenSweepDone` transient guard
+- `source/server/model/systems/HangarOps.php` — regenTurn stamp in `performWholeFlightDock` + `applyDockedRegeneration`
+- `source/server/model/systems/baseSystems.php` — 2 call sites in `Hangar::criticalPhaseEffects`
+- `source/public/client/model/system/baseSystems.js` — tooltip status suffix
+
+### Verification
+Standalone smoke test `c:\tmp\warrior_regen_test.php` (FakeDB stub via `Manager::setDBManager`, stub gamedata):
+**27/27 checks pass** — dock stamps regenTurn; fully-destroyed flight rejected at dock; no regen at T+4; full
+revive+heal at T+5 (incl. overkill clear, entry growth 4→6, one event note); idempotent re-run; box clamp
+(3 free boxes → 3 of 4 revived, bay not over-filled); all-dead-aboard → no regen. (Trailing mysqli fatal in the
+test output is the FakeDB destructor artifact, not the feature.) PENDING: user Docker game test + legacy rebuild.
+
+---
+
+### Warrior regeneration — REFINEMENTS (2026-07-05, game 4220 test feedback; smoke-tested 27/27)
+
+Three changes on top of the base regen feature above:
+
+**R1 — Whole-flight-only docking + full-roster box reservation.**
+- New central predicates in HangarOps: `isDockRegenFlight($flight)` (class has `$dockRegeneration>0`),
+  `fighterRosterCount($flight)` (every Fighter object, alive OR destroyed = the flight's built size), and
+  `dockReservationCraft($flight,$dockingCount)` (regen flight → full roster; else → dockingCount).
+- `buildDockBays` now reserves `dockReservationCraft × bpc` boxes (not just the docking count). A regen
+  flight can only dock if the carrier's combined free bays hold its FULL roster — else the dock is
+  **rejected** (flight stays in space). Rejection is carrier-wide: the Mastership spreads a flight across
+  its several bays (occupancy), so a reject only fires when total free < roster.
+- `performWholeFlightDock` forces `$count = dockableCount` and `$partial = false` for a regen flight (never
+  a fragment / "- Split"), reserves `$reserveCraft` (= full roster) box-slots in the occupancy loop, and
+  **always records occupancy** (even single-bay) so the reserved boxes for currently-destroyed craft are
+  explicit. `flightSize` stays the LIVE docked count (drives launch size + fleet value); the reserved
+  occupancy holds the space the destroyed craft will regrow into.
+- Client: `window.flightRegeneratesWhileDocked` + `window.flightFullRosterCount` (shipTooltipFireMenu.js);
+  `findEligibleCarriersForDock` gates a regen flight's carrier on `total >= fullRoster`; the `hangarDock`
+  dialog (confirm.js) shows a "must dock as a whole" header and rejects an under-allocation (0 still allowed
+  to cancel). Server is authoritative regardless — the client is UX.
+- `performDeployStartDockFromOrders` (deploy-phase dock) also stamps `regenTurn` + always-occupancy for a
+  regen flight (a fresh deploy-docked flight is at full roster, so the reservation is already satisfied;
+  harmless since an undamaged flight regenerates nothing).
+
+**R2 — Dropped-out fighters regenerate too.** The sweep previously excluded `isDisengaged` (combat dropout).
+Per user, a regen flight docks WHOLE and stays whole, so every craft is aboard — destroyed, dropped-out,
+AND damaged all regrow. New `clearDropoutCrit($fighter,$turn)` ends the `DisengagedFighter` critical
+(sets `turnend = turn` + `forceModify` + `inEffect=false` — the SelfRepair/repairCritical mechanism, which
+persists turnend to `tac_critical`) so the revived craft rejoins the flight cleanly (`isDestroyed` no longer
+folds in a stale dropout). Only `DockedFighter`/`SplitLaunchedFighter`/cut-off remain excluded (a regen
+flight can't be in those states — no partial ops on it).
+
+**Sweep box-cap rewrite.** Because R1 reserves the full roster at dock, the old free-box revive cap is gone
+— every destroyed craft already has held space. The cap now derives from the entry's OWN reserved occupancy
+boxes that SURVIVED any bay damage (`min(reservedBoxes, bay remaining health)` per bay), so a bay eviction
+mid-dwell still limits regrowth to surviving reserved slots. No occupancy growth on revive (space was held
+all along); only `flightSize` grows to the new live count.
+
+**Files (delta):** HangarOps.php (helpers + buildDockBays + performWholeFlightDock + sweep + clearDropoutCrit +
+deploy-dock stamp), shipTooltipFireMenu.js (predicates + eligibility gate), confirm.js (whole-flight dialog
+guard). **NEEDS: regenerate static ship JSON** (`php generateStaticShipFile.php`) so
+`kirishiacWarrior.dockRegeneration = 5` reaches `window.staticShips` (ship-level props aren't default-stripped,
+so it flows automatically once regenerated) + `yarn watch:legacy` for the client edits. Smoke test extended to
+27 checks (whole-flight-forced, full-roster reservation, carrier-wide reject, dropout revive + crit-clear).

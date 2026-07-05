@@ -3602,6 +3602,13 @@ class Hangar extends ShipSystem{
 			//it, the rest no-op. Replaces the per-bay processDockOrders.
 			HangarOps::processWholeFlightDocks($ship, $gamedata);
 			HangarOps::serviceDockedFlights($this, $ship, $gamedata);
+			//Kirishiac Warrior regeneration: carrier-level sweep (guarded, first
+			//bay runs it) — must run BEFORE launches so a launch ordered on the
+			//turn the dwell completes carries the regenerated flight out. NOT
+			//behind the rail half-cadence gate: the regrowth clock is biological,
+			//not airlock throughput, so a rail-docked flight regenerates on the
+			//same 5-full-turn schedule as a hangar-docked one.
+			HangarOps::applyDockedRegeneration($ship, $gamedata);
 			//Stage 21: launches resolve once per carrier via the whole-flight
 			//coalescer (no fragments). Guarded; first bay runs it, the rest no-op.
 			HangarOps::processWholeFlightLaunches($ship, $gamedata);
@@ -3629,6 +3636,15 @@ class Hangar extends ShipSystem{
 		//   (dockedTurn == current turn); a launch later this step just carries
 		//   the freshly-reloaded ammo out with it.
 		HangarOps::serviceDockedFlights($this, $ship, $gamedata);
+
+		//3b. Kirishiac Warrior regeneration: carrier-level sweep (guarded, first
+		//    bay runs it). A docked flight whose entry's regenTurn has arrived is
+		//    restored to full strength — destroyed craft regrown, damage healed.
+		//    Runs AFTER docks (a flight docking this turn stamps regenTurn in the
+		//    future, so it's skipped) and BEFORE launches (a launch ordered on the
+		//    completion turn carries the regenerated flight out; launching earlier
+		//    forfeits regeneration entirely).
+		HangarOps::applyDockedRegeneration($ship, $gamedata);
 
 		//4. Process queued launch orders (Post-Turn Actions Step). Stage 21:
 		//   whole-flight coalescer, once per carrier — a docked flight is ONE
