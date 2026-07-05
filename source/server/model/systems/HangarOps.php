@@ -430,7 +430,7 @@ class HangarOps {
 		$normalized = strtolower(trim((string)$category));
 		switch ($normalized) {
 			case 'shuttles':
-				return self::factionShuttleClass($ship);
+				return self::factionShuttleClass($ship);				
 			case 'minesweeping shuttles':
 				//return 'MinesweepingShuttle';
 				return self::factionMinesweepingShuttleClass($ship);				
@@ -440,14 +440,18 @@ class HangarOps {
 				//records via step 1; leftover hangar boxes go to the faction shuttle
 				//(or MinesweepingShuttle for minesweeper-bonus carriers) instead.
 				return 'CargoShuttle';
+			case 'lifeboats':
+				return 'Lifeboat';					
 			case 'medical shuttles':
 				//Opt-in only: never auto-populates leftover capacity. Declared
 				//count in $ship->fighters becomes that many auto-filled CargoShuttle
 				//records via step 1; leftover hangar boxes go to the faction shuttle
 				//(or MinesweepingShuttle for minesweeper-bonus carriers) instead.
 				return 'MedicalShuttle';
-			case 'lifeboats':
-				return 'Lifeboat';					
+			case 'presidential shuttle':
+				return 'PresidentialShuttle';
+			case 'yacht':
+				return 'EmperorsYacht';													
 			default:
 				return null;
 		}

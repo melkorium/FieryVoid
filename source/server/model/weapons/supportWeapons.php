@@ -1690,6 +1690,8 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 		//so subsequent prefire weapons see the updated heading/facing.
 		Manager::insertSingleMovement($gamedata->id, $ship->id, $shift);
 		$ship->setMovement($shift);
+
+		parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);		
     }
 
 	public function getDamage($fireOrder){       return 0;   } //no actual damage

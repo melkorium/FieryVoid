@@ -401,9 +401,11 @@ class BaseShip {
 			foreach ($this->systems as $system) if($system->getCountForCombatValue()) { //skip technical systems
 				$systemCurr = 0;
 				$systemDmg = 0;
-				$systemMax =  $system->maxhealth;				
-				if (!$system->isDestroyed()) {				
-					$systemCurr = $system->getRemainingHealth();
+				$systemMax =  $system->maxhealth;
+				$bump = ($system instanceOf Structure) ? $system->orbitalBump : 0; //docked Kirishiac Orbital boxes merged into this block - already counted on the orbital system itself
+				$systemMax -= $bump;
+				if (!$system->isDestroyed()) {
+					$systemCurr = max(0, $system->getRemainingHealth() - $bump); //bump boxes are pristine (they belong to the orbital) - damage comes off the base pool
 					$systemDmg = $systemMax - $systemCurr;
 				}
 
@@ -1054,8 +1056,22 @@ class BaseShip {
             if ($hasHangar) {
                 $this->saveIndividualNotes($dbManager);
             }
+
+            //Kirishiac Orbitals: persist the player's dock/deploy orders (given via the
+            //Dock/Deploy buttons in the Firing Phase; carried in individualNotesTransfer,
+            //stashed during ship reconstruction). Takes effect next turn.
+            $hasOrbital = false;
+            foreach ($this->systems as $sys) {
+                if ($sys instanceof KirishiacOrbital) {
+                    $sys->generateIndividualNotes($gameData, $dbManager);
+                    $hasOrbital = true;
+                }
+            }
+            if ($hasOrbital) {
+                $this->saveIndividualNotes($dbManager);
+            }
         }
-    }                
+    }
 	
 	/*calls systems to act on notes just loaded if necessary*/
 	public function onIndividualNotesLoaded($gamedata) {
@@ -1194,12 +1210,16 @@ class BaseShip {
 			$this->structures[$loc] = $system->id;
 		}else if(($system->startArc ==0)&&($system->endArc ==0) && !($system instanceof Bulkhead)){ //20.01.2025 - add arc equal to section arc, if not set explicitly. Bulkheads protect by location only - giving them a section arc makes the arc gate in getSystemProtectingFromDamage falsely filter them out for shots from outside that arc.
 			//if arc is not set - copy from location!
-			if($loc==0){ //PRIMARY
+			//systems belonging to ANOTHER section's structure block (structureHomeLocation -
+			//Kirishiac orbitals displayed on the L/R sections) take their HOME block's arc:
+			//they can only be hit from the same directions as their associated structure
+			$arcLoc = $system->getStructureLocation();
+			if($arcLoc==0){ //PRIMARY
 				$system->startArc = 0;
 				$system->endArc = 360;
 			} else {
 				$locations = $this->getLocations();
-				foreach($locations as $line) if ($line["loc"]==$loc){
+				foreach($locations as $line) if ($line["loc"]==$arcLoc){
 					if( ($system->startArc == 0) && ($system->endArc == 0) ){ //for initial values - accept anything
 						$system->startArc = $line["min"];
 						$system->endArc = $line["max"];
@@ -1577,7 +1597,7 @@ class BaseShip {
                 foreach ($this->systems as $system){
 			//change to case ignoring:
                     //if ( ($system->displayName == $name) && ($system->location == $location) ){
-		    if ( (STRCASECMP($system->displayName, $name)==0) && ($system->location == $location) ){
+		    if ( ( (STRCASECMP($system->displayName, $name)==0) || (($system->hitChartName !== null) && (STRCASECMP($system->hitChartName, $name)==0)) ) && ($system->location == $location) ){
                         if( ($acceptDestroyed == true) || (!$system->isDestroyed()) ){
                             $returnTab[] = $system;
                         }
@@ -2453,6 +2473,9 @@ public function getAllEWExceptDEW($turn){
         else {
             $system = $this->getHitSystemByDice($shooter, $fireOrder, $weapon, $location, $sourceOverride);
         }
+        if ($system !== null){ //system may redirect the hit (own sub-chart roll, or divert to Structure while stowed) - Kirishiac Orbitals
+            $system = $system->resolveSubHitChart();
+        }
         return $system;
     }
 
@@ -3008,6 +3031,20 @@ class HeavyCombatVessel extends BaseShip{
     function __construct($id, $userid, $name, $slot){
         parent::__construct($id, $userid, $name,$slot);
     }
+
+    protected function addLeftFrontSystem($system){
+        $this->addSystem($system, 31);
+    }
+    protected function addLeftAftSystem($system){
+        $this->addSystem($system, 32);
+    }
+    protected function addRightFrontSystem($system){
+        $this->addSystem($system, 41);
+    }
+    protected function addRightAftSystem($system){
+        $this->addSystem($system, 42);
+    }
+
     public function getLocations(){
         $locs = array();
 

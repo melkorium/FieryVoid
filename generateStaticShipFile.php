@@ -33,7 +33,8 @@ function compactSystemForStaticJson(array $system): array {
     // Boolean false defaults
     $falseKeys = ['destroyed','jsClass','boostable','canOffLine','fighter','preFires',
                   'primary','isPrimaryTargetable','forceCriticalRoll',
-                  'advancedArmor','hardAdvancedArmor','fixedPower'];
+                  'advancedArmor','hardAdvancedArmor','fixedPower',
+                  'stowed','outputDoubled'];
     foreach ($falseKeys as $key) {
         if (isset($system[$key]) && $system[$key] === false) {
             unset($system[$key]);
@@ -48,7 +49,9 @@ function compactSystemForStaticJson(array $system): array {
     }
     // Null / empty-string defaults
     $nullEmptyKeys = ['outputDisplay','specialAbilityValue','imagePath','iconPath',
-                      'individualNotesTransfer','outputType'];
+                      'individualNotesTransfer','outputType',
+                      'stowedArcStart','stowedArcEnd','repairRestrictedTo','linkedOrbital',
+                      'structureHomeLocation'];
     foreach ($nullEmptyKeys as $key) {
         if (array_key_exists($key, $system) && ($system[$key] === null || $system[$key] === '')) {
             unset($system[$key]);

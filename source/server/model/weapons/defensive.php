@@ -467,6 +467,7 @@
 				$fireOrder->pubnotes .= " DROPOUT! ";
 			}
 		}
+		parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);		
 	}		
 
         public function getBonusCharges($turn){

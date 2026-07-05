@@ -94,6 +94,19 @@ class ShadowFighterCutOff extends Critical{
         parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend);
     }
 }
+
+/*Kirishiac Orbital regeneration marker: created when an orbital docks with damage to repair
+(turn = first docked turn, turnend = fifth). Pure status display - the actual restoration is
+driven by the turnsDocked note in KirishiacOrbital::criticalPhaseEffects. Cancelled (turnend
+pulled in) if the orbital redeploys early or its structure block is destroyed, so a dead
+orbital can never regenerate post-mortem.*/
+class OrbitalRepairing extends Critical{
+    public $description = "Regenerating";
+	public $repairPriority = 0;//not a real crit - SelfRepair must never clear it; expires on its own
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, true); //forInfo: status marker only, no effect on the system's function
+    }
+}
 	
 	
 

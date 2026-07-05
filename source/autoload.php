@@ -3555,6 +3555,21 @@ spl_autoload_register(
 				'kirishiaclordship' => '/server/model/ships/kirishiac/kirishiacLordship.php',
 //				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',                
 				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
+                'graviticaugmenter' => '/server/model/weapons/supportWeapons.php',
+                'kirishiacheavyorbital' => '/server/model/systems/baseSystems.php',                                								
+                'kirishiacorbital' => '/server/model/systems/baseSystems.php',                								
+                'kirishiacorbitallight' => '/server/model/systems/baseSystems.php',
+                'orbitalrepairing' => '/server/model/cricialClasses.php',                                								
+//				'warriorram' => '/server/model/weapons/customDevelopment.php',								
+//				'directram' => '/server/model/weapons/customDevelopment.php',								
+
+//				'kirishiacconqueror' => '/server/model/ships/kirishiac/kirishiacConqueror.php',
+//				'kirishiackingship' => '/server/model/ships/kirishiac/kirishiacKingship.php',
+//				'kirishiaclordship' => '/server/model/ships/kirishiac/kirishiacLordship.php',
+//				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',  
+//				'kirishiacoverlord' => '/server/model/ships/kirishiac/kirishiacOverlord.php',                              
+//				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
+//				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
 
 
 						//Development systems
@@ -3919,7 +3934,9 @@ spl_autoload_register(
                 'cargoshuttle' => '/server/model/ships/Shuttle.php',                                
                 'shuttle' => '/server/model/ships/Shuttle.php',
                 'medicalshuttle' => '/server/model/ships/Shuttle.php',
-                'lifeboat' => '/server/model/ships/Shuttle.php',                
+                'lifeboat' => '/server/model/ships/Shuttle.php', 
+                'presidentialshuttle' => '/server/model/ships/Shuttle.php',   
+                'emperorsyacht' => '/server/model/ships/Shuttle.php',                              
 
                 //FACTION DEFAULT SHUTTLES
                 'shuttleabbai' => '/server/model/ships/Shuttle.php',
@@ -4176,7 +4193,8 @@ spl_autoload_register(
 
                 //Kelly's Star Trek
                 'kellytrekconstitution' => '/server/model/ships/StarTrekKelly/KellyTrekConstitution.php',
-
+				'trekphaserkelly' => '/server/model/weapons/customTrek.php',            
+				'trekphotontorpkelly' => '/server/model/weapons/customTrek.php',        
 
 
 						

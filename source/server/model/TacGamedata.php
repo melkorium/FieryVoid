@@ -7,6 +7,12 @@ class TacGamedata {
     public static $currentGameID;
     public static $safeGameID = 3730; //gameID that is safe for adding new features
     public static $lastFiringResolutionNo = 0; //firing resolution to be used
+    //viewer context for per-recipient JSON pruning (gamedata is built and cached PER PLAYER):
+    //the player this load is being prepared for, and their team (set once slots are known).
+    //ONLY for stripForJson-level masking of hidden orders (Kirishiac Orbital dock/deploy,
+    //Shading Field) - never use for game logic; null = no viewer (server processing) = reveal.
+    public static $currentForPlayer = null;
+    public static $currentForPlayerTeam = null;
 
     public $id, $turn, $phase, $activeship, $name, $status, $points, $background, $creator, $gamespace, $description;
     public $ships = array();
@@ -110,6 +116,7 @@ class TacGamedata {
     }
 
     public function onConstructed(){
+        self::$currentForPlayerTeam = $this->getPlayerTeam(); //viewer context (slots are loaded by now) - teammates see each other's hidden orders
         $this->setBlockedHexes();
         $this->waitingForThisPlayer = $this->getIsWaitingForThisPlayer();
         $this->doSortShips();
@@ -412,7 +419,7 @@ class TacGamedata {
     
     private function setForPlayer($player){
         $this->forPlayer = $player;
-        
+        self::$currentForPlayer = $player;
     }
     
     public function getActiveships() {

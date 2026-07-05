@@ -34,6 +34,7 @@ class ShipSystem {
     public $primary = false; //is this a core system?
     public $isPrimaryTargetable = false; //can this system be targeted by called shot if it's on PRIMARY?	
     public $isTargetable = true; //false means it cannot be targeted at all by called shots! - good for technical systems :)
+    public $hitChartName = null; //optional alias matched by hit chart entries in addition to displayName (getSystemsByNameLoc) - lets per-instance displayNames ('Orbital A') coexist with a shared chart entry ('Kirishiac Orbital')
     public $hideInShipWindow = false; //if true, system is omitted from ship-window icon grid (technical-only systems with no gameplay interaction)
 
     public $forceCriticalRoll = false; //true forces critical roll even if no damage was done
@@ -56,6 +57,11 @@ class ShipSystem {
 	protected $doCountForCombatValue = true; //false means this system is skipped when evaluating ships' combat value!
 	
 	protected $tagList = array(); //tags for TAG hit chart entry; REMEMBER TAGS SHOULD BE MADE USING CAPITAL LETTERS!
+
+	/*additive: system belongs to ANOTHER section's structure block than the one it is displayed/located in
+	(Kirishiac orbitals shown on the L/R sections while docking to the front/aft blocks). Default null = own
+	location. Drives structureSystem assignment (destruction coupling) and SelfRepair's block check.*/
+	public $structureHomeLocation = null;
 	
 	protected $calledShotBonus = 0;//Some systems, like Aegis Sensor Pod are easier to hit with called shots.
 	protected $active = false;	//Needs to be passed to front end in stripForJson.  Denotes a system being active for any number of purposes / show as boosted	
@@ -217,7 +223,55 @@ public function setParentFighter($fighter) {
 	public function checkforCalledShotBonus(){
 		return 0;
 	}
-	
+
+	/*true when the CURRENT VIEWER (the player this gamedata load / JSON build is for - gamedata
+	is built and APCu-cached per player) may see this system's private state: the owner and
+	their teammates. Used by stripForJson overrides to prune hidden orders (Kirishiac Orbital
+	dock/deploy, Shading Field shading) from enemy payloads. Returns REVEALED when there is no
+	viewer context (server-side turn processing, static ship generation) - so only ever use
+	this to mask OUTGOING JSON, never in game logic.*/
+	protected function isRevealedToCurrentViewer(){
+		if (TacGamedata::$currentForPlayer === null) return true; //no viewer context
+		$ship = $this->getUnit();
+		if ($ship === null) return true;
+		if ($ship->userid == TacGamedata::$currentForPlayer) return true; //owner
+		if (TacGamedata::$currentForPlayerTeam !== null && $ship->team == TacGamedata::$currentForPlayerTeam) return true; //teammate
+		return false;
+	}
+
+	/*hit allocation sub-roll hook: a system chosen by hit allocation (chart, dice or called shot)
+	may redirect the hit elsewhere - roll its own sub-chart (Kirishiac Orbital) or divert to
+	Structure while stowed. Default: the hit stays where it landed.
+	Consumed at the end of BaseShip::getHitSystem.*/
+	public function resolveSubHitChart(){
+		return $this;
+	}
+
+	/*overkill redirect hook, consumed in Weapon::getOverkillSystem when the damaged system is
+	destroyed: null = normal flow (section Structure), a system = redirect overkill there
+	(Antigravity Beam -> its Orbital), false = overkill is lost entirely (deployed Kirishiac
+	Orbital - excess damage dissipates into space rather than hitting the ship)*/
+	public function getOverkillDestination($target){
+		return null;
+	}
+
+	/*called-shot fire control override: non-null forces the given fireControl index (0=fighter)
+	when this system is the target of a called shot - Kirishiac Orbitals are "targeted as if
+	they were fighters". Consumed in Weapon hit chance calculation and client
+	weaponManager.computeFireControl.*/
+	public function getFireControlIndexOverride(){
+		return null;
+	}
+
+	/*flat target profile override: non-null means a called shot at this system resolves against
+	this profile INSTEAD of the ship's bearing profile, with no called-shot penalty or bonus -
+	Kirishiac Orbitals are "targeted as if they were fighters" (standard 8, Light 7, Heavy 10).
+	Consumed in Weapon::calculateHitBase and client weaponManager (calculateHitChange /
+	computeShotModifiers, via the targetProfile JSON field).*/
+	public function getTargetProfileOverride(){
+		return null;
+	}
+
 	public function doIndividualNotesTransfer(){//optionally to be redefined if system can receive any private data from front endthat need immediate attention		
 	}
 
@@ -233,9 +287,15 @@ public function setParentFighter($fighter) {
         if($ship->getHardAdvancedArmor()==true){  // GTS Hardened Advanced Armor
             $this->hardAdvancedArmor = true;
         }
-        $this->structureSystem = $ship->getStructureSystem($this->location);
+        $this->structureSystem = $ship->getStructureSystem($this->getStructureLocation());
         $this->effectCriticals();
         $this->destroyed = $this->isDestroyed();
+    }
+
+    /*the section whose structure block this system belongs to - usually its own location,
+    unless $structureHomeLocation redirects it (systems displayed apart from their block)*/
+    public function getStructureLocation(){
+        return ($this->structureHomeLocation !== null) ? $this->structureHomeLocation : $this->location;
     }
 
     /* Hangar Ops: per-turn hook for a subsystem of a flight sitting docked
