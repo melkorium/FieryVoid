@@ -4941,11 +4941,11 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn); //Status line etc.
 		//replace the standard orbital rules text with the Heavy variant
-		$this->data["Special"] = "Heavy weapon platform floating above its section (deployed) or attached to the hull (docked).";
-		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
-		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter, but at MEDIUM ship fire control (flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (weapon / self repair / orbital). Overkill on mounted systems passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
-		$this->data["Special"] .= "<br>DOCKED: cannot be targeted directly; its remaining boxes reinforce the section Structure. Hits on the orbital still roll the Orbital chart: the weapon and its Self Repair may be struck (overkill passes to the ship normally), while orbital-structure results hit the combined Structure. Its weapon REMAINS OPERATIONAL with a reduced arc, and may be deactivated for extra power.";
-		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked (weapon and combined Structure only). The ship's Self Repair may service the orbital as usual in either state.";
+		$this->data["Special"] = "Heavy weapon platform which is deployed or docked to hull.";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
+		$this->data["Special"] .= "<br>DEPLOYED: May be Called Shot using Medium ship FC and " . $this->targetProfile . " profile; Hit rolls on Orbital chart (weapon / self repair / orbital). Weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: Cannot be targeted; its health reinforces its section Structure. Hits on the orbital still roll the Orbital chart.  Weapon remains operational with a reduced arc, and may be deactivated.";
+		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked. Ship's Self Repair may service the orbital as usual in docked state.";
 		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 }
