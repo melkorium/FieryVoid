@@ -8438,9 +8438,12 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 						
 		foreach($ship->systems as $system){
 			if($system instanceof ThirdspaceShield){
-				$totalShieldsRating += $system->baseRating;
-				$this->shieldCount++;	
-			}			
+				//getEffectiveBaseRating: the generator is constructed BEFORE the shields, so their own
+				//onConstructed hasn't refreshed ->baseRating yet; read the crit-derived value directly so
+				//the "Maximum Shield Power" display reflects any phasing reduction.
+				$totalShieldsRating += $system->getEffectiveBaseRating($turn);
+				$this->shieldCount++;
+			}
 		}
 		$this->totalBaseRating = $totalShieldsRating;
     }
@@ -8498,10 +8501,13 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 		foreach($ship->systems as $system){//Loop through systems to find Shields
 			if($system instanceof ThirdspaceShield){
 				$allShields[] = $system; //Add to list of shields.
-				$totalShieldRating += $system->baseRating;
-				$currentShieldHealth += $system->getRemainingCapacity();				
-			}				
-		}	
+				//getEffectiveBaseRating (not ->baseRating) so a Phased Gravitic Torpedo that hit THIS turn
+				//already lowers the regen ceiling now - the crit is on the shield by the fire phase, but
+				//->baseRating is only refreshed at load (before firing). Same reason as ThoughtShield.
+				$totalShieldRating += $system->getEffectiveBaseRating($gamedata->turn);
+				$currentShieldHealth += $system->getRemainingCapacity();
+			}
+		}
 
 		if($currentShieldHealth >= $totalShieldRating) return; //If for some reason total shield health is equal/greater than baseRatings combined, don't regen at all!
 
@@ -8513,8 +8519,8 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 		$canRechargeTotal = $totalShieldRating - $currentShieldHealth;
 		$spareEnergy = 0; //Counter for shield energy not used in next part.	
 					
-		foreach ($allShields as $shield) {							
-			$maxRegenThisTurn = $shield->baseRating - $shield->getRemainingCapacity(); //Amount between health and baseRating.
+		foreach ($allShields as $shield) {
+			$maxRegenThisTurn = $shield->getEffectiveBaseRating($gamedata->turn) - $shield->getRemainingCapacity(); //Amount between health and (phasing-reduced) baseRating.
 			$maxRegenThisTurn = max(0, $maxRegenThisTurn);
 			
 			if($maxRegenThisTurn >= $canRechargeTotal) $maxRegenThisTurn = $canRechargeTotal;//Final loop might need adjusted to no overcharge!
@@ -8536,7 +8542,7 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 			$energyAllocated = false; // Track if any energy is allocated in this pass.
 					
 			foreach ($allShields as $shield) {
-			    $remainingCapacity = $shield->baseRating - $shield->getRemainingCapacity(); // Calculate remaining capacity.				
+			    $remainingCapacity = $shield->getEffectiveBaseRating($gamedata->turn) - $shield->getRemainingCapacity(); // Calculate remaining capacity (phasing-reduced rating).
 
 				if($spareEnergy >= $canRechargeTotal) $spareEnergy = $canRechargeTotal;//Final loop might need adjusted to no overcharge!
 

@@ -871,23 +871,54 @@ class ThirdspaceShield extends Shield implements DefensiveSystem { //defensive v
 		public $repairPriority = 0;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
 		
 		protected $doCountForCombatValue = false;//To ignore projection for combat value calculations
-		public $baseRating = 0; //Will be set when contructed.		
-		public $changeThisTurn = 0;	//When shields moved around, change it tracked here to be made into Damage Entry.	
+		public $baseRating = 0; //effective rating; lowered by phasing crits in onConstructed()
+		public $blueprintRating = 0; //original rating from the blueprint, before any phasing reduction
+		public $changeThisTurn = 0;	//When shields moved around, change it tracked here to be made into Damage Entry.
 		public $currentHealth = 0; //Value for front-end when moving shield power around.
-		public $side = '';//Required for prioritising a shield using Generator Presets.	
-		protected $survivesStructureDestruction = true;				
-	    
+		public $side = '';//Required for prioritising a shield using Generator Presets.
+		protected $survivesStructureDestruction = true;
+
 	    function __construct($armor, $startHealth, $rating, $startArc, $endArc, $side = 'F'){ //parameters: $armor, $startHealth, $Rating, $arc from/to - F/A/L/R suggests whether to use left or right graphics
 			$this->iconPath = 'ThirdspaceShield' . $side . '.png';
 			parent::__construct($armor, $startHealth, 0, $rating, $startArc, $endArc);
-			$this->baseRating = $rating;			
-			$this->side = $side;						
+			$this->blueprintRating = $rating; //pristine; phasing reduction derived from crits
+			$this->baseRating = $rating;
+			$this->side = $side;
 		}
 
+		//Total base-rating reduction from Phased Gravitic Torpedo phasing: the SUM of the
+		//DamageReductionReduced params (one crit per torpedo, amount in param), not the crit count.
+		//Thirdspace shields have NO EM-reinforcement layer (getDefensiveDamageMod is always 0), so this
+		//crit only reduces the base absorption pool.
+		private function getRatingReduction($turn = null){
+			if ($turn === null) $turn = TacGamedata::$currentTurn;
+			return $this->sumCriticalParam("DamageReductionReduced", $turn);
+		}
 
-	    public function setCritical($critical, $turn = 0){ //do nothing, shield projection should not receive any criticals
-	    }		
-		
+		//Effective base rating after phasing. Derived from the pristine blueprintRating so it never
+		//double-counts. The ThirdspaceShieldGenerator regens each shield only UP TO $shield->baseRating,
+		//so lowering baseRating here caps future regeneration at the reduced rating (excess in the pool
+		//is not dissipated - it drains as the shield absorbs damage).
+		public function getEffectiveBaseRating($turn = null){
+			return max(0, $this->blueprintRating - $this->getRatingReduction($turn));
+		}
+
+        public function onConstructed($ship, $turn, $phase){
+            parent::onConstructed($ship, $turn, $phase);
+			//Apply the phasing reduction to the effective rating ONLY (not maxhealth - the permanent turn-1
+			//SetShield! entry is pinned to the original maxhealth; see the ThoughtShield note). Idempotent.
+			$this->baseRating = $this->getEffectiveBaseRating($turn);
+        }
+
+	    public function setCritical($critical, $turn = 0){
+			//Shield projection ignores normal criticals, BUT must keep the permanent phasing-reduction crit
+			//(Phased Gravitic Torpedo) - otherwise getCriticalsForShips would silently drop it on load and
+			//the reduction would not persist across turns.
+			if ($critical->phpclass == 'DamageReductionReduced'){
+				$this->criticals[] = $critical;
+			}
+	    }
+
 	    public function getDefensiveHitChangeMod($target, $shooter, $pos, $turn, $weapon){ //no defensive hit chance change
 	            return 0;
 	    }

@@ -406,26 +406,76 @@
 		}
 	  
         
+		/*Phasing (crit-banking) is NOT done here any more - shieldInteractionDamage is called for EVERY
+		in-arc shield during damage-mod calculation, so banking here double-hit overlapping-arc shields
+		(game 4223 turn 3: a 330-degree hit banked crits on BOTH the F and L shields, when only L
+		absorbed). Banking now happens once per torpedo in getFinalDamage(), against the single shield
+		that actually absorbs/reduces. Here we only REPORT the shield's current reduction - which already
+		reflects the crit just banked (getDefensiveDamageMod sums the params), so return it unchanged.*/
 		public function shieldInteractionDamage($target, $shooter, $pos, $turn, $shield, $mod) {
 			// younger races: absorption ignored entirely (house rule: EMShields still work)
 			if ($target->factionAge <= 2 && !$shield instanceof EMShield) return 0;
+			return $mod;
+		}
 
-			// one d10 phasing roll per torpedo; the reduction it banks is PERMANENT (turnend 0).
-			$roll = Dice::d(10, 1);
+		/*Bank the per-torpedo phasing crit ONCE, on the single shield that actually protects this hit,
+		then let the normal damage flow run (it re-reads the crit live, so this shot's reduction already
+		reflects it). Runs once per pulse.*/
+		protected function getFinalDamage($shooter, $target, $pos, $gamedata, $fireOrder)
+		{
+			$this->applyPhasing($target, $shooter, $pos, $gamedata);
+			return parent::getFinalDamage($shooter, $target, $pos, $gamedata, $fireOrder);
+		}
 
-			// ONE DamageReductionReduced crit per torpedo, amount in param, capped at what the shield
-			// still has left to lose. On a Thought Shield the same crit reduces BOTH its base absorption
-			// pool AND any EM reinforcement, so cap at the base pool remaining (its primary, always-present
-			// layer). On a regular Shield/EM Shield, $mod IS the live remaining reduction, so cap at that.
-			if ($shield instanceof ThoughtShield){
-				$cap = $shield->getEffectiveBaseRating($turn); //remaining base pool (>= the EM layer normally)
+		//Pick the one shield this hit will actually use and bank a single rolled crit on it.
+		private function applyPhasing($target, $shooter, $pos, $gamedata){
+			$turn = $gamedata->turn;
+
+			$shield = $this->getPhasingShield($target, $shooter, $pos, $turn);
+			if ($shield === null) return; //no shield protects this hit
+
+			// cap: base absorption pool for projection shields (not reflected in a damage mod), else the
+			// shield's live damage reduction (what's left to remove).
+			if ($shield instanceof ThoughtShield || $shield instanceof ThirdspaceShield){
+				$cap = $shield->getEffectiveBaseRating($turn);
 			} else {
-				$cap = max(0, $mod);
+				$cap = max(0, $shield->getDefensiveDamageMod($target, $shooter, $pos, $turn, $this));
 			}
-			$this->bankReduction($shield, $target, min($roll, $cap));
+			$amount = min(Dice::d(10, 1), (int)$cap);
+			$this->bankReduction($shield, $target, $amount);
+		}
 
-			// $mod was the reduction BEFORE this torpedo's crit; apply this shot's own roll now too.
-			return max(0, $mod - $roll);
+		//The single shield that protects this hit: the capacity-pool absorber if any (Thought/Thirdspace),
+		//otherwise the in-arc EM Shield with the greatest current damage reduction. Null if none applies.
+		private function getPhasingShield($target, $shooter, $pos, $turn){
+			//Younger races: the torpedo IGNORES non-EM shield absorption entirely (rules) - so it never
+			//phases a capacity-pool projection shield on a younger-race ship; only EM Shields (house rule)
+			//are still affected. (In practice projection shields only appear on Primordial/Ancient hulls.)
+			$youngerRace = ($target->factionAge <= 2);
+
+			//1) capacity-pool absorber (getSystemProtectingFromDamage picks exactly one)
+			if (!$youngerRace){
+				$protector = $target->getSystemProtectingFromDamage($shooter, $pos, $turn, $this, null, 0, false);
+				if ($protector instanceof ThoughtShield || $protector instanceof ThirdspaceShield){
+					return $protector;
+				}
+			}
+
+			//2) EM Shields: lock onto ONE in-arc EM Shield for the whole volley and only ever phase that
+			//one (never spill to another overlapping EM Shield, even after it reaches 0). Deterministic
+			//first-in-arc pick (by construction order) so every torpedo in the volley agrees. Overlapping
+			//EM Shields reduce by the same amount and getDamageMod takes the max, so which of the equal
+			//ones we pick doesn't change the damage - only where the permanent crit lands.
+			$bearing = ($pos !== null) ? $target->getBearingOnPos($pos) : $target->getBearingOnUnit($shooter);
+			foreach ($target->systems as $sys){
+				if (!($sys instanceof EMShield)) continue;
+				if ($sys->isDestroyed($turn-1) || $sys->isOfflineOnTurn($turn)) continue;
+				if (is_int($sys->startArc) && is_int($sys->endArc)){
+					if (!mathlib::isInArc($bearing, $sys->startArc, $sys->endArc)) continue;
+				}
+				return $sys; //first in-arc EM Shield - stable across the volley
+			}
+			return null;
 		}
 
 		//Banks ONE permanent DamageReductionReduced critical carrying $amount in its param (not $amount
