@@ -226,6 +226,7 @@ spl_autoload_register(
                 'daggadenpod' => '/server/model/ships/llort/daggadenPod.php',
                 'dagkar' => '/server/model/ships/narn/dagkar.php',
                 'damageentry' => '/server/model/BaseClasses.php',
+                'damagereductionreduced' => '/server/model/cricialClasses.php',
                 'damagereductionremoved' => '/server/model/cricialClasses.php',
                 'dargan' => '/server/model/ships/centauri/dargan.php',
                 //'darkhawk' => '/server/model/ships/drazi/darkhawk.php',

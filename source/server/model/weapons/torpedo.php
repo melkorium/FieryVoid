@@ -362,6 +362,7 @@
 		torpedo aimed at this target; cap the pulse count at that and let Weapon::fire() do the single
 		to-hit roll and single interception.*/
 		public function fire($gamedata, $fireOrder){
+			$this->rolledMod = 0; //reset each shot.			
 			$this->maxpulses = max(1, (int)$fireOrder->shots); //this order's torpedo count is the cap
 			Weapon::fire($gamedata, $fireOrder);
 		}
@@ -403,25 +404,40 @@
 				}
 			}
 		}
-	
-        public function shieldInteractionDamage($target, $shooter, $pos, $turn, $shield, $mod) {
-			$toReturn = $mod;
-			if ($target->factionAge <= 2 && !$shield instanceof EMShield){
-
-				//Add new criticals to DamageReductionReduced criticals here, $roll * criticals added until to == $mod 
-				//(which should be current reduction and therefore the maximum amount we cans till reduce). 
-				return 0; //Younger factions damage reduction is ignored.     		 	
-			}else{ 
-				$roll = Dice::d(10, 1);
-				//$this->rolledMod; //Save per Torpedo, then make null at the start of firing each time.
-				$toReturn = max(0, $mod - $roll); 
-//Debug::log("mod " . $mod);
-//Debug::log("toReturn " . $toReturn);			
-				return $toReturn; 	
-			}
-
-        }    
+	  
         
+		public function shieldInteractionDamage($target, $shooter, $pos, $turn, $shield, $mod) {
+			// younger races: absorption ignored entirely (house rule: EMShields still work)
+			if ($target->factionAge <= 2 && !$shield instanceof EMShield) return 0;
+
+			// one d10 phasing roll per torpedo; the reduction it banks is PERMANENT (turnend 0).
+			$roll = Dice::d(10, 1);
+
+			// ONE DamageReductionReduced crit per torpedo, amount in param, capped at what the shield
+			// still has left to lose. On a Thought Shield the same crit reduces BOTH its base absorption
+			// pool AND any EM reinforcement, so cap at the base pool remaining (its primary, always-present
+			// layer). On a regular Shield/EM Shield, $mod IS the live remaining reduction, so cap at that.
+			if ($shield instanceof ThoughtShield){
+				$cap = $shield->getEffectiveBaseRating($turn); //remaining base pool (>= the EM layer normally)
+			} else {
+				$cap = max(0, $mod);
+			}
+			$this->bankReduction($shield, $target, min($roll, $cap));
+
+			// $mod was the reduction BEFORE this torpedo's crit; apply this shot's own roll now too.
+			return max(0, $mod - $roll);
+		}
+
+		//Banks ONE permanent DamageReductionReduced critical carrying $amount in its param (not $amount
+		//separate crits). No crit is added if $amount <= 0 (the shield is already phased to zero).
+		private function bankReduction($shield, $target, $amount){
+			$amount = (int)$amount;
+			if ($amount <= 0) return; //already reduced to 0 - do not apply any further crits
+			$crit = new DamageReductionReduced(-1, $target->id, $shield->id, 'DamageReductionReduced', TacGamedata::$currentTurn, 0, false, $amount);
+			$crit->updated = true;
+			$shield->criticals[] = $crit;
+		}
+
         public function getDamage($fireOrder){        return Dice::d(10,2);   }
         //public function getDamage($fireOrder){        return 20;   } //flat 20 per torpedo for this test run
         public function setMinDamage(){     $this->minDamage = 20;   } //match flat getDamage (was 2, for Dice::d(10,2))

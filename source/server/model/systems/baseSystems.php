@@ -955,10 +955,15 @@ class Shield extends ShipSystem implements DefensiveSystem{
         
         if ($this->hasCritical('DamageReductionRemoved'))
             return 0;
-        
+
+		//Phased Gravitic Torpedo phasing: reduce absorption by the SUM of DamageReductionReduced params
+		//(one crit per torpedo, amount in param), not the crit count. Min absorption 0.
+		$redMod = $this->sumCriticalParam("DamageReductionReduced", $turn);
+
         $output = $this->output;
         $output += $this->outputMod; //outputMod itself is negative!
-        return $output;
+		$output -= $redMod;
+        return max(0, $output);
     }
 }
 
@@ -7068,13 +7073,23 @@ class SelfRepair extends ShipSystem{
 	
 	    /* sorts generated repair queue */
     public static function sortUnifiedRepairQueue($a, $b){
-		if($a['priority'] !== $b['priority']){ 
+		if($a['priority'] !== $b['priority']){
             return $b['priority'] - $a['priority']; //higher priority first!
         }
-        
+
+        //Tie-break 1: an EXPLICIT player override beats an implicit/auto priority (e.g. the
+        //+10 destroyed bump). A player who deliberately sets a value to N means it to sit above
+        //systems that merely landed on N automatically - without this, a destroyed low-priority
+        //system could tie a promoted Structure and win purely on the id tiebreak below.
+        $aOv = !empty($a['overridden']);
+        $bOv = !empty($b['overridden']);
+        if($aOv !== $bOv){
+            return $aOv ? -1 : 1; //overridden entry first
+        }
+
         //Deterministic Sort: System ID then SubID
         if($a['id'] !== $b['id']){
-            return $a['id'] - $b['id']; 
+            return $a['id'] - $b['id'];
         }
 
         return $a['subId'] - $b['subId'];
@@ -7132,8 +7147,10 @@ class SelfRepair extends ShipSystem{
 			//DYNAMIC - e.g. a Kirishiac orbital that was overridden while docked and has since redeployed)
 			//priority overrides...
             $prio = $system->repairPriority;
+			$isOverridden = false; //explicit player override wins ties vs auto/bumped priorities
 			if(array_key_exists($system->id, $this->priorityChanges) && ($this->priorityChanges[$system->id]>=0)){
 				$prio = $this->priorityChanges[$system->id];
+				$isOverridden = true;
 			}
 
             //skip systems attached to destroyed structure blocks...
@@ -7162,6 +7179,7 @@ class SelfRepair extends ShipSystem{
                     'type' => 'system',
                     'obj' => $system,
                     'priority' => $prio,
+                    'overridden' => $isOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => $toBeRepaired, // Needed for unified repair logic
                     'maxhealth' => $system->maxhealth, // For sorting
                     'id' => $system->id, // For sorting
@@ -7194,18 +7212,21 @@ class SelfRepair extends ShipSystem{
                 $critPrio = $critDmg->repairPriority;
 
                 //priority override?
+                $critOverridden = false; //explicit player override wins ties vs auto priorities
                 $compKey = $systemToRepair->id . '-' . $critDmg->id;
                 if(array_key_exists($compKey, $this->priorityChanges) && ($this->priorityChanges[$compKey]>=0)){
                      $critPrio = $this->priorityChanges[$compKey];
+                     $critOverridden = true;
                 }else{
-                    if($critPrio<10) $critPrio += $sysPrio; //modify priority by priority of system critical is on! 
+                    if($critPrio<10) $critPrio += $sysPrio; //modify priority by priority of system critical is on!
                 }
-                
+
                 $repairQueue[] = array(
                     'type' => 'critical',
                     'obj' => $critDmg,
                     'sys' => $systemToRepair, // We need the system object to execute repair
                     'priority' => $critPrio,
+                    'overridden' => $critOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => $critDmg->repairCost,
                     'id' => $systemToRepair->id, // Fallback ID for sorting
                     'subId' => $critDmg->id // SubID for sorting

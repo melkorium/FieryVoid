@@ -223,6 +223,22 @@ class DamageReductionRemoved extends Critical{
     }
 }
 
+//Phased Gravitic Torpedo phasing vs shields. ONE crit per torpedo; the amount reduced is carried in
+//$param (not one crit per point). Consumers must SUM $param across these crits, not count them.
+//On an EM Shield it reduces the shield's damage reduction. On a Thought Shield this SAME crit reduces
+//BOTH the base absorption pool (baseRating/capacity) AND any EM-Shield reinforcement it gained from
+//Shield Reinforcement - a single crit type so it doesn't bloat the Mindrider Self Repair menu.
+class DamageReductionReduced extends Critical{
+    public $description = "Damage reduction reduced";
+	public $repairPriority = 6; //0-9; lower = lower priority, 0 means it's irrepairable    
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0, $forInfo = false, $param = null){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, $forInfo, $param);
+    }
+    public function getDescription(){
+        return "Damage reduction reduced by " . (int)$this->param;
+    }
+}
+
 class ForcedOfflineOneTurn extends Critical{
     public $description = "Forced offline";
     public $oneturn = true;
