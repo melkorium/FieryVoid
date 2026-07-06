@@ -1175,7 +1175,7 @@ class BaseShip {
                 //still legitimately want the pre-fire phase, so treat it as manually-fireable in that case.
                 $manuallyFireable = !$system->autoFireOnly
                     || (!empty($system->autoFireOnlyArray) && in_array(false, $system->autoFireOnlyArray, true));
-                if($system->preFires && ($system->turnsloaded >= $system->loadingtime) && $manuallyFireable){ //ready to fire!
+                if($system->preFires && ($system->turnsloaded >= $system->loadingtime) && $manuallyFireable && !$system->stowed){ //ready to fire!
                     //Separate check for Prox Mines here.              
                     if($system instanceof ProximityMine){
                         if($this->commandControl && !$system->checkForPreFiringTargets($this, $gamedata)) continue; //No targets in range, don't trigger preFire phase.
