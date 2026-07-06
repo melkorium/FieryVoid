@@ -118,6 +118,8 @@ class Shuttle extends FighterFlight
                 return array('img/ships/shuttleRaiders.png', 'img/ships/shuttleRaider_large.png');
             case 'Torata Regency':
                 return array('img/ships/shuttleTorata.png', 'img/ships/shuttleTorata_large.png');
+            case 'Yolu Confederation':
+                return array('img/ships/shuttleYolu.png', 'img/ships/shuttleYolu_large.png');  
             case 'Vree Conglomerate':
                 return array('img/ships/VreeZeoth.png', 'img/ships/VreeZeoth_Large.png');                                                                                                                                                 
             case 'House Valheru':
