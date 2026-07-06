@@ -120,6 +120,8 @@ class Shuttle extends FighterFlight
                 return array('img/ships/shuttleTorata.png', 'img/ships/shuttleTorata_large.png'); 
             case 'Vorlon Empire':
                 return array('img/ships/shuttleVorlon.png', 'img/ships/shuttleVorlon_large.png');                 
+            case 'Usuuth Coalition':
+                return array('img/ships/shuttleUsuuth.png', 'img/ships/shuttleUsuuth_large.png');                 
             case 'Vree Conglomerate':
                 return array('img/ships/VreeZeoth.png', 'img/ships/VreeZeoth_Large.png'); 
             case 'Yolu Confederation':
