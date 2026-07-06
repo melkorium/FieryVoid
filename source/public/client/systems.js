@@ -1158,6 +1158,23 @@ shipManager.systems = {
             }
         }
 
+        // Check CnC critical effects (most important first)
+        if (system instanceof Shield) {
+            const shieldCrits = shipManager.criticals.countCriticalOnTurn(system, "DamageReductionReduced", gamedata.turn);
+           if(shieldCrits > 0){
+                let paramTotal = 0; //sum of `param` across in-effect crits of this type (param-sum crits)
+                for(var i in system.criticals){ 
+                    paramTotal += parseInt(system.criticals[i].param, 10) || 0; 
+                }    
+
+                if(paramTotal >= system.output){
+                    return 'Red';
+                }else{
+                    return 'Orange';
+                }              
+           } 
+        }        
+
         // Check critical effects for the current system
         const allCrits = shipManager.criticals.getAllCriticals(system, gamedata.turn);
         for (const crit of allCrits) {

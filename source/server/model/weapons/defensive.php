@@ -1168,11 +1168,15 @@ class ThoughtShield extends Shield implements DefensiveSystem {
         public function onConstructed($ship, $turn, $phase){
             parent::onConstructed($ship, $turn, $phase);
 
-			//Apply the phasing reduction to the effective rating + max capacity (-1 rating, -2 capacity per
-			//crit, mirroring the IMPR_TS enhancement in reverse). Idempotent: recomputed from blueprint each load.
+			//Apply the phasing reduction to the effective absorption/regen rating ONLY. Idempotent:
+			//recomputed from the pristine blueprintRating each load.
+			//NB do NOT also shrink maxhealth: the permanent turn-1 SetShield! damage entry is pinned to
+			//the ORIGINAL maxhealth (spawn-at-max minus rating), so lowering maxhealth here double-counts
+			//and the pool would read blueprintRating - 2*param instead of - param (the 22-instead-of-24 bug,
+			//game 4223). Reducing baseRating alone lands the operating pool at blueprintRating - param via
+			//the regen in criticalPhaseEffects. (Trade-off: the boost ceiling stays at the original max.)
 			$redMod = $this->getRatingReduction($turn);
 			$this->baseRating = max(0, $this->blueprintRating - $redMod);
-			$this->maxhealth  = max(0, $this->blueprintMaxhealth - $redMod * 2);
         }
 
 	    public function setCritical($critical, $turn = 0){
