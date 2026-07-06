@@ -230,7 +230,7 @@ class DamageReductionRemoved extends Critical{
 //Shield Reinforcement - a single crit type so it doesn't bloat the Mindrider Self Repair menu.
 class DamageReductionReduced extends Critical{
     public $description = "Damage reduction reduced";
-	public $repairPriority = 6; //0-9; lower = lower priority, 0 means it's irrepairable    
+	public $repairPriority = 0; //0-9; lower = lower priority, 0 means it's irrepairable    
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0, $forInfo = false, $param = null){
         parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, $forInfo, $param);
     }
