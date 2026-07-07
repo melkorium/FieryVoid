@@ -4853,6 +4853,26 @@ class KirishiacOrbitalLight extends KirishiacOrbital{
 		if ( $maxhealth == 0 ) $maxhealth = 15;
 		parent::__construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart);
 	}
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);
+		//Deployed / Docked (steady) or Docking / Deploying (order pending, changes next turn);
+		//the client refreshes this line live as the player toggles the order button
+		if ($this->activeEffective){
+			if ($this->undockingWouldBreachBlock()){ //deploy currently refused - the block depends on this orbital's boxes
+				$this->data["Status"] = "Docked (cannot deploy - structure would collapse)";
+			}else{
+				$this->data["Status"] = ($this->active == $this->activeEffective) ? "Docked" : "Deploying";
+			}
+		}else{
+			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Deployed" : "Docking";
+		}
+		$this->data["Special"] = "Weapon platform that can be deployed or docked to the hull.";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
+		$this->data["Special"] .= "<br>DEPLOYED: May be called shot using Fighter FC and has profile " . $this->targetProfile . "; Hits roll on Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: Orbital hits strike Structure instead; reinforces section Structure health; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
+	}
+
 }
 
 /*HEAVY Orbital (Kirishiac Overlord) - a large weapon platform with a mounted heavy weapon and
