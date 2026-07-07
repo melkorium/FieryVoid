@@ -24,7 +24,12 @@ class kirishiacWarrior extends FighterFlight{
 		$this->hardAdvancedArmor = true;   
 
         $this->dropOutBonus = 0;
-        
+
+		//A partially damaged Warrior flight that lands on a ship and spends 5 full
+		//turns aboard launches again fully regenerated (needs >=1 undestroyed
+		//Warrior at the moment it docks). Handled by HangarOps::applyDockedRegeneration.
+		$this->dockRegeneration = 5;
+
 		$this->iniativebonus = 90;
         $this->populate();
     }

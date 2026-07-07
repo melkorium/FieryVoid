@@ -40,13 +40,16 @@ class MovementGamePhase implements Phase
             // instead of the plain dummy "end". AutomatedMovement is the reusable seam
             // for future CPU-controlled ships. isUnderAutomatedControl short-circuits on
             // remoteControl, so ordinary ships fall straight through to the dummy "end".
-            if (AutomatedMovement::isUnderAutomatedControl($ship, $gameData)) {
+            if (AutomatedMovement::isUnderAutomatedControl($ship, $latestgameData)) {
                 // Normally generated in process() when the player commits this ship's ini
                 // grouping; this is the fallback (e.g. nobody had a grouping to commit, or a
                 // unit that became automated late). isMovementAlreadySubmitted prevents a
-                // duplicate when process() already produced the move.
+                // duplicate when process() already produced the move. Pass $latestgameData
+                // (reloaded above to include this turn's submitted moves) so the seek's
+                // findNearestEnemy scans up-to-date enemy positions rather than the stale
+                // pre-phase $gameData snapshot.
                 if (!$dbManager->isMovementAlreadySubmitted($gameData->id, $ship->id, $gameData->turn)) {
-                    AutomatedMovement::generateAndSubmit($ship, $gameData, $dbManager);
+                    AutomatedMovement::generateAndSubmit($ship, $latestgameData, $dbManager);
                 }
             } else {
                 // Submit a dummy "end" move so the ship has a completed movement order for this turn

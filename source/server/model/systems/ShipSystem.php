@@ -70,17 +70,11 @@ class ShipSystem {
 
 
 public function getParentFighter() {
-//    if (get_class($this) === 'WarriorRam') {
-//        error_log("getParentFighter: system_hash=" . spl_object_id($this) . " returning fighter_hash=" . ($this->parentFighter !== null ? spl_object_id($this->parentFighter) : "NULL"));
-//    }
     return $this->parentFighter;
 }
 
 public function setParentFighter($fighter) {
     $this->parentFighter = $fighter;
-//    if (get_class($this) === 'WarriorRam') {
-//        error_log("setParentFighter: system_hash=" . spl_object_id($this) . " fighter_hash=" . spl_object_id($fighter));
-//    }
 }
 
 
@@ -1250,7 +1244,7 @@ public function setParentFighter($fighter) {
 			$turn=TacGamedata::$currentTurn;
 		}
         foreach ($this->criticals as $critical){
-            if (strcmp($critical->phpclass, $type) == 0 && $critical->inEffect){				
+            if (strcmp($critical->phpclass, $type) == 0 && $critical->inEffect){
                 if ($turn === false){ //now should never go here...
                     $count++;
                 }else if ((($critical->oneturn && $critical->turn+1 == $turn) || !$critical->oneturn) && $critical->turn<= $turn){
@@ -1263,7 +1257,27 @@ public function setParentFighter($fighter) {
         }
         return $count;
     }
-    
+
+    //Like hasCritical, but SUMS the numeric $param of matching in-effect crits instead of counting them.
+    //For crits that carry an amount in $param (e.g. DamageReductionReduced,
+    //where one crit represents a whole 1d10 reduction rather than one point). Same turn/turnend filter.
+    public function sumCriticalParam($type, $turn = false){
+        $total = 0;
+        if($turn===false){
+            $turn=TacGamedata::$currentTurn;
+        }
+        foreach ($this->criticals as $critical){
+            if (strcmp($critical->phpclass, $type) == 0 && $critical->inEffect){
+                if ((($critical->oneturn && $critical->turn+1 == $turn) || !$critical->oneturn) && $critical->turn<= $turn){
+                    if(($critical->turnend==0) || ($critical->turnend>=$turn)){
+                        $total += (int)$critical->param;
+                    }
+                }
+            }
+        }
+        return $total;
+    }
+
     public function getOutput(){        
         if ($this->isOfflineOnTurn())
             return 0;

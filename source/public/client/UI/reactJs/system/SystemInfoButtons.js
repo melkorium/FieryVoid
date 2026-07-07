@@ -672,6 +672,7 @@ const canAApropagate = (ship, system) => canAA(ship, system) && system.canPropag
 //Mode 3 (Pre-Firing): the green menu stays visible after targeting so the player can still
 //adjust the rotation; the standard remove button handles cancellation alongside it.
 const canGraviticAugmenter = (ship, system) => system.name === 'GraviticAugmenter' && gamedata.isMyShip(ship) &&
+	!system.stowed && //docked with its Orbital - stowed, cannot activate any mode
 	!shipManager.power.isOffline(ship, system) &&
 	//A spent & locked Augmenter (already committed a Mode 1/2 order in Initial Orders) is done for
 	//the turn — don't re-offer its green menu (e.g. "Engage Gravity Shifting") in Pre-Firing.

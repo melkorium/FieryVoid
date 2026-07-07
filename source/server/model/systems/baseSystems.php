@@ -955,10 +955,15 @@ class Shield extends ShipSystem implements DefensiveSystem{
         
         if ($this->hasCritical('DamageReductionRemoved'))
             return 0;
-        
+
+		//Phased Gravitic Torpedo phasing: reduce absorption by the SUM of DamageReductionReduced params
+		//(one crit per torpedo, amount in param), not the crit count. Min absorption 0.
+		$redMod = $this->sumCriticalParam("DamageReductionReduced", $turn);
+
         $output = $this->output;
         $output += $this->outputMod; //outputMod itself is negative!
-        return $output;
+		$output -= $redMod;
+        return max(0, $output);
     }
 }
 
@@ -3602,6 +3607,13 @@ class Hangar extends ShipSystem{
 			//it, the rest no-op. Replaces the per-bay processDockOrders.
 			HangarOps::processWholeFlightDocks($ship, $gamedata);
 			HangarOps::serviceDockedFlights($this, $ship, $gamedata);
+			//Kirishiac Warrior regeneration: carrier-level sweep (guarded, first
+			//bay runs it) — must run BEFORE launches so a launch ordered on the
+			//turn the dwell completes carries the regenerated flight out. NOT
+			//behind the rail half-cadence gate: the regrowth clock is biological,
+			//not airlock throughput, so a rail-docked flight regenerates on the
+			//same 5-full-turn schedule as a hangar-docked one.
+			HangarOps::applyDockedRegeneration($ship, $gamedata);
 			//Stage 21: launches resolve once per carrier via the whole-flight
 			//coalescer (no fragments). Guarded; first bay runs it, the rest no-op.
 			HangarOps::processWholeFlightLaunches($ship, $gamedata);
@@ -3629,6 +3641,15 @@ class Hangar extends ShipSystem{
 		//   (dockedTurn == current turn); a launch later this step just carries
 		//   the freshly-reloaded ammo out with it.
 		HangarOps::serviceDockedFlights($this, $ship, $gamedata);
+
+		//3b. Kirishiac Warrior regeneration: carrier-level sweep (guarded, first
+		//    bay runs it). A docked flight whose entry's regenTurn has arrived is
+		//    restored to full strength — destroyed craft regrown, damage healed.
+		//    Runs AFTER docks (a flight docking this turn stamps regenTurn in the
+		//    future, so it's skipped) and BEFORE launches (a launch ordered on the
+		//    completion turn carries the regenerated flight out; launching earlier
+		//    forfeits regeneration entirely).
+		HangarOps::applyDockedRegeneration($ship, $gamedata);
 
 		//4. Process queued launch orders (Post-Turn Actions Step). Stage 21:
 		//   whole-flight coalescer, once per carrier — a docked flight is ONE
@@ -4777,12 +4798,12 @@ class KirishiacOrbital extends ShipSystem{
 		}else{
 			$this->data["Status"] = ($this->active == $this->activeEffective) ? "Deployed" : "Docking";
 		}
-		$this->data["Special"] = "Weapon platform floating above its section (deployed) or attached to the hull (docked).";
-		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
-		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter (called shot at fighter fire control, flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
-		$this->data["Special"] .= "<br>DOCKED: cannot be hit (orbital rolls strike Structure instead); its remaining boxes reinforce the section Structure; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
+		$this->data["Special"] = "Weapon platform that can be deployed or docked to the hull.";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
+		$this->data["Special"] .= "<br>DEPLOYED: May be called shot using Fighter FC and has profile " . $this->targetProfile . "; Hits roll on Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: Orbital hits strike Structure instead; reinforces section Structure health; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
-		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
+		//$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 
 	public function getTargetProfileOverride(){
@@ -4925,11 +4946,11 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn); //Status line etc.
 		//replace the standard orbital rules text with the Heavy variant
-		$this->data["Special"] = "Heavy weapon platform floating above its section (deployed) or attached to the hull (docked).";
-		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn; no initiative or maneuvering restrictions.";
-		$this->data["Special"] .= "<br>DEPLOYED: may be attacked like a fighter, but at MEDIUM ship fire control (flat profile " . $this->targetProfile . "); any hit rolls the Orbital chart (weapon / self repair / orbital). Overkill on mounted systems passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
-		$this->data["Special"] .= "<br>DOCKED: cannot be targeted directly; its remaining boxes reinforce the section Structure. Hits on the orbital still roll the Orbital chart: the weapon and its Self Repair may be struck (overkill passes to the ship normally), while orbital-structure results hit the combined Structure. Its weapon REMAINS OPERATIONAL with a reduced arc, and may be deactivated for extra power.";
-		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked (weapon and combined Structure only). The ship's Self Repair may service the orbital as usual in either state.";
+		$this->data["Special"] = "Heavy weapon platform which is deployed or docked to hull.";
+		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
+		$this->data["Special"] .= "<br>DEPLOYED: May be Called Shot using Medium ship FC and " . $this->targetProfile . " profile; Hit rolls on Orbital chart (weapon / self repair / orbital). Weapon cannot be deactivated.";
+		$this->data["Special"] .= "<br>DOCKED: Cannot be targeted; its health reinforces its section Structure. Hits on the orbital still roll the Orbital chart.  Weapon remains operational with a reduced arc, and may be deactivated.";
+		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked. Ship's Self Repair may service the orbital as usual in docked state.";
 		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
 	}
 }
@@ -7052,13 +7073,23 @@ class SelfRepair extends ShipSystem{
 	
 	    /* sorts generated repair queue */
     public static function sortUnifiedRepairQueue($a, $b){
-		if($a['priority'] !== $b['priority']){ 
+		if($a['priority'] !== $b['priority']){
             return $b['priority'] - $a['priority']; //higher priority first!
         }
-        
+
+        //Tie-break 1: an EXPLICIT player override beats an implicit/auto priority (e.g. the
+        //+10 destroyed bump). A player who deliberately sets a value to N means it to sit above
+        //systems that merely landed on N automatically - without this, a destroyed low-priority
+        //system could tie a promoted Structure and win purely on the id tiebreak below.
+        $aOv = !empty($a['overridden']);
+        $bOv = !empty($b['overridden']);
+        if($aOv !== $bOv){
+            return $aOv ? -1 : 1; //overridden entry first
+        }
+
         //Deterministic Sort: System ID then SubID
         if($a['id'] !== $b['id']){
-            return $a['id'] - $b['id']; 
+            return $a['id'] - $b['id'];
         }
 
         return $a['subId'] - $b['subId'];
@@ -7116,8 +7147,10 @@ class SelfRepair extends ShipSystem{
 			//DYNAMIC - e.g. a Kirishiac orbital that was overridden while docked and has since redeployed)
 			//priority overrides...
             $prio = $system->repairPriority;
+			$isOverridden = false; //explicit player override wins ties vs auto/bumped priorities
 			if(array_key_exists($system->id, $this->priorityChanges) && ($this->priorityChanges[$system->id]>=0)){
 				$prio = $this->priorityChanges[$system->id];
+				$isOverridden = true;
 			}
 
             //skip systems attached to destroyed structure blocks...
@@ -7146,6 +7179,7 @@ class SelfRepair extends ShipSystem{
                     'type' => 'system',
                     'obj' => $system,
                     'priority' => $prio,
+                    'overridden' => $isOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => $toBeRepaired, // Needed for unified repair logic
                     'maxhealth' => $system->maxhealth, // For sorting
                     'id' => $system->id, // For sorting
@@ -7178,18 +7212,21 @@ class SelfRepair extends ShipSystem{
                 $critPrio = $critDmg->repairPriority;
 
                 //priority override?
+                $critOverridden = false; //explicit player override wins ties vs auto priorities
                 $compKey = $systemToRepair->id . '-' . $critDmg->id;
                 if(array_key_exists($compKey, $this->priorityChanges) && ($this->priorityChanges[$compKey]>=0)){
                      $critPrio = $this->priorityChanges[$compKey];
+                     $critOverridden = true;
                 }else{
-                    if($critPrio<10) $critPrio += $sysPrio; //modify priority by priority of system critical is on! 
+                    if($critPrio<10) $critPrio += $sysPrio; //modify priority by priority of system critical is on!
                 }
-                
+
                 $repairQueue[] = array(
                     'type' => 'critical',
                     'obj' => $critDmg,
                     'sys' => $systemToRepair, // We need the system object to execute repair
                     'priority' => $critPrio,
+                    'overridden' => $critOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => $critDmg->repairCost,
                     'id' => $systemToRepair->id, // Fallback ID for sorting
                     'subId' => $critDmg->id // SubID for sorting
@@ -8401,9 +8438,12 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 						
 		foreach($ship->systems as $system){
 			if($system instanceof ThirdspaceShield){
-				$totalShieldsRating += $system->baseRating;
-				$this->shieldCount++;	
-			}			
+				//getEffectiveBaseRating: the generator is constructed BEFORE the shields, so their own
+				//onConstructed hasn't refreshed ->baseRating yet; read the crit-derived value directly so
+				//the "Maximum Shield Power" display reflects any phasing reduction.
+				$totalShieldsRating += $system->getEffectiveBaseRating($turn);
+				$this->shieldCount++;
+			}
 		}
 		$this->totalBaseRating = $totalShieldsRating;
     }
@@ -8461,10 +8501,13 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 		foreach($ship->systems as $system){//Loop through systems to find Shields
 			if($system instanceof ThirdspaceShield){
 				$allShields[] = $system; //Add to list of shields.
-				$totalShieldRating += $system->baseRating;
-				$currentShieldHealth += $system->getRemainingCapacity();				
-			}				
-		}	
+				//getEffectiveBaseRating (not ->baseRating) so a Phased Gravitic Torpedo that hit THIS turn
+				//already lowers the regen ceiling now - the crit is on the shield by the fire phase, but
+				//->baseRating is only refreshed at load (before firing). Same reason as ThoughtShield.
+				$totalShieldRating += $system->getEffectiveBaseRating($gamedata->turn);
+				$currentShieldHealth += $system->getRemainingCapacity();
+			}
+		}
 
 		if($currentShieldHealth >= $totalShieldRating) return; //If for some reason total shield health is equal/greater than baseRatings combined, don't regen at all!
 
@@ -8476,8 +8519,8 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 		$canRechargeTotal = $totalShieldRating - $currentShieldHealth;
 		$spareEnergy = 0; //Counter for shield energy not used in next part.	
 					
-		foreach ($allShields as $shield) {							
-			$maxRegenThisTurn = $shield->baseRating - $shield->getRemainingCapacity(); //Amount between health and baseRating.
+		foreach ($allShields as $shield) {
+			$maxRegenThisTurn = $shield->getEffectiveBaseRating($gamedata->turn) - $shield->getRemainingCapacity(); //Amount between health and (phasing-reduced) baseRating.
 			$maxRegenThisTurn = max(0, $maxRegenThisTurn);
 			
 			if($maxRegenThisTurn >= $canRechargeTotal) $maxRegenThisTurn = $canRechargeTotal;//Final loop might need adjusted to no overcharge!
@@ -8499,7 +8542,7 @@ class ThirdspaceShieldGenerator extends ShipSystem{
 			$energyAllocated = false; // Track if any energy is allocated in this pass.
 					
 			foreach ($allShields as $shield) {
-			    $remainingCapacity = $shield->baseRating - $shield->getRemainingCapacity(); // Calculate remaining capacity.				
+			    $remainingCapacity = $shield->getEffectiveBaseRating($gamedata->turn) - $shield->getRemainingCapacity(); // Calculate remaining capacity (phasing-reduced rating).
 
 				if($spareEnergy >= $canRechargeTotal) $spareEnergy = $canRechargeTotal;//Final loop might need adjusted to no overcharge!
 

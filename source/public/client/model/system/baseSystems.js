@@ -649,6 +649,14 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		//a damaged catapult). Bucket it apart so it renders distinctly and never
 		//merges with a launchable craft of the same class.
 		var wreckMarker = entry.cannotLaunch ? '|wrecked' : '';
+		//Kirishiac Warrior regeneration: a docked flight whose entry carries a
+		//regenTurn stamp regrows to full strength at the END of that turn (server
+		//HangarOps::applyDockedRegeneration). Bucket it apart from same-class
+		//committed craft so its status suffix renders on its own line.
+		var regenMarker = '';
+		if (!entry._pending && entry.regenTurn) {
+			regenMarker = entry.regenerated ? '|regenerated' : ('|regen' + entry.regenTurn);
+		}
 		var entryDisplayName = entry.displayName
 			|| (entry.name && entry.name !== "" ? entry.name : phpKey);
 		//Stage 21.2: bucket by the friendly flight name (not phpclass alone) so two
@@ -658,9 +666,14 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		//whichever flight created the bucket first). phpKey stays in the key so a
 		//launch (which keys off phpclass) can still find and decrement these via the
 		//phpKey-matching loop below; phpKey is also stashed on the bucket for that.
-		var bucketKey = phpKey + '|' + entryDisplayName + pendingMarker + wreckMarker;
+		var bucketKey = phpKey + '|' + entryDisplayName + pendingMarker + wreckMarker + regenMarker;
 		if (!byClass[bucketKey]) {
-			byClass[bucketKey] = { name: entryDisplayName, phpKey: phpKey, count: 0, pending: entry._pending || null, wrecked: !!entry.cannotLaunch };
+			byClass[bucketKey] = {
+				name: entryDisplayName, phpKey: phpKey, count: 0,
+				pending: entry._pending || null, wrecked: !!entry.cannotLaunch,
+				regenerated: !!(!entry._pending && entry.regenTurn && entry.regenerated),
+				regenTurn: (!entry._pending && entry.regenTurn && !entry.regenerated) ? parseInt(entry.regenTurn, 10) : null
+			};
 		}
 		byClass[bucketKey].count += entryCraftHere;
 	}
@@ -724,6 +737,10 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		if (byClass[k].wrecked) suffix = ' (wrecked — cannot relaunch)';
 		else if (byClass[k].pending === 'deploying')  suffix = ' (Deploying)';
 		else if (byClass[k].pending === 'recovering') suffix = ' (Recovering)';
+		//Kirishiac Warrior regeneration status: dwell completes at the END of
+		//regenTurn (launching before that forfeits the regeneration entirely).
+		else if (byClass[k].regenerated) suffix = ' (Regenerated)';
+		else if (byClass[k].regenTurn)   suffix = ' (Regenerating — complete end of turn ' + byClass[k].regenTurn + ')';
 		lines.push(byClass[k].count + " x " + byClass[k].name + suffix);
 	}
 	for (var lk in launchByClass) {

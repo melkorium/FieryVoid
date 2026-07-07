@@ -1,27 +1,30 @@
 <?php
-class kirishiacConqueror extends HeavyCombatVessel{
+class KirishiacKnightship extends HeavyCombatVessel{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 2300;
+		$this->pointCost = 2700;
 		$this->faction = "Kirishiac Lords";
-        $this->phpclass = "kirishiacConqueror";
-        $this->shipClass = "Conqueror";
+        $this->phpclass = "kirishiacKnightship";
+        $this->shipClass = "Knightship";
         $this->imagePath = "img/ships/kirishiacConqueror2.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Primordial';
         $this->shipSizeClass = 2; 
 		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-	    $this->notes = 'Atmospheric capable.';
+	    //$this->notes = 'Atmospheric capable.';
+		$this->variantOf = 'Conqueror';
+		$this->occurence = 'rare';		
 				
+		$this->agile = true;
         $this->gravitic = true;
 		$this->advancedArmor = true;   
         
         $this->forwardDefense = 14;
-        $this->sideDefense = 14;
+        $this->sideDefense = 13;
         
-        $this->turncost = 0.5;
+        $this->turncost = 0.33;
         $this->turndelaycost = 0.33;
         $this->accelcost = 3;
         $this->rollcost = 3;
@@ -33,17 +36,23 @@ class kirishiacConqueror extends HeavyCombatVessel{
             6 => "Weapon",
             20 => "Orbital"
             );
-		
-        $this->addPrimarySystem(new CnC(7, 16, 0, 0));
-		$scanner = new Scanner(6, 24, 0, 10);
+
+        $heavyOrbitalHitChart = array( //Heavy Orbital Hits sub-chart (d20): 1-6 the mounted weapon, 7-8 the attached Self Repair, 9-20 the orbital itself
+            6 => "Weapon",
+            8 => "Self Repair",
+            20 => "Orbital"
+            );			
+
+        $this->addPrimarySystem(new CnC(7, 12, 0, 0));
+		$scanner = new Scanner(6, 20, 0, 12);
 		$scanner->markAdvanced();
 		$this->addPrimarySystem($scanner);			
-		$this->addPrimarySystem(new Reactor(6, 24, 0, 0));
+		$this->addPrimarySystem(new Reactor(6, 16, 0, 0));
 		$this->addPrimarySystem(new Engine(7, 18, 0, 12, 4));
-        $this->addPrimarySystem(new SelfRepair(7, 6, 3)); //armor, structure, output
-        $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 3));
-        $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 4));
-		$this->addPrimarySystem(new JumpEngine(6, 16, 6, 12));
+        $this->addPrimarySystem(new SelfRepair(7, 8, 4)); //armor, structure, output
+        $this->addPrimarySystem(new GraviticThruster(6, 15, 0, 6, 3));
+        $this->addPrimarySystem(new GraviticThruster(6, 15, 0, 6, 4));
+		$this->addPrimarySystem(new JumpEngine(6, 20, 8, 9));
 
 		//Orbitals dock to the FRONT/AFT structure blocks but are DISPLAYED on the left/right
 		//sections (ship-window declutter): setStructureHome keeps destruction, docked merge,
@@ -52,18 +61,19 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
 		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
 		$orbitalA->addOrbitalWeapon($beamA);
-		$orbitalA->setStructureHome(1); //front block, shown on the left section
-		$orbitalA->addTag('ORBITALFWD');
-		$this->addLeftFrontSystem($orbitalA);
-		$this->addLeftFrontSystem($beamA);
+		//$orbitalA->setStructureHome(1); //front block, shown on the left section
+		//$orbitalA->addTag('ORBITALFWD');
+		$this->addFrontSystem($orbitalA);
+		$this->addFrontSystem($beamA);
 
-		$orbitalB = new KirishiacOrbitalLight(5, 15, 'C', 'B', -7, $orbitalHitChart);
+		$orbitalB = new KirishiacOrbitalLight(5, 15, 'R', 'B', -7, $orbitalHitChart);
 		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
-		$orbitalB->addTag('ORBITALFWD');
+		//$orbitalB->addTag('ORBITALFWD');
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
 
+		/*
 		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
 		$beamC = new MedAntigravityBeam(5, 6, 2, 330, 150, 'C');
 		$orbitalC->addOrbitalWeapon($beamC);
@@ -71,14 +81,15 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		$orbitalC->addTag('ORBITALFWD');
 		$this->addRightFrontSystem($orbitalC);
 		$this->addRightFrontSystem($beamC);
-		
+		*/
+
         $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 240, 360));
         $this->addFrontSystem(new HypergravitonBeam(6, 20, 12, 300, 60));	
         $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 300, 60));
         $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 0, 120));
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
-
+		/*
 		$orbitalF = new KirishiacOrbitalLight(5, 15, 'R', 'F', -7, $orbitalHitChart);
 		$beamF = new MedAntigravityBeam(5, 6, 2, 150, 330, 'F');
 		$orbitalF->addOrbitalWeapon($beamF);
@@ -86,14 +97,23 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		$orbitalF->addTag('ORBITALAFT');
 		$this->addLeftAftSystem($orbitalF);
 		$this->addLeftAftSystem($beamF);
+		*/
+		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
+		$beamC = new MedAntigravityBeam(5, 6, 2, 90, 270, 'C');
+		$orbitalC->addOrbitalWeapon($beamC);
+		//$orbitalC->addTag('ORBITALAFT');
+		$this->addAftSystem($orbitalC);
+		$this->addAftSystem($beamC);
 
-		$orbitalE = new KirishiacOrbitalLight(5, 15, 'C', 'E', -7, $orbitalHitChart);
-		$beamE = new MedAntigravityBeam(5, 6, 2, 90, 270, 'E');
-		$orbitalE->addOrbitalWeapon($beamE);
-		$orbitalE->addTag('ORBITALAFT');
-		$this->addAftSystem($orbitalE);
-		$this->addAftSystem($beamE);
-
+		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
+		$beamD = new MedAntigravityBeam(5, 6, 2, 90, 270, 'D');
+		$orbitalD->addOrbitalWeapon($beamD);
+		//$orbitalC->addTag('ORBITALAFT');
+		$this->addAftSystem($orbitalD);
+		$this->addAftSystem($beamD);		
+		
+		
+		/*
 		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
 		$beamD = new MedAntigravityBeam(5, 6, 2, 30, 210, 'D');
 		$orbitalD->addOrbitalWeapon($beamD);
@@ -101,15 +121,40 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		$orbitalD->addTag('ORBITALAFT');
 		$this->addRightAftSystem($orbitalD);
 		$this->addRightAftSystem($beamD);
+		*/
+        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
+        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
+        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
 
-        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
-        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
-        $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
+		$torpA = new PhasedGraviticTorpedo(6, 16, 6, 180, 360, 'A');
+		$torpA->setStowedArcs(300, 360); //undeployed (docked) firing arc
+        $selfRepairA = new SelfRepair(7, 4, 2); //armor, structure, output
+		$hOrbitalA = new KirishiacHeavyOrbital(6, 42, 'L', 'A', 0, $heavyOrbitalHitChart);
+		$hOrbitalA->addOrbitalWeapon($torpA);
+        $hOrbitalA->addOrbitalSystem($selfRepairA);
+		$hOrbitalA->setStructureHome(0); //primary block, shown on the left section	
+		$hOrbitalA->addTag('HVYORBITAL');			
+		$this->addLeftSystem($torpA);
+		$this->addLeftSystem($hOrbitalA);
+		$this->addLeftSystem($selfRepairA);
+
+		$torpB = new PhasedGraviticTorpedo(6, 16, 6, 0, 180, 'B');
+		$torpB->setStowedArcs(0, 60); //undeployed (docked) firing arc
+        $selfRepairB = new SelfRepair(7, 4, 2); //armor, structure, output
+		$hOrbitalB = new KirishiacHeavyOrbital(6, 42, 'R', 'B', 0, $heavyOrbitalHitChart);
+		$hOrbitalB->addOrbitalWeapon($torpB);
+        $hOrbitalB->addOrbitalSystem($selfRepairB);
+		$hOrbitalB->setStructureHome(0); //primary block, shown on the right section
+		$hOrbitalB->addTag('HVYORBITAL');						
+		$this->addRightSystem($torpB);
+		$this->addRightSystem($hOrbitalB);
+		$this->addRightSystem($selfRepairB);
+
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addFrontSystem(new Structure(7, 63));  
         $this->addAftSystem(new Structure(7, 60));
-        $this->addPrimarySystem(new Structure(7, 60)); 
+        $this->addPrimarySystem(new Structure(7, 88)); 
 	
 		$this->hitChart = array(
 			0=> array( //PRIMARY
@@ -124,15 +169,15 @@ class kirishiacConqueror extends HeavyCombatVessel{
 			),
 			1=> array( //Fwd
 				4 => "Thruster",
-				8 => "Hypergraviton Beam",
-				10 => "Ultra Matter Cannon",
-				11 => "TAG:ORBITALFWD", //tag search is ship-wide: finds orbitals A-C on the left/front/right display sections; beams are only hit through the orbital sub-chart
+                7 => "Orbital",
+				12 => "TAG:HVYORBITAL", //tag search is ship-wide: finds orbitals A-C on the left/front/right display sections; beams are only hit through the orbital sub-chart
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
-				6 => "Thruster",
-				7 => "TAG:ORBITALAFT", //orbitals D-F
+				4 => "Thruster",
+                7 => "Orbital",
+				12 => "TAG:HVYORBITAL", //tag search is ship-wide: finds orbitals A-C on the left/front/right display sections; beams are only hit through the orbital sub-chart
 				18 => "Structure",
 				20 => "Primary",
 			),

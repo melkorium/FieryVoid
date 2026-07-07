@@ -424,6 +424,7 @@ class SelfRepairList extends React.Component {
                         sys: sys,
                         crit: crit,
                         priority: critPriority,
+                        overridden: critOverridden, // explicit override wins ties (mirror of server sort)
                         cost: crit.repairCost,
                         id: sys.id, // For stable sort,
                         subId: crit.id, // For deterministic tie-breaking
@@ -441,6 +442,7 @@ class SelfRepairList extends React.Component {
                     type: 'system',
                     sys: sys,
                     priority: basePriority,
+                    overridden: isOverridden, // explicit override wins ties (mirror of server sort)
                     damage: damage,
                     maxHealth: sys.maxhealth,
                     id: sys.id,
@@ -453,9 +455,16 @@ class SelfRepairList extends React.Component {
         // Concatenate first
         const allItems = [...criticals, ...systems];
 
-        // Sort Unified List: Priority (Desc) -> Visual Stability (Previous Order) -> ID/SubID (Asc)
+        // Sort Unified List: Priority (Desc) -> Explicit-override wins ties -> Visual Stability (Previous Order) -> ID/SubID (Asc)
         allItems.sort((a, b) => {
             if (a.priority !== b.priority) return b.priority - a.priority; // Higher priority first
+
+            // Tie-break: an EXPLICIT player override beats an implicit/auto priority (e.g. the
+            // +10 destroyed bump) - mirrors sortUnifiedRepairQueue on the server so the menu order
+            // reflects the true repair order. Placed BEFORE visual-stability so an override can't be
+            // held below a previously-higher auto row.
+            const aOv = !!a.overridden, bOv = !!b.overridden;
+            if (aOv !== bOv) return aOv ? -1 : 1; // overridden first
 
             // Visual Stability: Maintain relative order of items with equal priority
             if (this.lastOrder && this.lastOrder.length > 0) {
