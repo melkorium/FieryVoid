@@ -28,6 +28,11 @@ class kirishiacKingship extends BaseShip{
         $this->rollcost = 4;
         $this->pivotcost = 2;
 		$this->iniativebonus = 10;
+
+        $orbitalHitChart = array( //Orbital Hits sub-chart (d20): 1-6 the mounted weapon, 7-20 the orbital itself
+            6 => "Weapon",
+            20 => "Orbital"
+            );        
 	
         $this->addPrimarySystem(new Reactor(7, 35, 0, -30));
         $this->addPrimarySystem(new CnC(8, 24, 0, 0));
@@ -42,7 +47,13 @@ class kirishiacKingship extends BaseShip{
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 240, 360));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
-		
+
+		$beamC = new AntigravityBeam(6, 6, 3, 120, 300, 'C');
+		$orbitalC = new KirishiacOrbital(6, 18, 'L', 'C', -7, $orbitalHitChart);
+		$orbitalC->addOrbitalWeapon($beamC);
+		$this->addAftSystem($beamC);
+		$this->addAftSystem($orbitalC);        
+
 		$this->addAftSystem(new HypergravitonBlaster(7, 30, 15, 120, 240));
 		$this->addAftSystem(new AntigravityBeam(6, 6, 3, 90, 270));
 		$this->addAftSystem(new HypergravitonBlaster(7, 30, 15, 60, 180));
@@ -50,9 +61,21 @@ class kirishiacKingship extends BaseShip{
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
 
+		$orbitalA = new KirishiacOrbital(6, 18, 'L', 'A', -7, $orbitalHitChart);
+		$beamA = new AntigravityBeam(6, 6, 3, 270, 90, 'A');
+		$orbitalA->addOrbitalWeapon($beamA);
+		$this->addLeftSystem($orbitalA);
+		$this->addLeftSystem($beamA);
+
 		$this->addLeftSystem(new HypergravitonBlaster(7, 30, 15, 180, 300));
 		$this->addLeftSystem(new AntigravityBeam(6, 6, 3, 150, 330));
         $this->addLeftSystem(new GraviticThruster(7, 25, 0, 7, 3));
+
+		$orbitalB = new KirishiacOrbital(6, 18, 'R', 'B', -7, $orbitalHitChart);
+		$beamB = new AntigravityBeam(6, 6, 3, 270, 90, 'B');
+		$orbitalB->addOrbitalWeapon($beamB);
+		$this->addRightSystem($orbitalB);
+		$this->addRightSystem($beamB);
 
 		$this->addRightSystem(new HypergravitonBlaster(7, 30, 15, 0, 120));
 		$this->addRightSystem(new AntigravityBeam(6, 6, 3, 330, 150));
@@ -60,9 +83,9 @@ class kirishiacKingship extends BaseShip{
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
         $this->addFrontSystem(new Structure( 8, 78));  
-        $this->addAftSystem(new Structure( 8, 96));   //18 added for missing orbitals
-        $this->addLeftSystem(new Structure( 8, 118));  //18 added for missing orbitals
-        $this->addRightSystem(new Structure( 8, 118));  //18 added for missing orbitals
+        $this->addAftSystem(new Structure( 8, 78));   
+        $this->addLeftSystem(new Structure( 8, 100));  
+        $this->addRightSystem(new Structure( 8, 100));  
         $this->addPrimarySystem(new Structure( 8, 84));
 
         $this->hitChart = array(
@@ -83,22 +106,22 @@ class kirishiacKingship extends BaseShip{
             ),
             2=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					12 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					13 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),
             3=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					10 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					11 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),
             4=> array(
                     5 => "Thruster",
-                    6 => "Antigravity Beam",
-					10 => "Hypergraviton Blaster",
+                    7 => "Orbital",
+					11 => "Hypergraviton Blaster",
                     18 => "Structure",
                     20 => "Primary",
             ),

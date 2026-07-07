@@ -2973,9 +2973,21 @@ window.confirm = {
             });
         });
 
+        // Kirishiac Warrior regeneration: a regenerating flight docks WHOLE only —
+        // the player must allocate every craft (they may still spread them across
+        // bays, but can't leave any flying). The server forces whole-flight anyway;
+        // this makes the rule visible and stops a confusing "typed 3, got 5".
+        var mustDockWhole = !!(window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(flight));
+        // Reserved capacity = the FULL roster (alive + destroyed) for a regen flight,
+        // so the player sees that a 4-of-6 Warrior takes 6 hangar slots at dock time.
+        var rosterSlots = mustDockWhole && window.flightFullRosterCount
+            ? window.flightFullRosterCount(flight)
+            : flightCount;
+
         var headerText = carriers.length === 1
             ? 'Dock ' + flight.name + ' (' + flightCount + ' craft) into ' + carriers[0].ship.name
             : 'Dock ' + flight.name + ' (' + flightCount + ' craft) — allocate across carriers';
+        //if (mustDockWhole) headerText += ' — must dock as a whole flight';
 
         var e = $('<div class="confirm error multi-value-confirm hangar-confirm hangarDock"><div class="ui"><div class="confirmok"></div><div class="confirmcancel"></div></div></div>');
         $('<div class="multi-value-header">' + headerText + '</div>').prependTo(e);
@@ -2989,6 +3001,15 @@ window.confirm = {
         var $allocRow = $('<div class="multi-value-row" style="font-weight:bold;padding-bottom:4px;"><span>Allocating: <span class="dock-alloc-count">' + initialTotal + '</span> / ' + flightCount + ' craft</span></div>');
         var $allocLabel = $allocRow.find('.dock-alloc-count');
         container.append($allocRow);
+
+        // Warrior regen: spell out that the whole flight reserves its full roster of
+        // hangar slots (so 4 living craft still take 6 boxes — space held for the 2
+        // that regrow after the dwell). Only shown when roster > living craft.
+        if (mustDockWhole && rosterSlots > flightCount) {
+            $('<div class="multi-value-row" style="font-style:italic;padding-bottom:4px;opacity:0.9;">' +
+              '<span>Reserves ' + rosterSlots + ' hangar slots — regenerates after ' + (parseInt(flight.dockRegeneration || 0, 10) || 5) +
+              ' turns docked.</span></div>').appendTo(container);
+        }
 
         allRows.forEach(function (r) {
             var freeBoxes = r.capacity;
@@ -3045,6 +3066,13 @@ window.confirm = {
             });
             if (allocated > flightCount) {
                 alert('Total allocated (' + allocated + ') exceeds flight size (' + flightCount + '). Reduce the count and try again.');
+                return;
+            }
+            // Regenerating flight (Warrior): must dock the WHOLE flight — reject an
+            // under-allocation (0 allocated is still allowed, to cancel a queued dock).
+            if (mustDockWhole && allocated > 0 && allocated < flightCount) {
+                //alert(flight.name + ' regenerates while docked and must dock as a whole flight (' + flightCount + ' craft). Allocate every craft, or clear all to cancel.');
+                confirm.warning(flight.name + ' must dock as a whole flight (' + flightCount + ' craft)');                
                 return;
             }
             replaceDockOrdersForFlight(flight, newOrdersByHangar);
@@ -3138,8 +3166,36 @@ window.confirm = {
         // Mirrors HangarOps::boxesPerCraftForClass / boxesPerCraftForEntry (PHP).
         var boxesPerCraftFromUnitSize = function (u) { u = (u != null) ? parseFloat(u) : 1; if (u > 0 && u < 1) return Math.ceil(1 / u); if (u > 1) return 1 / u; return 1; };
         var boxesPerCraftForEntry = function (e) { if (e && e.boxesPerCraft) { var b = parseFloat(e.boxesPerCraft); return b > 0 ? b : 1; } return boxesPerCraftFromUnitSize(e ? e.unitSize : 1); };
-        var entryBoxesIn = function (sys, e) { var n = parseInt(e.flightSize || 1, 10); return isCatapultSys(sys) ? n : n * boxesPerCraftForEntry(e); };
-        var craftBoxesIn = function (sys, count, unitSize) { var n = parseInt(count || 0, 10); return isCatapultSys(sys) ? n : n * boxesPerCraftFromUnitSize(unitSize); };
+        // A committed docked entry with an occupancy list (regen flight) reserves the
+        // boxes named in its occupancy for THIS bay — its full roster, even though its
+        // live flightSize is smaller. Mirrors the server usageCountFor. Non-occupancy
+        // entries count flightSize × per-craft. Catapults count craft 1:1.
+        var entryBoxesIn = function (sys, e) {
+            if (!isCatapultSys(sys) && Array.isArray(e.occupancy)) {
+                var b = 0, bayId = parseInt(sys.id, 10);
+                e.occupancy.forEach(function (occ) { if (parseInt(occ.systemId, 10) === bayId) b += parseInt(occ.boxes || 0, 10); });
+                return b;
+            }
+            var n = parseInt(e.flightSize || 1, 10);
+            return isCatapultSys(sys) ? n : n * boxesPerCraftForEntry(e);
+        };
+        // Boxes a QUEUED dock order of $count craft reserves. A regenerating flight
+        // (Warrior) reserves its FULL roster (alive + destroyed), not the docking
+        // count — so a 4-of-6 Warrior queued dock holds 6 boxes. When the flight is
+        // split across bays we scale THIS bay's slice by roster/active so the boxes
+        // summed over all its bays equal the roster (no per-bay double-count).
+        var craftBoxesIn = function (sys, count, unitSize, orderFlightId) {
+            var n = parseInt(count || 0, 10);
+            if (orderFlightId != null) {
+                var of = gamedata.getShip(orderFlightId);
+                if (of && window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(of)) {
+                    var roster = window.flightFullRosterCount(of);
+                    var activeOf = countActiveCraftInFlightLocal(of);
+                    if (roster > activeOf && activeOf > 0) n = Math.ceil(n * roster / activeOf);
+                }
+            }
+            return isCatapultSys(sys) ? n : n * boxesPerCraftFromUnitSize(unitSize);
+        };
 
         // Exclude flights queued to a DIFFERENT carrier this turn — the player
         // can re-route via the per-flight "Enter Hangar" dialog (which shows
@@ -3265,7 +3321,7 @@ window.confirm = {
                     var fid = parseInt(o.flightId, 10);
                     if (rowFlightIds.has(fid)) return;        //in dialog → reclaimable
                     var of = gamedata.getShip(fid);
-                    committed += craftBoxesIn(sys, o.count, of ? of.unitSize : 1);
+                    committed += craftBoxesIn(sys, o.count, of ? of.unitSize : 1, fid);
                 });
             }
             var freeBoxes = Math.max(0, effective - Math.ceil(committed));
@@ -3332,6 +3388,13 @@ window.confirm = {
             }
 
             var label = flight.name + ' (' + active + ' x ' + flight.shipClass + ')';
+            // Warrior regen: show that the whole flight reserves its FULL roster of
+            // hangar slots (4 living craft still hold 6 boxes — space kept for the
+            // destroyed craft that regrow after the dwell).
+            if (window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(flight)) {
+                var rosterSlots = window.flightFullRosterCount(flight);
+                if (rosterSlots > active) label += ' — reserves ' + rosterSlots + ' slots';
+            }
             if (entry.stale) label += ' — queued (no longer in hex)';
 
             var row = $('<div class="multi-value-row"></div>');
@@ -3397,10 +3460,24 @@ window.confirm = {
             rowData.forEach(function ($row) {
                 if (!$row.find('.deployDockCheck').is(':checked')) return;
                 var f = $row.data('flight');
-                planForRow($row).forEach(function (slot) {
+                var slots = planForRow($row);
+                slots.forEach(function (slot) {
                     perCraft.set(slot.hangar.id, (perCraft.get(slot.hangar.id) || 0) + slot.count);
                     perBoxes.set(slot.hangar.id, (perBoxes.get(slot.hangar.id) || 0) + craftBoxesIn(slot.hangar, slot.count, f ? f.unitSize : 1));
                 });
+                // Warrior regen: the whole flight reserves its FULL roster of boxes,
+                // not just the live craft it distributes. Add the EXTRA reserved boxes
+                // (roster − allocated) ONCE — on the plan's first bay — so a flight
+                // split across bays isn't double-counted (which per-slot inflation would).
+                if (f && slots.length > 0 && window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(f)) {
+                    var allocated = slots.reduce(function (s, sl) { return s + parseInt(sl.count || 0, 10); }, 0);
+                    var extra = window.flightFullRosterCount(f) - allocated;
+                    if (extra > 0) {
+                        var bpc = boxesPerCraftFromUnitSize(f.unitSize);
+                        var hid = slots[0].hangar.id;
+                        perBoxes.set(hid, (perBoxes.get(hid) || 0) + extra * bpc);
+                    }
+                }
             });
             var overflow = [];
             perBoxes.forEach(function (boxesUsed, hangarId) {
@@ -3477,9 +3554,24 @@ window.confirm = {
             var per = new Map();
             rowData.forEach(function ($row) {
                 if (!$row.find('.deployDockCheck').is(':checked')) return;
-                planForRow($row).forEach(function (slot) {
+                var f = $row.data('flight');
+                var slots = planForRow($row);
+                slots.forEach(function (slot) {
                     per.set(slot.hangar.id, (per.get(slot.hangar.id) || 0) + slot.count);
                 });
+                // Warrior regen: the whole flight reserves its FULL roster of slots,
+                // not just the live craft it distributes — so the pill reads 6/6, not
+                // 4/6, once a 4-of-6 Warrior is checked. Add the extra reserved slots
+                // (roster − allocated) ONCE on the plan's first bay (matching the
+                // commit-path overflow guard; avoids per-bay double-count on a split).
+                if (f && slots.length > 0 && window.flightRegeneratesWhileDocked && window.flightRegeneratesWhileDocked(f)) {
+                    var allocated = slots.reduce(function (s, sl) { return s + parseInt(sl.count || 0, 10); }, 0);
+                    var extra = window.flightFullRosterCount(f) - allocated;
+                    if (extra > 0) {
+                        var hid = slots[0].hangar.id;
+                        per.set(hid, (per.get(hid) || 0) + extra);
+                    }
+                }
             });
             return per;
         }

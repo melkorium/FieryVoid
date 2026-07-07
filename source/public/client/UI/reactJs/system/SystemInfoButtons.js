@@ -672,6 +672,7 @@ const canAApropagate = (ship, system) => canAA(ship, system) && system.canPropag
 //Mode 3 (Pre-Firing): the green menu stays visible after targeting so the player can still
 //adjust the rotation; the standard remove button handles cancellation alongside it.
 const canGraviticAugmenter = (ship, system) => system.name === 'GraviticAugmenter' && gamedata.isMyShip(ship) &&
+	!system.stowed && //docked with its Orbital - stowed, cannot activate any mode
 	!shipManager.power.isOffline(ship, system) &&
 	//A spent & locked Augmenter (already committed a Mode 1/2 order in Initial Orders) is done for
 	//the turn — don't re-offer its green menu (e.g. "Engage Gravity Shifting") in Pre-Firing.
@@ -739,7 +740,8 @@ export const canDoAnything = (ship, system) => canOffline(ship, system) || canOn
 	|| canSelfRepairList(ship, system) || canActivate(ship, system) || canDeactivate(ship, system) || canPowerCapacitor(ship, system) || canSystemActivation(ship, system) || canSelectAllWeapons(ship, system)
 	|| canMineSettings(ship, system) || canProxMineSettings(ship, system) || canGraviticAugmenter(ship, system);
 
-const canOffline = (ship, system) => gamedata.gamephase === 1 && (system.canOffLine || system.powerReq > 0) && !shipManager.power.isOffline(ship, system) && !shipManager.power.getBoost(system) && !weaponManager.hasFiringOrder(ship, system);
+//powerLocked: system may not be voluntarily powered down right now (Antigravity Beam while its Kirishiac Orbital is deployed)
+const canOffline = (ship, system) => gamedata.gamephase === 1 && (system.canOffLine || system.powerReq > 0) && !system.powerLocked && !shipManager.power.isOffline(ship, system) && !shipManager.power.getBoost(system) && !weaponManager.hasFiringOrder(ship, system);
 
 // A system forced offline by a cooldown / forced-shutdown crit cannot be powered back
 // on by the player (it auto-recovers when the crit expires); onOnlineClicked/onlineAll
@@ -789,7 +791,7 @@ const canRemoveFireOrder = (ship, system) => system.weapon && weaponManager.hasF
 
 //The Gravitic Augmenter cycles its own modes inside its green menu, so it opts out of the
 //generic firing-mode selector grid.
-const canChangeFiringMode = (ship, system) => system.weapon && !ship.mine && system.name !== 'GraviticAugmenter' && ((gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires) || (gamedata.gamephase === 3 && !system.ballistic && !system.preFires)) && (!weaponManager.hasFiringOrder(ship, system) || system.multiModeSplit) && (Object.keys(system.firingModes).length > 1);
+const canChangeFiringMode = (ship, system) => system.weapon && !ship.mine && !system.stowed && system.name !== 'GraviticAugmenter' && ((gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires) || (gamedata.gamephase === 3 && !system.ballistic && !system.preFires)) && (!weaponManager.hasFiringOrder(ship, system) || system.multiModeSplit) && (Object.keys(system.firingModes).length > 1);
 
 //can declare eligibility for interception: charged, recharge time >1 turn, intercept rating >0, no firing order
 const canSelfIntercept = (ship, system) => system.weapon && weaponManager.canSelfInterceptSingle(ship, system);

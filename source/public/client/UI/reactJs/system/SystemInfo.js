@@ -26,7 +26,15 @@ const Divider = styled.div`
 `;
 
 const CRIT_DESCRIPTIONS = {
-    MissileLost: "A missile was lost to damage"
+    MissileLost: "A missile was lost to damage",
+    //OrbitalRepairing: "REGENERATING - orbital and weapon fully restored after 5 docked turns"
+};
+
+//Crits whose effect magnitude is carried in each crit's `param` (one crit per hit, amount in param).
+//These are shown as a single line with the SUMMED reduction (e.g. "Damage reduction reduced by 15")
+//rather than a "(N x)" count, since it's the total that matters. Builder gets the summed param.
+const PARAM_SUM_CRIT_DESCRIPTIONS = {
+    DamageReductionReduced: (total) => `Damage reduction reduced by ${total}`,
 };
 
 export const Entry = styled(TooltipEntry)`
@@ -219,6 +227,7 @@ const getCriticals = (system) => {
     ].concat(
         critKeys.map(phpClass => {
             let noOfCrits = 0;
+            let paramTotal = 0; //sum of `param` across in-effect crits of this type (param-sum crits)
             var endEffectMin = 0;
             var endEffectMax = 0;
             var infinitePresent = false;
@@ -234,6 +243,7 @@ const getCriticals = (system) => {
                         && ((system.criticals[j].turnend == 0) || (system.criticals[j].turnend >= gamedata.turn))
                     ) {
                         noOfCrits++;
+                        paramTotal += parseInt(system.criticals[j].param, 10) || 0;
                         if (noOfCrits == 1) {
                             endEffectMin = system.criticals[j].turnend;
                             endEffectMax = system.criticals[j].turnend;
@@ -255,6 +265,12 @@ const getCriticals = (system) => {
                     wearsOffText = wearsOffText + "-" + endEffectMax;
                 }
                 wearsOffText = wearsOffText + ")";
+            }
+
+            //Param-sum crits (e.g. DamageReductionReduced): one line showing the TOTAL reduction, no "(N x)".
+            if (noOfCrits >= 1 && PARAM_SUM_CRIT_DESCRIPTIONS[phpClass]) {
+                const description = PARAM_SUM_CRIT_DESCRIPTIONS[phpClass](paramTotal);
+                return (<Entry key={`critical-${phpClass}`}>{description} {wearsOffText}</Entry>);
             }
 
             const description = system.critData[phpClass] || CRIT_DESCRIPTIONS[phpClass] || phpClass;

@@ -649,6 +649,14 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		//a damaged catapult). Bucket it apart so it renders distinctly and never
 		//merges with a launchable craft of the same class.
 		var wreckMarker = entry.cannotLaunch ? '|wrecked' : '';
+		//Kirishiac Warrior regeneration: a docked flight whose entry carries a
+		//regenTurn stamp regrows to full strength at the END of that turn (server
+		//HangarOps::applyDockedRegeneration). Bucket it apart from same-class
+		//committed craft so its status suffix renders on its own line.
+		var regenMarker = '';
+		if (!entry._pending && entry.regenTurn) {
+			regenMarker = entry.regenerated ? '|regenerated' : ('|regen' + entry.regenTurn);
+		}
 		var entryDisplayName = entry.displayName
 			|| (entry.name && entry.name !== "" ? entry.name : phpKey);
 		//Stage 21.2: bucket by the friendly flight name (not phpclass alone) so two
@@ -658,9 +666,14 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		//whichever flight created the bucket first). phpKey stays in the key so a
 		//launch (which keys off phpclass) can still find and decrement these via the
 		//phpKey-matching loop below; phpKey is also stashed on the bucket for that.
-		var bucketKey = phpKey + '|' + entryDisplayName + pendingMarker + wreckMarker;
+		var bucketKey = phpKey + '|' + entryDisplayName + pendingMarker + wreckMarker + regenMarker;
 		if (!byClass[bucketKey]) {
-			byClass[bucketKey] = { name: entryDisplayName, phpKey: phpKey, count: 0, pending: entry._pending || null, wrecked: !!entry.cannotLaunch };
+			byClass[bucketKey] = {
+				name: entryDisplayName, phpKey: phpKey, count: 0,
+				pending: entry._pending || null, wrecked: !!entry.cannotLaunch,
+				regenerated: !!(!entry._pending && entry.regenTurn && entry.regenerated),
+				regenTurn: (!entry._pending && entry.regenTurn && !entry.regenerated) ? parseInt(entry.regenTurn, 10) : null
+			};
 		}
 		byClass[bucketKey].count += entryCraftHere;
 	}
@@ -724,6 +737,10 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		if (byClass[k].wrecked) suffix = ' (wrecked — cannot relaunch)';
 		else if (byClass[k].pending === 'deploying')  suffix = ' (Deploying)';
 		else if (byClass[k].pending === 'recovering') suffix = ' (Recovering)';
+		//Kirishiac Warrior regeneration status: dwell completes at the END of
+		//regenTurn (launching before that forfeits the regeneration entirely).
+		else if (byClass[k].regenerated) suffix = ' (Regenerated)';
+		else if (byClass[k].regenTurn)   suffix = ' (Regenerating — complete end of turn ' + byClass[k].regenTurn + ')';
 		lines.push(byClass[k].count + " x " + byClass[k].name + suffix);
 	}
 	for (var lk in launchByClass) {
@@ -941,110 +958,139 @@ var KirishiacOrbital = function KirishiacOrbital(json, ship){
 KirishiacOrbital.prototype = Object.create(ShipSystem.prototype);
 KirishiacOrbital.prototype.constructor = KirishiacOrbital;
 
-KirishiacOrbital.prototype.initializationUpdate = function () {
-	if (this.active) {
-		this.outputDisplay = "[" + this.turnsDocked + "/5" + "]\n" + "Docked";
+//a destroyed orbital may still be recovered (docked) for regeneration - keep its menu clickable
+KirishiacOrbital.prototype.clickableWhenDestroyed = true;
+
+//show only the applicable action button (Dock while deployed, Deploy while docked)
+KirishiacOrbital.prototype.singleActivationButton = true;
+
+//active here means DOCKED, not power-boosted - suppress the yellow boosted highlight...
+KirishiacOrbital.prototype.suppressActiveBoost = true;
+
+//...and use the docked visual instead (blue fade + cyan healthbar, keyed on activeEffective)
+KirishiacOrbital.prototype.showDockedVisual = true;
+
+//active = latest ORDERED docking state (sent to the server).
+//activeEffective = state in EFFECT this turn - a firing-phase order only kicks in next turn.
+//Both come from the server via stripForJson. An ORDER is pending when the two differ.
+KirishiacOrbital.prototype.hasPendingDockingOrder = function () {
+	return Boolean(this.active) !== Boolean(this.activeEffective);
+};
+
+//deploy guard (client mirror of the server veto): the block's merged maxhealth includes this
+//orbital's docked boxes - if withdrawing them would leave the block with no remaining
+//structure, the server refuses the deploy order, so don't offer the button in the first place
+KirishiacOrbital.prototype.deployWouldBreachStructure = function () {
+	if (!this.activeEffective || !this.ship) return false; //no merge in effect while deployed
+	//the home block may differ from the display section (structureHomeLocation - Conqueror declutter)
+	var blockLoc = (this.structureHomeLocation !== undefined && this.structureHomeLocation !== null) ? this.structureHomeLocation : this.location;
+	var block = shipManager.systems.getStructureSystem(this.ship, blockLoc);
+	if (!block) block = shipManager.systems.getStructureSystem(this.ship, 0); //no section structure - block is PRIMARY
+	if (!block || shipManager.systems.isDestroyed(this.ship, block)) return false; //block already gone - nothing left to protect
+	var myBoxes = Math.max(0, this.maxhealth - damageManager.getDamage(this.ship, this)); //this orbital's contribution to the merged pool
+	var blockRemaining = block.maxhealth - damageManager.getDamage(this.ship, block);
+	return (blockRemaining - myBoxes) <= 0;
+};
+
+//tooltip Status line: Deployed / Docked (steady) or Docking / Deploying (order pending);
+//refreshed on every initializationUpdate and immediately on button clicks
+KirishiacOrbital.prototype.updateDockingStatus = function () {
+	if (!this.data) this.data = {};
+	if (this.activeEffective) {
+		if (this.hasPendingDockingOrder()) {
+			this.data["Status"] = "Deploying";
+		} else if (this.deployWouldBreachStructure()) {
+			this.data["Status"] = "Docked (cannot deploy - structure would collapse)";
+		} else {
+			this.data["Status"] = "Docked";
+		}
 	} else {
-		this.outputDisplay = "ORB";
+		this.data["Status"] = this.hasPendingDockingOrder() ? "Docking" : "Deployed";
 	}
-	
+};
+
+KirishiacOrbital.prototype.initializationUpdate = function () {
+	if (this.activeEffective) {
+		//the [n/5] regeneration counter is only meaningful while actually regenerating
+		//(the OrbitalRepairing marker is only created when there was damage to repair)
+		var regenerating = shipManager.criticals.hasCritical(this, "OrbitalRepairing");
+		this.outputDisplay = regenerating ? "[" + Math.min(this.turnsDocked-1, 4) + "/5]" : "-";
+	} else {
+		this.outputDisplay = "-";
+	}
+
+	this.updateDockingStatus();
+
 	return this;
 }
 
-KirishiacOrbital.prototype.canActivate = function () {
-	if(gamedata.gamephase == -1 && !this.active) return true;
-	
+//The single button is keyed on the CURRENT state (not the pending order): a deployed
+//orbital always shows "Dock", a docked one always shows "Deploy". Clicking toggles the
+//pending order on/off (the button lights up while an order is set) - it never swaps label.
+//No destroyed-check: a destroyed orbital may still be recovered for regeneration.
+KirishiacOrbital.prototype.canActivate = function () { //Dock (shown while deployed)
+	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && !this.activeEffective) return true;
+
 	return false;
 };
 
-KirishiacOrbital.prototype.canDeactivate = function () {
-	if(gamedata.gamephase == -1 && this.active) return true;
-	
+KirishiacOrbital.prototype.canDeactivate = function () { //Deploy (shown while docked)
+	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && this.activeEffective) {
+		//deploying is refused while the block depends on this orbital's boxes; keep the
+		//button reachable if an order is somehow already pending, so it can be cancelled
+		if (!this.hasPendingDockingOrder() && this.deployWouldBreachStructure()) return false;
+		return true;
+	}
+
 	return false;
 };
 
-KirishiacOrbital.prototype.doActivate = function () {
-	this.active = true;	
+KirishiacOrbital.prototype.getActivateLabel = function () {
+	return "Dock";
 };
 
-KirishiacOrbital.prototype.doDeactivate = function () {
-	this.active = false;
+KirishiacOrbital.prototype.getDeactivateLabel = function () {
+	return "Deploy";
+};
+
+KirishiacOrbital.prototype.doActivate = function () { //toggle the Dock order on/off
+	this.active = !this.active;
+	this.updateDockingStatus();
+};
+
+KirishiacOrbital.prototype.doDeactivate = function () { //toggle the Deploy order on/off
+	this.active = !this.active;
+	this.updateDockingStatus();
 };
 
 KirishiacOrbital.prototype.doIndividualNotesTransfer = function () {
-
-	if (gamedata.gamephase == -1) {
-		var active = this.active; //Was docked this turn.		
+	//always send the ordered state explicitly (1 = docked, 0 = deployed) so the server can
+	//persist it without guessing; absence of a transfer means "no orbital input this request"
+	if (gamedata.gamephase == -1 || gamedata.gamephase == 3) {
 		this.individualNotesTransfer = Array();
-		if (active) {
-			this.individualNotesTransfer.push(1);
-		}
+		this.individualNotesTransfer.push(this.active ? 1 : 0);
 	}
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//lighter Orbital variant (Kirishiac Conqueror) - identical client behaviour
 var KirishiacOrbitalLight = function KirishiacOrbitalLight(json, ship){
-	ShipSystem.call(this, json, ship);
+	KirishiacOrbital.call(this, json, ship);
 };
 
-KirishiacOrbitalLight.prototype = Object.create(ShipSystem.prototype);
+KirishiacOrbitalLight.prototype = Object.create(KirishiacOrbital.prototype);
 KirishiacOrbitalLight.prototype.constructor = KirishiacOrbitalLight;
 
-KirishiacOrbitalLight.prototype.initializationUpdate = function () {
-	if (this.active) {
-		this.outputDisplay = "[" + this.turnsDocked + "/5" + "]\n" + "Docked";
-	} else {
-		this.outputDisplay = "ORB";
-	}
-	
-	return this;
-}
-
-KirishiacOrbitalLight.prototype.canActivate = function () {
-	if(gamedata.gamephase == -1 && !this.active) return true;
-	
-	return false;
+//HEAVY Orbital variant (Kirishiac Overlord) - same dock/deploy client behaviour; it cannot
+//regenerate (no OrbitalRepairing crit is ever created, so the inherited initializationUpdate
+//never shows the [n/5] counter). Its mounted weapon stays operational while docked (reduced
+//arc via the weapon's stowedArcStart/End) and its attached Self Repair is restricted to the
+//orbital's systems (repairRestrictedTo, honoured by SelfRepairList).
+var KirishiacHeavyOrbital = function KirishiacHeavyOrbital(json, ship){
+	KirishiacOrbital.call(this, json, ship);
 };
 
-KirishiacOrbitalLight.prototype.canDeactivate = function () {
-	if(gamedata.gamephase == -1 && this.active) return true;
-	
-	return false;
-};
-
-KirishiacOrbitalLight.prototype.doActivate = function () {
-	this.active = true;	
-};
-
-KirishiacOrbitalLight.prototype.doDeactivate = function () {
-	this.active = false;
-};
-
-KirishiacOrbitalLight.prototype.doIndividualNotesTransfer = function () {
-
-	if (gamedata.gamephase == -1) {
-		var active = this.active; //Was docked this turn.		
-		this.individualNotesTransfer = Array();
-		if (active) {
-			this.individualNotesTransfer.push(1);
-		}
-	}
-};
+KirishiacHeavyOrbital.prototype = Object.create(KirishiacOrbital.prototype);
+KirishiacHeavyOrbital.prototype.constructor = KirishiacHeavyOrbital;
 
 
 

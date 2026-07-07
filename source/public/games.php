@@ -135,11 +135,11 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
       <h3>Latest Updates — July 2026</h3>
       <ul class="updates-list">
         <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->    
-        <li><strong>HK Control Nodes</strong> - Hunker-Kiler drones which don't have a control node will not become 'Uncontrolled'. Uncontrolled HKs will now attempt to avoid Terrain.</li>      
-        <li><strong>HK Jamming</strong> - ELINT vessels can use EW to try and jam Orieni Hunter-Killer drones.  More details available in the the new EW section of FAQ.</li>  
-        <li><strong>Shadow Fighter Bomb</strong> - Shadow fighters are now purchased as enhancements, and can launch and be re-absorbed by their carrier ships.</li>                                         
+        <li><strong>HK Control Nodes & Jamming</strong> - ELINT vessels can try to jam Orieni Hunker-Kilers, and drones which don't have a control node will become 'Uncontrolled'.</li>      
+        <li><strong>Shadow Fighter Bomb</strong> - Shadow fighters are now purchased as enhancements, and can launch and be re-absorbed by their carrier ships.</li> 
+        <li><strong>UI Improvements</strong> - Landscape mode apperance improved on smaller screens, Self Repair menu is now drggable and other small improvements.</li>                                                  
         <li><strong>Fleet Selection</strong> -  The ‘Show Custom’ checkbox is now ticked by default in Fleet Builder screens, and games where Custom Factions are marked as ‘Allowed’.</li>                                                                                       
-        <li><strong>New Critical</strong> - Quad and Twin Arrays can be affected by the 'Gun Lost' critical.</li>  
+        <li><strong>New Critical Effect</strong> - Quad and Twin Arrays can be affected by the 'Gun Lost' critical.</li>  
         <li><strong>General Fixes</strong> - Many other small bug fixes/updates. Thanks for the reports!</li>           
         <!--<li><strong>6 Jun</strong> - Overlay colors, deployment zone tweaks, UI fixes. Pulsar mine fixed, tooltip/text readability improved.</li>-->
       </ul>

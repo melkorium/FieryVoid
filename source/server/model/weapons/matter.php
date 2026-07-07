@@ -991,7 +991,7 @@ class UltraMatterCannon extends Matter{
         public $displayName = "Warrior Ram";
 		public $iconPath = "DirectRam.png";
 	    public $animation = "ball";
-public $lastCalculatedDamage = null;		
+        public $lastCalculatedDamage = null;		
 		public $factionAge = 3; //Ancient weapon, which sometimes has consequences!
         public $loadingtime = 1;
 		public $shots = 1;
@@ -1049,18 +1049,19 @@ public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fi
 
         $warrior = $this->getParentFighter(); //The fighter this weapon belongs to.
 
-		$pos = mathlib::hexCoToPixel($this->getFiringHex($gamedata, $fireOrder));
-		$adaptive = $system->getArmourAdaptive($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Matter", $pos); // Need to get any adaptive armor values set to matter too!
-        $base = $system->getArmourBase($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Particle", $pos);  // Need to change the weapon class to particle so the returned armor value isn't zero
-// file_put_contents('/tmp/debug.log', "amount of matter adaptive armor is : " . $adaptive . "\n", FILE_APPEND);
-// file_put_contents('/tmp/debug.log', "amount of base armor is : " . $base . "\n", FILE_APPEND);
-		$armour = $base + $adaptive;
-// file_put_contents('/tmp/debug.log', "combined armor is : " . $armour . "\n", FILE_APPEND);
+		//$pos = mathlib::hexCoToPixel($this->getFiringHex($gamedata, $fireOrder));
+		//$adaptive = $system->getArmourAdaptive($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Matter", $pos); // Need to get any adaptive armor values set to matter too!
+        //$base = $system->getArmourBase($gamedata->getShipById($fireOrder->targetid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Particle", $pos);  // Need to change the weapon class to particle so the returned armor value isn't zero
+        
+        //$armour = $base + $adaptive;  
 
-// NOTE: $warriorArmor is availabe to be used if there is anything that could reduce a Warrior's armor
-//		$warriorArmor = $warrior->getArmourBase($gamedata->getShipById($fireOrder->shooterid), $gamedata->getShipById($fireOrder->shooterid), $this->weaponClass = "Particle", $pos); // Needed on the off chance the Warrior's armor is reduced
-// file_put_contents('/tmp/debug.log', "warrior armor is : " . $warriorArmor . "\n", FILE_APPEND);
-
+        // To Geoff - Warrior recoil needs the target system's RAW armour value (the armour the
+        // projectile punched through), NOT the Matter-adjusted 0 the damage pipeline uses.
+        // getArmourComplete = getArmourBase + getArmourAdaptive; the $dmgClass arg is inert
+        // for the base value (base armour ignores class; Matter-zeroing lives in weapon.php),
+        // so passing $weaponClass is fine and the old "Particle trick" was never necessary.
+        // Estimation-only path: excludes ArmorReduced crits / advanced-armour / raking mods - intentional here.
+        $armour = $system->getArmourComplete($ship, $warrior, $this->weaponClass);
 
         //Warrior only takes recoil if the system it hit survived.
         if ($warrior !== null && !$system->isDestroyed($gamedata->turn)){
@@ -1068,9 +1069,6 @@ public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fi
             $warriorFlight = $this->getUnit();
             $maxDamage = $warrior->getRemainingHealth();
             $damageCaused = min((2 * $armour) - 6, $maxDamage); //Don't cause more damage than the warrior has left. Also, the -6 is to account for the Warrior's armor. Currently a jury-rigged fix
-// file_put_contents('/tmp/debug.log', "armour is : " . $armour . "\n", FILE_APPEND);
-// file_put_contents('/tmp/debug.log', "maxDamage is : " . $maxDamage . "\n", FILE_APPEND);
-// file_put_contents('/tmp/debug.log', "damageCaused: " . $damageCaused . "\n", FILE_APPEND);
 
             if ($damageCaused > 0){
                 $destroyed = $damageCaused >= $maxDamage;
@@ -1079,45 +1077,13 @@ public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fi
                 $warrior->damage[] = $damageEntry;
 				
 				$warrior->forceCriticalRoll = true;
-				$warrior->critRollMod += 4;				
-				
+				$warrior->critRollMod += 4;							
             }
         }
 
         parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);
-
     }
 
-
-
-
-
-/*
-public function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){
-
-        $warrior = $this->getParentFighter(); //The fighter this weapon belongs to.
-
-        //Warrior only takes recoil if the system it hit survived.
-        if ($warrior !== null && !$system->isDestroyed($gamedata->turn)){
-            //Warrior suffers 2x the punched-through system's armour value.
-            $warriorFlight = $this->getUnit();
-            $maxDamage = $warrior->getRemainingHealth();
-            $damageCaused = min(2 * $armour, $maxDamage); //Don't cause more damage than the warrior has left.
-file_put_contents('/tmp/debug.log', "armour is : " . $armour . "\n", FILE_APPEND);
-file_put_contents('/tmp/debug.log', "maxDamage is : " . $maxDamage . "\n", FILE_APPEND);
-file_put_contents('/tmp/debug.log', "damageCaused: " . $damageCaused . "\n", FILE_APPEND);
-            if ($damageCaused > 0){
-                $destroyed = $damageCaused >= $maxDamage;
-                $damageEntry = new DamageEntry(-1, $warriorFlight->id, -1, $gamedata->turn, $warrior->id, $damageCaused, 0, 0, -1, $destroyed, false, "", "Warrior");
-                $damageEntry->updated = true;
-                $warrior->damage[] = $damageEntry;
-           }
-        }
-
-        parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);
-
-    }
-*/
 
 public function getDamage($fireOrder) {
     $gd = $this->gamedata;
