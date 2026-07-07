@@ -4852,6 +4852,7 @@ class KirishiacOrbitalLight extends KirishiacOrbital{
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
 		if ( $maxhealth == 0 ) $maxhealth = 15;
 		parent::__construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart);
+		$this->displayName = 'Light Orbital ' . $pairing . '';		
 	}
 
 	public function setSystemDataWindow($turn){
