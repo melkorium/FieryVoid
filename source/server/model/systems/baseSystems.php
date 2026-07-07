@@ -4847,6 +4847,7 @@ class KirishiacOrbitalLight extends KirishiacOrbital{
 	public $name = "KirishiacOrbitalLight";
     public $displayName = "Light Orbital";
 	public $targetProfile = 7;
+	public $canRegenerate = false; //Light Orbitals can't regenerate when docked.	
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
 		if ( $maxhealth == 0 ) $maxhealth = 15;
