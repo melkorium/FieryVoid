@@ -2791,6 +2791,7 @@ spl_autoload_register(
 				
 				//Vree
 				'sixsidedship' => '/server/model/ships/ShipClasses.php',
+				'sixsidedhcv' => '/server/model/ships/ShipClasses.php',                
 				'vreecapital' => '/server/model/ships/ShipClasses.php',
 				'vreehcv' => '/server/model/ships/ShipClasses.php',
 				'structuretechnical' => '/server/model/systems/baseSystems.php',

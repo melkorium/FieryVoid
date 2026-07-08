@@ -1,5 +1,5 @@
 <?php
-class kirishiacConqueror extends HeavyCombatVessel{
+class kirishiacConqueror extends SixSidedHCV{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
