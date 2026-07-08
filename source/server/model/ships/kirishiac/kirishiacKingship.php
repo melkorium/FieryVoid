@@ -8,7 +8,7 @@ class kirishiacKingship extends BaseShip{
 	$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacKingship";
         $this->imagePath = "img/ships/kirishiacKingship.png";
-        $this->shipClass = "Kingship";
+        $this->shipClass = "Kingship Dreadnought";
         $this->shipSizeClass = 3;
         $this->limited = 33;
 	    $this->isd = "Ancient";
@@ -55,7 +55,6 @@ class kirishiacKingship extends BaseShip{
 		$this->addAftSystem($orbitalC);        
 
 		$this->addAftSystem(new HypergravitonBlaster(7, 30, 15, 120, 240));
-		$this->addAftSystem(new AntigravityBeam(6, 6, 3, 90, 270));
 		$this->addAftSystem(new HypergravitonBlaster(7, 30, 15, 60, 180));
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
@@ -68,7 +67,6 @@ class kirishiacKingship extends BaseShip{
 		$this->addLeftSystem($beamA);
 
 		$this->addLeftSystem(new HypergravitonBlaster(7, 30, 15, 180, 300));
-		$this->addLeftSystem(new AntigravityBeam(6, 6, 3, 150, 330));
         $this->addLeftSystem(new GraviticThruster(7, 25, 0, 7, 3));
 
 		$orbitalB = new KirishiacOrbital(6, 18, 'R', 'B', -7, $orbitalHitChart);
@@ -78,7 +76,6 @@ class kirishiacKingship extends BaseShip{
 		$this->addRightSystem($beamB);
 
 		$this->addRightSystem(new HypergravitonBlaster(7, 30, 15, 0, 120));
-		$this->addRightSystem(new AntigravityBeam(6, 6, 3, 330, 150));
         $this->addRightSystem(new GraviticThruster(7, 25, 0, 7, 4));
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;

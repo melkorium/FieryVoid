@@ -1,5 +1,5 @@
 <?php
-class kirishiacConqueror extends HeavyCombatVessel{
+class kirishiacConqueror extends SixSidedHCV{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
@@ -49,20 +49,20 @@ class kirishiacConqueror extends HeavyCombatVessel{
 		//sections (ship-window declutter): setStructureHome keeps destruction, docked merge,
 		//regeneration and SelfRepair coupled to the home block, and the TAG chart rows find
 		//them regardless of section. Call order unchanged - system ids are positional!
-		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
-		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
-		$orbitalA->addOrbitalWeapon($beamA);
-		$orbitalA->setStructureHome(1); //front block, shown on the left section
-		$orbitalA->addTag('ORBITALFWD');
-		$this->addLeftFrontSystem($orbitalA);
-		$this->addLeftFrontSystem($beamA);
-
-		$orbitalB = new KirishiacOrbitalLight(5, 15, 'C', 'B', -7, $orbitalHitChart);
-		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
+		$orbitalB = new KirishiacOrbitalLight(5, 15, 'L', 'B', -7, $orbitalHitChart);
+		$beamB = new MedAntigravityBeam(5, 6, 2, 210, 30, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
+		$orbitalB->setStructureHome(1); //front block, shown on the left section
 		$orbitalB->addTag('ORBITALFWD');
-		$this->addFrontSystem($orbitalB);
-		$this->addFrontSystem($beamB);
+		$this->addLeftFrontSystem($orbitalB);
+		$this->addLeftFrontSystem($beamB);
+
+		$orbitalA = new KirishiacOrbitalLight(5, 15, 'C', 'A', -7, $orbitalHitChart);
+		$beamA = new MedAntigravityBeam(5, 6, 2, 270, 90, 'A');
+		$orbitalA->addOrbitalWeapon($beamA);
+		$orbitalA->addTag('ORBITALFWD');
+		$this->addFrontSystem($orbitalA);
+		$this->addFrontSystem($beamA);
 
 		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
 		$beamC = new MedAntigravityBeam(5, 6, 2, 330, 150, 'C');
