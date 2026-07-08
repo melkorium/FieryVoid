@@ -3526,7 +3526,8 @@ spl_autoload_register(
 				'darkknife' => '/server/model/ships/torvalus/DarkKnife.php',
 				'blackrapier' => '/server/model/ships/torvalus/BlackRapier.php',
 				'shroudedsaber' => '/server/model/ships/torvalus/ShroudedSaber.php',
-				'veiledsaber' => '/server/model/ships/torvalus/VeiledSaber.php',                                    
+				'veiledsaber' => '/server/model/ships/torvalus/VeiledSaber.php',
+				'falchion' => '/server/model/ships/torvalus/Falchion.php',                                                   
                 'stiletto' => '/server/model/ships/torvalus/Stiletto.php',       
 
 				'powerlaser' => '/server/model/weapons/lasers.php',
