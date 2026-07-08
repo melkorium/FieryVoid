@@ -3557,13 +3557,13 @@ spl_autoload_register(
 //				'warriorram' => '/server/model/weapons/customDevelopment.php',								
 //				'directram' => '/server/model/weapons/customDevelopment.php',								
 
-//				'kirishiacconqueror' => '/server/model/ships/kirishiac/kirishiacConqueror.php',
-//				'kirishiackingship' => '/server/model/ships/kirishiac/kirishiacKingship.php',
-//				'kirishiacknightship' => '/server/model/ships/kirishiac/kirishiacKnightship.php',                
-//				'kirishiaclordship' => '/server/model/ships/kirishiac/kirishiacLordship.php',
-//				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',  
-//				'kirishiacoverlord' => '/server/model/ships/kirishiac/kirishiacOverlord.php',                              
-//				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
+				'kirishiacconqueror' => '/server/model/ships/kirishiac/kirishiacConqueror.php',
+				'kirishiackingship' => '/server/model/ships/kirishiac/kirishiacKingship.php',
+				'kirishiacknightship' => '/server/model/ships/kirishiac/kirishiacKnightship.php',                
+				'kirishiaclordship' => '/server/model/ships/kirishiac/kirishiacLordship.php',
+				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',  
+				'kirishiacoverlord' => '/server/model/ships/kirishiac/kirishiacOverlord.php',                              
+				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
 //				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
 
 
