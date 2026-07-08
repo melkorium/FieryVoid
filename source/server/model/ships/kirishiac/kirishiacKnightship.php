@@ -10,16 +10,17 @@ class KirishiacKnightship extends HeavyCombatVessel{
         $this->shipClass = "Knightship";
         $this->imagePath = "img/ships/kirishiacConqueror.png";
         $this->canvasSize = 200;
-	    $this->isd = 'Primordial';
+	    $this->isd = 'Ancient';
         $this->shipSizeClass = 2; 
-		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
+		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 	    //$this->notes = 'Atmospheric capable.';
 		$this->variantOf = 'Conqueror';
 		$this->occurence = 'rare';		
 				
 		$this->agile = true;
         $this->gravitic = true;
-		$this->advancedArmor = true;   
+		$this->advancedArmor = true; 
+		$this->hardAdvancedArmor = true;		  
         
         $this->forwardDefense = 14;
         $this->sideDefense = 13;
@@ -54,50 +55,21 @@ class KirishiacKnightship extends HeavyCombatVessel{
         $this->addPrimarySystem(new GraviticThruster(6, 15, 0, 6, 4));
 		$this->addPrimarySystem(new JumpEngine(6, 20, 8, 9));
 
-		//Orbitals dock to the FRONT/AFT structure blocks but are DISPLAYED on the left/right
-		//sections (ship-window declutter): setStructureHome keeps destruction, docked merge,
-		//regeneration and SelfRepair coupled to the home block, and the TAG chart rows find
-		//them regardless of section. Call order unchanged - system ids are positional!
 		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
 		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
 		$orbitalA->addOrbitalWeapon($beamA);
-		//$orbitalA->setStructureHome(1); //front block, shown on the left section
-		//$orbitalA->addTag('ORBITALFWD');
 		$this->addFrontSystem($orbitalA);
 		$this->addFrontSystem($beamA);
 
 		$orbitalB = new KirishiacOrbitalLight(5, 15, 'R', 'B', -7, $orbitalHitChart);
 		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
-		//$orbitalB->addTag('ORBITALFWD');
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
 
-		/*
-		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
-		$beamC = new MedAntigravityBeam(5, 6, 2, 330, 150, 'C');
-		$orbitalC->addOrbitalWeapon($beamC);
-		$orbitalC->setStructureHome(1); //front block, shown on the right section
-		$orbitalC->addTag('ORBITALFWD');
-		$this->addRightFrontSystem($orbitalC);
-		$this->addRightFrontSystem($beamC);
-		*/
+        $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
+        $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
 
-        $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 240, 360));
-        $this->addFrontSystem(new HypergravitonBeam(6, 20, 12, 300, 60));	
-        $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 300, 60));
-        $this->addFrontSystem(new UltraMatterCannon(5, 13, 7, 0, 120));
-        $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
-        $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
-		/*
-		$orbitalF = new KirishiacOrbitalLight(5, 15, 'R', 'F', -7, $orbitalHitChart);
-		$beamF = new MedAntigravityBeam(5, 6, 2, 150, 330, 'F');
-		$orbitalF->addOrbitalWeapon($beamF);
-		$orbitalF->setStructureHome(2); //aft block, shown on the left section
-		$orbitalF->addTag('ORBITALAFT');
-		$this->addLeftAftSystem($orbitalF);
-		$this->addLeftAftSystem($beamF);
-		*/
 		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
 		$beamC = new MedAntigravityBeam(5, 6, 2, 90, 270, 'C');
 		$orbitalC->addOrbitalWeapon($beamC);
@@ -111,17 +83,7 @@ class KirishiacKnightship extends HeavyCombatVessel{
 		//$orbitalC->addTag('ORBITALAFT');
 		$this->addAftSystem($orbitalD);
 		$this->addAftSystem($beamD);		
-		
-		
-		/*
-		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
-		$beamD = new MedAntigravityBeam(5, 6, 2, 30, 210, 'D');
-		$orbitalD->addOrbitalWeapon($beamD);
-		$orbitalD->setStructureHome(2); //aft block, shown on the right section
-		$orbitalD->addTag('ORBITALAFT');
-		$this->addRightAftSystem($orbitalD);
-		$this->addRightAftSystem($beamD);
-		*/
+
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));
         $this->addAftSystem(new GraviticThruster(6, 13, 0, 4, 2));

@@ -837,7 +837,7 @@ window.ShipIcon = function () {
     // fixed 20-hex BDEW blanket. Uses a single base colour (#5e338a) for all ships.
     ShipIcon.prototype.showMDEW = function () {
         var MDEW = ew.getDetectMEW(this.ship);
-        if (!MDEW || this.MDEWSprite) {
+        if (!MDEW || !gamedata.areMinesPresent || this.MDEWSprite) {
             return;
         }
 

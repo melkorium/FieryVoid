@@ -3653,6 +3653,31 @@ class SixSidedShip extends BaseShip{
     		
 } //end of SixSidedShip
 
+
+class SixSidedHCV extends SixSidedShip{
+    public $shipSizeClass = 2;
+
+    function __construct($id, $userid, $name, $slot){
+        parent::__construct($id, $userid, $name,$slot);
+    }
+
+    //Locations are same as HCV, because we use setStructureHome() to assign front and aft location to any system place on 31, 32, 41, 42 etc.
+    public function getLocations(){
+        $locs = array();
+
+        $locs[] = array("loc" => 1, "min" => 330, "max" => 30, "profile" => $this->forwardDefense);
+        $locs[] = array("loc" => 1, "min" => 30, "max" => 90, "profile" => $this->sideDefense);
+        $locs[] = array("loc" => 2, "min" => 90, "max" => 150, "profile" => $this->sideDefense);
+        $locs[] = array("loc" => 2, "min" => 150, "max" => 210, "profile" => $this->forwardDefense);
+        $locs[] = array("loc" => 2, "min" => 210, "max" => 270, "profile" => $this->sideDefense);
+        $locs[] = array("loc" => 1, "min" => 270, "max" => 330, "profile" => $this->sideDefense);
+
+        return $locs;
+    }
+    
+}
+
+
 //Vorlon Capital Ships are made using 6-sided layout - with side-aft being actual sides, and side-front a pseudo-section to fit Lightning Cannons that do not fall off
 class VorlonCapitalShip extends SixSidedShip{	
 

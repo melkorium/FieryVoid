@@ -7638,7 +7638,7 @@ class PulsarMine extends Weapon{
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn);
 		$this->data["Special"] = 'Automatically attacks up to 18 enemy fighters who were within 2 hexes of this ship during their Movement Phase (and were in arc)';
-		$this->data["Special"] .= '<br>Attacks are generated during the Firing Phase as normal.';	
+		$this->data["Special"] .= '<br>Attacks are generated after movement but before the Firing Phase.';	
 		$this->data["Special"] .= '<br>Cannot be manually targeted.';													
 	}	
 
