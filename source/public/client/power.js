@@ -992,14 +992,9 @@ shipManager.power = {
 
 	offlineAll: function offlineAll(ship, system) {
 		var array = [];
-		/* Cleaned 19.8.25 - DK
-		if (system.duoWeapon || system.dualWeapon) {
-			return;
-		}
-		*/
 
 		for (var i = 0; i < ship.systems.length; i++) {
-			if (system.displayName === ship.systems[i].displayName) {
+			if (system.name === ship.systems[i].name) {
 				//if (system.weapon) { //make this work for non-weapons too
 				array.push(ship.systems[i]);
 				//}
@@ -1095,14 +1090,8 @@ shipManager.power = {
 	onlineAll: function onlineAll(ship, system) {
 		var array = [];
 
-		/* Cleaned 19.8.25 - DK
-		if (system.duoWeapon || system.dualWeapon) {
-			return;
-		}
-		*/
-
 		for (var i = 0; i < ship.systems.length; i++) {
-			if (system.displayName === ship.systems[i].displayName) {
+			if (system.name === ship.systems[i].name) {
 				//if (system.weapon) { //make this work for non-weapons too
 				array.push(ship.systems[i]);
 				//}
