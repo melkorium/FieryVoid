@@ -1,13 +1,13 @@
 <?php
-class kirishiacWarriorTest extends FighterFlight{
+class kirishiacWarrior extends FighterFlight{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 160*6;
 		$this->faction = "Kirishiac Lords";
-        $this->phpclass = "kirishiacWarriorTest";
-        $this->shipClass = "Warrior Projectile Test";
+        $this->phpclass = "kirishiacWarrior";
+        $this->shipClass = "Warrior Projectile";
 		$this->imagePath = "img/ships/kirishiacWarrior2.png";
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
@@ -41,8 +41,9 @@ class kirishiacWarriorTest extends FighterFlight{
 			$fighter->imagePath = "img/ships/kirishiacWarrior2.png";
 			$fighter->iconPath = "img/ships/kirishiacWarrior_large2.png";
 			
+
 			
-			//$fighter->addFrontSystem(new WarriorRam(0, 360, 0));
+			//$fighter->addFrontSystem(new GlancingRam(0, 360, 1));
 			
 			$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack
 			

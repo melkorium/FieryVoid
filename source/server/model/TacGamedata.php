@@ -7,6 +7,12 @@ class TacGamedata {
     public static $currentGameID;
     public static $safeGameID = 3730; //gameID that is safe for adding new features
     public static $lastFiringResolutionNo = 0; //firing resolution to be used
+    //viewer context for per-recipient JSON pruning (gamedata is built and cached PER PLAYER):
+    //the player this load is being prepared for, and their team (set once slots are known).
+    //ONLY for stripForJson-level masking of hidden orders (Kirishiac Orbital dock/deploy,
+    //Shading Field) - never use for game logic; null = no viewer (server processing) = reveal.
+    public static $currentForPlayer = null;
+    public static $currentForPlayerTeam = null;
 
     public $id, $turn, $phase, $activeship, $name, $status, $points, $background, $creator, $gamespace, $description;
     public $ships = array();
@@ -110,6 +116,7 @@ class TacGamedata {
     }
 
     public function onConstructed(){
+        self::$currentForPlayerTeam = $this->getPlayerTeam(); //viewer context (slots are loaded by now) - teammates see each other's hidden orders
         $this->setBlockedHexes();
         $this->waitingForThisPlayer = $this->getIsWaitingForThisPlayer();
         $this->doSortShips();
@@ -412,7 +419,7 @@ class TacGamedata {
     
     private function setForPlayer($player){
         $this->forPlayer = $player;
-        
+        self::$currentForPlayer = $player;
     }
     
     public function getActiveships() {
@@ -744,9 +751,15 @@ class TacGamedata {
                     unset($system->fireOrders[$i]);
                 }
 
-                if ($fire->turn == $this->turn && $weapon->preFires && $this->phase == 5){                        
+                //Hide a pre-firing order during Pre-Firing (the client re-creates it live in this
+                //phase). Must key off the ORDER's type, not just $weapon->preFires: a dual-nature
+                //weapon (Gravitic Augmenter) has preFires=true but also carries BALLISTIC Mode 1/2
+                //orders declared in Initial Orders — those are NOT pre-firing orders and must survive
+                //phase 5 (they only resolve in Firing). A normal pre-firing weapon's orders are all
+                //type 'prefiring', so this extra guard is a no-op for them.
+                if ($fire->turn == $this->turn && $weapon->preFires && $this->phase == 5 && $fire->type == 'prefiring'){
                     unset($system->fireOrders[$i]);
-                }                
+                }
                
 				$weapon->changeFiringMode($fire->firingMode); //Select the current mode so the correct variables are considered, important for Stealth missile.                
 

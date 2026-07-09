@@ -430,7 +430,7 @@ class HangarOps {
 		$normalized = strtolower(trim((string)$category));
 		switch ($normalized) {
 			case 'shuttles':
-				return self::factionShuttleClass($ship);
+				return self::factionShuttleClass($ship);				
 			case 'minesweeping shuttles':
 				//return 'MinesweepingShuttle';
 				return self::factionMinesweepingShuttleClass($ship);				
@@ -440,14 +440,18 @@ class HangarOps {
 				//records via step 1; leftover hangar boxes go to the faction shuttle
 				//(or MinesweepingShuttle for minesweeper-bonus carriers) instead.
 				return 'CargoShuttle';
+			case 'lifeboats':
+				return 'Lifeboat';					
 			case 'medical shuttles':
 				//Opt-in only: never auto-populates leftover capacity. Declared
 				//count in $ship->fighters becomes that many auto-filled CargoShuttle
 				//records via step 1; leftover hangar boxes go to the faction shuttle
 				//(or MinesweepingShuttle for minesweeper-bonus carriers) instead.
 				return 'MedicalShuttle';
-			case 'lifeboats':
-				return 'Lifeboat';					
+			case 'presidential shuttle':
+				return 'PresidentialShuttle';
+			case 'yacht':
+				return 'EmperorsYacht';													
 			default:
 				return null;
 		}
@@ -501,7 +505,28 @@ class HangarOps {
 		'Usuuth Coalition'  => 'ShuttleUsuuth',	
 		'Vorlon Empire'  => 'ShuttleVorlons',									
 		'Vree Conglomerate'  => 'ShuttleVree',	
-		'Yolu Confederation'  => 'ShuttleYolu',								
+		'Yolu Confederation'  => 'ShuttleYolu',		
+		'Nexus Brixadii Clans (early)' => 'ShuttleBrixadiiEarly',
+		'Nexus Brixadii Clans' => 'ShuttleBrixadii',
+		'Nexus Dalithorn Commonwealth (early)' => 'ShuttleDalithornEarly',
+		'Nexus Dalithorn Commonwealth' => 'ShuttleDalithorn',
+		'Nexus Makar Federation (early)' => 'ShuttleMakarEarly',
+		'Nexus Makar Federation' => 'ShuttleMakar',
+		'Nexus Polaren Confederacy (early)' => 'ShuttlePolarenEarly',
+		'Nexus Polaren Confederacy' => 'ShuttlePolaren',
+		'Nexus Sal-bez Coalition (early)' => 'ShuttleSalbezEarly',
+		'Nexus Sal-bez Coalition' => 'ShuttleSalbez',
+		'Nexus Velrax Republic (early)' => 'ShuttleVelraxEarly',
+		'Nexus Velrax Republic' => 'ShuttleVelrax',
+		'Escalation Wars Chouka Theocracy' => 'ShuttleChouka',
+		'Escalation Wars Chouka Raider' => 'ShuttleChoukaRaider',
+		'Escalation Wars Circasian Empire' => 'ShuttleCircasian',
+		'Escalation Wars Kastan Monarchy' => 'ShuttleKastan',
+		'Escalation Wars Blood Sword Raiders' => 'ShuttleBloodSwords',
+		"Escalation Wars Sshel'ath Alliance" => 'ShuttleSshelath',
+		'Great Crusade Orieni Imperium'  => 'ShuttleGCOrieni',
+		'House Valheru' => 'ShuttleValheru',
+		'Barada Imperium' => 'ShuttleBarada',
 
 	);
 
@@ -945,6 +970,38 @@ class HangarOps {
 			$n++;
 		}
 		return $n;
+	}
+
+	/* Total Fighter systems in a flight, ALIVE or not (destroyed, dropped-out,
+	 * damaged — every craft the flight was built with). For a regenerating
+	 * Warrior flight this is the "full potential size" a hangar must reserve so
+	 * every craft can be regrown after the dwell. NOT the same as flightSize on a
+	 * fragment (which is a subset) — this counts the actual roster objects. */
+	public static function fighterRosterCount($flight){
+		$n = 0;
+		if (!($flight instanceof FighterFlight)) return 0;
+		foreach ($flight->systems as $f){
+			if ($f instanceof Fighter) $n++;
+		}
+		return $n;
+	}
+
+	/* True if $flight's class regenerates while docked (Kirishiac Warrior). Such a
+	 * flight docks WHOLE only (no partial) and reserves boxes for its full roster
+	 * so destroyed craft have room to regrow. Central predicate so the dock
+	 * validation, the entry sizing, and the regen sweep all agree. */
+	public static function isDockRegenFlight($flight){
+		return ($flight instanceof FighterFlight) && ((int)($flight->dockRegeneration ?? 0) > 0);
+	}
+
+	/* Box footprint a dock of $flight must reserve. For an ordinary flight this is
+	 * just $dockingCount craft; for a regenerating flight it's the FULL roster
+	 * (alive + destroyed + dropout) so post-dwell regeneration always has room —
+	 * the hangar reserves the flight's whole potential size up front. Returned in
+	 * CRAFT (caller multiplies by bpc). */
+	public static function dockReservationCraft($flight, $dockingCount){
+		if (self::isDockRegenFlight($flight)) return self::fighterRosterCount($flight);
+		return max(1, (int)$dockingCount);
 	}
 
 	/* Stamp ShadowFighterCutOff on up to $count LIVING, not-yet-cut-off fighters
@@ -2146,6 +2203,167 @@ class HangarOps {
 					$sys->whileDocked($flight, $carrier, $hangar, $gamedata);
 				}
 			}
+		}
+	}
+
+	/* === Kirishiac Warrior regeneration (dock N full turns → full strength) === */
+
+	/* Carrier-level sweep (once per carrier per turn, same first-bay-triggers-all
+	 * pattern as the dock/launch coalescers). A docked flight whose stash entry
+	 * carries a regenTurn stamp (performWholeFlightDock, from the flight class's
+	 * $dockRegeneration) is restored to FULL strength — destroyed craft regrown,
+	 * all damage healed — once the current turn reaches that stamp:
+	 *   docked end of turn T, dwell N → regenerates in the end-of-turn processing
+	 *   of turn T+N, AFTER docks and BEFORE launches, so a launch ordered on T+N
+	 *   itself carries the freshly-regenerated flight out (it spent turns
+	 *   T+1..T+N fully aboard). Launching EARLIER simply drops the entry (and its
+	 *   stamp) unregenerated — no partial benefit, matching the B5W rule.
+	 *
+	 * Scope & guards:
+	 *  - Only dockedFlightId-linked entries (a real docked ship). On a PARTIAL
+	 *    dock only the docked fragment regenerates; craft that stayed in space
+	 *    with the remnant (including its destroyed members) are not aboard and
+	 *    never regrow.
+	 *  - Needs >=1 undestroyed craft still aboard at completion (a bay-eviction
+	 *    can kill the whole docked complement mid-dwell; nothing regrows from
+	 *    nothing). Craft that LEFT the flight (dropout / partial-dock / split-
+	 *    launch markers, cut-off integrated fighters) are excluded entirely.
+	 *  - Regrown craft claim hangar boxes like any docked craft: revivals are
+	 *    capped by the FREE boxes on the entry's own bay(s) at completion time,
+	 *    and the entry's flightSize/occupancy grow to match.
+	 *
+	 * Replay-safe & deterministic (no dice): healing is a negative DamageEntry
+	 * with undestroyed=true — the exact self-persisting mechanism SelfRepair
+	 * uses (client damage.js already honours undestroyed entries) — and runs
+	 * only in the live Fire Phase advance; replays re-read the persisted
+	 * entries. One-shot per dock cycle via $entry['regenerated']. */
+	public static function applyDockedRegeneration($carrier, $gamedata){
+		//Cheap faction gate FIRST — before the once-per-carrier guard is even set.
+		//Only Kirishiac craft (Warrior projectiles) regenerate while docked, and a
+		//Warrior can only dock in a Kirishiac carrier's hangar (they deploy with
+		//Kirishiac fleets), so a non-Kirishiac carrier can NEVER hold a regenTurn-
+		//stamped entry. This skips collectHangars + the per-bay/per-entry walk for
+		//every other carrier in the game, every turn. If a second faction ever
+		//gains a $dockRegeneration flight, widen this to an allow-list (or drop it
+		//and let the per-entry regenTurn check below carry the cost).
+		if ($carrier->faction !== 'Kirishiac Lords') return;
+
+		if (!empty($carrier->dockRegenSweepDone)) return;
+		$carrier->dockRegenSweepDone = true;
+		if ($carrier->isDestroyed()) return;   //dead carrier: Stage 18 escape owns its bays
+
+		foreach (self::collectHangars($carrier) as $hangar){
+			//Catapults/LCV rails/ShadowHangars never hold a regen-stamped entry
+			//(catapults dock via performLand, LCVs aren't FighterFlights, Shadow
+			//bays hold anonymous pristine entries) — skip defensively.
+			if (!empty($hangar->isCatapult) || !empty($hangar->isLCVRail) || !empty($hangar->isShadowHangar)) continue;
+			if ($hangar->isDestroyed() || empty($hangar->hangarUsage)) continue;
+
+			foreach ($hangar->hangarUsage as $idx => $entry){
+				if (empty($entry['regenTurn']) || !empty($entry['regenerated'])) continue;
+				if (!empty($entry['cannotLaunch'])) continue;
+				if ($gamedata->turn < (int)$entry['regenTurn']) continue;
+				$flightId = (int)($entry['dockedFlightId'] ?? 0);
+				if ($flightId <= 0) continue;
+				$flight = $gamedata->getShipById($flightId);
+				if (!($flight instanceof FighterFlight)) continue;
+				if (!$flight->removed) continue;   //not docked any more — stale entry, leave it alone
+
+				//B5W: at least one undestroyed craft must remain for the flight to regenerate.
+				if (self::countAttachedFightersInFlight($flight, $gamedata->turn) <= 0) continue;
+
+				//Boxes for the FULL roster were reserved at dock (dockReservationCraft),
+				//so every destroyed craft already has held space to regrow into — no
+				//box-cap math and no occupancy growth needed here. The only way a craft
+				//can be missing its reserved slot is a bay eviction that destroyed
+				//boxes below the reservation; a craft with no surviving box can't
+				//regrow, so cap revivals at the reserved-and-still-live box count.
+				$bpc = self::boxesPerCraftForEntry($entry);
+				if ($bpc <= 0) $bpc = 1;
+				$bays = self::occupancyBaysFor($entry, $carrier);
+				if (empty($bays)) $bays = array(array('hangar' => $hangar, 'boxes' => self::boxesForEntry($entry)));
+				//How many craft-slots this entry's reserved boxes still support after
+				//any bay damage (min of reserved boxes vs the bay's surviving capacity).
+				$slotsAvailable = 0;
+				foreach ($bays as $b){
+					$h = $b['hangar'];
+					$reservedBoxes = (int)($b['boxes'] ?? 0);
+					$surviving = min($reservedBoxes, max(0, (int)$h->getRemainingHealth()));
+					$slotsAvailable += (int)floor($surviving / $bpc);
+				}
+
+				$oldSize = (int)($entry['flightSize'] ?? 0);
+				$revived = 0;
+				$healed = 0;
+				//Live craft (heal-only) always keep their slot; destroyed craft regrow
+				//only while slots remain. Count the currently-alive craft first so the
+				//revive budget is (slotsAvailable - alive).
+				$aliveNow = self::countAttachedFightersInFlight($flight, $gamedata->turn);
+				$reviveCap = max(0, $slotsAvailable - $aliveNow);
+				foreach ($flight->systems as $f){
+					if (!($f instanceof Fighter)) continue;
+					//A regenerating flight docks WHOLE and stays whole, so every craft
+					//in the roster is aboard — destroyed, DROPPED-OUT (disengaged), and
+					//damaged all regenerate (per user: dropout craft regrow too). The
+					//only genuinely-gone states are cut-off (integrated only, never a
+					//Warrior) and docked/split (partial ops, which a regen flight can't
+					//do) — guarded defensively.
+					if (self::isFighterCutOff($f)) continue;
+					if ($f->isDocked($gamedata->turn) || $f->isSplitLaunched($gamedata->turn)) continue;
+					$destroyed = $f->isDestroyed();   //true for destroyed AND dropped-out (isDisengaged folds in)
+					if ($destroyed && $revived >= $reviveCap) continue;   //no reserved slot survived to regrow this one
+					//Heal the full NET damage (unclamped — getRemainingHealth floors at 0,
+					//which would leave overkill residue behind on a destroyed craft).
+					$missing = $f->getTotalDamage();
+					if (!$destroyed && $missing <= 0) continue;   //already pristine
+					$heal = new DamageEntry(-1, $flight->id, -1, $gamedata->turn, $f->id, -$missing, 0, 0, -1, false, true, 'Regenerated while docked', 'WarriorRegeneration');
+					$heal->updated = true;
+					$f->damage[] = $heal;
+					//A destroyed/dropped-out craft that clears its damage may still carry
+					//the DisengagedFighter crit; strip it so the revived craft rejoins the
+					//flight cleanly (isDestroyed no longer trips on the stale dropout crit).
+					if ($destroyed) { self::clearDropoutCrit($f, $gamedata->turn); $revived++; }
+					else $healed++;
+				}
+
+				//flightSize = live craft after regen (drives launch size + fleet value);
+				//the reserved occupancy boxes are unchanged (space was held all along).
+				if ($revived > 0){
+					$hangar->hangarUsage[$idx]['flightSize'] = $oldSize + $revived;
+				}
+				$hangar->hangarUsage[$idx]['regenerated'] = $gamedata->turn;
+
+				if (($revived + $healed) > 0){
+					$note = new IndividualNote(
+						-1, $gamedata->id, $gamedata->turn, $gamedata->phase,
+						$carrier->id, $hangar->id,
+						'hangarRegenEvent', 'Docked flight regenerated',
+						$flight->id . ':' . ($entry['phpclass'] ?? '') . ':' . $revived . ':' . $healed
+					);
+					Manager::insertIndividualNote($note);
+				}
+			}
+		}
+	}
+
+	/* End any DisengagedFighter (combat dropout) critical on a fighter that has just
+	 * been regenerated while docked, so the revived craft rejoins its flight cleanly
+	 * (isDestroyed no longer folds in a stale dropout). Uses the same turnend + forceModify
+	 * mechanism SelfRepair/repairCritical uses: setting turnend = current turn makes
+	 * hasCritical() return false for every LATER turn, and forceModify persists that
+	 * turnend to tac_critical (the only field the modify path writes). inEffect=false
+	 * clears it for the rest of THIS request too (rendering + the same-turn relaunch).
+	 * Only touches DisengagedFighter — a regen flight can't be docked/split/cut-off. */
+	private static function clearDropoutCrit($fighter, $turn){
+		if (!($fighter instanceof Fighter) || !is_array($fighter->criticals)) return;
+		foreach ($fighter->criticals as $crit){
+			if ($crit->phpclass !== 'DisengagedFighter') continue;
+			if (!$crit->inEffect) continue;
+			if ($crit->turnend > 0 && $crit->turnend < $turn) continue;   //already ended
+			$crit->turnend = $turn;
+			$crit->inEffect = false;
+			$crit->forceModify = true;   //persist the turnend (only meaningful for a crit already in the DB)
+			$crit->updated = true;
 		}
 	}
 
@@ -4563,9 +4781,19 @@ class HangarOps {
 		$activeCount = $flight->countActiveCraft($gamedata->turn);
 		$count = max(1, (int)$count);
 		if ($count > $dockableCount) $count = $dockableCount;
+
+		//Kirishiac Warrior regeneration: a regenerating flight docks WHOLE ONLY —
+		//never a partial. Force $count to the full dockable roster and reserve boxes
+		//for the FULL roster (alive + destroyed) so post-dwell regeneration has room.
+		//Warriors aren't integrated fighters, so $hasCutOff is always false here; the
+		//whole flight ship (with its destroyed members) is what docks and later
+		//regrows, so it's always a full dock.
+		$isRegenFlight = self::isDockRegenFlight($flight);
+		if ($isRegenFlight) $count = $dockableCount;
+
 		//Full dock only when every dockable craft lands AND none are cut off; otherwise
 		//partial so the source flight survives in space with the cut-off remnant.
-		$partial = ($count < $dockableCount) || $hasCutOff;
+		$partial = (!$isRegenFlight) && (($count < $dockableCount) || $hasCutOff);
 
 		$category = self::trueSizeOf($flight);
 		//Fractional-safe per-craft box cost (ultralight 0.5, superheavy >1). Don't
@@ -4573,13 +4801,22 @@ class HangarOps {
 		$bpc = self::boxesPerCraftForClass($flight->phpclass);
 		if ($bpc <= 0) $bpc = 1;
 
+		//Boxes to RESERVE. A regenerating flight reserves its full roster (so
+		//destroyed craft can regrow into held space); every other flight reserves
+		//exactly the craft it docks. Distribution below places this many box-slots
+		//even though only $count live craft occupy them right now.
+		$reserveCraft = self::dockReservationCraft($flight, $count);
+
 		//Distribute craft across the bays in fill order (primary first), reserving
 		//WHOLE boxes per bay (occupancy boxes are read as ints everywhere). Each bay
 		//takes min(craft-that-fit, remaining) where craft-that-fit = floor(freeBoxes /
 		//bpc); its reserved boxes is ceil(craftHere * bpc) so an odd ultralight count
-		//rounds its half-box up to a whole reserved box.
+		//rounds its half-box up to a whole reserved box. For a regen flight
+		//$reserveCraft is the FULL roster, so this reserves boxes for craft that are
+		//currently destroyed (they hold their space until they regrow); the live
+		//$count that actually occupy a slot right now is <= $reserveCraft.
 		$occupancy = array();
-		$remaining = $count;   //craft still to place
+		$remaining = $reserveCraft;   //craft-slots still to place (full roster for regen)
 		$primaryHangar = null;
 		foreach ($bays as $b){
 			if ($remaining <= 0) break;
@@ -4610,7 +4847,25 @@ class HangarOps {
 		//Stage 21: occupancy is only recorded for true multi-bay docks; a
 		//single-bay dock leaves it off so legacy readers + the common path are
 		//untouched (the entry's boxes are simply counted on its own hangar).
-		if (count($occupancy) > 1) $entry['occupancy'] = $occupancy;
+		//EXCEPTION — a regen flight ALWAYS records occupancy (even single-bay) so
+		//its reserved full-roster boxes are accounted explicitly: flightSize stays
+		//the live docked count (drives launch size + fleet value), while occupancy
+		//holds the space for the destroyed craft that will regrow. Without this a
+		//single-bay regen entry's footprint would be flightSize*bpc (live count
+		//only) and the reserved regen boxes would read as free.
+		if (count($occupancy) > 1 || ($isRegenFlight && count($occupancy) >= 1)) $entry['occupancy'] = $occupancy;
+
+		//Kirishiac Warrior regeneration: a flight whose class regenerates while
+		//docked (FighterFlight::$dockRegeneration = N full turns) gets the end-of-
+		//turn at which its dwell completes stamped on the entry; the carrier-level
+		//sweep (applyDockedRegeneration) fires on it. The B5W "at least one
+		//undestroyed Warrior at the moment it docks" requirement is enforced by the
+		//dock itself: $dockableCount above uses the ABSOLUTE current destroyed
+		//state (Fighter::isDestroyed ignores the turn bound), and this runs AFTER
+		//Firing::fireWeapons in the advance — so a flight whose last craft died to
+		//enemy fire in this very firing phase never docks at all (returned 0 above).
+		$regenAfter = (int)($flight->dockRegeneration ?? 0);
+		if ($regenAfter > 0) $entry['regenTurn'] = $gamedata->turn + $regenAfter;
 
 		$dockedUnit = null;   //Stage S: the FighterFlight that actually docked (full: the flight; partial: the fragment)
 		if ($partial){
@@ -4800,7 +5055,13 @@ class HangarOps {
 		//boxes) would be mis-priced as 24 boxes and rejected on a 12-box hangar.
 		$bpc = self::boxesPerCraftForClass($flight->phpclass);
 		if ($bpc <= 0) $bpc = 1;
-		$boxesNeeded = max(1, (int)$count) * $bpc;   //fractional for ultralights
+		//A regenerating flight (Warrior) docks WHOLE only and reserves boxes for its
+		//FULL roster (alive + destroyed + dropout) so post-dwell regeneration always
+		//has room. $count is ignored for the reservation — the whole flight lands as
+		//one unit and the hangar holds space for every craft it could regrow. For an
+		//ordinary flight this is just $count craft (unchanged).
+		$reserveCraft = self::dockReservationCraft($flight, $count);
+		$boxesNeeded = max(1, (int)ceil($reserveCraft * $bpc));   //fractional for ultralights
 
 		//Validate basic eligibility (hex/heading/speed/pivot/customcap) once via
 		//canShipReceive against the carrier's best bay — it short-circuits the
@@ -5420,7 +5681,14 @@ class HangarOps {
 		);
 		if (!empty($flight->customFtrName)) $entry['customFtrName'] = $flight->customFtrName;
 		if ($bpc != 1) $entry['boxesPerCraft'] = $bpc;   //stamp fractional (0.5) and >1 alike; 1 stays lean
-		if (count($occupancy) > 1) $entry['occupancy'] = $occupancy;
+		//A regen flight always records occupancy (mirrors performWholeFlightDock) so
+		//its reserved boxes are explicit even single-bay; a deploy-docked fresh flight
+		//is at full roster, so $activeCount already equals the reservation.
+		if (count($occupancy) > 1 || (self::isDockRegenFlight($flight) && count($occupancy) >= 1)) $entry['occupancy'] = $occupancy;
+		//Regen dwell clock starts the turn it deploys docked (harmless for a fresh,
+		//undamaged flight — the sweep heals nothing and just marks it regenerated).
+		$regenAfter = (int)($flight->dockRegeneration ?? 0);
+		if ($regenAfter > 0) $entry['regenTurn'] = $gamedata->turn + $regenAfter;
 
 		$flight->removed = true;
 		$flight->removedTurn = $gamedata->turn;
@@ -6464,7 +6732,19 @@ class HangarOps {
 			//to clutter the post-destruction picture per the user's call).
 			//Clears even when nothing escaped so the destroyed carrier's row
 			//doesn't keep stale stash data dangling.
+			//
+			//Stage S (fleet-value): a ShadowHangar bay is EXEMPT from the wipe.
+			//Integrated fighters are formed from the carrier's Structure and were
+			//PAID FOR via the carrier's enhValue, so the ones still aboard at
+			//destruction went DOWN WITH THE SHIP — their combat value belongs on
+			//the destroyed carrier's fleet-list row (it must NOT be netted off as
+			//"launched"). Keeping their held hangarUsage records lets the client's
+			//integratedFighterCarrierAdjust count them as held, so the destroyed
+			//row keeps their CP (e.g. a base with 3 fighters aboard reads 10,450
+			//not 10,000). They were already excluded from the escape pool
+			//(buildEscapeCandidates), so they spawn nothing — they're value-only.
 			foreach ($hangars as $h) {
+				if (!empty($h->isShadowHangar)) continue;
 				$h->hangarUsage = array();
 			}
 

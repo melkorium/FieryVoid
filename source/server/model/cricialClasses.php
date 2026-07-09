@@ -94,6 +94,19 @@ class ShadowFighterCutOff extends Critical{
         parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend);
     }
 }
+
+/*Kirishiac Orbital regeneration marker: created when an orbital docks with damage to repair
+(turn = first docked turn, turnend = fifth). Pure status display - the actual restoration is
+driven by the turnsDocked note in KirishiacOrbital::criticalPhaseEffects. Cancelled (turnend
+pulled in) if the orbital redeploys early or its structure block is destroyed, so a dead
+orbital can never regenerate post-mortem.*/
+class OrbitalRepairing extends Critical{
+    public $description = "Regenerating";
+	public $repairPriority = 0;//not a real crit - SelfRepair must never clear it; expires on its own
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, true); //forInfo: status marker only, no effect on the system's function
+    }
+}
 	
 	
 
@@ -207,6 +220,22 @@ class DamageReductionRemoved extends Critical{
     public $description = "Damage reduction disabled";
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
         parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
+    }
+}
+
+//Phased Gravitic Torpedo phasing vs shields. ONE crit per torpedo; the amount reduced is carried in
+//$param (not one crit per point). Consumers must SUM $param across these crits, not count them.
+//On an EM Shield it reduces the shield's damage reduction. On a Thought Shield this SAME crit reduces
+//BOTH the base absorption pool (baseRating/capacity) AND any EM-Shield reinforcement it gained from
+//Shield Reinforcement - a single crit type so it doesn't bloat the Mindrider Self Repair menu.
+class DamageReductionReduced extends Critical{
+    public $description = "Damage reduction reduced";
+	public $repairPriority = 0; //0-9; lower = lower priority, 0 means it's irrepairable    
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0, $forInfo = false, $param = null){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, $forInfo, $param);
+    }
+    public function getDescription(){
+        return "Damage reduction reduced by " . (int)$this->param;
     }
 }
 
@@ -328,6 +357,22 @@ class ReducedIniative extends Critical{
     }
 }
 
+/* HK Jamming: applied to a remote-controlled fighter flight (Orieni Hunter-Killer)
+ * whose command link was severed by ELINT Jamming (disruption roll 19+). The flight
+ * is "Uncontrolled" for ONE turn: the player loses control and (Strategy B) it drifts
+ * straight-line at a -3 initiative penalty. Placed on the flight's sample fighter
+ * (systems[1]) during the crit phase, in effect the FOLLOWING turn (oneturn semantics,
+ * matching the ReducedIniativeOneTurn that accompanies it). The -3 ini for the
+ * uncontrolled turn is carried by this crit's outputMod-independent read in
+ * BaseShip::getCommonIniModifiers. */
+class Uncontrolled extends Critical{
+    public $description = "Uncontrolled!";
+    public $oneturn = true;
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
+    }
+}
+
 class ShipDisabledOneTurn extends Critical{
     public $description = "Ship disabled for ";
     public $oneturn = true;
@@ -352,6 +397,17 @@ class ReducedRange extends Critical{
 
 class ReducedDamage extends Critical{
     public $description = "Damage reduced";
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+            parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
+    }
+}
+
+//Twin Array special crit (roll 20+): one of the two guns is destroyed (-1 gun).
+//Applied in TwinArray::effectCriticals (reduces $guns); two of these destroys the
+//whole weapon (handled in TwinArray::criticalPhaseEffects). Permanent - can't repair.
+class GunLost extends Critical{
+    public $description = "Gun Lost";
+	public $repairPriority = 0;//Can't repair.
     function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
             parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend );
     }

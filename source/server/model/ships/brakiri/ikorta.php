@@ -36,8 +36,8 @@ class Ikorta extends HeavyCombatVesselLeftRight{
         $this->addAftSystem(new GraviticThruster(6, 18, 0, 10, 2));
         $this->addAftSystem(new GravitonPulsar(4, 5, 2, 90, 270));
 
+        $this->addLeftSystem(new GraviticCannon(5, 6, 5, 240, 0));        
         $this->addLeftSystem(new GravitonPulsar(4, 5, 2, 240, 60));
-        $this->addLeftSystem(new GraviticCannon(5, 6, 5, 240, 0));
         $this->addLeftSystem(new GraviticThruster(6, 15, 0, 6, 3));
         $this->addLeftSystem(new GraviticShield(0, 6, 0, 3, 180, 360));
 

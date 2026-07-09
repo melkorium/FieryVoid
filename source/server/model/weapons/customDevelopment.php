@@ -724,6 +724,7 @@ class AncientBurstBeam extends Weapon{
 				$system->critRollMod += 4;
 			}
 		}
+		parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);        
 	}		
 		
 	public function getDamage($fireOrder){        return 0;   }
@@ -1183,6 +1184,10 @@ class AncientPlasmaArc extends PlasmaStream {
         public function setMaxDamage(){     $this->maxDamage = 30 ;      }
 
     }//endof AncientParticleCutter
+
+
+
+
 
 
 

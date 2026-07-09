@@ -45,8 +45,13 @@ class FighterFlight extends BaseShip
 	//custom StarWars fighters are carried on squadron basis - allowing different squadron sizes for diffeerent craft
 	
 	public $customFtrName = ""; //to be filled if fighter has special hangar requirements - see Balvarix/Rutarian for usage
+	public $dockRegeneration = 0; //full turns spent docked after which the flight FULLY regenerates (destroyed craft
+		//regrown, all damage healed) - Kirishiac Warrior projectiles (5). 0 = no regeneration. Launching before the
+		//dwell completes forfeits the regeneration entirely. See HangarOps::applyDockedRegeneration.
 	public $deploysInHangar = false; //Some fighters like HK's MUST deploy in Hangars
-    public $minesweeper = false;		
+    public $minesweeper = false;
+	public $remoteControl = false; //true for remotely-controlled flights (Orieni Hunter-Killers); enables ELINT Jamming disruption.
+		//Static blueprint property: travels to client via static-ship JSON, no stripForJson handling needed.
 
 
     public $canvasSize = 200;
@@ -111,10 +116,24 @@ class FighterFlight extends BaseShip
 	} //endOf function calculateCombatValue
 	
 
+    //Generic "this flight was changed mid-game, force it to serialize" flag. Set true by
+    //Gravitic Augmenter Mode 2 (Warrior Enhancement) so the buffed offensivebonus / freethrust
+    /// dropOutBonus reach the client (they're normally blueprint-only values from staticShips).
+    public $isModified = false;
+
     public function stripForJson() {
         $strippedShip = parent::stripForJson();
 
         $strippedShip->flightSize = $this->flightSize;
+
+        //Only emit the buffed combat stats when a system has modified them, so the
+        //client overrides its static blueprint values (Ship ctor copies JSON over static).
+        if ($this->isModified) {
+            $strippedShip->offensivebonus = $this->offensivebonus;
+            $strippedShip->freethrust = $this->freethrust;
+            $strippedShip->dropOutBonus = $this->dropOutBonus;
+            $strippedShip->isModified = $this->isModified;
+        }
 
         return $strippedShip;
     }
@@ -136,6 +155,13 @@ class FighterFlight extends BaseShip
     public function getDropOutBonus()
     {
         return $this->dropOutBonus;
+    }
+
+    /* Adjusts the protected dropout bonus from outside the class (e.g. Gravitic Augmenter's
+     * Warrior Enhancement applies -4). Negative values lower the dropout threshold. */
+    public function addDropOutBonus($amount)
+    {
+        $this->dropOutBonus += $amount;
     }
 
     public function getSpecialDropout()

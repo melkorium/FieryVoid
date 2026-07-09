@@ -1776,8 +1776,8 @@ class TrekIon extends Weapon{
 	
 	
     protected function onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder){ //make vulnerable to next critical
+		parent::onDamagedSystem($ship, $system, $damage, $armour, $gamedata, $fireOrder);	
 		if ($system->advancedArmor) return;
-//		if ($system->hardAdvancedArmor) return;  // Hardened Advanced Armor - GTS
 		
       $dmg = $damage - $armour;
       if($dmg<=0) return; //no damage was actually done
@@ -1789,6 +1789,7 @@ class TrekIon extends Weapon{
 	      $dmg--;
 	      $system->critRollMod++;
       }
+  
     }	
 	
 	
@@ -3536,5 +3537,276 @@ class MicroJumpSystem extends Weapon implements SpecialAbility{
 
 
 }	
+
+
+class TrekShieldProjectionKelly extends TrekShieldProjection{
+public $name = "TrekShieldProjection";
+    public $displayName = "Shield Projection";
+    public $primary = true;
+	public $isPrimaryTargetable = false; //shouldn't be targetable at all, in fact!
+	public $isTargetable = false; //cannot be targeted ever!
+    public $iconPath = "TrekShieldProjectionF.png"; //overridden anyway - to indicate proper direction
+	public $isCloaked = false;
+	protected $doCountForCombatValue = false; //don't count when estimating remaining combat value - shields are overloaded and regenerating all the time, do not represent permanent loss of combat ability
+    
+	protected $possibleCriticals = array(); //no criticals possible
+	
+	//Shield Projections cannot be repaired at all!
+	public $repairPriority = 0;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
+
+	private $projectorList = array();
+	
+	
+    public function setCritical($critical, $turn = 0){ //do nothing, shield projection should not receive any criticals
+    }
+	
+    public function getDefensiveHitChangeMod($target, $shooter, $pos, $turn, $weapon){ //no defensive hit chance change
+            return 0;
+    }
+	public function getDefensiveDamageMod($target, $shooter, $pos, $turn, $weapon){ //no shield-like damage reduction
+		return 0;
+	}
+    private function checkIsFighterUnderShield($target, $shooter, $weapon){ //no flying under shield
+        return false;
+    }
+	
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);  
+
+		$absorb = $this->output - $this->armour;
+		$this->data["Special"] = "Defensive system which absorbs damage from incoming shots before they damage ship hull.";
+		$this->data["Special"] .= "<br>Can absorb up to " . $absorb . " damage points per hit after projection armour is applied, ";
+		$this->data["Special"] .= "<br>Protects from every separate impact (e.g. every rake!) separately.";
+		//$this->data["Special"] .= "<br>Projection armour cannot absorb more than half of any impact.";
+		$this->data["Special"] .= "<br>System's structure represents damage capacity. If it is reduced to zero system will cease to function.";
+		$this->data["Special"] .= "<br>Can't be destroyed unless associated structure block is also destroyed.";
+		$this->data["Special"] .= "<br>This is NOT a shield as far as any shield-related interactions go.";
+		
+		$this->outputDisplay = $this->armour . '/' . $absorb . '/' . $this->getRemainingCapacity();//override on-icon display default
+	}	
+	
+	public function getRemainingCapacity(){
+		return $this->getRemainingHealth();
+	}
+	
+	public function getUsedCapacity(){
+		return $this->getTotalDamage();
+	}
+	
+	public function absorbDamage($ship,$gamedata,$value){ //or dissipate, with negative value
+		$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $this->id, $value, 0, 0, -1, false, false, "Absorb/Regenerate!", "TrekShieldProjection");
+		$damageEntry->updated = true;
+		$this->damage[] = $damageEntry;
+	}
+	
+	
+	
+	//decision whether this system can protect from damage - value used only for choosing strongest shield to balance load.
+	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false) {
+		$ship = $this->getUnit(); //GTS
+		if($damageWasDealt || $isUnderShield) return 0; //does not protect from overkill damage, just first impact. Also does not protect from internal damage.
+		if($ship->isCloaked) return 0; //shield is not active when cloaked    GTS
+		
+		$remainingCapacity = $this->getRemainingCapacity();
+		$protectionValue = 0;
+		if($remainingCapacity>0){
+			$protectionValue = ($remainingCapacity / $inflictingShots) + $this->armour; //distribute capacity over shots
+		}
+		return $protectionValue;
+	}
+	//actual protection
+	public function doProtect($gamedata, $fireOrder, $target, $shooter, $weapon, $systemProtected, $effectiveDamage,$effectiveArmor){ //hook for actual effect of protection - return modified values of damage and armor that should be used in further calculations
+
+		$ship = $this->getUnit(); //GTS
+		if($ship->isCloaked) return 0; //shield is not active when cloaked    GTS
+
+		$returnValues=array('dmg'=>$effectiveDamage, 'armor'=>$effectiveArmor);
+		$damageToAbsorb=$effectiveDamage; //shield works BEFORE armor
+		$damageAbsorbed=0;
+		
+		if($damageToAbsorb<=0) return $returnValues; //nothing to absorb
+		
+		$remainingCapacity = $this->getRemainingCapacity();
+		$absorbedDamage = 0;
+		
+		if($remainingCapacity>0) { //else projection does not protect
+			$absorbedFreely = 0;
+			//first, armor takes part
+			//$absorbedFreely = min($this->armour, (floor($damageToAbsorb/2)));
+			$absorbedFreely = $this->armour; //This version CAN absorb more than half of any imapct, so just deduct armour.			
+			$damageToAbsorb += -$absorbedFreely;
+			//next, actual absorbtion
+			$absorbedDamage = min($this->output - $this->armour, $remainingCapacity, $damageToAbsorb ); //no more than output (modified by already accounted for armor); no more than remaining capacity; no more than damage incoming
+			$damageToAbsorb += -$absorbedDamage;
+			if($absorbedDamage>0){ //mark!
+				$this->absorbDamage($target,$gamedata,$absorbedDamage);
+			}
+			$returnValues['dmg'] = $damageToAbsorb;
+			$returnValues['armor'] = min($damageToAbsorb, $returnValues['armor']);
+		}
+		
+		return $returnValues;
+	} //endof function doProtect
+	    
+	function addProjector($projector){
+		if($projector) $this->projectorList[] = $projector;
+	}
+	
+	//effects that happen in Critical phase (after criticals are rolled) - replenishment from active projectors 
+	public function criticalPhaseEffects($ship, $gamedata){
+		
+		parent::criticalPhaseEffects($ship, $gamedata);//Call parent to apply effects like Limpet Bore.
+					
+		if($this->isDestroyed()) return; //destroyed system does not work... but other critical phase effects may work even if destroyed!
+		
+		$activeProjectors = 0;
+		$projectorOutput = 0;
+		$toReplenish = 0;
+		
+		foreach($this->projectorList as $projector){
+			if ( ($projector->isDestroyed($gamedata->turn))
+			     || ($projector->isOfflineOnTurn($gamedata->turn))
+			) continue;
+			$activeProjectors++;
+			$projectorOutput += $projector->getOutputOnTurn($gamedata->turn);
+		}
+		/*after all - shield will NOT fall!
+		if($activeProjectors <= 0){ //no active projectors - shield is falling!
+			$toReplenish = -$this->getRemainingCapacity();	
+			*/
+		if($activeProjectors > 0){ //active projectors present - reinforce shield!
+			$toReplenish = min($projectorOutput,$this->getUsedCapacity());		
+		}
+		
+		if($toReplenish != 0){ //something changes!
+			$this->absorbDamage($ship,$gamedata,-$toReplenish);
+		}
+	} //endof function criticalPhaseEffects
+	
+	public function stripForJson() {
+        $strippedSystem = parent::stripForJson();
+
+		$strippedSystem->outputDisplay = $this->outputDisplay;
+		
+        return $strippedSystem;
+	}
+}//endof class TrekShieldProjectionKelly
+
+
+//New version of Phaser so it can be adjusteted in KellyTrek without affecting existing Trek units
+class TrekPhaserKelly extends TrekPhaser{
+		public $name = "TrekPhaser";
+        public $displayName = "Phaser";
+        public $iconPath = "TrekPhaserM.png"; 
+        //public $animationExplosionScale = 0.3;
+
+        public $raking = 10;
+        
+        public $intercept = 2;
+	    public $priority = 7; //heavy Raking - they are light Raking technically, but among Federation weapons they're heavier ones
+		public $priorityAF = 6; //count as moderately strong vs fighters
+		
+        public $loadingtime = 1;
+		public $normalload = 2;
+		
+        public $rangePenalty = 0.5;
+        public $fireControl = array(3, 3, 3);
+
+        public $damageType = "Raking";
+		public $weaponClass = "Particle";
+		public $firingModes = array( 1 => "Raking");
+
+	 	public function getInterceptRating($turn){
+			return 2;
+		}
+
+        public function setSystemDataWindow($turn){
+			parent::setSystemDataWindow($turn);   
+		if (!isset($this->data["Special"])) {
+			$this->data["Special"] = '';
+		}else{
+			$this->data["Special"] .= '<br>';
+		}
+			$this->data["Special"] .= "Can fire accelerated ROF for less damage:";  
+			$this->data["Special"] .= "<br> - 1 turn: 1d10+4"; 
+			$this->data["Special"] .= "<br> - 2 turns: 2d10+14"; 
+		}
+	
+		public function getDamage($fireOrder){
+        	switch($this->turnsloaded){
+            	case 0:
+            	case 1:
+                	return Dice::d(10)+4;
+			    	break;
+            	default:
+                	return Dice::d(10,2)+14;
+			    	break;
+        	}
+		}
+
+ 		public function setMinDamage(){
+            switch($this->turnsloaded){
+                case 1:
+                    $this->minDamage = 5 ;
+                    break;
+                default:
+                    $this->minDamage = 16 ;  
+                    break;
+            }
+		}
+             
+        public function setMaxDamage(){
+            switch($this->turnsloaded){
+                case 1:
+                    $this->maxDamage = 14 ;
+                    break;
+                default:
+                    $this->maxDamage = 34 ;  
+                    break;
+            }
+		}
+
+}//end of class TrekPhaserKelly
+
+//New version of Photon Torp so it can be adjusteted in KellyTrek without affecting existing Trek units
+class TrekPhotonTorpKelly extends TrekPhotonTorp{
+        public $name = "TrekPhotonTorp";
+        public $displayName = "Photon Torpedo";
+		public $iconPath = "TrekPhotonicTorpedo.png";
+        public $range = 40;
+		public $distanceRange = 60;
+        
+        public $loadingtime = 2; // 1 turn
+        public $rangePenalty = 0;
+        public $fireControl = array(1, 1, 2); // fighters, <mediums, <capitals; INCLUDES BOTH LAUNCHER AND MISSILE DATA!
+	    
+		public $priority = 5; //Standard Medium weapon; maybe even heavy...
+	    
+		public $firingMode = 'Ballistic'; //firing mode - just a name essentially
+		public $damageType = "Standard"; //MANDATORY (first letter upcase) actual mode of dealing damage (Standard, Flash, Raking, Pulse...) - overrides $this->data["Damage type"] if set!
+    	public $weaponClass = "Ballistic"; //should be Ballistic and Matter, but FV does not allow that. Instead decrease advanced armor encountered by 2 points (if any) (usually system does that, but it will account for Ballistic and not Matter)
+	 
+        
+        public function setSystemDataWindow($turn){
+            parent::setSystemDataWindow($turn);
+			if (!isset($this->data["Special"])) {
+				$this->data["Special"] = '';
+			}else{
+				$this->data["Special"] .= '<br>';
+			}
+			$this->data["Special"] .= 'Benefits from offensive EW.';			
+        }
+        
+        public function getDamage($fireOrder){ 		
+		return Dice::d(6, 3)+6;   
+	}
+
+        public function setMinDamage(){     $this->minDamage = 9;      }
+        public function setMaxDamage(){     $this->maxDamage = 24;      }
+		
+}//endof TrekPhotonTorpKelly
+
+
 
 ?>

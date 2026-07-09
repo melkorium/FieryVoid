@@ -122,7 +122,23 @@ shipManager.movement = {
             shipManager.isDestroyed(ship) ||
             gamedata.isTerrain(ship.shipSizeClass, ship.userid) ||
             (shipManager.getTurnDeployed(ship) > gamedata.turn) ||
+            shipManager.movement.isUncontrolled(ship) ||
             (Object.keys(ship.attached).length !== 0 && !ship.detached);
+    },
+
+    //HK Jamming: a remote-controlled flight that is Uncontrolled this turn is moved by
+    //the server (drift), so the player is never prompted for it (treated as movement-ready).
+    //Gated on remoteControl (very rare) so ordinary ships short-circuit immediately.
+    //Uncontrolled is a oneturn crit placed on turn T (effect T+1): match crit.turn+1 === turn.
+    isUncontrolled: function isUncontrolled(ship) {
+        if (!ship.remoteControl || !ship.flight) return false;
+        var firstFighter = shipManager.systems.getSystem(ship, 1);
+        if (!firstFighter || !firstFighter.criticals) return false;
+        for (var i in firstFighter.criticals) {
+            var crit = firstFighter.criticals[i];
+            if (crit.phpclass === "Uncontrolled" && (crit.turn + 1) === gamedata.turn) return true;
+        }
+        return false;
     },
 
     checkHasUncommitted: function checkHasUncommitted(ship) {
@@ -209,12 +225,15 @@ shipManager.movement = {
 
     canJink: function canJink(ship, accel) {
         if (gamedata.gamephase != 2) return false;
-        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!          
+        if (Object.keys(ship.attached).length !== 0 && !ship.detached) return false; //Is attached to something!
         if (!ship.flight && ship.jinkinglimit <= 0) return false;
         if (accel == 0) return true;
         if (accel > 0 && shipManager.movement.getRemainingEngineThrust(ship) <= 0) return false; //only adding jink costs thrust; reducing refunds it
         var jinking = shipManager.movement.getJinking(ship);
-        if (jinking + accel > ship.jinkinglimit || jinking + accel < 0) return false;
+        //Gravitic Augmenter grants forced jink levels (marked forced=true) that the player
+        //may not remove: a reduction cannot take the total below that forced floor.
+        var floor = shipManager.movement.getForcedJinking(ship);
+        if (jinking + accel > ship.jinkinglimit || jinking + accel < floor) return false;
         return true;
     },
 
@@ -225,6 +244,19 @@ shipManager.movement = {
             if (move.turn != gamedata.turn) continue;
 
             if (move.type == "jink") j += move.value;
+        }
+        return j;
+    },
+
+    //Sum of jink levels the player cannot remove this turn (Gravitic Augmenter forced jinks,
+    //marked forced=true server-side). Acts as the lower bound for reducing jinking.
+    getForcedJinking: function getForcedJinking(ship) {
+        var j = 0;
+        for (var i in ship.movement) {
+            var move = ship.movement[i];
+            if (move.turn != gamedata.turn) continue;
+
+            if (move.type == "jink" && move.forced) j += move.value;
         }
         return j;
     },
@@ -247,7 +279,8 @@ shipManager.movement = {
                 var move = ship.movement[i];
                 if (move.turn != gamedata.turn) continue;
 
-                if (move.type == "jink") {
+                //Never remove a forced jink (Gravitic Augmenter minimum) - only the player's own.
+                if (move.type == "jink" && !move.forced) {
                     ship.movement.splice(i, 1);
                     break;
                 }

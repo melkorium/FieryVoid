@@ -7,6 +7,9 @@ class Criticals{
 
         $crits = array();
 
+        HkJamming::$alreadyResolved = false; //reset the once-per-advance guard for this resolution
+        HkControlNodeOrieni::$shortfallResolved = false; //reset the Orieni HK Control Node shortfall once-per-advance guard
+
         /* Hangar Ops Stage 10.1: two-pass split.
          *
          * The legacy single-pass loop interleaved testCritical (which on
@@ -125,6 +128,21 @@ class Criticals{
          * Each docked LCV is treated as launched (escapes) and takes the rail's
          * sustained damage + 2d10 fragments — same as a destroyed rail. */
         HangarOps::processLCVCarrierDestruction($gamedata);
+
+        /* HK Jamming: roll the ELINT-jamming disruption table for every jammed
+         * remote-controlled fighter flight (Orieni Hunter-Killers). Runs last so it
+         * sees final post-firing state (impact exemption reads this turn's ram) and
+         * post-dropout flight composition. Adds ReducedIniativeOneTurn / Uncontrolled /
+         * DisengagedFighter crits, which the caller persists via getUpdatedCriticals. */
+        HkJamming::resolveJamming($gamedata);
+
+        /* Orieni HK Control Node shortfall: if an Orieni player has more active HK flights
+         * than their Control Nodes can command, the excess flights go Uncontrolled next turn.
+         * Runs AFTER HkJamming so a flight already made Uncontrolled by Jamming this turn is
+         * excluded from the count (it neither needs nor occupies a node). Adds Uncontrolled
+         * crits, which the caller persists via getUpdatedCriticals. (NexusMakar nodes keep the
+         * legacy proportional getIniMod penalty in the base HkControlNode class.) */
+        HkControlNodeOrieni::resolveNodeShortfall($gamedata);
 
         return $crits;
     }

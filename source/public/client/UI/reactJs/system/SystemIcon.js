@@ -20,6 +20,7 @@ const HealthBar = styled.div`
         left: 0;
         bottom: 0;
         background-color: ${props => {
+        if (props.$docked) return '#00ffff'; //docked Kirishiac Orbital - same cyan as docked fighters
         if (!props.$criticals) return '#427231';
         return props.$criticalsBenign ? '#00ffff' : '#ed6738'; //cyan when the only crit is HangarOperations
     }};
@@ -49,6 +50,8 @@ const System = styled.div`
             return '2px solid #ff3366'; // Called shot - magenta border
         } else if (props.$firing) {
             return '1px solid #eb5c15';
+        } else if (props.$orderPending) {
+            return '2px solid #00e5ff'; //Kirishiac Orbital with a pending dock/deploy order - status changes next turn
         } else if (props.$highlight === 'Yellow') {
             return '1px solid #e1b000'; // Some systems get a different border
         } else if (props.$highlight === 'Orange') {
@@ -64,6 +67,8 @@ const System = styled.div`
             return '#4e6c91';
         } else if (props.$firing) {
             return '#e06f01'; //orange
+        } else if (props.$off) {
+            return '#852d2d'; //muted red - system deliberately switched OFF (e.g. grav shield dropped)
         } else if (props.$boosted) {
             return '#cca300'; //darkyellow
         } else if (props.$loading && props.$loadedAlternate) { //weapon not ready in current mode, but  alternate mode is ready
@@ -79,6 +84,8 @@ const System = styled.div`
             return '0px 0px 12px #ff3366'; // Called shot glow
         } else if (props.$firing) {
             return 'box-shadow: 0px 0px 15px #eb5c15';
+        } else if (props.$orderPending) {
+            return '0px 0px 12px #00e5ff'; //pending dock/deploy order glow
         } else {
             return 'none';
         }
@@ -95,6 +102,10 @@ const System = styled.div`
     
     ${SystemText} {
         display: ${props => props.$offline ? 'none' : 'flex'};
+        /*docked Kirishiac Orbital: keep the icon text ([n/5] regeneration counter) fully
+        readable above the blue fade - the ::before overlay is positioned, so the static
+        text would otherwise paint underneath it*/
+        ${props => props.$docked ? 'position: relative; z-index: 1;' : ''}
     }
 
 
@@ -104,7 +115,7 @@ const System = styled.div`
         width: 100%;
         height: 100%;
         opacity: ${props => {
-        if (props.$destroyed || props.$offline || props.$loading) {
+        if (props.$destroyed || props.$offline || props.$loading || props.$docked) {
             return '0.5';
         }
 
@@ -116,6 +127,8 @@ const System = styled.div`
             return 'black';
         } else if (props.$loading) {
             return 'orange'
+        } else if (props.$docked) {
+            return '#1a4a6e'; //deep blue fade - docked Kirishiac Orbital
         }
 
         return 'transparent';
@@ -154,7 +167,8 @@ class SystemIcon extends React.Component {
 
         if (gamedata.waiting || gamedata.replay) return;
 
-        if (shipManager.isDestroyed(ship) || shipManager.isDestroyed(ship, system) /*|| shipManager.isAdrift(ship)*/) return;//should work with disabled ship after all!
+        //clickableWhenDestroyed: a destroyed Kirishiac Orbital can still be recovered (docked) for regeneration, so its menu must stay reachable
+        if (shipManager.isDestroyed(ship) || (shipManager.isDestroyed(ship, system) && !system.clickableWhenDestroyed) /*|| shipManager.isAdrift(ship)*/) return;//should work with disabled ship after all!
 
         //New block to allow called shots on allied ships
         if (gamedata.rules && gamedata.rules.friendlyFire === 1) {
@@ -167,10 +181,29 @@ class SystemIcon extends React.Component {
             }
         }
 
-        if (system.weapon && (gamedata.gamephase === 3 && !system.ballistic && !system.preFires) || (gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires)) {
+        //Gravitic Augmenter "spent & locked": once it has committed its order for the turn, it is
+        //non-interactive outside that order's declaration phase (see GraviticAugmenter.isSpentLocked).
+        //Skip the select/target workflow entirely but fall through so the read-only info popup still
+        //opens. Guards the phase-3 case where the ballistic Mode 1/2 order would otherwise be treated
+        //as an active firing order (offering a remove button and orange highlight).
+        var spentLockedAugmenter = system.weapon
+            && typeof system.isSpentLocked === 'function' && system.isSpentLocked();
+
+        if (!spentLockedAugmenter
+            && (system.weapon && (gamedata.gamephase === 3 && !system.ballistic && !system.preFires) || (gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires))) {
             //cannoct SELECT weapon when unit is adrift though!
             if (!shipManager.isAdrift(ship)) {
                 if (gamedata.isMyShip(ship)) {
+                    //Special-targeting weapons (Hypergraviton Blaster) with an existing
+                    //TRANSFER fire order re-open their transfer-target window on icon click
+                    //so the player can edit the list/order. reopenSpecialTargeting returns
+                    //false for a plain (non-transfer) order, so those fall through to the
+                    //normal select/unselect workflow.
+                    if (system.hasSpecialTargeting
+                        && typeof system.reopenSpecialTargeting === 'function'
+                        && weaponManager.hasFiringOrder(ship, system)) {
+                        if (system.reopenSpecialTargeting(ship)) return;
+                    }
                     if (weaponManager.isSelectedWeapon(system)) {
                         weaponManager.unSelectWeapon(ship, system);
                     } else {
@@ -367,7 +400,9 @@ class SystemIcon extends React.Component {
         });
         */
 
-        if (getDestroyed(ship, system) || destroyed) {
+        //clickableWhenDestroyed systems (Kirishiac Orbital) keep the interactive render - a
+        //destroyed orbital can still be recovered (docked) for regeneration
+        if ((getDestroyed(ship, system) || destroyed) && !system.clickableWhenDestroyed) {
             return (
                 <System $background={getBackgroundImage(system)} $destroyed><HealthBar $health="0" /></System>
             )
@@ -376,7 +411,8 @@ class SystemIcon extends React.Component {
         return (
             <System
                 $scs={scs}
-                $highlight={hasBorderHighlight(ship, system)} // Pass criticals here to System                
+                $highlight={hasBorderHighlight(ship, system)} // Pass criticals here to System
+                $destroyed={getDestroyed(ship, system) || destroyed}
                 onClick={this.clickSystem.bind(this)}
                 onMouseOver={this.onSystemMouseOver.bind(this)}
                 onMouseOut={this.onSystemMouseOut.bind(this)}
@@ -393,28 +429,54 @@ class SystemIcon extends React.Component {
                 $firing={isFiring(ship, system)}
                 $calledShot={isCalledShot(ship, system)}
                 $boosted={isBoosted(ship, system)}
+                $off={isOff(system)}
+                $docked={isDockedOrbital(system)}
+                $orderPending={hasPendingDockOrder(system)}
             >
                 <SystemText>{getText(ship, system)}</SystemText>
-                {(!fighter || hasCriticals(system)) && <HealthBar $scs={scs} $health={getStructureLeft(ship, system)} $criticals={hasCriticals(system)} $criticalsBenign={hasOnlyHangarOps(system)} />}
+                {(!fighter || hasCriticals(system)) && <HealthBar $scs={scs} $health={getStructureLeft(ship, system)} $criticals={hasCriticals(system)} $criticalsBenign={hasOnlyHangarOps(system)} $docked={hasDockedHealthbar(system)} />}
             </System>
         )
     }
 }
 
-const isFiring = (ship, system) => weaponManager.hasFiringOrder(ship, system);
+//A "spent & locked" Gravitic Augmenter shows the spent (dimmed) look, not the active-firing orange
+//border — its committed order is not being fired/edited in the current phase (see isSpentLocked).
+const isFiring = (ship, system) => weaponManager.hasFiringOrder(ship, system)
+    && !(typeof system.isSpentLocked === 'function' && system.isSpentLocked());
 
 const isCalledShot = (ship, system) => {
     if (!system.weapon || !weaponManager.hasFiringOrder(ship, system)) return false;
     return weaponManager.getCalledShotInfo(ship, system) !== null;
 };
 
-const isLoading = (system) => system.weapon && !weaponManager.isLoaded(system);
+//The Gravitic Augmenter reads as "spent" (dimmed) once it has committed its order for the turn and
+//we're outside that order's declaration phase — see GraviticAugmenter.isSpentLocked. This is a
+//display-only signal, so it must NOT go through turnsloaded (which would break firing eligibility).
+const isLoading = (system) => system.weapon
+    && (!weaponManager.isLoaded(system)
+        || (typeof system.isSpentLocked === 'function' && system.isSpentLocked()));
 
 const isLoadedAlternate = (system) => system.weapon && weaponManager.isLoadedAlternate(system);
 
 const isOffline = (ship, system) => shipManager.power.isOffline(ship, system);
 
-const isBoosted = (ship, system) => shipManager.power.isBoosted(ship, system) || system.active;
+//A system whose active flag means "switched OFF" (e.g. grav shield dropped) shows the $off state,
+//not the boosted/yellow highlight.
+const isOff = (system) => system.activeMeansOff && system.active;
+//suppressActiveBoost: system uses $active for state (Kirishiac Orbital docking) and must not read as power-boosted yellow
+const isBoosted = (ship, system) => shipManager.power.isBoosted(ship, system) || (system.active && !system.activeMeansOff && !system.suppressActiveBoost);
+//docked Kirishiac Orbital - full docked treatment (blue fade + cyan healthbar; state in EFFECT
+//this turn, not the pending order). Shared by: the orbital itself, a stowed non-operational
+//beam (standard orbital's Antigravity Beam), and a Heavy Orbital's attached Self Repair while
+//docked (dockedWithOrbital, sent by the server each load).
+const isDockedOrbital = (system) => Boolean((system.showDockedVisual && system.activeEffective) || (system.stowed && system.stowedArcStart == null) || system.dockedWithOrbital);
+//cyan healthbar WITHOUT the fade: a docked Heavy Orbital's weapon (stowed WITH a stowed arc
+//set) remains operational - the icon renders normally, only the bar marks the docked state.
+const hasDockedHealthbar = (system) => isDockedOrbital(system) || Boolean(system.stowed);
+//pending dock/deploy order (status changes next turn): cyan border + glow on the orbital icon
+const hasPendingDockOrder = (system) => Boolean(system.showDockedVisual
+    && typeof system.hasPendingDockingOrder === 'function' && system.hasPendingDockingOrder());
 
 const getStructureLeft = (ship, system) => {
     if (system.name === 'ThirdspaceShield' || system.name === 'ThoughtShield') {
@@ -456,6 +518,20 @@ const getText = (ship, system) => {
     if (system.outputDisplay != '') { //some systems have very specific visual output, rather than generic
         return system.outputDisplay;
     } else if (system.weapon) {
+
+        //Stowed weapon (Antigravity Beam with its Kirishiac Orbital docked): not operational -
+        //shares the orbital's docked treatment (blue fade + cyan bar via $docked), so show
+        //"Docked" instead of a misleading load counter. A stowed arc set (Heavy Orbital's beam)
+        //keeps the weapon operational: fall through to the normal weapon display.
+        if (system.stowed && system.stowedArcStart == null) {
+            return "-";
+        }
+
+        //Spent & locked Gravitic Augmenter: order committed, not fireable this phase — show a spent
+        //tick rather than a misleading load counter or crosshair (the icon is dimmed via isLoading).
+        if (typeof system.isSpentLocked === 'function' && system.isSpentLocked()) {
+            return "✓"; // ✓
+        }
 
         const firing = weaponManager.hasFiringOrder(ship, system);
 

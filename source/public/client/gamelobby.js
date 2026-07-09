@@ -266,6 +266,9 @@ window.gamedata = {
 			case 'BSG Cylons':
 				powerRating = 'Tier 2; Custom faction, Playtest';
 				break;
+			case 'Star Trek (Kelly)':
+				powerRating = 'Tier 1; Custom faction';
+				break;				
 			case 'ZStarTrek (TOS) Federation':
 				powerRating = 'Tier 2; Custom faction';
 				break;
@@ -2172,7 +2175,7 @@ window.gamedata = {
 
 				//display header
 				var isCollapsible = true; // All categories are collapsible now
-				var startClosed = ((categoryIndex === 1 && ship.faction !== "Deneth Tribes" && ship.faction !== "Thirdspace" && ship.faction !== "Usuuth Coalition" && ship.faction !== "Civilians") || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
+				var startClosed = ((categoryIndex === 1 && ship.faction !== "Deneth Tribes" && ship.faction !== "Thirdspace" && ship.faction !== "Usuuth Coalition" && ship.faction !== "Civilians" && ship.faction !== "Barada Imperium") || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
 				if (faction === "Terrain") {
 					startClosed = false;
 				}

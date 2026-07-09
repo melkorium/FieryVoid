@@ -9,7 +9,7 @@ class Paragon1782AM extends BaseShip{
         $this->phpclass = "Paragon1782AM";
         $this->imagePath = "img/ships/prophet.png";
         $this->canvasSize = 280;
-        $this->shipClass = "Paragon Strike Force Command Ship (early)";
+        $this->shipClass = "Paragon Strike Force Command Ship (Early)";
         $this->variantOf = "Prophet Command Ship";
 	    $this->isd = 1782;
         $this->occurence = "rare";
@@ -43,9 +43,9 @@ class Paragon1782AM extends BaseShip{
         $this->addPrimarySystem(new CnC(6, 30, 0, 0));
         $this->addPrimarySystem(new Scanner(5, 30, 5, 7));
         $this->addPrimarySystem(new Engine(5, 30, 0, 8, 4));
-        $this->addPrimarySystem(new Hangar(5, 38, 12));
+        $this->addPrimarySystem(new Hangar(5, 37, 12));
         $this->addPrimarySystem(new JumpEngine(5, 40, 6, 25));
-        $this->addPrimarySystem(new HKControlNode(5, 24, 3, 3));
+        $this->addPrimarySystem(new HKControlNodeOrieni(5, 24, 3, 3));
         $this->addPrimarySystem(new LaserLance(3, 6, 4, 0, 360));
         $this->addPrimarySystem(new LaserLance(3, 6, 4, 0, 360));
 		$this->addPrimarySystem(new AmmoMissileRackSO(5, 0, 0, 0, 360, $ammoMagazine, false)); //$armour, $health (0=auto), $power (0=auto), $startArc, $endArc, $magazine, $base
