@@ -340,6 +340,10 @@ window.DeploymentDock = (function () {
                 if (declared['ultralight']) return true;
                 return false;
             }
+            //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
+            //when the ship declares that exact category. allowedFighterClasses still
+            //gates the actual phpclass. Mirrors HangarOps::hangarAcceptsCategory (PHP).
+            if (declared[cat]) return true;
             return false;
         }
         return false;
@@ -363,6 +367,14 @@ window.DeploymentDock = (function () {
         var perCraft = craftBoxesInHangar(null, 1, flight.unitSize); //boxes per single craft (catapult-agnostic here; rails/hangars are non-catapult)
         if (perCraft <= 0) perCraft = 1;   //don't clamp to >=1: ultralights are 0.5 box/craft
         var remaining = parseInt(flight.flightSize, 10) || 1;
+
+        //Per-carrier custom combat category cap (e.g. Hunter-Killers). The bay pools
+        //HK with light fighters by boxes, but ship.fighters caps HK count — so a
+        //deploy-dock can't place more HKs than the carrier's declared HK capacity
+        //minus what's already docked/queued. Whole-flight docks: if the cap can't
+        //hold the whole flight, it isn't dockable at all (returns [] below).
+        var catCap = categoryCapRemainingFor(carrier, cat, parseInt(flight.id, 10));
+        if (catCap < remaining) return [];   //carrier can't hold this whole flight within its category cap
 
         var hangars = collectUsableHangars(carrier, reclaimFlightId).filter(function (h) {
             return hangarAcceptsCategory(h.hangar.hangarType, cat, carrier) &&
@@ -525,6 +537,12 @@ window.DeploymentDock = (function () {
             if (cap < size) return [];
         }
 
+        // Per-carrier custom combat category cap (e.g. Hunter-Killers). The 37-box
+        // bay pools HK with light fighters, but ship.fighters caps HK count — once
+        // the declared HK slots are filled, further HK flights aren't dockable here.
+        var catCap = categoryCapRemainingFor(carrier, category, flightId);
+        if (catCap < size) return [];
+
         var out = [];
         carrier.systems.forEach(function (sys) {
             if (!sys || !isDockHangar(sys)) return;
@@ -584,6 +602,56 @@ window.DeploymentDock = (function () {
                     var f = gamedata.getShip(o.flightId);
                     if (!f || String(f.customFtrName || '') !== name) return;
                     used += parseInt(f.flightSize || 1, 10);
+                });
+            }
+        });
+        return Math.max(0, declared - used);
+    }
+
+    // Mirrors HangarOps::isCustomCombatCategory (PHP). A category the fleet-builder
+    // routes through its isolated per-name pool (currently only 'Hunter-Killers'),
+    // NOT the shared size hierarchy or shuttle/BP families.
+    function isCustomCombatCategory(category) {
+        var cat = String(category || '').toLowerCase().trim();
+        if (cat === '') return false;
+        var shared = { 'heavy':1,'medium':1,'light':1,'ultralight':1,'normal':1,
+            'shuttles':1,'minesweeping shuttles':1,'cargo shuttles':1,'medical shuttles':1,
+            'lifeboats':1,'assault shuttles':1,'breaching pods':1,'superheavy':1,'lcvs':1 };
+        return !shared[cat];
+    }
+
+    // Mirrors HangarOps::categoryCapRemaining (PHP). Per-CARRIER cap for a custom
+    // combat category (Hunter-Killers): ship.fighters[category] minus what's docked
+    // (stored entries stamped hangarType=category) and pending across all bays.
+    // Infinity for shared (size/shuttle) categories — no per-category gate there.
+    function categoryCapRemainingFor(carrier, category, ownFlightId) {
+        if (!isCustomCombatCategory(category)) return Infinity;
+        var cat = String(category).toLowerCase().trim();
+        var declared = 0;
+        if (carrier.fighters) {
+            for (var k in carrier.fighters) {
+                if (String(k).toLowerCase().trim() === cat) { declared = parseInt(carrier.fighters[k], 10) || 0; break; }
+            }
+        }
+        if (declared <= 0) return 0;
+        var used = 0;
+        carrier.systems.forEach(function (sys) {
+            if (!sys || !isDockHangar(sys)) return;
+            if (Array.isArray(sys.hangarUsage)) {
+                sys.hangarUsage.forEach(function (e) {
+                    if (String(e.hangarType || '').toLowerCase().trim() !== cat) return;
+                    used += parseInt(e.flightSize || 1, 10);
+                });
+            }
+            if (Array.isArray(sys.pendingDeployStartOrders)) {
+                sys.pendingDeployStartOrders.forEach(function (o) {
+                    if (parseInt(o.flightId, 10) === ownFlightId) return;
+                    var f = gamedata.getShip(o.flightId);
+                    if (!f || categoryForFlight(f).toLowerCase().trim() !== cat) return;
+                    //Multi-bay orders carry a per-bay count; single-bay orders omit it
+                    //(the whole flight rides one bay). Use count when present so a flight
+                    //spread across sibling bays isn't counted once per bay.
+                    used += parseInt(o.count || f.flightSize || 1, 10);
                 });
             }
         });
