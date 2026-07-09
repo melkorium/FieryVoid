@@ -7,7 +7,7 @@ class kirishiacOverlord extends BaseShip{
 	$this->pointCost = 4300;
 	$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacOverlord";
-        $this->imagePath = "img/ships/kirishiacLordship.png";
+        $this->imagePath = "img/ships/kirishiacOverlord2.png";
         $this->shipClass = "Overlord";
         $this->shipSizeClass = 3;
 	    $this->isd = "Ancient";

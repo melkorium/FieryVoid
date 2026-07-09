@@ -8,7 +8,7 @@ class KirishiacKnightship extends HeavyCombatVessel{
 		$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacKnightship";
         $this->shipClass = "Knightship";
-        $this->imagePath = "img/ships/kirishiacConqueror.png";
+        $this->imagePath = "img/ships/kirishiacKnightship3.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 2; 

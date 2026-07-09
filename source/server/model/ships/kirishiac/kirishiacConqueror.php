@@ -8,7 +8,7 @@ class kirishiacConqueror extends SixSidedHCV{
 		$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacConqueror";
         $this->shipClass = "Conqueror";
-        $this->imagePath = "img/ships/kirishiacConqueror.png";
+        $this->imagePath = "img/ships/kirishiacConqueror4.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Primordial';
         $this->shipSizeClass = 2; 
