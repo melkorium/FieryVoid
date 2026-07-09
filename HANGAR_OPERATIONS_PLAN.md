@@ -3847,3 +3847,112 @@ T+1…T+4 drops the entry unregenerated. Stricter ruling ("earliest regenerated 
 `yarn watch:legacy` (client edits) + regenerate static ship JSON (`php generateStaticShipFile.php`) so
 `kirishiacWarrior.dockRegeneration = 5` reaches `window.staticShips` (ship-level props aren't default-stripped,
 so it flows automatically once regenerated).
+
+## Orieni Hunter-Killer hangars — mixed size + custom-combat category in one bay (2026-07-09)
+
+Follow-on to the [`inferHangarType` bug] and [Per-bay fighter-class allow-list] sections above. The Orieni HK
+support ships (Vigilant/Prophet/Benevolent/Paragon/Penitent/Pariah/Resolute families, 19 blueprints) are the FIRST
+ships to declare a SIZE category and a CUSTOM combat category in the SAME hangar — e.g. VigilantHKAM
+`{light:6, Hunter-Killers:6}` (single `'fighters'` bay, `allowedFighterClasses`=[HK classes + Templar light
+fighters]), Prophet `{light:12, Hunter-Killers:18, assault shuttles:6}` (single 37-box `'fighters'` bay, no
+allow-list). HK flights (`HkShiningLight`/`HkShiningStar`) set `hangarRequired='Hunter-Killers'` (a CATEGORY) and
+carry NO `customFtrName`, so the Stage-10.6.2 customFighter machinery didn't apply. Three coupled defects surfaced,
+fixed in order:
+
+### Defect 1 — `inferHangarType` narrowed the mixed bay to the lone size (HKs became undockable)
+`inferHangarType` collected only sizes and IGNORED any custom key, so `{light:6, Hunter-Killers:6}` saw
+`$declared=['light']` → narrowed the bay to `'light'` (which serialized to the client). Then
+`hangarAcceptsCategory('light','hunter-killers')` is false → the `deploysInHangar` check
+(`DeploymentDock.eligibleHangarsForFlight`) found NO fitting hangar and let the HKs deploy free OUTSIDE the hangar
+(wrong). Forcing `light` to accept made HKs slot in only because the allow-list contained the HK classes.
+
+**Fix.** `inferHangarType` now treats any category that is NOT a size / `normal` / shuttle-family
+(`shuttles`/`minesweeping shuttles`/`cargo shuttles`/`medical shuttles`/`lifeboats`/`assault shuttles`/
+`breaching pods` — the set a narrowed SIZE bay still accepts via the hierarchy/shuttle rules) as a
+CUSTOM-COMBAT narrowing-BLOCKER (`$hasCustomCombat`), exactly like `normal`. A ship mixing a size with a custom
+combat category keeps its universal `'fighters'` bay. Regression-safe: `{light,shuttles}` still narrows to `light`
+(shuttles ride any bay), gaimSuom `{normal,light}` stays universal (existing `normal` blocker), lone-size
+(`{medium:6}`) still narrows.
+
+### Defect 2 — universal `'fighters'` bay had no accept-path for a declared custom category
+Even un-narrowed, the universal-slot branch of `hangarAcceptsCategory` handled sizes/AS/BP but fell through to
+`return false` for a custom category like `'Hunter-Killers'`.
+
+**Fix.** Added, in the `'fighters'`/`'normal'` branch WITH ship context, after the size/AS/BP handlers:
+`if (!empty($declared[$cat])) return true;` — a universal bay accepts a custom category when the ship's
+`$ship->fighters` declares that exact category. The per-bay `allowedFighterClasses` gate still enforces WHICH
+phpclasses actually dock (category door vs class door, ANDed). The no-ship-context fallback still rejects custom
+categories (conservative). Placed inside the universal branch only — typed bays (exact-match at top) and catapults
+(`superheavy`, rejected upstream) are untouched.
+
+### Defect 3 — no per-carrier CAP on the custom category (24 HKs in an 18-HK Prophet; 12 in a 6-HK Benevolent)
+Once Defect 2 opened the door, capacity was gated only by total BOXES (24 HK boxes < 37-box Prophet bay), never by
+the declared HK count. The fleet-builder (`gamelobby.checkChoices`) already treats such a category as its OWN
+isolated pool: custom cats route through `totalHangarOther` (space) vs `totalFtrOther` (flights), matched STRICTLY
+by name (~line 1428) — NOT the shared size hierarchy. So the declared count IS meant to be a hard cap.
+
+**Fix — a category-level twin of `customFighterRemaining`:**
+- `HangarOps::isCustomCombatCategory($cat)` — true when `$cat` is NOT in the shared set (sizes ∪ `normal` ∪
+  shuttle-family ∪ `superheavy`/`lcvs`). Currently matches `Hunter-Killers`, `flyers`, `shuttlecraft`, `raiders`,
+  `fighter squadrons`, etc.
+- `HangarOps::categoryCapRemaining($carrier, $cat)` — `PHP_INT_MAX` for shared cats (no gate); else
+  `$ship->fighters[$cat]` − Σ `flightSize` of `hangarUsage` entries stamped `hangarType==$cat` across ALL bays; 0
+  if undeclared. (Usage entries stamp `hangarType`=`trueSizeOf` category at `perform*Dock`.)
+- Wired into EVERY dock gate alongside the customFighter line: `canShipReceive` (firing), `validateDeployBayOrders`
+  (deploy whole-flight, vs `activeCount`), `canDeployStartDock` (deploy per-bay slice). The deploy coalescer appends
+  each flight's entry on the SAME `$carrier` before the next flight's validate → the running cap holds across
+  multiple flights committed in one pass.
+
+HK `maxFlightSize=6`, so an 18-cap = exactly 3 flights: the 4th flight sees remaining 0 < 6 and is rejected/not
+offered.
+
+### Client mirrors (needs `yarn watch:legacy`)
+- `DeploymentDock.js`: `isCustomCombatCategory` + `categoryCapRemainingFor`; gate in `eligibleHangarsForFlight`
+  (whole-flight) AND — the one that actually mattered — in **`distributeFlightAcrossHangars`** (the real
+  auto-queue/pack path; `eligibleHangarsForFlight` is only the doCommit gate + dialog dropdown, so a new dock
+  constraint must go in BOTH). Pending-order tally uses `o.count || f.flightSize` (multi-bay orders carry a per-bay
+  count).
+- `shipTooltipFireMenu.js`: both closures — Dock (`categoryCapRemainingFor` + a new shared `clampHangarsToCap`
+  helper that both the category and customFighter caps now use) and Recover (`categoryCapRemainingForRecover`,
+  whole-flight gate). All three client `isCustomCombatCategory` shared-lists are byte-identical and match the server.
+
+### Verification
+- **Extracted-logic PHP harnesses**: `inferHangarType`+`hangarAcceptsCategory` 13/13; `categoryCapRemaining`
+  12/12 (empty Prophet=18, `light` uncapped, 12 docked→6, 18 docked→0 blocks 19th, light dock doesn't touch HK
+  remaining, undeclared carrier=0).
+- **Live DB (getTacGamedata)**: game 4232 Benevolent `{light:6,HK:6}` bay stays `'fighters'`, empty HK cap=6,
+  `canDeployStartDock` allows flight 1 & rejects flight 2 (`fighter category cap exceeded`); game 4231 Prophet caps
+  at exactly 18 (3 flights, 4th rejected). Both games were at turn 1 / phase −1 with NO individual notes → the
+  over-cap dock the user saw was purely a CLIENT queue state (Defect 3's client half); the server would have
+  dropped the excess on commit, so no persisted state was ever corruptible.
+
+### Blast-radius audit (2026-07-09) — scanned all 147 blueprints with a custom-combat key
+**31 ships change behavior, 116 unchanged; every change is a fix or intended, none a regression.** All 31 flips are
+"universal bay stopped narrowing to a lone size → stays `'fighters'`": the ship's own custom-category flights now
+dock (capped) and its size fighters still dock uncapped.
+- 17 Orieni HK ships — the intended targets.
+- 6 Minbari `{heavy/…, flyers:N}` (nergell, norgath, civilian base, orbital hangar, protectorate variants) — bay
+  previously narrowed to the size, which **rejected flyers entirely**. Now flyers dock (capped) + heavy still docks.
+  Per user's B5W clarification: Minbari have dedicated FLYER SLOTS (flyers bought separately); only `cargoFlyers`
+  act as default shuttles. So this is a FIX. (Ships with `normal`, e.g. Sharlin `{normal:24, flyers:4}` — 43
+  flyer-carriers — were already universal via the `normal` blocker; `inferHangarType` is a no-op for them and only
+  the accept-path/cap newly apply, as intended.)
+- 5 Trek `{size, Shuttlecraft:N}` — same fix.
+- 2 Sshelath (`SshelathVulshara` + 2018) declare `"mediuem"` — a PRE-EXISTING TYPO for `"medium"` (already broken;
+  my change doesn't worsen the light-fighter path). **User: fix the typo to `"medium"`?** (not yet changed)
+- 1 `customs/VariableHangarSize.php` (test fixture) — heavy+superheavy still work.
+- **NOT affected**: Drakh raiders / weapon platforms (auto-deploying SHFs, `superheavy=true`, no `deploysInHangar`;
+  their catapults are typed `superheavy` and `hangarAcceptsCategory('superheavy','Raiders')` was already false — my
+  cap sits behind an already-closed gate); catapults/rails (`inferHangarType` skips them); typed hangars (no ship
+  uses a typed custom bay — only `fighters`/`light`/`shuttles`/`assault shuttles` appear as explicit args); size
+  fighters (never capped — `categoryCapRemaining` returns INT_MAX for shared cats).
+
+### Files
+- `HangarOps.php` — `inferHangarType` (`$hasCustomCombat` blocker), `hangarAcceptsCategory` (custom-cat accept),
+  new `isCustomCombatCategory` + `categoryCapRemaining`, cap wired into `canShipReceive` / `validateDeployBayOrders`
+  / `canDeployStartDock`.
+- `DeploymentDock.js`, `shipTooltipFireMenu.js` — client mirrors (see above).
+
+### Remaining (user)
+`yarn watch:legacy` (client edits) + Docker test in games 4231/4232. Optional: fix the `"mediuem"` typo in the two
+Sshelath Vulshara files. NOT committed (legacy bundles rebuilt by the user's build, never committed by us).
