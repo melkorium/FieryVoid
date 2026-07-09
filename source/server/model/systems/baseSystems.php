@@ -4608,10 +4608,21 @@ class KirishiacOrbital extends ShipSystem{
 		return false;
 	}
 
+	/*is a regeneration clock already running? (a still-live OrbitalRepairing marker) - used to
+	avoid stacking a second marker when a mid-dock destruction wants to (re)start regeneration*/
+	private function hasActiveRegenerationCrit($gameData){
+		foreach ($this->criticals as $crit){
+			if ($crit->phpclass != 'OrbitalRepairing') continue;
+			if ( ($crit->turnend == 0) || ($crit->turnend >= $gameData->turn) ) return true;
+		}
+		return false;
+	}
+
 	/*docking just became effective: start the 5-turn regeneration clock (visible marker crit;
 	skipped when there is nothing to regenerate)*/
 	private function startRegeneration($ship, $gameData){
 		if (!$this->canRegenerate) return; //Heavy Orbital: too large to regenerate (has its own Self Repair instead)
+		if ($this->hasActiveRegenerationCrit($gameData)) return; //already regenerating - don't stack a second marker
 		$beam = $this->pairedWeapon;
 		$needsRepair = ($this->getTotalDamage() > 0) || $this->isDestroyed() || $this->hasClearableCrits($this, $gameData->turn);
 		if (!$needsRepair && $beam !== null){
@@ -4700,9 +4711,26 @@ class KirishiacOrbital extends ShipSystem{
 				}
 				break;
 			case 4: //fire-phase advance (authoritative server gamedata, notes loaded): apply the pending order + advance the regeneration clock
+				//AUTO-DOCK ON DESTRUCTION: firing + criticals are already resolved by the time this
+				//runs (FireGamePhase::advance), so isDestroyed() reflects post-firing state. A destroyed
+				//orbital would always be docked by the player (docking happens after firing anyway, and
+				//only a docked orbital can regenerate / be reached by Self Repair) - so force it docked
+				//here regardless of any deploy order this turn. A destroyed docked orbital also can never
+				//be deployed, so the same forcing keeps it docked. Write a corrective Docked note that
+				//sorts after the player's phase-3 order (same turn, higher phase) so every future load
+				//sees Docked as the latest order.
+				if ($this->isDestroyed() && !$this->active){
+					$this->active = true;
+					$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gameData->turn,$gameData->phase,$ship->id,$this->id,'Docked','Docked (auto - orbital destroyed)',1);
+				}
+
 				$newDocked = $this->active; //latest ORDERED state, incl. this turn's firing-phase order
 				$oldDocked = $this->activeEffective;
 				if ($newDocked && !$oldDocked){
+					$this->startRegeneration($ship, $gameData);
+				} else if ($newDocked && $oldDocked && $this->isDestroyed()){
+					//already docked and destroyed (this turn or earlier) - make sure a regeneration
+					//clock is running (turnsDocked keeps its existing count - clock is NOT reset)
 					$this->startRegeneration($ship, $gameData);
 				} else if (!$newDocked && $oldDocked){
 					if ($this->undockingWouldBreachBlock()){
