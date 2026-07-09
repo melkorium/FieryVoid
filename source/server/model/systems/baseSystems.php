@@ -4835,6 +4835,7 @@ class KirishiacOrbital extends ShipSystem{
 		$strippedSystem->fireControlIndexOverride = $this->getFireControlIndexOverride(); //client hit-chance mirror (fighter FC)
 		$strippedSystem->outputDisplay = $this->outputDisplay;
 		$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while docked only (SelfRepair list gate)
+		$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital: ship-wide SR list excludes it (only its on-board SR services it)
 		if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 		return $strippedSystem;
 	}
@@ -4922,11 +4923,20 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 
 	public function onIndividualNotesLoaded($gamedata){
 		parent::onIndividualNotesLoaded($gamedata);
-		//the main vessel's Self Repair may service the orbital's systems "as usual in either
-		//state" - undo the parent's unrepairable-while-deployed rule (priority 0)
-		$this->repairPriority = 3;
+		//Reachability model (rules 2026-07-09):
+		//  DEPLOYED - the orbital, its weapon and its own attached Self Repair are OUT of the mother
+		//             ship's reach. They are still repairable, but only by the orbital's on-board SR:
+		//             flag them privateRepairOnly and keep them at a repairable priority (the parent
+		//             sets the orbital to priority 0 while deployed, which would also block the
+		//             on-board SR - override back to 3/6 so the attached SR can service them).
+		//  DOCKED   - the orbital rejoins the hull; the mother ship's SR services it "as usual"
+		//             (parent's docked priorities 3/6 stand, privateRepairOnly cleared).
+		$deployed = !$this->activeEffective;
+		$this->privateRepairOnly = $deployed;
+		if ($deployed) $this->repairPriority = 3; //repairable by the on-board SR (parent zeroed it while deployed)
 		if ($this->pairedWeapon !== null){
-			$this->pairedWeapon->repairPriority = 6;
+			$this->pairedWeapon->privateRepairOnly = $deployed;
+			if ($deployed) $this->pairedWeapon->repairPriority = 6; //ditto - reachable by the on-board SR only
 			//the heavy weapon remains operational while docked - swap its live arcs to the
 			//stowed (reduced) set; the client mirrors this via the weapon's stripForJson
 			$this->pairedWeapon->applyStowedArcs();
@@ -4937,6 +4947,7 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 		$selfRepair = $this->attachedSelfRepair;
 		if ($selfRepair !== null){
 			$selfRepair->outputDoubled = $this->activeEffective;
+			$selfRepair->privateRepairOnly = $deployed; //deployed: the mother ship's SR may not revive it either
 			$allowed = array();
 			if ($this->activeEffective){
 				if ($this->pairedWeapon !== null) $allowed[] = $this->pairedWeapon->id;
@@ -7164,6 +7175,7 @@ class SelfRepair extends ShipSystem{
 		foreach($ship->systems as $system){
 			if ( $system->maxhealth <= $system->getRemainingHealth() ) continue; //skip undamaged systems...
 			if ( $system->repairPriority < 1 ) continue; //base priority 0 = cannot be repaired, even with a player override
+			if ( $system->privateRepairOnly && ($this->repairRestrictedTo === null) ) continue; //deployed Heavy Orbital's systems: out of the mother ship's reach - only its own (restricted) on-board SR may service them
 			if ( ($this->repairRestrictedTo !== null) && (!in_array($system->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital) - may only service its orbital's systems
 			//(overrides can only legitimately exist on repairable systems; guards systems whose priority is
 			//DYNAMIC - e.g. a Kirishiac orbital that was overridden while docked and has since redeployed)
@@ -7216,6 +7228,7 @@ class SelfRepair extends ShipSystem{
             //$availableRepairPoints check moved to execution loop
 
             if ($systemToRepair->repairPriority<1) continue;//skip systems that cannot be repaired
+            if ( $systemToRepair->privateRepairOnly && ($this->repairRestrictedTo === null) ) continue; //deployed Heavy Orbital's systems: mother ship's SR may not clear their criticals - only its own on-board SR
             if ( ($this->repairRestrictedTo !== null) && (!in_array($systemToRepair->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital)
             if ($systemToRepair->isDestroyed($gamedata->turn)) continue;//don't repair criticals on destroyed system...
 
@@ -7379,6 +7392,7 @@ class SelfRepair extends ShipSystem{
 		if ($this->linkedOrbital !== null){ //mounted on a Kirishiac Heavy Orbital - dynamic per-load state
 			$strippedSystem->repairRestrictedTo = ($this->repairRestrictedTo !== null) ? array_values($this->repairRestrictedTo) : null; //Manage Repair Queue filter
 			$strippedSystem->outputDoubled = $this->outputDoubled;
+			$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed: mother ship's SR list excludes it (only its own restricted list may service it)
 			$strippedSystem->dockedWithOrbital = (bool)$this->linkedOrbital->activeEffective; //client docked visual (faded icon + cyan healthbar, like the orbital)
 		}
         return $strippedSystem;

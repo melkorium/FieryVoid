@@ -1738,12 +1738,13 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 			$strippedSystem->powerLocked = !$this->stowed; //deployed Augmenter cannot be powered down (client Off-button gate)
 			$strippedSystem->isTargetable = $this->isTargetable;
 			$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+			$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital weapon: excluded from the ship-wide SelfRepair list (only the orbital's on-board SR)
 			if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 		}
         return $strippedSystem;
 	}
-	
-	
+
+
 }//endof GraviticAugmenter
 
 

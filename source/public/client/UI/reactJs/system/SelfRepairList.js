@@ -356,6 +356,11 @@ class SelfRepairList extends React.Component {
 
             if (sys.repairPriority === 0) continue; // Priority 0 cannot be repaired
 
+            // Deployed Kirishiac Heavy Orbital: its orbital / weapon / on-board SR are out of the
+            // mother ship's reach - an UNRESTRICTED (whole-ship) Self Repair may not offer them
+            // (the orbital's own restricted SR still can, via the repairRestrictedTo gate below).
+            if (sys.privateRepairOnly && !system.repairRestrictedTo) continue;
+
             // Restricted Self Repair (mounted on a Kirishiac Heavy Orbital): may only service
             // the orbital's own systems - the allowed id list comes from the server each load
             // (docked: weapon + combined Structure block; deployed: orbital + weapon + itself)
