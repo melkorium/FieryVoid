@@ -182,9 +182,13 @@ class SystemInfoButtons extends React.Component {
 		} else {
 			allWeapons = ship.systems.filter(system => system.weapon);
 		}
+		//group by BASE displayName (trailing pairing letter stripped) so paired Kirishiac weapons
+		//('Antigravity Beam A'/'...B', 'Hypergraviton Beam A'/'...B', etc.) all change together;
+		//normal weapons (stable displayName) are unaffected. See weaponManager.stripPairingSuffix.
+		var baseName = weaponManager.stripPairingSuffix(system.displayName);
 		var similarWeapons = new Array();
 		for (var i = 0; i < allWeapons.length; i++) {
-			if (system.displayName === allWeapons[i].displayName) {
+			if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) {
 				if (system.weapon) {
 					similarWeapons.push(allWeapons[i]);
 				}
@@ -268,6 +272,9 @@ class SystemInfoButtons extends React.Component {
 		//if(finished) webglScene.customEvent('CloseSystemInfo');
 	}
 
+	/* Dead code: activation is rendered via the <SystemActivation> component (see render()),
+	   which owns its own doActivate/doDeactivate handlers. These methods were never bound to
+	   any button and are kept commented for reference only.
 	activate(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -280,6 +287,7 @@ class SystemInfoButtons extends React.Component {
 		system.doDeactivate();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
+	*/
 
 
 	//switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class

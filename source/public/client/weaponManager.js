@@ -70,9 +70,11 @@ window.weaponManager = {
         } else {
             allWeapons = ship.systems.filter(system => system.weapon);
         }
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
         var similarWeapons = new Array();
         for (var i = 0; i < allWeapons.length; i++) {
-            if (system.displayName === allWeapons[i].displayName) {
+            if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) {
                 if (system.weapon) {
                     similarWeapons.push(allWeapons[i]);
                 }
@@ -378,6 +380,18 @@ window.weaponManager = {
         });
     },
 
+    //Paired Kirishiac-family weapons (Antigravity Beam, Hypergraviton Beam, Lightning Gun,
+    //Proximity Launcher/Laser, Gravitic Augmenter, Phased Gravitic Torpedo, ...) append a
+    //per-instance pairing letter to displayName, e.g. 'Antigravity Beam A' / 'Antigravity Beam B'.
+    //"apply to all similar weapons" groups by displayName, so without stripping that suffix each
+    //weapon only ever matched itself. Pairings are always a single trailing ' <UPPERCASE LETTER>'
+    //(assigned as ' ' . $pairing in the server ship blueprints); no normal weapon displayName ends
+    //in a lone capital, so this is safe. Returns the base name for grouping.
+    stripPairingSuffix: function stripPairingSuffix(displayName) {
+        if (typeof displayName !== 'string') return displayName;
+        return displayName.replace(/ [A-Z]$/, '');
+    },
+
     selectAllWeapons: function selectAllWeapons(ship, system, touchToggleOverride) {
         if (!gamedata.isMyShip(ship)) {
             return;
@@ -393,9 +407,11 @@ window.weaponManager = {
             systems = ship.systems.filter(system => system.weapon);
         }
 
-        array = systems.filter(function (weapon) { return weapon.displayName === system.displayName });
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
+        array = systems.filter(function (weapon) { return weaponManager.stripPairingSuffix(weapon.displayName) === baseName });
 
-        var currentWasSelected = weaponManager.isSelectedWeapon(system); //all others affected weapons will have state set the same as current! 
+        var currentWasSelected = weaponManager.isSelectedWeapon(system); //all others affected weapons will have state set the same as current!
 
         if (touchToggleOverride === "forceSelect") {
             currentWasSelected = false; // Always select
@@ -2184,9 +2200,11 @@ window.weaponManager = {
         } else {
             allWeapons = ship.systems.filter(system => system.weapon);
         }
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(weapon.displayName);
         var similarWeapons = new Array();
         for (var i = 0; i < allWeapons.length; i++) {
-            if (weapon.displayName === allWeapons[i].displayName) { //this will include this particular system too, of course
+            if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) { //this will include this particular system too, of course
                 similarWeapons.push(allWeapons[i]);
             }
         }
@@ -2935,7 +2953,9 @@ window.weaponManager = {
             systems = ship.systems.filter(system => system.weapon);
         }
 
-        array = systems.filter(function (weapon) { return weapon.displayName === system.displayName });
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
+        array = systems.filter(function (weapon) { return weaponManager.stripPairingSuffix(weapon.displayName) === baseName });
 
         for (var i = 0; i < array.length; i++) {
             var weapon = array[i];
