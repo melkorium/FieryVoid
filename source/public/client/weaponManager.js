@@ -2794,12 +2794,24 @@ window.weaponManager = {
     // server HangarOps cap: min(class flight-size limit, fighters currently HELD).
     // The class limit for the only bomb-launched class (ShadowMediumFighterFlight,
     // jinking 8) is 9; clamped to $pool so a bay holding fewer (ShadowCruiser: 6)
-    // never offers a per-flight size bigger than its stock.
+    // never offers a per-flight size bigger than its stock. This is the MANUAL
+    // per-flight ceiling; the AUTOMATIC split groups into smaller chunks (see below).
     shadowFighterBombFlightCap: function shadowFighterBombFlightCap(carrier, pool) {
         var classLimit = 9;
         var p = parseInt(pool, 10);
         if (!isNaN(p) && p > 0 && p < classLimit) return p;
         return classLimit;
+    },
+
+    // Preferred per-flight size for the AUTOMATIC split (user 2026-07-09). Mirrors
+    // HangarOps::bombAutoSplitChunk (6). Distinct from the cap: the auto-split groups
+    // fighters into flights of 6 with a trailing remainder (12→6+6, 15→6+6+3, 7→6+1,
+    // ≤6→one flight); a manual override may still reach the cap (9). Clamped to $pool.
+    shadowFighterBombAutoChunk: function shadowFighterBombAutoChunk(carrier, pool) {
+        var chunk = 6;
+        var p = parseInt(pool, 10);
+        if (!isNaN(p) && p > 0 && p < chunk) return p;
+        return chunk;
     },
 
     // Stage S (S-f): open the Fighter Bomb launch dialog (count + auto-split toggle /
@@ -2816,8 +2828,9 @@ window.weaponManager = {
             return;
         }
         var cap = weaponManager.shadowFighterBombFlightCap(carrier, pool);
+        var chunk = weaponManager.shadowFighterBombAutoChunk(carrier, pool);
 
-        confirm.shadowFighterBomb(carrier, pool, cap, function (result) {
+        confirm.shadowFighterBomb(carrier, pool, cap, chunk, function (result) {
             var sizes = (result && Array.isArray(result.sizes)) ? result.sizes : [];
             if (sizes.length === 0) return;
 

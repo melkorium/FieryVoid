@@ -3400,13 +3400,16 @@ class HangarOps {
 		//cap (e.g. 24 fighters, max 9/flight), so it spawns MULTIPLE flights:
 		//  - explicit $flightSizes (manual split the player chose) — clamp each to the
 		//    cap and to the held pool, drop non-positive;
-		//  - else auto-split $count (<=0/null ⇒ whole pool) into ceil(n/cap) flights of
-		//    <=cap each (e.g. 24 → 9+9+6).
+		//  - else auto-split $count (<=0/null ⇒ whole pool) into chunks of the preferred
+		//    auto-split size, trailing remainder last (e.g. 24 → 6+6+6+6, 15 → 6+6+3).
 		//Cap = min(class flight-size limit, fighters currently HELD) — a bay holding
 		//fewer than the limit (ShadowCruiser: 6) can never form a flight bigger than
-		//its stock, so the cap tracks the held pool (user 2026-06-11).
-		$cap = min(self::bombFlightSizeCap($phpclass), $held);
-		$sizes = self::resolveBombFlightSizes($flightSizes, $count, $held, $cap);
+		//its stock, so the cap tracks the held pool (user 2026-06-11). The auto-split
+		//CHUNK (6, user 2026-07-09) is the DEFAULT grouping, distinct from the cap (9):
+		//a manual override may still form flights up to the cap.
+		$cap   = min(self::bombFlightSizeCap($phpclass), $held);
+		$chunk = min(self::bombAutoSplitChunk(), $held);
+		$sizes = self::resolveBombFlightSizes($flightSizes, $count, $held, $cap, $chunk);
 		if (empty($sizes)) return null;
 
 		//Spawn geometry: TARGET hex, carrier heading/speed/facing. Unlike an
@@ -3479,13 +3482,25 @@ class HangarOps {
 		return max(1, $cap);
 	}
 
+	/* Preferred per-flight fighter count for the AUTOMATIC split (user 2026-07-09).
+	 * Distinct from bombFlightSizeCap: the cap (9) is the hard rules ceiling a MANUAL
+	 * override may reach, while the auto-split groups fighters into flights of 6 with a
+	 * trailing remainder (12 → 6+6, 15 → 6+6+3, 7 → 6+1, ≤6 → one flight). */
+	public static function bombAutoSplitChunk(){
+		return 6;
+	}
+
 	/* Build the per-flight size list for a bomb launch, each entry <= $cap and the
 	 * total <= $held. Prefers an explicit $flightSizes list (the manual split);
-	 * otherwise auto-splits $count (<=0/null ⇒ whole $held) into ceil(n/cap) flights
-	 * (e.g. 24, cap 9 ⇒ [9,9,6]). Any explicit entry over the cap is itself split. */
-	public static function resolveBombFlightSizes($flightSizes, $count, $held, $cap){
+	 * otherwise auto-splits $count (<=0/null ⇒ whole $held) into flights of $chunk
+	 * (the preferred auto-split size, default = $cap) with the remainder trailing last
+	 * (e.g. 15, chunk 6 ⇒ [6,6,3]). Any explicit MANUAL entry over the cap is itself
+	 * broken into <=cap pieces (manual honours the cap, not the smaller auto chunk). */
+	public static function resolveBombFlightSizes($flightSizes, $count, $held, $cap, $chunk = null){
 		$cap = max(1, (int)$cap);
 		$held = max(0, (int)$held);
+		//Auto-split chunk defaults to the cap (old behaviour) when not supplied.
+		$chunk = ($chunk === null) ? $cap : max(1, (int)$chunk);
 		$out = array();
 
 		if (is_array($flightSizes) && !empty($flightSizes)){
@@ -3497,20 +3512,20 @@ class HangarOps {
 				$budget -= $s;
 				//A manual entry larger than the cap is itself broken into <=cap chunks.
 				while ($s > 0){
-					$chunk = min($cap, $s);
-					$out[] = $chunk;
-					$s -= $chunk;
+					$piece = min($cap, $s);
+					$out[] = $piece;
+					$s -= $piece;
 				}
 			}
 			return $out;
 		}
 
-		//Auto-split path.
+		//Auto-split path — group into $chunk-sized flights, remainder trailing.
 		$total = ($count === null || (int)$count <= 0) ? $held : min($held, (int)$count);
 		while ($total > 0){
-			$chunk = min($cap, $total);
-			$out[] = $chunk;
-			$total -= $chunk;
+			$piece = min($chunk, $total);
+			$out[] = $piece;
+			$total -= $piece;
 		}
 		return $out;
 	}
