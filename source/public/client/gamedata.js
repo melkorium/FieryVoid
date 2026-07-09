@@ -642,7 +642,7 @@ window.gamedata = {
                                 break;
                             }
                             if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], currWeapon))
-                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant - GTS
+                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant - GTS
                             ) { //non-ballistic weapon ready to fire
                                 hasReadyLaunchers = true;
                             }
@@ -672,7 +672,7 @@ window.gamedata = {
                                             hasReadyLaunchers = true;
                                         }*/
                                         if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], myShips[ship].systems[i]))
-                                            && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant
+                                            && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant
                                         ) { //non-ballistic weapon ready to fire
                                             hasReadyLaunchers = true;
                                         }
@@ -877,7 +877,7 @@ window.gamedata = {
                                     break;
                                 }
                                 if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], currWeapon))
-                                    && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant - GTS
+                                    && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant - GTS
                                 ) { //non-ballistic weapon ready to fire
                                     hasReadyGuns = true;
                                 }
@@ -903,7 +903,7 @@ window.gamedata = {
                                                 break;
                                             }
                                             if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], myShips[ship].systems[i]))
-                                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant											
+                                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant											
                                             ) { //non-ballistic weapon ready to fire
                                                 hasReadyGuns = true;
                                             }
@@ -989,7 +989,7 @@ window.gamedata = {
                                 break;
                             }
                             if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], currWeapon))
-                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant - GTS
+                                && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant - GTS
                             ) { //non-ballistic weapon ready to fire
                                 hasReadyGuns = true;
                             }
@@ -1013,7 +1013,7 @@ window.gamedata = {
                                             break;
                                         }
                                         if (weaponManager.isLoaded(currWeapon) && (!shipManager.systems.isDestroyed(myShips[ship], myShips[ship].systems[i]))
-                                            && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon)) //check for ammo (if relevant											
+                                            && (!weaponManager.checkOutOfAmmo(myShips[ship], currWeapon, true)) //check for ammo (if relevant											
                                         ) { //non-ballistic weapon ready to fire
                                             hasReadyGuns = true;
                                         }

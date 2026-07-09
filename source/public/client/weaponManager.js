@@ -255,13 +255,48 @@ window.weaponManager = {
         return false;
     },
 
-    checkOutOfAmmo: function checkOutOfAmmo(ship, weapon) {
+    //Is this firing mode actually fireable? A mode whose entire fireControlArray
+    //entry is null (e.g. AMMO_DUM Dummy Missiles) can never fire, so it must not
+    //count as live ammo. Detect by null FC rather than by mode name so any future
+    //unfireable ammo is handled automatically.
+    isFireableMode: function isFireableMode(weapon, mode) {
+        if (!weapon.fireControlArray) return true; //no per-mode FC info: assume fireable
+        var fc = weapon.fireControlArray[mode];
+        if (fc == null) return true; //no entry for this mode: don't exclude it
+        //all three FC slots (fighter/<medium/<capital) null -> unfireable
+        return !(fc[0] === null && fc[1] === null && fc[2] === null);
+    },
+
+    //Total fireable rounds available to an AmmoMagazine-fed weapon, across all of
+    //its firing modes, drawn from the owning unit's ammoMagazine. Excludes modes
+    //that can never fire (see isFireableMode). Returns null if this unit has no
+    //magazine (weapon is not magazine-fed after all).
+    getMagazineFireableAmmo: function getMagazineFireableAmmo(unit, weapon) {
+        if (!unit || !unit.systems) return null;
+
+        var magazine = null;
+        for (var i in unit.systems) {
+            if (unit.systems[i].name == "ammoMagazine") { magazine = unit.systems[i]; break; }
+        }
+        if (!magazine || !magazine.ammoCountArray) return null;
+
+        var total = 0;
+        for (var mode in weapon.firingModes) {
+            if (!weaponManager.isFireableMode(weapon, mode)) continue; //skip dummy/unfireable modes
+            var modeName = weapon.firingModes[mode];
+            var count = magazine.ammoCountArray[modeName];
+            if (typeof count === "number" && count > 0) total += count;
+        }
+        return total;
+    },
+
+    checkOutOfAmmo: function checkOutOfAmmo(ship, weapon, silent) {
 
         var p = ship;
         if (ship.flight) {
             p = shipManager.systems.getFighterBySystem(ship, weapon.id);
         } else {
-            return weaponManager.checkOutOfAmmoShip(ship, weapon);
+            return weaponManager.checkOutOfAmmoShip(ship, weapon, silent);
         }
 
         if (weapon.hasOwnProperty("ammunition")) {
@@ -269,9 +304,19 @@ window.weaponManager = {
                 return false;
             } else {
                 //confirm.error("This fighter gun is out of ammunition.");
-                confirm.error("This weapon is out of ammunition.");
+                if (!silent) confirm.error("This weapon is out of ammunition.");
                 return true;
             }
+        }
+
+        //modern AmmoMagazine-fed weapons: ammo lives centrally in the fighter's magazine
+        if (weapon.checkAmmoMagazine) {
+            var available = weaponManager.getMagazineFireableAmmo(p, weapon);
+            if (available !== null && available <= 0) {
+                if (!silent) confirm.error("This weapon is out of ammunition.");
+                return true;
+            }
+            return false;
         }
 
         for (var i in p.systems) {
@@ -279,16 +324,13 @@ window.weaponManager = {
             if (system.id != weapon.id) continue;
 
             if (system.missileArray) {
+                //any firing mode with rounds remaining means the rack can still fire
                 for (var j in system.missileArray) {
                     var missile = system.missileArray[j];
-
-                    if (missile.amount > 0) {
-                        return false;
-                    } else {
-                        confirm.error("This missile rack is out of ammo.");
-                        return true;
-                    }
+                    if (missile.amount > 0) return false;
                 }
+                if (!silent) confirm.error("This missile rack is out of ammo.");
+                return true;
             }
         }
 
@@ -297,18 +339,28 @@ window.weaponManager = {
 
 
     //checks whether a shipborne weapon has ran out of ammo
-    checkOutOfAmmoShip: function checkOutOfAmmoShip(ship, weapon) {
+    checkOutOfAmmoShip: function checkOutOfAmmoShip(ship, weapon, silent) {
         if (ship.flight) {
-            return weaponManager.checkOutOfAmmo(ship, weapon);
+            return weaponManager.checkOutOfAmmo(ship, weapon, silent);
         }
 
         if (weapon.hasOwnProperty("ammunition")) {
             if (weapon.ammunition > 0) {
                 return false;
             } else {
-                confirm.error("This weapon is out of ammunition.");
+                if (!silent) confirm.error("This weapon is out of ammunition.");
                 return true;
             }
+        }
+
+        //modern AmmoMagazine-fed weapons: ammo lives centrally in the ship's magazine
+        if (weapon.checkAmmoMagazine) {
+            var available = weaponManager.getMagazineFireableAmmo(ship, weapon);
+            if (available !== null && available <= 0) {
+                if (!silent) confirm.error("This weapon is out of ammunition.");
+                return true;
+            }
+            return false;
         }
 
         return false;
