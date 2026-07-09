@@ -3710,7 +3710,7 @@ class TrekPhaserKelly extends TrekPhaser{
         public $loadingtime = 1;
 		public $normalload = 2;
 		
-        public $rangePenalty = 0.5;
+        public $rangePenalty = 0.3; //1.5 per hex.
         public $fireControl = array(3, 3, 3);
 
         public $damageType = "Raking";
@@ -3798,12 +3798,13 @@ class TrekPhotonTorpKelly extends TrekPhotonTorp{
 			$this->data["Special"] .= 'Benefits from offensive EW.';			
         }
         
-        public function getDamage($fireOrder){ 		
-		return Dice::d(6, 3)+6;   
+    public function getDamage($fireOrder){ 		
+		//return Dice::d(6, 3)+6; 
+		return 20;  
 	}
 
-        public function setMinDamage(){     $this->minDamage = 9;      }
-        public function setMaxDamage(){     $this->maxDamage = 24;      }
+        public function setMinDamage(){     $this->minDamage = 20;      }
+        public function setMaxDamage(){     $this->maxDamage = 20;      }
 		
 }//endof TrekPhotonTorpKelly
 
