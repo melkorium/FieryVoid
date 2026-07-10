@@ -1422,7 +1422,7 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
     public function setSystemDataWindow($turn){
         parent::setSystemDataWindow($turn);
 		$this->data["Special"] = "May use one of the three Firing modes listed below per turn:";
-		$this->data["Special"] .= "<br> - Matter Weapon Enhancement (Initial Orders): Boosts fire control of friendly matter weapons in arc/range by +3 (+6 if ballistic), and degrades enemy matter weapons by the same amount. Cumulative.";
+		$this->data["Special"] .= "<br> - Matter Weapon Enhancement (Initial Orders): Boosts fire control of friendly matter weapons in arc/range by +3, and of ALL friendly ballistic weapons by +6; degrades enemy matter/ballistic weapons by the same amount. Cumulative.";
 		$this->data["Special"] .= "<br> - Warrior Enhancement (Initial Orders): Grants a Warrior flight +3 free thrust, +3 offensive bonus, -4 dropout, and 3 free jink levels. Not cumulative.";
 		$this->data["Special"] .= "<br> - Gravity Shifting (Pre-Firing): Rotates a target ship's facing up to 120 degrees (60 degrees max against Gravtiic targets). Only ONE Augmenter may shift a given ship per turn. No effect on Enormous units or Mines.";
 		if ($this->linkedOrbital !== null){
@@ -1494,10 +1494,10 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 
 	}
 
-	/* Returns the fire-control modifier this Augmenter applies to $otherShip's matter weapons:
-	 * +/-3 normally, +/-6 for ballistic matter weapons, 0 if the ship is out of arc/range or
-	 * not a valid target. Positive for friendly units, negative for enemies. Shared by the
-	 * server effect (doMatterEnhancement) and exposed for client mirroring. */
+	/* Returns whether $otherShip is a valid target for this Augmenter's Matter Enhancement:
+	 * true if in arc + range and not terrain/mine/destroyed/not-yet-deployed. The per-weapon
+	 * FC mod (+/-3 for matter, +/-6 for any ballistic) is applied in applyMatterModToSystems.
+	 * Shared by the server effect (doMatterEnhancement). */
 	private function isShipInMatterAugmentRange($gamedata, $otherShip, $ship){
 		if($otherShip->isTerrain()) return false;
 		if($otherShip->mine) return false;
@@ -1533,13 +1533,16 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 
 	} //endof doMatterEnhancement
 
-	/* Applies the +/-3 (or +/-6 ballistic) fire-control mod to every matter Weapon in the
-	 * supplied systems list. fireControlArray entries are mutated BY REFERENCE so the per-mode
-	 * arrays actually change (a plain foreach copy would be silently discarded). */
+	/* Applies the fire-control mod to every affected Weapon in the supplied systems list.
+	 * ALL ballistic weapons (any class) get +/-6; Matter (non-ballistic) weapons get +/-3.
+	 * Non-matter non-ballistic weapons are unaffected. fireControlArray entries are mutated
+	 * BY REFERENCE so the per-mode arrays actually change (a plain foreach copy would be
+	 * silently discarded). */
 	private function applyMatterModToSystems($systems, $sign){
 		foreach($systems as $system){
 			if(!($system instanceof Weapon)) continue;
-			if($system->weaponClass !== "Matter") continue;
+			//Affected if ballistic (any class) OR a Matter weapon; skip everything else.
+			if(!$system->ballistic && $system->weaponClass !== "Matter") continue;
 
 			$mod = $sign * ($system->ballistic ? 6 : 3);
 
