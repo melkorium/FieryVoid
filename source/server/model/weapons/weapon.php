@@ -954,6 +954,22 @@ public function getStartLoading()
             }
         }
 
+        /* Accelerator-type weapons (normalload > 0, e.g. Molecular Slicer Beam) charge up
+         * over several turns; getStartLoading() sets them to full normalload. But while a
+         * weapon is destroyed it should not keep holding charge - a destroyed accelerator
+         * revived by Self Repair would otherwise come back at full turnsloaded (e.g. 3/3).
+         * Reset it to base loading so it must charge back up from the bottom, same as a fresh
+         * mount. This fires whether the weapon is still destroyed as of the turn we advance
+         * FROM, OR was destroyed during that turn and revived the same turn (Self Repair stamps
+         * its undestroy on the destroying turn, so isDestroyed() alone would miss it).
+         * NB: the caller (calculateLoading, phase -1) adds +1 to the returned loading, so we
+         * return getLoadingTime()-1 to LAND on getLoadingTime() (e.g. 1/3 for a Slicer). */
+        if ($this->normalload > 0
+            && ($this->isDestroyed($gamedata->turn - 1) || $this->wasDestroyedThisTurn($gamedata->turn - 1))) {
+            $baseLoad = max(0, $this->getLoadingTime() - 1);
+            return new WeaponLoading($baseLoad, 0, $this->getLoadedAmmo(), 0, $this->getLoadingTime(), $this->firingMode);
+        }
+
 
         if ($this->firedOnTurn($gamedata->turn -1)) {
             if ($this->firedUsingMode($gamedata->turn -1)==1) {//only basic mode counts for sustaining! otherwise shot was just not sustained 

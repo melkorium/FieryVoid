@@ -341,6 +341,15 @@ class SelfRepairList extends React.Component {
         window.removeEventListener('pointercancel', this.onDragEnd);
     }
 
+    // Mirror of server SelfRepair::getEffectiveCriticalRepairCost. B5W: all crits cost 1
+    // self-repair point except C&C criticals, which cost 4. The whole CnC class family
+    // (CnC + subclasses) carries name 'cnC' on the client; SecondaryCnC (a damage-soak
+    // proxy) has its own name and is correctly not treated as a C&C.
+    getEffectiveCriticalRepairCost(crit, sys) {
+        if (sys.name === 'cnC') return 4;
+        return crit.repairCost;
+    }
+
     getRepairableSystems() {
         const { ship, system } = this.props;
         const systems = [];
@@ -354,6 +363,7 @@ class SelfRepairList extends React.Component {
 
         for (const sys of shipSystems) {
 
+            if (sys.name === 'SelfRepair') continue; // Self Repair cannot repair Self Repair - not itself, not another SR (mirror of server)
             if (sys.repairPriority === 0) continue; // Priority 0 cannot be repaired
 
             // Deployed Kirishiac Heavy Orbital: its orbital / weapon / on-board SR are out of the
@@ -430,7 +440,7 @@ class SelfRepairList extends React.Component {
                         crit: crit,
                         priority: critPriority,
                         overridden: critOverridden, // explicit override wins ties (mirror of server sort)
-                        cost: crit.repairCost,
+                        cost: this.getEffectiveCriticalRepairCost(crit, sys), //C&C crits cost 4 (mirror of server)
                         id: sys.id, // For stable sort,
                         subId: crit.id, // For deterministic tie-breaking
                         keyId: compositeKey // For action handlers

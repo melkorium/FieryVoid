@@ -7113,25 +7113,44 @@ class SelfRepair extends ShipSystem{
 		$this->output = $output; //after parent - weapon has no output and passes 0 to system creation
 		$this->maxRepairPoints = $maxhealth*10;
 	}
-	
-	
+
+	/* Current battle repair-point ceiling. maxRepairPoints (= maxhealth*10) is the UNDAMAGED
+	ceiling; a damaged Self Repair loses capacity proportionally, so the live ceiling scales
+	with remaining health (getRemainingHealth()*10). If usedRepairPoints already exceeds this
+	reduced ceiling that is fine - the system simply can't spend any more this game. A destroyed
+	SR has 0 remaining health, hence 0 ceiling. Mirrored client-side for the display. */
+	public function getCurrentMaxRepairPoints(){
+		return $this->getRemainingHealth() * 10;
+	}
+
+
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn);  
 		//some effects should originally work for current turn, but it won't work with FV handling of ballistics. Moving everything to next turn.
 		//it's Ion (not EM) weapon with no special remarks regarding advanced races and system - so works normally on AdvArmor/Ancients etc
-		$this->data["Repair points (used/max)"] = $this->usedRepairPoints . "/" . $this->maxRepairPoints;
-		$this->data["Special"] = "At end of turn phase automatically repairs damage to vessel. Cannot repair destroyed structure blocks.";
+		$this->data["Repair points (used/max)"] = $this->usedRepairPoints . "/" . $this->getCurrentMaxRepairPoints(); //max shrinks with damage to this SR
+		$this->data["Special"] = "At end of turn phase automatically repairs damage to vessel. Cannot repair destroyed structure blocks or Self Repair systems.";
+		$this->data["Special"] .= "<br>Player may set repair priorities using the 'Manage Repair Queue' menu during Initial Orders.";		
 		$this->data["Special"] .= "<br>Default Priority: Fix criticals, revive destroyed systems, finally heal damaged systems.";
-		$this->data["Special"] .= "<br>Core (and other particularly important) systems are repaired first, then weapons, then other systems.";
+//		$this->data["Special"] .= "<br>Core (and other particularly important) systems are repaired first, then weapons, then other systems.";
 		$this->data["Special"] .= "<br>Will not fix criticals and damage caused in current turn.";
-		$this->data["Special"] .= "<br>Player may modify repair priorities using the Manage Repair Queue menu.";
 		if ($this->linkedOrbital !== null){ //mounted on a Kirishiac Heavy Orbital
-			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": may only repair systems and structure on the orbital itself.";
-			$this->data["Special"] .= "<br>While the orbital is docked its output is DOUBLED, but it may only service the weapon and the combined Structure block.";
+			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": only repairs systems on the orbital itself.";
+			$this->data["Special"] .= "<br>While the orbital is docked output is DOUBLED.";
 		}
 	}
 
 	
+		/* Repair-point cost of clearing a critical. B5W: all crits cost 1 self-repair point
+		except C&C criticals, which cost 4. We scope "C&C" to the CnC class hierarchy
+		(CnC + OSATCnC/ProtectedCnC/ThirdspaceCnC/PakmaraCnC/FlagBridge/ShadowPilot);
+		SecondaryCnC is a damage-soak proxy, not the command system, so it is excluded.
+		Mirrored client-side in SelfRepairList.getEffectiveCriticalRepairCost. */
+	public static function getEffectiveCriticalRepairCost($critDmg, $system){
+		if ($system instanceof CnC) return 4;
+		return $critDmg->repairCost;
+	}
+
 	    /* sorts generated repair queue */
     public static function sortUnifiedRepairQueue($a, $b){
 		if($a['priority'] !== $b['priority']){
@@ -7192,9 +7211,11 @@ class SelfRepair extends ShipSystem{
     
 		if($this->isDestroyed()) return; //destroyed system does not work... but other critical phase effects may work even if destroyed!
 		
-		//how many points are available?
-		$availableRepairPoints = $this->maxRepairPoints - $this->usedRepairPoints;
-		$availableRepairPoints = min($availableRepairPoints,$this->getEffectiveOutput($ship)); //no more than remaining points, no more than actual system repair capability	
+		//how many points are available? Ceiling scales with damage to THIS Self Repair
+		//(getCurrentMaxRepairPoints = remaining health * 10); if already overspent vs the
+		//reduced ceiling, availableRepairPoints goes <=0 and nothing is repaired.
+		$availableRepairPoints = $this->getCurrentMaxRepairPoints() - $this->usedRepairPoints;
+		$availableRepairPoints = min($availableRepairPoints,$this->getEffectiveOutput($ship)); //no more than remaining points, no more than actual system repair capability
 		
         $repairQueue = array();
         $ship=$this->getUnit();
@@ -7202,6 +7223,7 @@ class SelfRepair extends ShipSystem{
         // 1. Gather Systems
 		foreach($ship->systems as $system){
 			if ( $system->maxhealth <= $system->getRemainingHealth() ) continue; //skip undamaged systems...
+			if ( $system instanceof SelfRepair ) continue; //Self Repair cannot repair Self Repair - not itself, not another SR on the ship
 			if ( $system->repairPriority < 1 ) continue; //base priority 0 = cannot be repaired, even with a player override
 			if ( $system->privateRepairOnly && ($this->repairRestrictedTo === null) ) continue; //deployed Heavy Orbital's systems: out of the mother ship's reach - only its own (restricted) on-board SR may service them
 			if ( ($this->repairRestrictedTo !== null) && (!in_array($system->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital) - may only service its orbital's systems
@@ -7255,6 +7277,7 @@ class SelfRepair extends ShipSystem{
             // Filtering similar to systems logic but applicable to parent system of critical
             //$availableRepairPoints check moved to execution loop
 
+            if ($systemToRepair instanceof SelfRepair) continue; //Self Repair cannot repair Self Repair (incl. clearing its criticals)
             if ($systemToRepair->repairPriority<1) continue;//skip systems that cannot be repaired
             if ( $systemToRepair->privateRepairOnly && ($this->repairRestrictedTo === null) ) continue; //deployed Heavy Orbital's systems: mother ship's SR may not clear their criticals - only its own on-board SR
             if ( ($this->repairRestrictedTo !== null) && (!in_array($systemToRepair->id, $this->repairRestrictedTo)) ) continue; //restricted Self Repair (Kirishiac Heavy Orbital)
@@ -7290,7 +7313,7 @@ class SelfRepair extends ShipSystem{
                     'sys' => $systemToRepair, // We need the system object to execute repair
                     'priority' => $critPrio,
                     'overridden' => $critOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
-                    'cost' => $critDmg->repairCost,
+                    'cost' => self::getEffectiveCriticalRepairCost($critDmg, $systemToRepair), //C&C crits cost 4 (B5W), everything else its own repairCost
                     'id' => $systemToRepair->id, // Fallback ID for sorting
                     'subId' => $critDmg->id // SubID for sorting
                 );
@@ -7306,12 +7329,13 @@ class SelfRepair extends ShipSystem{
              
              if ($job['type'] === 'critical') {
                  $critDmg = $job['obj'];
+                 $critCost = $job['cost']; //effective cost (C&C crits = 4, see getEffectiveCriticalRepairCost)
                  // Additional check just in case costs changed logic? No, static data mostly.
-                 if ($critDmg->repairCost <= $availableRepairPoints){
+                 if ($critCost <= $availableRepairPoints){
                     $system = $job['sys'];
                     $system->repairCritical($critDmg, $gamedata->turn); // Call our new function in shipSystem class
-                    $availableRepairPoints -= $critDmg->repairCost; 
-                    $this->usedThisTurn += $critDmg->repairCost; 
+                    $availableRepairPoints -= $critCost;
+                    $this->usedThisTurn += $critCost;
                  }
              } else {
                  // System Repair
