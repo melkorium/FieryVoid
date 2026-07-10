@@ -182,19 +182,38 @@ if (function_exists('apcu_clear_cache')) {
     echo "<br/>APCu not available — cache clear skipped.<br/>\n";
 }
 
-// OPcache = cached compiled PHP BYTECODE. Independent of APCu. On shared hosting
-// with conservative validate_timestamps/revalidate_freq, freshly-uploaded .php
-// files can keep executing the OLD compiled code for a while — producing the same
-// old-shape gamedata symptom even after APCu is cleared. Resetting here forces a
-// recompile of the patched sources on the next request.
-if (function_exists('opcache_reset')) {
-    $opcacheReset = opcache_reset();
-    echo $opcacheReset
-        ? "<br/>OPcache reset.<br/>\n"
-        : "<br/><strong>Warning:</strong> opcache_reset() returned false (may be disabled or restricted).<br/>\n";
-} else {
-    echo "<br/>OPcache not available — reset skipped.<br/>\n";
-}
+// OPcache = cached compiled PHP BYTECODE. Independent of APCu.
+//
+// We deliberately DO NOT call opcache_reset() here.
+//
+// This host runs LiteSpeed (SAPI: litespeed) with opcache.validate_timestamps=On
+// and revalidate_freq=30s. That means freshly-uploaded .php files are auto-detected
+// and lazily recompiled per-file within the revalidate window — no manual reset is
+// needed to pick up a patch.
+//
+// A blanket opcache_reset() from inside a live web request on LiteSpeed empties the
+// entire shared-SHM bytecode cache (~2500 scripts) at once, forcing the lsphp worker
+// pool to recompile the whole codebase simultaneously. That recompile storm can
+// exhaust the pool / trip a worker limit, and LiteSpeed responds with an intermittent
+// 503 to whichever request lands in the window (fixed by an lsphp pool restart, e.g.
+// re-saving PHP settings in the host panel). Since validate_timestamps already gives
+// us correct pickup for free, the reset is pure downside here and is intentionally
+// omitted. If instant (sub-30s) pickup is ever required, lower revalidate_freq at the
+// host level instead of resetting from a web request.
+echo "<br/>OPcache reset skipped by design (validate_timestamps=On handles pickup; "
+   . "reset would risk a LiteSpeed recompile-storm 503).<br/>\n";
+
+// --- Original blanket reset, disabled (kept for reference / quick restore). ---
+// Re-enable ONLY if validate_timestamps is turned Off at the host level, and be
+// aware it can cause the intermittent LiteSpeed 503 documented above.
+// if (function_exists('opcache_reset')) {
+//     $opcacheReset = opcache_reset();
+//     echo $opcacheReset
+//         ? "<br/>OPcache reset.<br/>\n"
+//         : "<br/><strong>Warning:</strong> opcache_reset() returned false (may be disabled or restricted).<br/>\n";
+// } else {
+//     echo "<br/>OPcache not available — reset skipped.<br/>\n";
+// }
 
 // ─── OPcache diagnostics ───
 // One-time-per-deploy readout so we can confirm empirically (rather than guess)

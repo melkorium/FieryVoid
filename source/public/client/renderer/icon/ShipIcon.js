@@ -264,15 +264,16 @@ window.ShipIcon = function () {
         // an empty hex would reveal all their facing/heading arrows at once.
     };
 
-    // Selection/side circle args. Participants get the friend/foe type; observers
-    // (not in the game) get a per-team key + colour so the filled side circle matches
-    // the team-coloured ship overlay. Terrain is unaffected.
+    // Selection/side circle args, matching getShipOverlayColor. 2-team
+    // participants get the friend/foe type; observers AND 3+-team participants
+    // get a per-team key + colour so the filled side circle matches the
+    // team-coloured ship overlay. Terrain is unaffected.
     ShipIcon.prototype.getSideSpriteArgs = function (ship) {
         if (this.terrain) {
             return { type: 'terrain', teamColor: null };
         }
 
-        if (!gamedata.isPlayerInGame()) {
+        if (!gamedata.isPlayerInGame() || gamedata.getDistinctTeamCount() !== 2) {
             return { type: 'team' + ship.team, teamColor: gamedata.getTeamColorRGB(ship.team) };
         }
 

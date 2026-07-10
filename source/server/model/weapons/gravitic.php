@@ -1337,10 +1337,14 @@ class HypergravitonBlaster extends Weapon {
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
 
+        public function setThrustPerBoost($setting){
+            $this->thrustPerBoost = $setting;       
+        }        
+
         public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
 			$this->data["Special"] = "20-point rakes.";
-			$this->data["Special"] .= "<br>May apply 6 thrust to boost damage by 10 during Intitial Orders.";
+			$this->data["Special"] .= "<br>May apply " . $this->thrustPerBoost . " thrust to boost damage by 10 during Intitial Orders.";
 			$this->data["Special"] .= "<br>Can fire accelerated for less damage.";
 			$this->data["Special"] .= "<br> - 1 turn: 5d10 + 40";
 			$this->data["Special"] .= "<br> - 2 turns: 10d10 + 80";
@@ -1911,7 +1915,8 @@ class HypergravitonBlaster extends Weapon {
 		public function stripForJson(){
 			$strippedSystem = parent::stripForJson();
 			$strippedSystem->thrustBoosted = $this->thrustBoosted;
-			$strippedSystem->thrustPerBoost = $this->thrustPerBoost;													
+			$strippedSystem->thrustPerBoost = $this->thrustPerBoost;
+            if($this->thrustPerBoost == 4) $strippedSystem->data = $this->data;												
 			return $strippedSystem;
 		}
 
@@ -2050,6 +2055,7 @@ class HypergravitonBeam extends Weapon {
 				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
 				$strippedSystem->repairPriority = $this->repairPriority;
+				$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital weapon: excluded from the ship-wide SelfRepair list (only the orbital's on-board SR)
 				$strippedSystem->startArc = $this->startArc; //live arcs - reduced set while docked (applyStowedArcs)
 				$strippedSystem->endArc = $this->endArc;
 				$strippedSystem->stowedArcStart = $this->stowedArcStart; //non-null = operational while stowed (client fire/arc gates)
@@ -2129,6 +2135,7 @@ class MedAntigravityBeam extends Gravitic{
 				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
 				$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+				$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital weapon: excluded from the ship-wide SelfRepair list (only the orbital's on-board SR)
 				if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 			}
 			return $strippedSystem;
@@ -2257,6 +2264,7 @@ class AntigravityBeam extends Gravitic{
 				$strippedSystem->powerLocked = !$this->stowed; //deployed beam cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
 				$strippedSystem->repairPriority = $this->repairPriority; //dynamic: repairable while stowed/docked only (SelfRepair list gate)
+				$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital weapon: excluded from the ship-wide SelfRepair list (only the orbital's on-board SR)
 				if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation; //displayed apart from its home block
 			}
 			return $strippedSystem;

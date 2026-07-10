@@ -70,9 +70,11 @@ window.weaponManager = {
         } else {
             allWeapons = ship.systems.filter(system => system.weapon);
         }
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
         var similarWeapons = new Array();
         for (var i = 0; i < allWeapons.length; i++) {
-            if (system.displayName === allWeapons[i].displayName) {
+            if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) {
                 if (system.weapon) {
                     similarWeapons.push(allWeapons[i]);
                 }
@@ -253,13 +255,48 @@ window.weaponManager = {
         return false;
     },
 
-    checkOutOfAmmo: function checkOutOfAmmo(ship, weapon) {
+    //Is this firing mode actually fireable? A mode whose entire fireControlArray
+    //entry is null (e.g. AMMO_DUM Dummy Missiles) can never fire, so it must not
+    //count as live ammo. Detect by null FC rather than by mode name so any future
+    //unfireable ammo is handled automatically.
+    isFireableMode: function isFireableMode(weapon, mode) {
+        if (!weapon.fireControlArray) return true; //no per-mode FC info: assume fireable
+        var fc = weapon.fireControlArray[mode];
+        if (fc == null) return true; //no entry for this mode: don't exclude it
+        //all three FC slots (fighter/<medium/<capital) null -> unfireable
+        return !(fc[0] === null && fc[1] === null && fc[2] === null);
+    },
+
+    //Total fireable rounds available to an AmmoMagazine-fed weapon, across all of
+    //its firing modes, drawn from the owning unit's ammoMagazine. Excludes modes
+    //that can never fire (see isFireableMode). Returns null if this unit has no
+    //magazine (weapon is not magazine-fed after all).
+    getMagazineFireableAmmo: function getMagazineFireableAmmo(unit, weapon) {
+        if (!unit || !unit.systems) return null;
+
+        var magazine = null;
+        for (var i in unit.systems) {
+            if (unit.systems[i].name == "ammoMagazine") { magazine = unit.systems[i]; break; }
+        }
+        if (!magazine || !magazine.ammoCountArray) return null;
+
+        var total = 0;
+        for (var mode in weapon.firingModes) {
+            if (!weaponManager.isFireableMode(weapon, mode)) continue; //skip dummy/unfireable modes
+            var modeName = weapon.firingModes[mode];
+            var count = magazine.ammoCountArray[modeName];
+            if (typeof count === "number" && count > 0) total += count;
+        }
+        return total;
+    },
+
+    checkOutOfAmmo: function checkOutOfAmmo(ship, weapon, silent) {
 
         var p = ship;
         if (ship.flight) {
             p = shipManager.systems.getFighterBySystem(ship, weapon.id);
         } else {
-            return weaponManager.checkOutOfAmmoShip(ship, weapon);
+            return weaponManager.checkOutOfAmmoShip(ship, weapon, silent);
         }
 
         if (weapon.hasOwnProperty("ammunition")) {
@@ -267,9 +304,19 @@ window.weaponManager = {
                 return false;
             } else {
                 //confirm.error("This fighter gun is out of ammunition.");
-                confirm.error("This weapon is out of ammunition.");
+                if (!silent) confirm.error("This weapon is out of ammunition.");
                 return true;
             }
+        }
+
+        //modern AmmoMagazine-fed weapons: ammo lives centrally in the fighter's magazine
+        if (weapon.checkAmmoMagazine) {
+            var available = weaponManager.getMagazineFireableAmmo(p, weapon);
+            if (available !== null && available <= 0) {
+                if (!silent) confirm.error("This weapon is out of ammunition.");
+                return true;
+            }
+            return false;
         }
 
         for (var i in p.systems) {
@@ -277,16 +324,13 @@ window.weaponManager = {
             if (system.id != weapon.id) continue;
 
             if (system.missileArray) {
+                //any firing mode with rounds remaining means the rack can still fire
                 for (var j in system.missileArray) {
                     var missile = system.missileArray[j];
-
-                    if (missile.amount > 0) {
-                        return false;
-                    } else {
-                        confirm.error("This missile rack is out of ammo.");
-                        return true;
-                    }
+                    if (missile.amount > 0) return false;
                 }
+                if (!silent) confirm.error("This missile rack is out of ammo.");
+                return true;
             }
         }
 
@@ -295,18 +339,28 @@ window.weaponManager = {
 
 
     //checks whether a shipborne weapon has ran out of ammo
-    checkOutOfAmmoShip: function checkOutOfAmmoShip(ship, weapon) {
+    checkOutOfAmmoShip: function checkOutOfAmmoShip(ship, weapon, silent) {
         if (ship.flight) {
-            return weaponManager.checkOutOfAmmo(ship, weapon);
+            return weaponManager.checkOutOfAmmo(ship, weapon, silent);
         }
 
         if (weapon.hasOwnProperty("ammunition")) {
             if (weapon.ammunition > 0) {
                 return false;
             } else {
-                confirm.error("This weapon is out of ammunition.");
+                if (!silent) confirm.error("This weapon is out of ammunition.");
                 return true;
             }
+        }
+
+        //modern AmmoMagazine-fed weapons: ammo lives centrally in the ship's magazine
+        if (weapon.checkAmmoMagazine) {
+            var available = weaponManager.getMagazineFireableAmmo(ship, weapon);
+            if (available !== null && available <= 0) {
+                if (!silent) confirm.error("This weapon is out of ammunition.");
+                return true;
+            }
+            return false;
         }
 
         return false;
@@ -378,6 +432,18 @@ window.weaponManager = {
         });
     },
 
+    //Paired Kirishiac-family weapons (Antigravity Beam, Hypergraviton Beam, Lightning Gun,
+    //Proximity Launcher/Laser, Gravitic Augmenter, Phased Gravitic Torpedo, ...) append a
+    //per-instance pairing letter to displayName, e.g. 'Antigravity Beam A' / 'Antigravity Beam B'.
+    //"apply to all similar weapons" groups by displayName, so without stripping that suffix each
+    //weapon only ever matched itself. Pairings are always a single trailing ' <UPPERCASE LETTER>'
+    //(assigned as ' ' . $pairing in the server ship blueprints); no normal weapon displayName ends
+    //in a lone capital, so this is safe. Returns the base name for grouping.
+    stripPairingSuffix: function stripPairingSuffix(displayName) {
+        if (typeof displayName !== 'string') return displayName;
+        return displayName.replace(/ [A-Z]$/, '');
+    },
+
     selectAllWeapons: function selectAllWeapons(ship, system, touchToggleOverride) {
         if (!gamedata.isMyShip(ship)) {
             return;
@@ -393,9 +459,11 @@ window.weaponManager = {
             systems = ship.systems.filter(system => system.weapon);
         }
 
-        array = systems.filter(function (weapon) { return weapon.displayName === system.displayName });
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
+        array = systems.filter(function (weapon) { return weaponManager.stripPairingSuffix(weapon.displayName) === baseName });
 
-        var currentWasSelected = weaponManager.isSelectedWeapon(system); //all others affected weapons will have state set the same as current! 
+        var currentWasSelected = weaponManager.isSelectedWeapon(system); //all others affected weapons will have state set the same as current!
 
         if (touchToggleOverride === "forceSelect") {
             currentWasSelected = false; // Always select
@@ -2184,9 +2252,11 @@ window.weaponManager = {
         } else {
             allWeapons = ship.systems.filter(system => system.weapon);
         }
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(weapon.displayName);
         var similarWeapons = new Array();
         for (var i = 0; i < allWeapons.length; i++) {
-            if (weapon.displayName === allWeapons[i].displayName) { //this will include this particular system too, of course
+            if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) { //this will include this particular system too, of course
                 similarWeapons.push(allWeapons[i]);
             }
         }
@@ -2776,12 +2846,24 @@ window.weaponManager = {
     // server HangarOps cap: min(class flight-size limit, fighters currently HELD).
     // The class limit for the only bomb-launched class (ShadowMediumFighterFlight,
     // jinking 8) is 9; clamped to $pool so a bay holding fewer (ShadowCruiser: 6)
-    // never offers a per-flight size bigger than its stock.
+    // never offers a per-flight size bigger than its stock. This is the MANUAL
+    // per-flight ceiling; the AUTOMATIC split groups into smaller chunks (see below).
     shadowFighterBombFlightCap: function shadowFighterBombFlightCap(carrier, pool) {
         var classLimit = 9;
         var p = parseInt(pool, 10);
         if (!isNaN(p) && p > 0 && p < classLimit) return p;
         return classLimit;
+    },
+
+    // Preferred per-flight size for the AUTOMATIC split (user 2026-07-09). Mirrors
+    // HangarOps::bombAutoSplitChunk (6). Distinct from the cap: the auto-split groups
+    // fighters into flights of 6 with a trailing remainder (12→6+6, 15→6+6+3, 7→6+1,
+    // ≤6→one flight); a manual override may still reach the cap (9). Clamped to $pool.
+    shadowFighterBombAutoChunk: function shadowFighterBombAutoChunk(carrier, pool) {
+        var chunk = 6;
+        var p = parseInt(pool, 10);
+        if (!isNaN(p) && p > 0 && p < chunk) return p;
+        return chunk;
     },
 
     // Stage S (S-f): open the Fighter Bomb launch dialog (count + auto-split toggle /
@@ -2798,8 +2880,9 @@ window.weaponManager = {
             return;
         }
         var cap = weaponManager.shadowFighterBombFlightCap(carrier, pool);
+        var chunk = weaponManager.shadowFighterBombAutoChunk(carrier, pool);
 
-        confirm.shadowFighterBomb(carrier, pool, cap, function (result) {
+        confirm.shadowFighterBomb(carrier, pool, cap, chunk, function (result) {
             var sizes = (result && Array.isArray(result.sizes)) ? result.sizes : [];
             if (sizes.length === 0) return;
 
@@ -2935,7 +3018,9 @@ window.weaponManager = {
             systems = ship.systems.filter(system => system.weapon);
         }
 
-        array = systems.filter(function (weapon) { return weapon.displayName === system.displayName });
+        //group by BASE displayName so paired Kirishiac weapons ('...A'/'...B') count as one type
+        var baseName = weaponManager.stripPairingSuffix(system.displayName);
+        array = systems.filter(function (weapon) { return weaponManager.stripPairingSuffix(weapon.displayName) === baseName });
 
         for (var i = 0; i < array.length; i++) {
             var weapon = array[i];
