@@ -343,15 +343,16 @@ window.gamedata = {
         return new THREE.Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255).convertSRGBToLinear();
     },
 
-    // Overlay colour for a ship icon. Participants see the familiar mine/ally/enemy
-    // scheme; observers (not in the game) see a distinct colour per team instead of
-    // everything being red.
+    // Overlay colour for a ship icon. Mirrors the fleetList / combat-log scheme:
+    // 2-team participants see the familiar relative mine/ally/enemy scheme;
+    // observers AND 3+-team participants see a distinct colour per team instead
+    // (a single "ally" colour is ambiguous once there are several teams).
     getShipOverlayColor: function getShipOverlayColor(ship, mine, ally, terrain) {
         if (terrain) {
             return new THREE.Color(0xBE / 255, 0xBE / 255, 0xBE / 255).convertSRGBToLinear(); // Off-white
         }
 
-        if (!gamedata.isPlayerInGame()) {
+        if (!gamedata.isPlayerInGame() || gamedata.getDistinctTeamCount() !== 2) {
             return gamedata.getTeamColor(ship.team);
         }
 
@@ -1761,11 +1762,16 @@ getActiveShipName: function getActiveShipName() {
 
             //var categoryIndex = window.SimultaneousMovementRule.getShipCategoryIndex(ships[i]);
 
-            // Observers (not in the game) colour the initiative number by team
-            // instead of the mine/ally/enemy scheme. Use the IniGUI-darkened
-            // palette so it isn't brighter than the muted CSS participant colours.
+            // Colour the initiative number by team (per-team palette) instead of
+            // the relative mine/ally/enemy scheme for observers AND 3+-team
+            // participants, matching the fleetList / combat-log / ship-icon rule
+            // (a single "ally" colour is ambiguous once there are several teams).
+            // Use the IniGUI-darkened palette so it isn't brighter than the muted
+            // CSS participant colours. When teamColorCss is set, the active-mover
+            // box below also switches to the per-team style, so the whole row
+            // follows one scheme.
             var teamColorCss = "";
-            if (!gamedata.isPlayerInGame()) {
+            if (!gamedata.isPlayerInGame() || gamedata.getDistinctTeamCount() !== 2) {
                 var iniRgb = gamedata.getIniTeamColorRGB(ships[i].team);
                 teamColorCss = "color:rgb(" + iniRgb[0] + "," + iniRgb[1] + "," + iniRgb[2] + ");";
             }
