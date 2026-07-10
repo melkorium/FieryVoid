@@ -3697,7 +3697,7 @@ public $name = "TrekShieldProjection";
 //New version of Phaser so it can be adjusteted in KellyTrek without affecting existing Trek units
 class TrekPhaserKelly extends TrekPhaser{
 		public $name = "TrekPhaser";
-        public $displayName = "Phaser";
+        public $displayName = "Type 6 Phaser";
         public $iconPath = "TrekPhaserM.png"; 
         //public $animationExplosionScale = 0.3;
 
@@ -3716,6 +3716,7 @@ class TrekPhaserKelly extends TrekPhaser{
         public $damageType = "Raking";
 		public $weaponClass = "Particle";
 		public $firingModes = array( 1 => "Raking");
+		public $uninterceptable = true;
 
 	 	public function getInterceptRating($turn){
 			return 2;
