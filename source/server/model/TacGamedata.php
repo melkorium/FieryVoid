@@ -799,7 +799,13 @@ class TacGamedata {
             }
 
             foreach ($ship->movement as $i => $move) {
-                if ($move->turn == $this->turn && $move->type !== "deploy" && $move->type !== "start") {
+                //Never hide a forced move (Gravitic Augmenter's free jinks are marked forced=true):
+                //they are a REVEALED committed effect (declared in Initial Orders alongside the visible
+                //stat buffs), not the enemy's secret in-progress plot. Hiding it made the opponent lose
+                //the +3 jink (and the -15% to-hit it grants against the Warrior) during the Movement phase.
+                //Server-side the only forced movement is that transient jink; persisted moves never carry
+                //forced (no DB column), so this can't leak a normal manoeuvre.
+                if ($move->turn == $this->turn && $move->type !== "deploy" && $move->type !== "start" && empty($move->forced)) {
                     $toDelete[] = $i;
                 }
             }
