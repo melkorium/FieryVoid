@@ -189,6 +189,8 @@ What it verifies, per game:
 
 1. Make sure the Docker environment is running (`docker compose up -d`). The harness runs inside the php container and reads the local B5CGM database.
 
+   The examples below use the php container name `fieryvoid-php-1`. That name comes from your project folder (Docker Compose derives it from the directory the repo lives in), so if you cloned into a differently-named folder yours will differ — check with `docker ps` and substitute your `*-php-1` name. Everything else (DB name/user/password) is read from the standard docker-compose defaults, so no other setup is needed. (If your DB differs, you can override with the `FV_DB_HOST/PORT/NAME/USER/PASS` environment variables.)
+
 2. **Record a baseline while the code is in a known-good state** (e.g. right after a deploy, or on a freshly pulled branch):
 
    docker exec fieryvoid-php-1 php /usr/src/current/tests/replay/replayHarness.php record
@@ -218,8 +220,17 @@ What it verifies, per game:
 
 - **Add coverage by playing**: any game you play on the local server (fresh test games included) becomes corpus material — just run `record` again to fold it into the baseline. The more varied the local games (factions, weapons, terrain, fighters), the wider the net.
 - **Deterministic dice**: live hit-chance calculation genuinely rolls dice (the hit LOCATION is rolled inside calculateHitBase and feeds the final chance). The harness replaces the Dice class in its own process with a seeded RNG so every run reproduces exactly. Game code is not touched.
-- A couple of ancient test games fail to load (corrupt data) — their error text is recorded as part of the baseline, which is fine: if they ever start loading differently, that's a change worth seeing too.
-- The baseline is derived from your local DB + code, so it is NOT committed; each dev records their own.
+- A couple of ancient test games fail to load (corrupt data) — their error text is recorded as part of the baseline, which is fine: if they ever start loading differently, that's a change worth seeing too. Games that are broken for legacy reasons the harness can't model can be dropped entirely by adding their id to the `EXCLUDED_GAMES` constant at the top of `replayHarness.php`.
+
+### Multiple developers / different Docker databases:
+
+The harness works for everyone, but **the baseline is per-developer and is never shared or committed**. Here's why and what that means:
+
+- The harness code (`tests/replay/replayHarness.php`) is committed and portable — pull the branch and it's there.
+- The **baseline** (`tests/replay/baseline/`) is git-ignored on purpose. A baseline is a snapshot of *your* local games run through *your* code — it only makes sense against the exact database it was recorded from. There is no point in one dev's baseline reaching another dev, and committing it would just create noise and conflicts.
+- So the one-time setup for any dev is simply: pull the branch, then **run `record` once** against their own DB. From then on, `check` compares current code against that personal baseline. Everyone's corpus is different (different local games), which is a feature — collectively you cover more ships/weapons/situations.
+- Because baselines aren't shared, a FAIL is always meaningful *to the dev who sees it*: it means the current code changed engine behaviour relative to the games in their own DB. It never reflects someone else's data.
+- The `EXCLUDED_GAMES` list is shared (it's in the committed code). It's keyed by game id, so an entry that names a game another dev doesn't have simply does nothing for them — harmless. Only add ids there for games that are genuinely unmodellable, with a note saying why.
 
 # Image Optimiser:
 
