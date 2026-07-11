@@ -79,9 +79,11 @@ const ListItem = styled.div`
     color: #e6e6e6;
 
     /* Drag-to-reorder: rows are grabbable; touch-action:none stops the touch
-       gesture scrolling the list instead of dragging the row. */
-    cursor: grab;
-    touch-action: none;
+       gesture scrolling the list instead of dragging the row. In view-only mode
+       (outside Initial Orders) dragging is disabled, so the row is a plain default
+       cursor and touch gestures may scroll the list normally. */
+    cursor: ${props => props.$readOnly ? 'default' : 'grab'};
+    touch-action: ${props => props.$readOnly ? 'auto' : 'none'};
     user-select: none;
     position: relative;
 
@@ -297,6 +299,21 @@ const InputField = styled.input`
         margin: 0; 
     }
     -moz-appearance: textfield;
+`;
+
+// View-only read-out of a row's priority (replaces the editable InputField + buttons
+// outside Initial Orders). Sized like the input so rows keep a consistent width.
+const ReadOnlyPriority = styled.span`
+    min-width: 20px;
+    height: 16px;
+    color: #e6e6e6;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 0 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 class SelfRepairList extends React.Component {
@@ -665,6 +682,8 @@ class SelfRepairList extends React.Component {
     // reordered list). See reference_jquery_pointer_drag_reorder memory.
 
     onRowPointerDown(e, keyId, startIdx, order) {
+        // View-only (outside Initial Orders): row-dragging is disabled entirely.
+        if (this.props.readOnly) return;
         // Primary button / touch only.
         if (e.button != null && e.button !== 0) return;
         // Don't start a drag from the action buttons or the number input — let
@@ -966,7 +985,7 @@ class SelfRepairList extends React.Component {
     }
 
     render() {
-        const { ship } = this.props;
+        const { ship, readOnly } = this.props;
         const repairableSystems = this.getRepairableSystems();
 
         // Count number of SelfRepair systems
@@ -979,7 +998,7 @@ class SelfRepairList extends React.Component {
         return (
             <Container>
                 <Header>
-                    Manage Repair Queue
+                    {readOnly ? 'Repair Queue (view only)' : 'Manage Repair Queue'}
                 </Header>
 
                 <ListContainer
@@ -1020,6 +1039,7 @@ class SelfRepairList extends React.Component {
                             $lineAtEnd={lineAtEnd}
                             $lineBefore={lineBefore}
                             $gapSize={drag ? drag.gapSize : 0}
+                            $readOnly={readOnly}
                             onPointerDown={(e) => this.onRowPointerDown(e, item.keyId, index, repairableSystems)}
                         >
                             <ItemInfo>
@@ -1044,24 +1064,33 @@ class SelfRepairList extends React.Component {
                                 )}
                             </ItemInfo>
                             <ActionButtons>
-                                <ActionButton className="sr-action-button" title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />
-                                <ActionButton className="sr-action-button" title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />
-                                <InputField
-                                    id={`prio-input-${item.keyId}`}
-                                    type="number"
-                                    value={this.state.priorityInputs[item.keyId] !== undefined ? this.state.priorityInputs[item.keyId] : item.priority}
-                                    onChange={(e) => this.handleInputChange(e, item.keyId, item.priority)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onWheel={(e) => this.handleWheel(e, item.keyId, item.priority)}
-                                />
-                                <ActionButton className="sr-action-button" title="Increase Priority" onClick={(e) => this.handleUp(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconPlus.png" />
-                                <ActionButton className="sr-action-button" title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
+                                {readOnly ? (
+                                    // View-only (outside Initial Orders): show the priority as a static
+                                    // read-out — no editing controls, no drag. The player can still see
+                                    // the queue order they set earlier.
+                                    <ReadOnlyPriority title="Priority (view only)">{item.priority}</ReadOnlyPriority>
+                                ) : (
+                                    <>
+                                        <ActionButton className="sr-action-button" title="Reset Default" onClick={(e) => this.handleReset(e, item.keyId)} img="./img/iconSRCancel.png" />
+                                        <ActionButton className="sr-action-button" title="Decrease Priority" onClick={(e) => this.handleDown(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconMinus.png" />
+                                        <InputField
+                                            id={`prio-input-${item.keyId}`}
+                                            type="number"
+                                            value={this.state.priorityInputs[item.keyId] !== undefined ? this.state.priorityInputs[item.keyId] : item.priority}
+                                            onChange={(e) => this.handleInputChange(e, item.keyId, item.priority)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onWheel={(e) => this.handleWheel(e, item.keyId, item.priority)}
+                                        />
+                                        <ActionButton className="sr-action-button" title="Increase Priority" onClick={(e) => this.handleUp(e, item.keyId, item.priority)} img="./img/systemicons/AAclasses/iconPlus.png" />
+                                        <ActionButton className="sr-action-button" title="Move to Top" onClick={(e) => this.handleTop(e, item.keyId)} img="./img/iconSRHigh.png" />
+                                    </>
+                                )}
                             </ActionButtons>
                         </ListItem>
                         );
                     })}
                 </ListContainer>
-                {selfRepairCount > 1 && (
+                {!readOnly && selfRepairCount > 1 && (
                     <Footer>
                         <PropagateButton onClick={(e) => this.handlePropagate(e)}>Set all Self Repair systems</PropagateButton>
                     </Footer>

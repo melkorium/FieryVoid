@@ -644,7 +644,7 @@ class SystemInfoButtons extends React.Component {
 				*/}
 
 
-				{canSelfRepairList(ship, system) && <SelfRepairList ship={ship} system={system} />}
+				{canSelfRepairList(ship, system) && <SelfRepairList ship={ship} system={system} readOnly={!canEditSelfRepairList(ship, system)} />}
 
 				{canPowerCapacitor(ship, system) && <PowerCapacitor ship={ship} system={system} />}
 
@@ -748,8 +748,13 @@ const getThoughtShieldGencurrClassImg = (ship, system) => './img/systemicons/Shi
 const getThoughtShieldGencurrClassName = (ship, system) => system.getCurrClass();
 const canThoughtShieldGenSelect = (ship, system) => canThoughtShieldGen(ship, system) && system.canSelect() != '';*/
 
-//can do something with Self Repair...
-const canSelfRepairList = (ship, system) => (gamedata.gamephase === 1) && (system.name == 'SelfRepair');
+//Self Repair queue menu. Shown for my own SelfRepair systems in EVERY phase so the player can
+//review the priorities they set (it was too easy to forget them once phase 1 passed). It is only
+//EDITABLE in Initial Orders (phase 1); in any other phase the list opens VIEW-ONLY (see
+//canEditSelfRepairList -> readOnly prop, which disables the inputs/buttons/row-dragging).
+const canSelfRepairList = (ship, system) => gamedata.isMyShip(ship) && (system.name == 'SelfRepair');
+//Editable only in Initial Orders; elsewhere the menu is view-only.
+const canEditSelfRepairList = (ship, system) => canSelfRepairList(ship, system) && gamedata.gamephase === 1;
 
 export const canDoAnything = (ship, system) => canOffline(ship, system) || canOnline(ship, system)
 	|| canOverload(ship, system) || canStopOverload(ship, system) || canBoost(ship, system)
