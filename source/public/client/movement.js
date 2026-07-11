@@ -221,7 +221,7 @@ shipManager.movement = {
             if (movement.value != accel && movement.heading == curheading || movement.value == accel && movement.heading != curheading) {
                 // adjust the current turn delay if the new speed changes the turn delay
                 var oldspeed = shipManager.movement.getSpeed(ship);
-                console.log("I am going to delete ", movement)
+                //console.log("I am going to delete ", movement)
                 shipManager.movement.revertAutoThrust(ship);
                 ship.movement.splice(ship.movement.length - 1, 1);
                 var speed = shipManager.movement.getSpeed(ship);
