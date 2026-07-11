@@ -2741,20 +2741,26 @@ window.confirm = {
     // callback receives { sizes: [n, ...] } — one entry per flight to spawn. In auto
     // mode that's a single [total] (server does the split); in manual mode it's the
     // player's per-flight list. weaponManager builds the fire order(s) from it.
-    shadowFighterBomb: function shadowFighterBomb(carrier, pool, cap, callback) {
-        pool = Math.max(0, parseInt(pool, 10) || 0);
-        cap  = Math.max(1, parseInt(cap, 10) || 9);
+    shadowFighterBomb: function shadowFighterBomb(carrier, pool, cap, chunk, callback) {
+        // Back-compat: older callers pass (carrier, pool, cap, callback) with no chunk.
+        if (typeof chunk === 'function') { callback = chunk; chunk = null; }
+        pool  = Math.max(0, parseInt(pool, 10) || 0);
+        cap   = Math.max(1, parseInt(cap, 10) || 9);
+        // Auto-split chunk (preferred flight size). Defaults to the cap (old behaviour)
+        // when not supplied; clamped so it never exceeds the cap.
+        chunk = Math.min(cap, Math.max(1, parseInt(chunk, 10) || cap));
         if (pool <= 0) { confirm.warning("No integrated fighters left in the hangar to launch."); return; }
 
         var e = $('<div class="confirm error multi-value-confirm hangar-confirm shadowFighterBomb"><div class="ui"><div class="confirmok"></div><div class="confirmcancel"></div></div></div>');
         $('<div class="multi-value-header">Fighter Bomb &mdash; launch from ' + carrier.name + '</div>').prependTo(e);
         var container = $('<div class="multi-value-container"></div>').insertAfter(e.find('.multi-value-header'));
 
-        // Splitting only matters when the pool can form MORE than one flight (pool >
-        // cap). Since cap = min(9, pool), that's only when pool > 9. Otherwise the whole
-        // launch is a single flight, so hide the toggle + manual section entirely and
-        // show just the total count input.
-        var splittable = pool > cap;
+        // Splitting only matters when the pool can form MORE than one flight — i.e.
+        // when the auto-split would break it up (pool > chunk, chunk = 6). Otherwise the
+        // whole launch is a single flight, so hide the toggle + manual section entirely
+        // and show just the total count input. (The MANUAL per-flight max stays the cap
+        // of 9; the auto-split default groups into 6s.)
+        var splittable = pool > chunk;
 
         $('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;">' +
             pool + ' integrated fighters available.' + (splittable ? ' Max ' + cap + ' per flight.' : '') +
@@ -2781,9 +2787,9 @@ window.confirm = {
             if (v < 1 && $(this).val() !== "") $(this).val(1);
         });
 
-        // --- MANUAL section: one input per flight, pre-filled with an even-ish split.
-        // The player may add MORE (smaller) flights than the minimum ceil(pool/cap):
-        // e.g. 24 starts as 9+9+6 but can become 6+6+6+6 via "Add another flight".
+        // --- MANUAL section: one input per flight, pre-filled with the auto-split
+        // (chunks of 6, remainder trailing): 15 → 6+6+3, 24 → 6+6+6+6. Each input still
+        // ACCEPTS up to the cap (9), so the player can override into bigger flights.
         var manualSection = $('<div class="bombManualSection" style="display:none;"></div>').appendTo(container);
         var manualRemaining = $('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;"></span></div>').appendTo(manualSection);
         var flightRowsHolder = $('<div class="bombFlightRows"></div>').appendTo(manualSection);
@@ -2824,11 +2830,11 @@ window.confirm = {
             return inp;
         }
 
-        // Initial rows = the minimum even split (9+9+6 for 24).
+        // Initial rows = the auto-split (chunks of 6, remainder trailing: 6+6+3 for 15).
         var left = pool;
-        var nFlights = Math.max(1, Math.ceil(pool / cap));
+        var nFlights = Math.max(1, Math.ceil(pool / chunk));
         for (var f = 0; f < nFlights; f++) {
-            var preset = Math.min(cap, left);
+            var preset = Math.min(chunk, left);
             left -= preset;
             addFlightRow(preset);
         }

@@ -97,7 +97,7 @@ class SystemInfo extends React.Component {
 				displayOffensiveBonus -= window.ew.getDetectMEW(ship);
 			}else{
 				displayOffensiveBonus -= window.ew.getDetectMEW(ship) * 2;
-			}	
+			}
         }
 
         var systemDisplayName = system.displayName;
@@ -133,13 +133,13 @@ class SystemInfo extends React.Component {
 
                 {!ship.flight && !isUnrevealedMine && getEntry('Structure', system.maxhealth - damageManager.getDamage(ship, system) + '/' + system.maxhealth)}
                 {!ship.flight && !isUnrevealedMine && getEntry('Armor', shipManager.systems.getArmour(ship, system))}
-                {ship.flight && !isUnrevealedMine && getEntry('Offensive bonus', displayOffensiveBonus * 5)}
+                {ship.flight && !isUnrevealedMine && getEntry('Offensive bonus', adjustObDisplay(system, displayOffensiveBonus * 5))}
 
                 {system.firingModes && !isUnrevealedMine && getEntry('Firing mode', firingModeDisplay)}
 
                 {system.missileArray && Object.keys(system.missileArray).length > 0 && !isUnrevealedMine && getEntry('Ammo Amount', system.missileArray[system.firingMode].amount)}
 
-                {!isUnrevealedMine && Object.keys(system.data).map((key, i) => (key != specialName && !(key === 'Ammunition' && (system.name === 'GrapplingClaw' || system.name === 'Marines')) && getEntry(key, system.data[key], 'data' + i)))}
+                {!isUnrevealedMine && Object.keys(system.data).map((key, i) => (key != specialName && !(key === 'Ammunition' && (system.name === 'GrapplingClaw' || system.name === 'Marines')) && getEntry(key, adjustDataDisplay(system, key), 'data' + i)))}
 
                 {shadowBombAvailable !== null && getEntry('Fighters available', shadowBombAvailable)}
 
@@ -284,6 +284,18 @@ const getCriticals = (system) => {
         })
     );
 };
+
+//Let a weapon fold live state into its displayed stats (e.g. Minor Thought Pulsar's thrust
+//allocation). Weapons opt in by defining the method; everything else shows the base value.
+const adjustObDisplay = (system, baseObPercent) =>
+    (typeof system.adjustOffensiveBonusDisplay === 'function')
+        ? system.adjustOffensiveBonusDisplay(baseObPercent)
+        : baseObPercent;
+
+const adjustDataDisplay = (system, key) =>
+    (typeof system.adjustDataValueDisplay === 'function')
+        ? system.adjustDataValueDisplay(key, system.data[key])
+        : system.data[key];
 
 const getEntry = (header, value, key) => {
     if (typeof value === 'string' && value.indexOf('<br>') !== -1) {

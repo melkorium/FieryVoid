@@ -14,6 +14,7 @@ import SystemPowerSettings from "./SystemPowerSettings";
 import MineSettingsList from "./MineSettingsList";
 import ProximityMineSettingsList from "./ProximityMineSettingsList";
 import GraviticAugmenterMenu from "./GraviticAugmenterMenu";
+import MinorThoughtPulsarMenu from "./MinorThoughtPulsarMenu";
 
 const Container = styled.div`
     display: flex;
@@ -182,9 +183,13 @@ class SystemInfoButtons extends React.Component {
 		} else {
 			allWeapons = ship.systems.filter(system => system.weapon);
 		}
+		//group by BASE displayName (trailing pairing letter stripped) so paired Kirishiac weapons
+		//('Antigravity Beam A'/'...B', 'Hypergraviton Beam A'/'...B', etc.) all change together;
+		//normal weapons (stable displayName) are unaffected. See weaponManager.stripPairingSuffix.
+		var baseName = weaponManager.stripPairingSuffix(system.displayName);
 		var similarWeapons = new Array();
 		for (var i = 0; i < allWeapons.length; i++) {
-			if (system.displayName === allWeapons[i].displayName) {
+			if (baseName === weaponManager.stripPairingSuffix(allWeapons[i].displayName)) {
 				if (system.weapon) {
 					similarWeapons.push(allWeapons[i]);
 				}
@@ -268,6 +273,9 @@ class SystemInfoButtons extends React.Component {
 		//if(finished) webglScene.customEvent('CloseSystemInfo');
 	}
 
+	/* Dead code: activation is rendered via the <SystemActivation> component (see render()),
+	   which owns its own doActivate/doDeactivate handlers. These methods were never bound to
+	   any button and are kept commented for reference only.
 	activate(e) {
 		e.stopPropagation(); e.preventDefault();
 		const { ship, system } = this.props;
@@ -280,6 +288,7 @@ class SystemInfoButtons extends React.Component {
 		system.doDeactivate();
 		webglScene.customEvent('SystemDataChanged', { ship: ship, system: system });
 	}
+	*/
 
 
 	//switch Adaptive Armor, Hyach Computer or Specialists display to next damage/FC class
@@ -599,6 +608,8 @@ class SystemInfoButtons extends React.Component {
 
 				{canGraviticAugmenter(ship, system) && <GraviticAugmenterMenu system={system} ship={ship} />}
 
+				{canMinorThoughtPulsar(ship, system) && <MinorThoughtPulsarMenu system={system} ship={ship} />}
+
 
 				{(canTSShield(ship, system) || canTSShieldGen(ship, system)) && <ShieldGeneratorList system={system} ship={ship} />}
 				{/*
@@ -680,6 +691,15 @@ const canGraviticAugmenter = (ship, system) => system.name === 'GraviticAugmente
 	((gamedata.gamephase === 1 && !weaponManager.hasFiringOrder(ship, system)) ||
 	 (gamedata.gamephase === 5));
 
+//Minor Thought Pulsar's own free thrust-allocation menu (replaces its old firing-mode presets).
+//Shown in the Firing phase for my own units when the weapon is a live, powered Minor Thought Pulsar
+//(before OR after targeting, so the player can pre-set the allocation and then adjust it).
+const canMinorThoughtPulsar = (ship, system) => system.name === 'MinorThoughtPulsar' &&
+	gamedata.gamephase === 3 && gamedata.isMyShip(ship) &&
+	!system.stowed &&
+	!shipManager.systems.isDestroyed(ship, system) &&
+	!shipManager.power.isOffline(ship, system);
+
 const canMineSettings = (ship, system) => (gamedata.gamephase === -1) && (ship.mine) && (ship.spawned == -1 && gamedata.turn == 1 || ship.spawned == gamedata.turn - 1) && (system.name == 'CaptorMine' || system.name == 'MineControllerDEW');
 
 const canProxMineSettings = (ship, system) => (gamedata.gamephase === -1) && (ship.mine) && (ship.spawned == -1 && gamedata.turn == 1 || ship.spawned == gamedata.turn - 1) && (system.name == 'ProximityMine');
@@ -738,7 +758,7 @@ export const canDoAnything = (ship, system) => canOffline(ship, system) || canOn
 	|| canSelfIntercept(ship, system) || canRemIntercept(ship, system) || canAA(ship, system) || canBFCP(ship, system) || canSpec(ship, system) || canTSShield(ship, system)
 	|| canThoughtShield(ship, system) || canTSShieldGen(ship, system) || canThoughtShieldGen(ship, system)
 	|| canSelfRepairList(ship, system) || canActivate(ship, system) || canDeactivate(ship, system) || canPowerCapacitor(ship, system) || canSystemActivation(ship, system) || canSelectAllWeapons(ship, system)
-	|| canMineSettings(ship, system) || canProxMineSettings(ship, system) || canGraviticAugmenter(ship, system);
+	|| canMineSettings(ship, system) || canProxMineSettings(ship, system) || canGraviticAugmenter(ship, system) || canMinorThoughtPulsar(ship, system);
 
 //powerLocked: system may not be voluntarily powered down right now (Antigravity Beam while its Kirishiac Orbital is deployed)
 const canOffline = (ship, system) => gamedata.gamephase === 1 && (system.canOffLine || system.powerReq > 0) && !system.powerLocked && !shipManager.power.isOffline(ship, system) && !shipManager.power.getBoost(system) && !weaponManager.hasFiringOrder(ship, system);
@@ -789,9 +809,10 @@ const canRemoveFireOrderMulti = (ship, system) => system.weapon && weaponManager
 const canRemoveFireOrder = (ship, system) => system.weapon && weaponManager.hasFiringOrder(ship, system)
 	&& !(typeof system.isSpentLocked === 'function' && system.isSpentLocked());
 
-//The Gravitic Augmenter cycles its own modes inside its green menu, so it opts out of the
-//generic firing-mode selector grid.
-const canChangeFiringMode = (ship, system) => system.weapon && !ship.mine && !system.stowed && system.name !== 'GraviticAugmenter' && ((gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires) || (gamedata.gamephase === 3 && !system.ballistic && !system.preFires)) && (!weaponManager.hasFiringOrder(ship, system) || system.multiModeSplit) && (Object.keys(system.firingModes).length > 1);
+//The Gravitic Augmenter cycles its own modes inside its green menu, and the Minor Thought Pulsar
+//replaces firing modes entirely with its free thrust-allocation menu — both opt out of the generic
+//firing-mode selector grid.
+const canChangeFiringMode = (ship, system) => system.weapon && !ship.mine && !system.stowed && system.name !== 'GraviticAugmenter' && system.name !== 'MinorThoughtPulsar' && ((gamedata.gamephase === 1 && system.ballistic) || (gamedata.gamephase === 5 && system.preFires) || (gamedata.gamephase === 3 && !system.ballistic && !system.preFires)) && (!weaponManager.hasFiringOrder(ship, system) || system.multiModeSplit) && (Object.keys(system.firingModes).length > 1);
 
 //can declare eligibility for interception: charged, recharge time >1 turn, intercept rating >0, no firing order
 const canSelfIntercept = (ship, system) => system.weapon && weaponManager.canSelfInterceptSingle(ship, system);
@@ -836,6 +857,7 @@ export const hasStyledMenu = (ship, system) => {
 		canMineSettings(ship, system) ||
 		canProxMineSettings(ship, system) ||
 		canGraviticAugmenter(ship, system) ||
+		canMinorThoughtPulsar(ship, system) ||
 		(canTSShield(ship, system) || canTSShieldGen(ship, system)) ||
 		(canThoughtShield(ship, system) || canThoughtShieldGen(ship, system)) ||
 		canSelfRepairList(ship, system) ||

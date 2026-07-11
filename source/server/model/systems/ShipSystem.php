@@ -53,7 +53,13 @@ class ShipSystem {
 	public $individualNotesTransfer = "";//variable for transferring individual notes from interface to server layer
 	
 	public $repairPriority = 4;//priority at which system is repaired (by self repair system); higher = sooner; 0 indicates that system cannot be repaired
-	
+
+	/*additive: true means an UNRESTRICTED (whole-ship) Self Repair may NOT service this system - only a Self
+	Repair whose repairRestrictedTo list names it may. Used for a DEPLOYED Kirishiac Heavy Orbital (orbital,
+	weapon and its own attached Self Repair): out of the mother ship's reach, serviced only by its on-board SR.
+	Default false = normal (any eligible SR may repair). Docked, the flag is cleared and the hull-wide SR resumes.*/
+	public $privateRepairOnly = false;
+
 	protected $doCountForCombatValue = true; //false means this system is skipped when evaluating ships' combat value!
 	
 	protected $tagList = array(); //tags for TAG hit chart entry; REMEMBER TAGS SHOULD BE MADE USING CAPITAL LETTERS!

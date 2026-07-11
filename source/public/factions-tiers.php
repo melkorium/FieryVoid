@@ -1094,8 +1094,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     </ul>
 <h5>Minor Thought Pulsar</h5>
         <ul>
-<li>Fighter weapon for Mindriders, will be automatically boosted with unused Thrust when fired in Firing phase (one boost for every 3 unused Thrust), instead of this being done manually as in Tabletop.</li>
-        <li>The type of boost will be decided by the Firing Mode selected and includes bonuses to Rate of Fire, Damage, Hit Chance, or a combination of these three benefits.</li>                                               
+<li>Fighter weapon for Mindriders. Use the menu provided in Firing phase to boost weapons properties using any unused Thrust.  Each boost requires 3 unused Thrust and includes bonuses to number of shots, damage, and offensive bonus.</li>                                               
     </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 

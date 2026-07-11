@@ -1912,8 +1912,15 @@ class HangarOps {
 		if (!isset($ship->fighters) || !is_array($ship->fighters) || empty($ship->fighters)) return;
 
 		$sizes = array('heavy', 'medium', 'light', 'ultralight');
+		//Categories a narrowed SIZE bay still accepts (shuttle family + BPs) via the
+		//hierarchy/shuttle rules in hangarAcceptsCategory — declaring one of these
+		//alongside a lone size does NOT make the bay genuinely multi-category, so it
+		//must NOT block narrowing (e.g. {light:6, shuttles:4} still narrows to light).
+		$sizeBayCompatible = array('shuttles', 'minesweeping shuttles', 'cargo shuttles',
+			'medical shuttles', 'lifeboats', 'assault shuttles', 'breaching pods');
 		$declared = array();
 		$hasNormal = false;
+		$hasCustomCombat = false;
 		foreach ($ship->fighters as $cat => $count){
 			$catLower = strtolower(trim((string)$cat));
 			//'normal' is the universal combat-fighter slot (accepts heavy and
@@ -1923,12 +1930,22 @@ class HangarOps {
 			//reject the larger fighters the 'normal' slots are meant to hold. Treat
 			//'normal' as a narrowing-blocker so such ships keep universal bays.
 			if ($catLower === 'normal') { $hasNormal = true; continue; }
-			if (in_array($catLower, $sizes, true)) $declared[] = $catLower;
+			if (in_array($catLower, $sizes, true)) { $declared[] = $catLower; continue; }
+			if (in_array($catLower, $sizeBayCompatible, true)) continue;
+			//Any OTHER declared category is a CUSTOM COMBAT category (e.g.
+			//'Hunter-Killers', 'Raiders') that a narrowed size bay would REJECT
+			//(hangarAcceptsCategory('light','hunter-killers') is false). A ship that
+			//mixes a size with such a category (VigilantHKAM's {light:6,
+			//Hunter-Killers:6} single bay) is genuinely multi-category — narrowing to
+			//the lone size would strand the custom-category flights. Block narrowing.
+			$hasCustomCombat = true;
 		}
-		//Stay universal when 'normal' is present (multi-size capable) or when the
-		//declaration is ambiguous (0 or >1 specific sizes). Only narrow when the
-		//ship declares EXACTLY ONE specific size and no universal 'normal' slots.
+		//Stay universal when 'normal' is present (multi-size capable), when a custom
+		//combat category shares the bay, or when the declaration is ambiguous (0 or
+		//>1 specific sizes). Only narrow when the ship declares EXACTLY ONE specific
+		//size and no universal 'normal' / custom-combat slots.
 		if ($hasNormal) return;
+		if ($hasCustomCombat) return;
 		if (count($declared) !== 1) return;     //ambiguous — leave universal
 
 		$hangar->hangarType = $declared[0];
@@ -3383,13 +3400,16 @@ class HangarOps {
 		//cap (e.g. 24 fighters, max 9/flight), so it spawns MULTIPLE flights:
 		//  - explicit $flightSizes (manual split the player chose) — clamp each to the
 		//    cap and to the held pool, drop non-positive;
-		//  - else auto-split $count (<=0/null ⇒ whole pool) into ceil(n/cap) flights of
-		//    <=cap each (e.g. 24 → 9+9+6).
+		//  - else auto-split $count (<=0/null ⇒ whole pool) into chunks of the preferred
+		//    auto-split size, trailing remainder last (e.g. 24 → 6+6+6+6, 15 → 6+6+3).
 		//Cap = min(class flight-size limit, fighters currently HELD) — a bay holding
 		//fewer than the limit (ShadowCruiser: 6) can never form a flight bigger than
-		//its stock, so the cap tracks the held pool (user 2026-06-11).
-		$cap = min(self::bombFlightSizeCap($phpclass), $held);
-		$sizes = self::resolveBombFlightSizes($flightSizes, $count, $held, $cap);
+		//its stock, so the cap tracks the held pool (user 2026-06-11). The auto-split
+		//CHUNK (6, user 2026-07-09) is the DEFAULT grouping, distinct from the cap (9):
+		//a manual override may still form flights up to the cap.
+		$cap   = min(self::bombFlightSizeCap($phpclass), $held);
+		$chunk = min(self::bombAutoSplitChunk(), $held);
+		$sizes = self::resolveBombFlightSizes($flightSizes, $count, $held, $cap, $chunk);
 		if (empty($sizes)) return null;
 
 		//Spawn geometry: TARGET hex, carrier heading/speed/facing. Unlike an
@@ -3462,13 +3482,25 @@ class HangarOps {
 		return max(1, $cap);
 	}
 
+	/* Preferred per-flight fighter count for the AUTOMATIC split (user 2026-07-09).
+	 * Distinct from bombFlightSizeCap: the cap (9) is the hard rules ceiling a MANUAL
+	 * override may reach, while the auto-split groups fighters into flights of 6 with a
+	 * trailing remainder (12 → 6+6, 15 → 6+6+3, 7 → 6+1, ≤6 → one flight). */
+	public static function bombAutoSplitChunk(){
+		return 6;
+	}
+
 	/* Build the per-flight size list for a bomb launch, each entry <= $cap and the
 	 * total <= $held. Prefers an explicit $flightSizes list (the manual split);
-	 * otherwise auto-splits $count (<=0/null ⇒ whole $held) into ceil(n/cap) flights
-	 * (e.g. 24, cap 9 ⇒ [9,9,6]). Any explicit entry over the cap is itself split. */
-	public static function resolveBombFlightSizes($flightSizes, $count, $held, $cap){
+	 * otherwise auto-splits $count (<=0/null ⇒ whole $held) into flights of $chunk
+	 * (the preferred auto-split size, default = $cap) with the remainder trailing last
+	 * (e.g. 15, chunk 6 ⇒ [6,6,3]). Any explicit MANUAL entry over the cap is itself
+	 * broken into <=cap pieces (manual honours the cap, not the smaller auto chunk). */
+	public static function resolveBombFlightSizes($flightSizes, $count, $held, $cap, $chunk = null){
 		$cap = max(1, (int)$cap);
 		$held = max(0, (int)$held);
+		//Auto-split chunk defaults to the cap (old behaviour) when not supplied.
+		$chunk = ($chunk === null) ? $cap : max(1, (int)$chunk);
 		$out = array();
 
 		if (is_array($flightSizes) && !empty($flightSizes)){
@@ -3480,20 +3512,20 @@ class HangarOps {
 				$budget -= $s;
 				//A manual entry larger than the cap is itself broken into <=cap chunks.
 				while ($s > 0){
-					$chunk = min($cap, $s);
-					$out[] = $chunk;
-					$s -= $chunk;
+					$piece = min($cap, $s);
+					$out[] = $piece;
+					$s -= $piece;
 				}
 			}
 			return $out;
 		}
 
-		//Auto-split path.
+		//Auto-split path — group into $chunk-sized flights, remainder trailing.
 		$total = ($count === null || (int)$count <= 0) ? $held : min($held, (int)$count);
 		while ($total > 0){
-			$chunk = min($cap, $total);
-			$out[] = $chunk;
-			$total -= $chunk;
+			$piece = min($chunk, $total);
+			$out[] = $piece;
+			$total -= $piece;
 		}
 		return $out;
 	}
@@ -4442,6 +4474,14 @@ class HangarOps {
 			if ($remaining < $count) { $reason = 'customFighter cap exceeded'; return false; }
 		}
 
+		//Per-carrier CUSTOM COMBAT category cap (e.g. Hunter-Killers). A universal
+		//bay pools this category's craft with light fighters / AS in the same boxes,
+		//but $ship->fighters caps how many of THIS category may dock (Prophet: 18 HK
+		//even though the 37-box bay could physically hold more). No-op (PHP_INT_MAX)
+		//for size / shuttle-family categories, which share via the box hierarchy.
+		$catRemaining = self::categoryCapRemaining($carrier, $category);
+		if ($catRemaining < $count) { $reason = 'fighter category cap exceeded'; return false; }
+
 		return true;
 	}
 
@@ -4553,6 +4593,13 @@ class HangarOps {
 				return false;
 			}
 
+			//Custom combat category (e.g. 'Hunter-Killers', 'Raiders'): a universal
+			//bay accepts it when the ship's $fighters declares that exact category
+			//(VigilantHKAM's {light:6, Hunter-Killers:6} bay accepts both light
+			//fighters and HKs). The per-bay allowedFighterClasses gate still enforces
+			//WHICH phpclasses may actually dock, so this only opens the category door.
+			if (!empty($declared[$cat])) return true;
+
 			//Other custom names need explicit exact-match (typed hangar) or a
 			//customFighter declaration (gated separately by Stage 10.6.2).
 			return false;
@@ -4640,6 +4687,60 @@ class HangarOps {
 			foreach ($h->hangarUsage as $entry){
 				if (!isset($entry['customFtrName'])) continue;
 				if ($entry['customFtrName'] !== $name) continue;
+				$used += (int)($entry['flightSize'] ?? 1);
+			}
+		}
+		return max(0, $declared - $used);
+	}
+
+	/* True when $category is a CUSTOM COMBAT category — one that the fleet-builder
+	 * (gamelobby checkChoices) routes through its ISOLATED totalHangarOther pool
+	 * (matched strictly by name against totalFtrOther), NOT through the shared
+	 * size hierarchy (light/medium/…) or the shuttle/BP families. Currently the
+	 * only live example is Orieni 'Hunter-Killers'. Such a category gets its own
+	 * hard per-carrier cap from $ship->fighters[$category] (see categoryCapRemaining),
+	 * rather than borrowing free boxes from the bay's other categories.
+	 * Mirrors the size/shuttle-family exclusion in inferHangarType. */
+	public static function isCustomCombatCategory($category){
+		$cat = strtolower(trim((string)$category));
+		if ($cat === '') return false;
+		static $shared = array(
+			'heavy', 'medium', 'light', 'ultralight', 'normal',       //size hierarchy
+			'shuttles', 'minesweeping shuttles', 'cargo shuttles',    //shuttle family
+			'medical shuttles', 'lifeboats', 'assault shuttles', 'breaching pods',
+			'superheavy', 'lcvs',                                     //catapult / LCV rail
+		);
+		return !in_array($cat, $shared, true);
+	}
+
+	/* Per-carrier cap remaining for a CUSTOM COMBAT category (e.g. 'Hunter-Killers')
+	 * on $carrier. The cap is $ship->fighters[$category] shared across ALL the
+	 * carrier's hangars (a universal bay pools light + HK + AS in the same 37 boxes,
+	 * but may hold no more HKs than the ship declares). "Used" is the sum of
+	 * flightSize across every hangarUsage entry on every hangar whose stamped
+	 * hangarType matches $category. Returns PHP_INT_MAX for non-custom categories
+	 * (no gate) and 0 when the carrier declares no capacity for that category.
+	 *
+	 * This is the category-level analogue of customFighterRemaining (which caps by
+	 * $customFtrName). HK flights carry NO customFtrName — they're gated purely by
+	 * their hangarRequired category — so this closes the gap where a universal bay
+	 * would otherwise let HKs spill into the light-fighter box space. */
+	public static function categoryCapRemaining($carrier, $category){
+		if (!self::isCustomCombatCategory($category)) return PHP_INT_MAX;
+		$cat = strtolower(trim((string)$category));
+		$declared = 0;
+		if (isset($carrier->fighters) && is_array($carrier->fighters)){
+			foreach ($carrier->fighters as $k => $v){
+				if (strtolower(trim((string)$k)) === $cat){ $declared = (int)$v; break; }
+			}
+		}
+		if ($declared <= 0) return 0;
+
+		$used = 0;
+		foreach (self::collectHangars($carrier) as $h){
+			if (!is_array($h->hangarUsage)) continue;
+			foreach ($h->hangarUsage as $entry){
+				if (strtolower(trim((string)($entry['hangarType'] ?? ''))) !== $cat) continue;
 				$used += (int)($entry['flightSize'] ?? 1);
 			}
 		}
@@ -5746,6 +5847,12 @@ class HangarOps {
 			if ($remaining < $activeCount) { $reason = 'customFighter cap exceeded'; return false; }
 		}
 
+		//Custom combat category cap (e.g. Hunter-Killers), shared across bays,
+		//against the whole-flight count — the Prophet's 37-box bay pools HK with
+		//light fighters but holds no more HKs than $ship->fighters declares.
+		$catRemaining = self::categoryCapRemaining($carrier, self::trueSizeOf($flight));
+		if ($catRemaining < $activeCount) { $reason = 'fighter category cap exceeded'; return false; }
+
 		//Per-BAY capacity is NOT checked here — performDeployStartDockFromOrders is
 		//server-authoritative: it re-homes the whole flight across bays using TRUE
 		//(DB-side) free boxes, drops full/incompatible bays, tops up elsewhere, and
@@ -5800,6 +5907,12 @@ class HangarOps {
 			$remaining = self::customFighterRemaining($carrier, $customName);
 			if ($remaining < $size) { $reason = 'customFighter cap exceeded'; return false; }
 		}
+
+		//Custom combat category cap (e.g. Hunter-Killers) — checked against this
+		//per-hangar slice; entries stamped as they're written this pass keep the
+		//aggregate across bays within the shared cap (mirrors the customFighter line).
+		$catRemaining = self::categoryCapRemaining($carrier, $category);
+		if ($catRemaining < $size) { $reason = 'fighter category cap exceeded'; return false; }
 
 		return true;
 	}

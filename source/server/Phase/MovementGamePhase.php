@@ -171,6 +171,20 @@ class MovementGamePhase implements Phase
 						break;
 					}
 
+					// Authoritative server-side thrust validation. The client normally
+					// blocks committing an underpaid maneuver, but a tampered/buggy client
+					// can POST one anyway (the server otherwise trusts submitted movement
+					// wholesale). Drop any illegal maneuver (and its now-invalid downstream
+					// moves) before persisting. We validate the SUBMITTED moves against the
+					// AUTHORITATIVE ship (correct system/damage state, incl. destroyed
+					// thrusters): temporarily point the active ship at the submitted
+					// movement so orientation-dependent checks (pivots) see the plotted
+					// path, run the validator, then keep only the sanitised result.
+					$activeShipMovementBackup = $activeShip->movement;
+					$activeShip->movement = $ship->movement;
+					$ship->movement = Movement::validateThrustPayment($activeShip, $gameData->turn);
+					$activeShip->movement = $activeShipMovementBackup;
+
 					// Check for detachment move in the submitted orders
 					$detachedMove = false;
 					foreach ($ship->movement as $move) {

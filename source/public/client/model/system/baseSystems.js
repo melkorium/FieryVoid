@@ -1036,6 +1036,9 @@ KirishiacOrbital.prototype.canActivate = function () { //Dock (shown while deplo
 
 KirishiacOrbital.prototype.canDeactivate = function () { //Deploy (shown while docked)
 	if ((gamedata.gamephase == -1 || gamedata.gamephase == 3) && this.activeEffective) {
+		//a destroyed orbital cannot be deployed - it must stay docked to regenerate (the server
+		//force-docks it on destruction anyway); keep the Dock action reachable, hide Deploy
+		if (shipManager.systems.isDestroyed(this.ship, this)) return false;
 		//deploying is refused while the block depends on this orbital's boxes; keep the
 		//button reachable if an order is somehow already pending, so it can be cancelled
 		if (!this.hasPendingDockingOrder() && this.deployWouldBreachStructure()) return false;
