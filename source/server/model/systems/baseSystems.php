@@ -4924,6 +4924,7 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 	public $targetProfile = 10;
 	public $canRegenerate = false;
 	public $subChartWhileDocked = true; //"any hits resolved to hitting the heavy weapon orbital use the heavy weapon orbital hit location chart as normal" - even docked; only structure results divert to the combined Structure
+	public $isPrimaryTargetable = true;
 
 	function __construct($armour, $maxhealth, $orientation, $pairing, $profileAdjust, $systemHitChart){
 		if ( $maxhealth == 0 ) $maxhealth = 42;
