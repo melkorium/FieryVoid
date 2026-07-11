@@ -2374,6 +2374,12 @@ var SelfRepair = function SelfRepair(json, ship) {
 SelfRepair.prototype = Object.create(ShipSystem.prototype);
 SelfRepair.prototype.constructor = SelfRepair;
 
+SelfRepair.prototype.initializationUpdate = function () {
+	if(this.outputDoubled) this.outputDisplay = this.output * 2;
+
+	return this;
+}
+
 SelfRepair.prototype.doIndividualNotesTransfer = function () { //prepare individualNotesTransfer variable - if relevant for this particular system
 	this.individualNotesTransfer = Array();
 	//every entry contains one system override, in format: systemID;overrideValue
