@@ -2562,7 +2562,14 @@ class DBManager
 		
 		//get individual notes for systems - optimization: single query
         $allNotes = $this->getIndividualNotesForGame($gamedata, $fetchTurn);
-        
+
+		//Clear the Gravitic Augmenter's per-LOAD dedup guards before the onIndividualNotesLoaded sweep.
+		//They dedup multiple Augmenters buffing/shifting the same target within THIS load, but must not
+		//survive into a later load in the same request (one request loads gamedata more than once, e.g.
+		//advanceGameState then FireGamePhase::advance) - otherwise the second load skips the buff and a
+		//shot at the Warrior resolves without its jink. Guarded so it's a no-op if the class isn't loaded.
+		if (class_exists('GraviticAugmenter')) GraviticAugmenter::resetPerLoadState();
+
 		foreach ($gamedata->ships as $ship){
             $shipNotes = isset($allNotes[$ship->id]) ? $allNotes[$ship->id] : array();
             

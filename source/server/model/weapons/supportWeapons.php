@@ -1390,9 +1390,23 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 	//Mode 3 rotation, read from fire-order notes in beforeFiringOrderResolution, applied in onDamagedSystem.
 	private $rotationDirection = 1; //1 = clockwise, 2 = anti-clockwise
 	private $rotationAmount = 1;    //1 = 60deg (one facing), 2 = 120deg (two facings)
-	public static $alreadyAugmented = array();  //Mode 2: a warrior flight may only be enhanced once per turn.
-	private static $alreadyShifted = array();    //Mode 3: a ship may only be gravity-shifted once per turn.
-	 
+	//Per-LOAD dedup guards (NOT per-request). A single gamedata build re-applies the Mode-2 buff
+	//and the Mode-3 shift to a target only once even when several Augmenters name it. These MUST be
+	//cleared at the start of every fresh gamedata load, because one HTTP request loads gamedata more
+	//than once (e.g. FireGamePhase::advance loads it AGAIN after advanceGameState already loaded it):
+	//if the guard survived from the first load, doWarriorEnhancement would bail on the second load and
+	//the ship that actually FIRES would miss the +OB/+thrust/3-jink buff (target shot resolves at the
+	//un-jinked hit chance). getSystemDataForShips calls resetPerLoadState() before each notes sweep.
+	public static $alreadyAugmented = array();  //Mode 2: a warrior flight may only be enhanced once per load.
+	private static $alreadyShifted = array();    //Mode 3: a ship may only be gravity-shifted once per load.
+
+	//Clear the per-load dedup guards. Called once per gamedata load (getSystemDataForShips) so the
+	//guard scopes to a single load and never leaks across the multiple loads within one request.
+	public static function resetPerLoadState(){
+		self::$alreadyAugmented = array();
+		self::$alreadyShifted = array();
+	}
+
     function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $pairing = null){
 		if ( $maxhealth == 0 ) $maxhealth = 12;
         if ( $powerReq == 0 ) $powerReq = 7;
@@ -1616,7 +1630,7 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 			case 2: //Warrior Enhancement
 
 				if (isset(GraviticAugmenter::$alreadyAugmented[$fireOrder->targetid])){
-					$fireOrder->needed = 0;
+					$fireOrder->needed = 100;
 					$fireOrder->updated = true; 
 					$fireOrder->pubnotes = "<br>Warrior flight has already been affected by a Gravitic Augmenter.";                         
 					return; //target already engaged by a previous Gravitic Shifter
