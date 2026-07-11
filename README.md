@@ -176,6 +176,51 @@ When in doubt: just run `yarn build`. It runs all three steps in order (THREE sh
 
 (The old `client/lib/three.min.js` is now unused and can be deleted.)
 
+# Replay regression harness (tests/replay):
+
+(from 11.7.2026) A pre-deploy safety net that replays REAL recorded games from your local Docker database through the current server code and diffs the results against a recorded baseline. If a code change alters what the engine produces for games that were already played, the check fails and shows exactly what changed. It is entirely read-only against the database.
+
+What it verifies, per game:
+- **snapshot** — the full client gamedata JSON (stripForJson) from every player's perspective. Catches serialization/payload regressions: dropped or changed fields, notes handling, visibility masking, shared-reference mutations, autoload/constructor breakage.
+- **movement** — Movement::validateThrustPayment replayed over every recorded ship-turn (with enforcement switched on in-memory only). Every legal recorded maneuver must stay legal — catches regressions in thrust/maneuver math.
+- **tohit** — Weapon::calculateHitBase recomputed for every recorded direct-fire order against as-of-turn game state. Catches regressions in hit-chance math (arcs, range penalties, EW, jink, firing modes).
+
+### How to use it, step by step:
+
+1. Make sure the Docker environment is running (`docker compose up -d`). The harness runs inside the php container and reads the local B5CGM database.
+
+2. **Record a baseline while the code is in a known-good state** (e.g. right after a deploy, or on a freshly pulled branch):
+
+   docker exec fieryvoid-php-1 php /usr/src/current/tests/replay/replayHarness.php record
+
+   This replays every local game with recorded play (turn >= 1, not in lobby) and writes the results to `tests/replay/baseline/` (git-ignored). Takes ~20 seconds for ~160 games.
+
+3. Develop as normal.
+
+4. **Before deploying, run the check:**
+
+   docker exec fieryvoid-php-1 php /usr/src/current/tests/replay/replayHarness.php check
+
+   - All PASS + exit code 0 → your changes don't alter engine behaviour on recorded play. Deploy away.
+   - Any FAIL → the output shows exactly which game, which report, and which values changed (JSON field paths for snapshots, per-line before/after for movement/tohit). Decide:
+     - **Unintended?** You found a regression before the players did. Fix it.
+     - **Intentional?** (e.g. you rebalanced a weapon, changed a payload field on purpose) Re-run `record` to accept the new behaviour as the baseline.
+   - SKIP means that game advanced since the baseline was recorded (someone played it locally) — re-record to include it again.
+
+### Useful options:
+
+- `list` — show all replayable games and whether they're in the baseline.
+- `--games=3696,3671` — limit record/check to specific game ids (fast iteration while debugging a failure).
+- `--checks=tohit` — run a subset of `snapshot,movement,tohit`.
+- `--diff-limit=50` — show more differences per failed report (default 15).
+
+### Good to know:
+
+- **Add coverage by playing**: any game you play on the local server (fresh test games included) becomes corpus material — just run `record` again to fold it into the baseline. The more varied the local games (factions, weapons, terrain, fighters), the wider the net.
+- **Deterministic dice**: live hit-chance calculation genuinely rolls dice (the hit LOCATION is rolled inside calculateHitBase and feeds the final chance). The harness replaces the Dice class in its own process with a seeded RNG so every run reproduces exactly. Game code is not touched.
+- A couple of ancient test games fail to load (corrupt data) — their error text is recorded as part of the baseline, which is fine: if they ever start loading differently, that's a change worth seeing too.
+- The baseline is derived from your local DB + code, so it is NOT committed; each dev records their own.
+
 # Image Optimiser:
 
 Images are optimised on Web Server by navigating to https://fieryvoid.eu/game/source/public/mass_optimizer.php or https://fieryvoid.eu/testInstance/source/public/mass_optimizer.php
