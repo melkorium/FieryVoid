@@ -3299,7 +3299,7 @@ window.confirm = {
             return;
         }
 
-        $('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;">Check flights to dock into a hangar bay at end of turn.</span></div>').appendTo(container);
+        //$('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;">Check flights to dock into a hangar bay at end of turn.</span></div>').appendTo(container);
 
         // Live per-hangar capacity readout. Mirrors hangarDeployDock's pill
         // strip; baseFree counts OTHER flights' queued orders as committed and
@@ -3975,9 +3975,9 @@ window.confirm = {
 
         //Only the fighter-dock instruction when there ARE fighter flights to dock
         //(an LCV-only dialog skips it — its own "LCV Rails" section header suffices).
-        if (pending.length > 0) {
-            $('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;">Check flights to dock into a hangar bay instead of placing on the map.</span></div>').appendTo(container);
-        }
+        //if (pending.length > 0) {
+        //    $('<div class="multi-value-row"><span class="multi-value-label" style="font-style:normal;">Check flights to dock into a hangar bay instead of placing on the map.</span></div>').appendTo(container);
+        //}
 
         //Live per-hangar capacity readout. Recomputed on every checkbox/dropdown
         //change so the player sees overflow before pressing OK. Without this the
