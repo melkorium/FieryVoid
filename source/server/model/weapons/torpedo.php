@@ -502,6 +502,7 @@
 				$strippedSystem->powerLocked = !$this->stowed; //deployed launcher cannot be powered down (client Off-button gate)
 				$strippedSystem->isTargetable = $this->isTargetable;
 				$strippedSystem->repairPriority = $this->repairPriority;
+				$strippedSystem->privateRepairOnly = $this->privateRepairOnly; //deployed Heavy Orbital weapon: excluded from the ship-wide SelfRepair list (only the orbital's on-board SR)
 				$strippedSystem->startArc = $this->startArc; //live arcs - reduced set while docked (applyStowedArcs)
 				$strippedSystem->endArc = $this->endArc;
 				$strippedSystem->stowedArcStart = $this->stowedArcStart; //non-null = operational while stowed (client fire/arc gates)

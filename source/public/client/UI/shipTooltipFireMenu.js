@@ -517,26 +517,85 @@ window.findEligibleCarriersForDock = function (flight) {
             if (capacity > 0) hangars.push({ hangar: sys, capacity: capacity });
         });
 
+        // Per-carrier custom combat category cap (e.g. Hunter-Killers): the bay
+        // pools HK with light fighters, but ship.fighters caps HK count. Clamp
+        // aggregate capacity the same way the customFighter cap does.
+        hangars = clampHangarsToCap(hangars, categoryCapRemainingFor(ship, category, flightId));
+        if (hangars.length === 0) return [];
+
         // Stage 10.6.2: clamp aggregate capacity to the carrier's remaining
         // customFighter cap for this flight's customFtrName. Cap is shared
         // across all hangars on the carrier — walk in order and truncate each
         // entry until the running total hits the cap.
         var customName = String(flight.customFtrName || '');
         if (customName !== '') {
-            var cap = customFighterRemainingFor(ship, customName, flightId);
-            if (cap <= 0) return [];
-            var running = 0;
-            var clamped = [];
-            for (var i = 0; i < hangars.length; i++) {
-                if (running >= cap) break;
-                var take = Math.min(hangars[i].capacity, cap - running);
-                if (take <= 0) continue;
-                clamped.push({ hangar: hangars[i].hangar, capacity: take });
-                running += take;
-            }
-            return clamped;
+            hangars = clampHangarsToCap(hangars, customFighterRemainingFor(ship, customName, flightId));
         }
         return hangars;
+    }
+
+    // Truncate a list of {hangar, capacity} entries so their COMBINED capacity
+    // doesn't exceed $cap (shared across the carrier's bays). Infinity = no-op.
+    function clampHangarsToCap(hangars, cap) {
+        if (cap === Infinity) return hangars;
+        if (cap <= 0) return [];
+        var running = 0;
+        var clamped = [];
+        for (var i = 0; i < hangars.length; i++) {
+            if (running >= cap) break;
+            var take = Math.min(hangars[i].capacity, cap - running);
+            if (take <= 0) continue;
+            clamped.push({ hangar: hangars[i].hangar, capacity: take });
+            running += take;
+        }
+        return clamped;
+    }
+
+    // Mirrors HangarOps::isCustomCombatCategory (PHP): a category routed through
+    // the fleet-builder's isolated per-name pool (currently only 'Hunter-Killers'),
+    // not the shared size hierarchy or shuttle/BP families.
+    function isCustomCombatCategory(category) {
+        var cat = String(category || '').toLowerCase().trim();
+        if (cat === '') return false;
+        var shared = { 'heavy':1,'medium':1,'light':1,'ultralight':1,'normal':1,
+            'shuttles':1,'minesweeping shuttles':1,'cargo shuttles':1,'medical shuttles':1,
+            'lifeboats':1,'assault shuttles':1,'breaching pods':1,'superheavy':1,'lcvs':1 };
+        return !shared[cat];
+    }
+
+    // Mirrors HangarOps::categoryCapRemaining (PHP). Per-CARRIER cap for a custom
+    // combat category: ship.fighters[category] minus docked (entries stamped
+    // hangarType=category) + queued (pendingDockOrders) across all bays. THIS
+    // flight's own queue is reclaimable. Infinity for shared categories.
+    function categoryCapRemainingFor(carrier, category, ownFlightId) {
+        if (!isCustomCombatCategory(category)) return Infinity;
+        var cat = String(category).toLowerCase().trim();
+        var declared = 0;
+        if (carrier.fighters) {
+            for (var k in carrier.fighters) {
+                if (String(k).toLowerCase().trim() === cat) { declared = parseInt(carrier.fighters[k], 10) || 0; break; }
+            }
+        }
+        if (declared <= 0) return 0;
+        var used = 0;
+        carrier.systems.forEach(function (sys) {
+            if (!sys || sys.name !== 'hangar') return;
+            if (Array.isArray(sys.hangarUsage)) {
+                sys.hangarUsage.forEach(function (e) {
+                    if (String(e.hangarType || '').toLowerCase().trim() !== cat) return;
+                    used += parseInt(e.flightSize || 1, 10);
+                });
+            }
+            if (Array.isArray(sys.pendingDockOrders)) {
+                sys.pendingDockOrders.forEach(function (o) {
+                    if (parseInt(o.flightId, 10) === ownFlightId) return;   //own queue reclaimable
+                    var f = gamedata.getShip(o.flightId);
+                    if (!f || categoryForFlight(f).toLowerCase().trim() !== cat) return;
+                    used += parseInt(o.count || f.flightSize || 1, 10);
+                });
+            }
+        });
+        return Math.max(0, declared - used);
     }
 
     // Mirrors HangarOps::customFighterRemaining (PHP). Per-CARRIER count of
@@ -633,6 +692,10 @@ window.findEligibleCarriersForDock = function (flight) {
                 if (declared['ultralight']) return true;
                 return false;
             }
+            //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
+            //when the ship declares that exact category. allowedFighterClasses still
+            //gates the actual phpclass. Mirrors HangarOps::hangarAcceptsCategory (PHP).
+            if (declared[cat]) return true;
             return false;
         }
         return false;
@@ -735,6 +798,12 @@ window.findEligibleFlightsForDocking = function (carrier) {
             var cap = customFighterRemainingForRecover(ship, customName, flightId);
             if (cap < size) return hangars;
         }
+
+        // Per-carrier custom combat category cap (e.g. Hunter-Killers). Same
+        // whole-flight rule: if the carrier can't hold the whole HK flight within
+        // its declared HK capacity, it isn't eligible to recover it.
+        var catCap = categoryCapRemainingForRecover(ship, category, flightId);
+        if (catCap < size) return hangars;
 
         // Flight heading for the per-hangar rear-approach gate (catapults).
         var rMove = shipManager.movement.getLastCommitedMove(flight);
@@ -852,6 +921,42 @@ window.findEligibleFlightsForDocking = function (carrier) {
         return Math.max(0, declared - used);
     }
 
+    // Recover-closure copy of the custom combat category cap (Hunter-Killers).
+    // Mirrors HangarOps::categoryCapRemaining (PHP). See the Dock-closure twin.
+    function categoryCapRemainingForRecover(carrier, category, ownFlightId) {
+        var cat = String(category || '').toLowerCase().trim();
+        var shared = { 'heavy':1,'medium':1,'light':1,'ultralight':1,'normal':1,
+            'shuttles':1,'minesweeping shuttles':1,'cargo shuttles':1,'medical shuttles':1,
+            'lifeboats':1,'assault shuttles':1,'breaching pods':1,'superheavy':1,'lcvs':1 };
+        if (cat === '' || shared[cat]) return Infinity;   //shared categories: no per-category gate
+        var declared = 0;
+        if (carrier.fighters) {
+            for (var k in carrier.fighters) {
+                if (String(k).toLowerCase().trim() === cat) { declared = parseInt(carrier.fighters[k], 10) || 0; break; }
+            }
+        }
+        if (declared <= 0) return 0;
+        var used = 0;
+        carrier.systems.forEach(function (sys) {
+            if (!sys || sys.name !== 'hangar') return;
+            if (Array.isArray(sys.hangarUsage)) {
+                sys.hangarUsage.forEach(function (e) {
+                    if (String(e.hangarType || '').toLowerCase().trim() !== cat) return;
+                    used += parseInt(e.flightSize || 1, 10);
+                });
+            }
+            if (Array.isArray(sys.pendingDockOrders)) {
+                sys.pendingDockOrders.forEach(function (o) {
+                    if (parseInt(o.flightId, 10) === ownFlightId) return;
+                    var f = gamedata.getShip(o.flightId);
+                    if (!f || categoryForFlightRecover(f).toLowerCase().trim() !== cat) return;
+                    used += parseInt(o.count || f.flightSize || 1, 10);
+                });
+            }
+        });
+        return Math.max(0, declared - used);
+    }
+
     function countActiveInFlight(flight) {
         if (!Array.isArray(flight.systems)) return 0;
         var n = 0;
@@ -922,6 +1027,10 @@ window.findEligibleFlightsForDocking = function (carrier) {
                 if (declared['ultralight']) return true;
                 return false;
             }
+            //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
+            //when the ship declares that exact category. allowedFighterClasses still
+            //gates the actual phpclass. Mirrors HangarOps::hangarAcceptsCategory (PHP).
+            if (declared[cat]) return true;
             return false;
         }
         return false;
