@@ -1168,7 +1168,7 @@ window.gamedata = {
                     for (var mi = 0; mi < mustDockNames.length; mi++) {
                         hangarDeployError += '<span class="ship-name">- ' + mustDockNames[mi] + '</span><br>';
                     }
-                    hangarDeployError += "<br>Dock them into a carrier's hangar before committing yor orders.";
+                    hangarDeployError += "<br>Dock them into a carrier's hangar before committing your orders.";
                     window.confirm.error(hangarDeployError, function () { });
                     return false;
                 }

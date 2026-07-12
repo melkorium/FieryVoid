@@ -183,7 +183,9 @@ window.DeploymentDock = (function () {
     //     slot flight regardless of position is too much noise on big fleets).
     //     Flights already queued for THIS carrier remain visible regardless of
     //     their old position so the player can amend/cancel the queue.
-    function collectPendingFlightsForSlot(carrier) {
+    // (Named for the dialog's API contract — confirm.js calls this to build the
+    // deploy-dock row list.)
+    function findPendingFlightsForCarrier(carrier) {
         var out = [];
         var carrierPos = safeShipPosition(carrier);
         for (var key in gamedata.ships) {
@@ -224,28 +226,6 @@ window.DeploymentDock = (function () {
     function safeShipPosition(ship) {
         try { return shipManager.getShipPosition(ship); }
         catch (e) { return null; }
-    }
-
-    // Returns the first hangar in $hangars that accepts $flight's size, or
-    // null if none fit. $carrier passed so universal hangars use ship.$fighters.
-    function firstFittingHangar(hangars, flight, carrier) {
-        var cat = categoryForFlight(flight);
-        var size = parseInt(flight.flightSize, 10) || 1;
-        //Two passes: bays that SPECIFICALLY reserve this flight's class first (so a
-        //Reska takes the Suom's Reska-only bay before the universal primary), then
-        //the rest in their original order.
-        for (var pass = 0; pass < 2; pass++) {
-            for (var i = 0; i < hangars.length; i++) {
-                var h = hangars[i];
-                var reserved = bayReservesFighterClass(h.hangar, flight);
-                if (pass === 0 ? !reserved : reserved) continue;   //pass 0 = reserved only; pass 1 = the rest
-                if (!hangarAcceptsCategory(h.hangar.hangarType, cat, carrier)) continue;
-                if (!hangarAcceptsFighterClass(h.hangar, flight)) continue;   //per-bay class allow-list
-                //h.free is in boxes; a unitSize<1 flight needs size × per-craft boxes.
-                if (h.free >= craftBoxesInHangar(h.hangar, size, flight.unitSize)) return h.hangar;
-            }
-        }
-        return null;
     }
 
     // Mirrors HangarOps::trueSizeOf (PHP) — see shipTooltipFireMenu.js for the
@@ -507,12 +487,6 @@ window.DeploymentDock = (function () {
         if (!queueDeployStartDock(carrier, flight)) return null;
         var hid = flight.pendingDeployDock ? flight.pendingDeployDock.hangarId : null;
         return (hid != null) ? gamedata.getShip(carrier.id).systems.find(function (s) { return s && s.id === hid; }) || null : null;
-    }
-
-    // Public wrapper used by confirm.js. Same as collectPendingFlightsForSlot
-    // but named to match the dialog's expected API contract.
-    function findPendingFlightsForCarrier(carrier) {
-        return collectPendingFlightsForSlot(carrier);
     }
 
     // Returns {hangar, capacity} entries for every hangar on $carrier that
@@ -799,12 +773,8 @@ window.DeploymentDock = (function () {
         freeLcvDeployRails:           freeLcvDeployRails,
         queueLcvDeployDock:           queueLcvDeployDock,
         unqueueLcvDeployDock:         unqueueLcvDeployDock,
-        collectUsableHangars:         collectUsableHangars,
-        collectAllHangars:            collectAllHangars,
-        collectPendingFlightsForSlot: collectPendingFlightsForSlot,
         findPendingFlightsForCarrier: findPendingFlightsForCarrier,
         eligibleHangarsForFlight:     eligibleHangarsForFlight,
-        firstFittingHangar:           firstFittingHangar,
         queueDeployStartDock:         queueDeployStartDock,
         autoQueueDockOnCarrier:       autoQueueDockOnCarrier,
         unqueueDeployStartDock:       unqueueDeployStartDock,
@@ -812,6 +782,30 @@ window.DeploymentDock = (function () {
         distributeFlightAcrossHangars: distributeFlightAcrossHangars
     };
 })();
+
+// Walk every hangar-family system in the game and refresh its tooltip data.
+// Shared step of refreshDeploymentUIForDeployStart + refreshFiringHangarTooltips.
+// Sledgehammer-but-cheap: each refresh is just a couple of array walks over
+// already-in-memory state. Refreshing all ships keeps the callers phase-agnostic
+// and avoids the dialogs having to enumerate which carriers they touched.
+// (isDockHangar lives inside the IIFE scope above and is NOT visible here, so
+// the name check is inlined — Stage 16: a catapult is a dock hangar too; Fighter
+// Rails and LCV rails likewise have refreshable hangar tooltips.)
+window.refreshAllHangarTooltips = function () {
+    try {
+        for (var key in gamedata.ships) {
+            var s = gamedata.ships[key];
+            if (!s || !Array.isArray(s.systems)) continue;
+            s.systems.forEach(function (sys) {
+                if (sys && (sys.name === 'hangar' || sys.name === 'catapult' || sys.name === 'fighterRail' || sys.name === 'dockingCollar') && typeof sys.refreshHangarTooltip === 'function') {
+                    sys.refreshHangarTooltip();
+                }
+            });
+        }
+    } catch (e) {
+        //fail-soft: tooltip refresh is cosmetic
+    }
+};
 
 // Refresh after the dock dialog commits:
 //   1. Re-check the deployment commit gate — a flight newly queued for dock no
@@ -882,22 +876,7 @@ window.refreshDeploymentUIForDeployStart = function () {
 
     //Step 3: refresh hangar tooltips so the carrier's system info shows the
     //newly-queued/cancelled flights in the Carrying / Stored Craft lines.
-    try {
-        for (var key in gamedata.ships) {
-            var s = gamedata.ships[key];
-            if (!s || !Array.isArray(s.systems)) continue;
-            s.systems.forEach(function (sys) {
-                //isDockHangar lives inside the IIFE scope above and is NOT visible
-                //here, so inline the check (Stage 16: a catapult is a dock hangar too;
-                //Fighter Rails likewise have a refreshable hangar tooltip).
-                if (sys && (sys.name === 'hangar' || sys.name === 'catapult' || sys.name === 'fighterRail' || sys.name === 'dockingCollar') && typeof sys.refreshHangarTooltip === 'function') {
-                    sys.refreshHangarTooltip();
-                }
-            });
-        }
-    } catch (e) {
-        //fail-soft: tooltip refresh is cosmetic
-    }
+    window.refreshAllHangarTooltips();
 };
 
 // Stage 10.2: sibling helper for the Firing-Phase dialogs (hangarLaunch,
@@ -923,24 +902,5 @@ window.refreshFiringHangarTooltips = function () {
     }
 
     //Step 2: walk every hangar in the game and refresh its tooltip data.
-    //Sledgehammer-but-cheap: each refresh is just a couple of array walks
-    //over already-in-memory state. Refreshing all ships keeps the helper
-    //phase-agnostic and avoids the dialogs having to enumerate which
-    //carriers they touched.
-    try {
-        for (var key in gamedata.ships) {
-            var s = gamedata.ships[key];
-            if (!s || !Array.isArray(s.systems)) continue;
-            s.systems.forEach(function (sys) {
-                //isDockHangar lives inside the IIFE scope above and is NOT visible
-                //here, so inline the check (Stage 16: a catapult is a dock hangar too;
-                //Fighter Rails likewise have a refreshable hangar tooltip).
-                if (sys && (sys.name === 'hangar' || sys.name === 'catapult' || sys.name === 'fighterRail' || sys.name === 'dockingCollar') && typeof sys.refreshHangarTooltip === 'function') {
-                    sys.refreshHangarTooltip();
-                }
-            });
-        }
-    } catch (e) {
-        //fail-soft: tooltip refresh is cosmetic
-    }
+    window.refreshAllHangarTooltips();
 };

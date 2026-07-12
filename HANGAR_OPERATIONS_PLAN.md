@@ -2314,7 +2314,7 @@ A dead-code sweep performed before the first live-server deploy. Three files cha
 
 **Docstring updates:** `populateInitialHangarUsage` steps renumbered (old Step 2 → Step 1, old Step 3 → Step 2). Added note that Stage 7 deploy-dock uses the `pendingDeployStartTransfer` path, not the removed Step 1. Updated cross-references in `getDefaultShuttles` docstring ("step 3" → "step 2").
 
-Note: `syncSourceFlightsOnLaunch` and `removeFromHangarUsage` were already marked dead (per Stage 10.5 implementation notes) and are left in place pending burn-in. They are candidates for a second cleanup pass after a few live games.
+Note: `syncSourceFlightsOnLaunch` and `removeFromHangarUsage` were already marked dead (per Stage 10.5 implementation notes) and were left in place pending burn-in. **They have since been removed** — the Stage 21 occupancy launch path replaced them; only comment references remain in HangarOps.php (verified 2026-07-12).
 
 ### baseSystems.php — commented-out Stored Craft block removed (minor)
 
@@ -2339,6 +2339,27 @@ Significant helper duplication exists across three client files but was delibera
 - **`DeploymentDock.js`** — some of the same helpers exist a third time.
 
 These are candidates for a shared-helpers extraction PR once the feature has been stable in live games.
+
+### Tier-1 cleanup pass (2026-07-12)
+
+A post-completion review of the whole Hangar Ops workflow (all client + server surfaces) sorted findings into three tiers: Tier 1 = dead code / zero-risk cleanups (done below), Tier 2 = the shared-helpers extraction already flagged above (still pending; census now counts 3 copies of `categoryForFlight`/`hangarAcceptsCategory`/`hangarAcceptsFighterClass`, 4 of the box-cost cluster, 3 of `hangarLabelFor`), Tier 3 = latent mirror-drift bugs needing individual decisions (each changes behavior — NOT touched):
+
+- `eligibleHangarsForFlight` (DeploymentDock.js) charges other flights' multi-bay queued orders at full `flightSize` per bay instead of the per-bay `count` slice (`hangarFreeBoxes` has the slice fix) — over-reserves after an auto-distribute.
+- `customFighterRemainingFor` (DeploymentDock.js) same missed `o.count` fix; its sibling `categoryCapRemainingFor` got it.
+- shipTooltipFireMenu.js cap helpers (`categoryCapRemainingFor`/`customFighterRemainingFor` + Recover twins) count only `sys.name === 'hangar'` — blind to catapults/fighter rails, unlike the server's `collectHangars` (`instanceof Hangar`) and the DeploymentDock copies.
+- ShadowHangar unguarded on the DEPLOY-dock path (both client DeploymentDock.js and server `performDeployStartDockFromOrders` re-home loop): its `hangarType` is plain `'fighters'` with no allow-list, so a non-integrated Shadow flight could deploy-dock into the integrated bay and be unable to launch (`canLaunch` blocks integrated bays). Firing-phase dock path IS guarded (client + `buildDockBays`).
+
+**Tier 1 changes applied ([DeploymentDock.js](source/public/client/renderer/phaseStrategy/DeploymentDock.js), [gamedata.js](source/public/client/gamedata.js)):**
+
+| Item | Change |
+|---|---|
+| `firstFittingHangar` | Removed — defined + exported but never called anywhere (superseded by `distributeFlightAcrossHangars`). |
+| `findPendingFlightsForCarrier` alias | Wrapper deleted; `collectPendingFlightsForSlot` renamed to the public name confirm.js calls. |
+| Internal-only exports | `collectUsableHangars`, `collectAllHangars`, `collectPendingFlightsForSlot`, `firstFittingHangar` dropped from the `window.DeploymentDock` export map (no external callers; both remaining functions still used inside the IIFE). |
+| Duplicate tooltip walk | The identical walk-every-hangar block in `refreshDeploymentUIForDeployStart` (step 3) and `refreshFiringHangarTooltips` (step 2) extracted to a single `window.refreshAllHangarTooltips()`. |
+| gamedata.js | "commiting yor orders" typo → "your". |
+
+No behavior change; JS `node --check` clean. Bundles regenerate via `yarn watch:legacy` / deploy as usual.
 
 ---
 
