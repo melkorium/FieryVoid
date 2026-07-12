@@ -321,6 +321,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     <script defer src="client/renderer/animationStrategy/animation/effects/ShipJumpPoint.js"></script>
     <script defer src="client/renderer/animationStrategy/animation/effects/ImpactSparksEffect.js"></script>
 
+    <script defer src="client/hangarShared.js"></script>
     <script defer src="client/renderer/phaseStrategy/PhaseStrategy.js"></script>
     <script defer src="client/renderer/phaseStrategy/DeploymentPhaseStrategy.js"></script>
     <script defer src="client/renderer/phaseStrategy/MineDeployment.js"></script>

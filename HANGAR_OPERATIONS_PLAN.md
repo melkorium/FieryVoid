@@ -2330,7 +2330,7 @@ Note: `syncSourceFlightsOnLaunch` and `removeFromHangarUsage` were already marke
 
 Replaced with an 8-line breadcrumb comment documenting that the canonical implementation is in `DeploymentDock.js`.
 
-### Flagged for a future refactor (not done)
+### Flagged for a future refactor (DONE 2026-07-12 — see "Tier-1/2/3 cleanup passes" below)
 
 Significant helper duplication exists across three client files but was deliberately deferred — it is cosmetic, not a correctness issue, and is better addressed as a separate PR after live testing:
 
@@ -2338,28 +2338,44 @@ Significant helper duplication exists across three client files but was delibera
 - **`shipTooltipFireMenu.js`** — `categoryForFlight`/`categoryForFlightRecover`, `hangarAcceptsCategory`/`hangarAcceptsCategoryRecover`, `customFighterRemainingFor`/`customFighterRemainingForRecover`, `lowerKeys`/`lowerKeysR` each duplicated between the `findEligibleCarriersForDock` and `findEligibleFlightsForDocking` closures.
 - **`DeploymentDock.js`** — some of the same helpers exist a third time.
 
-These are candidates for a shared-helpers extraction PR once the feature has been stable in live games.
+These were candidates for a shared-helpers extraction PR once the feature had been stable in live games — implemented as Tier 2 below.
 
-### Tier-1 cleanup pass (2026-07-12)
+### Tier-1/2/3 cleanup passes (2026-07-12) ✓ ALL THREE APPLIED
 
-A post-completion review of the whole Hangar Ops workflow (all client + server surfaces) sorted findings into three tiers: Tier 1 = dead code / zero-risk cleanups (done below), Tier 2 = the shared-helpers extraction already flagged above (still pending; census now counts 3 copies of `categoryForFlight`/`hangarAcceptsCategory`/`hangarAcceptsFighterClass`, 4 of the box-cost cluster, 3 of `hangarLabelFor`), Tier 3 = latent mirror-drift bugs needing individual decisions (each changes behavior — NOT touched):
+A post-completion review of the whole Hangar Ops workflow (all client + server surfaces) sorted findings into three tiers; all three were implemented the same day.
 
-- `eligibleHangarsForFlight` (DeploymentDock.js) charges other flights' multi-bay queued orders at full `flightSize` per bay instead of the per-bay `count` slice (`hangarFreeBoxes` has the slice fix) — over-reserves after an auto-distribute.
-- `customFighterRemainingFor` (DeploymentDock.js) same missed `o.count` fix; its sibling `categoryCapRemainingFor` got it.
-- shipTooltipFireMenu.js cap helpers (`categoryCapRemainingFor`/`customFighterRemainingFor` + Recover twins) count only `sys.name === 'hangar'` — blind to catapults/fighter rails, unlike the server's `collectHangars` (`instanceof Hangar`) and the DeploymentDock copies.
-- ShadowHangar unguarded on the DEPLOY-dock path (both client DeploymentDock.js and server `performDeployStartDockFromOrders` re-home loop): its `hangarType` is plain `'fighters'` with no allow-list, so a non-integrated Shadow flight could deploy-dock into the integrated bay and be unable to launch (`canLaunch` blocks integrated bays). Firing-phase dock path IS guarded (client + `buildDockBays`).
-
-**Tier 1 changes applied ([DeploymentDock.js](source/public/client/renderer/phaseStrategy/DeploymentDock.js), [gamedata.js](source/public/client/gamedata.js)):**
+**Tier 1 — dead code / zero-risk ([DeploymentDock.js](source/public/client/renderer/phaseStrategy/DeploymentDock.js), [gamedata.js](source/public/client/gamedata.js)):**
 
 | Item | Change |
 |---|---|
 | `firstFittingHangar` | Removed — defined + exported but never called anywhere (superseded by `distributeFlightAcrossHangars`). |
 | `findPendingFlightsForCarrier` alias | Wrapper deleted; `collectPendingFlightsForSlot` renamed to the public name confirm.js calls. |
-| Internal-only exports | `collectUsableHangars`, `collectAllHangars`, `collectPendingFlightsForSlot`, `firstFittingHangar` dropped from the `window.DeploymentDock` export map (no external callers; both remaining functions still used inside the IIFE). |
+| Internal-only exports | `collectUsableHangars`, `collectAllHangars`, `collectPendingFlightsForSlot`, `firstFittingHangar` dropped from the `window.DeploymentDock` export map (no external callers; remaining functions still used inside the IIFE). |
 | Duplicate tooltip walk | The identical walk-every-hangar block in `refreshDeploymentUIForDeployStart` (step 3) and `refreshFiringHangarTooltips` (step 2) extracted to a single `window.refreshAllHangarTooltips()`. |
+| `HangarOps::canDeployStartDock` | Removed (Tier-3 sweep) — the legacy single-bay deploy-dock validator had NO callers; validation is `validateDeployBayOrders` + the server-authoritative re-home in `performDeployStartDockFromOrders`. Tombstone comment left in place. |
 | gamedata.js | "commiting yor orders" typo → "your". |
 
-No behavior change; JS `node --check` clean. Bundles regenerate via `yarn watch:legacy` / deploy as usual.
+**Tier 2 — shared-helpers extraction (the refactor flagged above — DONE).** New file [hangarShared.js](source/public/client/hangarShared.js) defines `window.HangarShared`: the single client mirror of the HangarOps PHP gates — `isDockHangar`, `isCatapultSys`, `effectiveHangarBoxes`, `boxesPerCraftFromUnitSize`/`boxesPerCraftForEntry`, `entryBoxesInHangar`/`craftBoxesInHangar`, `categoryForFlight`, `hangarAcceptsCategory` (+`lowerKeys`), `hangarAcceptsFighterClass`, `bayReservesFighterClass`, `isCustomCombatCategory`, `hangarLabelFor`/`hangarLabelByIdFor`. Loaded by BOTH pages before every consumer (game.php: before the phaseStrategy block; gamelobby.php: before confirm.js — the bundler scrapes tags in order, so bundle order matches). Rewired:
+
+- **DeploymentDock.js** — all pure-copy bodies deleted; aliased at IIFE top (`var HS = window.HangarShared; …`). Impure deploy-specific helpers (`customFighterRemainingFor`, `categoryCapRemainingFor`, `hangarFreeBoxes`) stay local.
+- **shipTooltipFireMenu.js** — Dock + Recover closure copies become one-line delegates (function-declaration form kept: they're called before the closure body's later statements would run, so `var` bindings would be TDZ-unsafe there); `lowerKeys`/`lowerKeysR` deleted; `window.hangarBoxesPerCraftFromUnitSize`/`ForEntry` now assigned from HangarShared (window names kept — outside callers use them).
+- **confirm.js** — both inline lambda clusters (firing dock ~3160, deploy dock ~3925) replaced with HangarShared aliases; the firing dialog KEEPS its extended occupancy-aware `entryBoxesIn` and regen-aware 4-arg `craftBoxesIn` (they're dialog-specific, only their internals delegate). Both 2-arg `hangarLabelFor`/`hangarLabelByIdFor` copies became delegates. The LAUNCH dialog's stateful sequential labeller is a DIFFERENT shape and was left alone.
+- **baseSystems.js** keeps its nested `boxesPerCraftOf` ON PURPOSE — model files stay self-contained.
+
+**Tier 3 — mirror-drift fixes (each a small behavior change, all applied):**
+
+| Fix | Where |
+|---|---|
+| `eligibleHangarsForFlight` charged other flights' multi-bay queued orders at full `flightSize` per bay → replaced its inline free-box block with `hangarFreeBoxes(sys, flightId)`, which uses the per-bay `count` slice. No longer over-reserves sibling bays after an auto-distribute. | DeploymentDock.js |
+| `customFighterRemainingFor` got the same `o.count \|\| flightSize` fix its sibling `categoryCapRemainingFor` already had; ditto the deploy dialog's `baseFreeByHangar` pending-order charge. | DeploymentDock.js, confirm.js |
+| The four cap helpers (`categoryCapRemainingFor`/`customFighterRemainingFor` + Recover twins) filtered `sys.name === 'hangar'` only — blind to catapults/fighter rails, unlike the server's `collectHangars` (`instanceof Hangar`). Now `HangarShared.isDockHangar`. | shipTooltipFireMenu.js |
+| ShadowHangar was unguarded on the DEPLOY-dock path (its `hangarType` is plain `'fighters'`, no allow-list — a non-integrated flight deploy-docked there could never launch). Added the `isShadowHangar && phpclass !== 'ShadowMediumFighterFlight'` gate to `eligibleHangarsForFlight` + `distributeFlightAcrossHangars` (client) and the `performDeployStartDockFromOrders` re-home loop (server), mirroring the existing firing-phase `buildDockBays` gate. | DeploymentDock.js, HangarOps.php |
+
+**Verification:** `node --check` clean on hangarShared.js / DeploymentDock.js / shipTooltipFireMenu.js / confirm.js / gamedata.js; `php -l` clean on HangarOps.php; grep sweeps confirm exactly one canonical body per helper (everything else delegates) and zero references to removed names. **Replay harness: full corpus 164 games PASS** after the server changes. Bundles regenerate via `yarn watch:legacy` / deploy as usual (new script tag = new file in both bundles automatically).
+
+### Launch-dialog label polish (2026-07-12, user-reported)
+
+Two `hangarLaunch` row-label inconsistencies fixed in [confirm.js](source/public/client/UI/confirm.js): (1) docked-flight rows said "(N docked, max M)" where M = min(flightSize, class cap) — it IGNORED the bay's launch budget ("max 12" on a 0/6-budget bay), and the anonymous-stash rows' snapshot max went stale as other rows spent budget. All "max" text removed from rows — the bay header's LIVE "launch budget: X/Y" readout plus the `updateBudgets` over-budget rollback are the real constraint (the input's HTML `max` attr keeps its craft-count clamp). (2) Count display standardised to the "Nx Name" prefix on ALL row types: docked flights ("12x Razarik…", keeping the "(across N bays)" note), anonymous stash ("2x Shuttle (Main Hangar)" — bay name kept since rows aren't nested under their bay header), and catapults (now "1x Name (Catapult)" instead of "Catapult: Name (max 1)"). The per-flight DOCK splitter's "(free: X, max: Y)" was left alone — its max is the live budget-aware `hardCap`, which is accurate.
 
 ---
 

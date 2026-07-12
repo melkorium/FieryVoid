@@ -5659,6 +5659,13 @@ class HangarOps {
 		if ($bpc <= 0) $bpc = 1;
 		$category = self::trueSizeOf($flight);
 
+		//Stage S: an integrated-fighter bay (ShadowHangar keeps $name='hangar', so it
+		//passes hangarAcceptsCategory like any medium bay) accepts ONLY its own
+		//integrated fighters — a foreign flight deploy-docked there could never launch
+		//(canLaunch blocks integrated bays; they launch only via the Fighter Bomb).
+		//Mirrors the buildDockBays gate on the firing-phase dock path.
+		$flightIsIntegrated = ($flight->phpclass === 'ShadowMediumFighterFlight');
+
 		//hangarAcceptsCategory reads the carrier's $fighters declaration to decide
 		//whether a universal ('fighters'/'normal') bay accepts a category it can't
 		//infer from hangarType alone (Breaching Pods, Assault Shuttles, custom). But
@@ -5711,6 +5718,7 @@ class HangarOps {
 			if ($remaining <= 0) break;
 			if (!empty($h->isCatapult)) continue;
 			if ($h->isDestroyed()) continue;
+			if (!empty($h->isShadowHangar) && !$flightIsIntegrated) continue;   //integrated-only bay (see above)
 			if (!self::hangarAcceptsCategory($h, $category, $capabilityCarrier)) continue;
 			if (!self::hangarAcceptsFighterClass($h, $flight)) continue;   //per-bay class allow-list
 
@@ -5869,61 +5877,10 @@ class HangarOps {
 		return true;
 	}
 
-	public static function canDeployStartDock($hangar, $carrier, $flight, $gamedata, &$reason = null, $count = null){
-		if (!$flight instanceof FighterFlight) { $reason = 'not a flight'; return false; }
-		if ($flight->removed || $flight->isDestroyed()) { $reason = 'flight already removed'; return false; }
-		if ($hangar->isDestroyed()) { $reason = 'hangar destroyed'; return false; }
-		if ($carrier->isDestroyed() || $carrier->removed) { $reason = 'carrier not in play'; return false; }
-
-		if ((int)$flight->slot !== (int)$carrier->slot) { $reason = 'slot mismatch'; return false; }
-		if ((int)$flight->userid !== (int)$carrier->userid) { $reason = 'owner mismatch'; return false; }
-
-		if ($flight->getTurnDeployed($gamedata) != $gamedata->turn) {
-			$reason = 'flight not deploying this turn'; return false;
-		}
-		//Carrier must ALSO be deploying this turn — fighters arriving on
-		//turn N can only dock into ships also arriving on turn N. Previously
-		//-deployed carriers are off-limits to late reinforcements.
-		if ($carrier->getTurnDeployed($gamedata) != $gamedata->turn) {
-			$reason = 'carrier not deploying this turn'; return false;
-		}
-
-		//$count is the number of craft this hangar will take. NULL = the whole
-		//flight (legacy single-hangar dock). A multi-hangar auto-distribute
-		//(rails: a 9-flight spread across a 6-box + 3-box rail) passes the
-		//per-hangar slice — partial deploy-docks split the flight into fragments
-		//exactly like the Firing-Phase splitter (performLand).
-		$size = ($count === null) ? (int)$flight->flightSize : (int)$count;
-		if ($size <= 0) { $reason = 'flight has no craft'; return false; }
-
-		//Per-bay fighter-class allow-list (e.g. Reska-only Suom bay).
-		if (!self::hangarAcceptsFighterClass($hangar, $flight)) { $reason = 'wrong fighter class'; return false; }
-
-		$category = self::trueSizeOf($flight);
-		$free = self::freeBoxesByCategory($hangar, $category, $carrier);
-		//unitSize<1 craft need more than one box each (see boxesPerCraftForClass);
-		//catapults are exempt (single-fighter rail, counts craft 1:1).
-		$boxesNeeded = !empty($hangar->isCatapult) ? $size : $size * self::boxesPerCraftForClass($flight->phpclass);
-		if ($free < $boxesNeeded) { $reason = 'hangar full'; return false; }
-
-		//Stage 10.6.2: per-ship customFighter cap. Checked against the per-hangar
-		//slice; the aggregate across hangars is bounded by the cap because each
-		//slice consumes from the same shared remaining (entries stamped as they
-		//are written within this processing pass).
-		$customName = isset($flight->customFtrName) ? (string)$flight->customFtrName : '';
-		if ($customName !== '') {
-			$remaining = self::customFighterRemaining($carrier, $customName);
-			if ($remaining < $size) { $reason = 'customFighter cap exceeded'; return false; }
-		}
-
-		//Custom combat category cap (e.g. Hunter-Killers) — checked against this
-		//per-hangar slice; entries stamped as they're written this pass keep the
-		//aggregate across bays within the shared cap (mirrors the customFighter line).
-		$catRemaining = self::categoryCapRemaining($carrier, $category);
-		if ($catRemaining < $size) { $reason = 'fighter category cap exceeded'; return false; }
-
-		return true;
-	}
+	/* (Tier-1/3 cleanup 2026-07-12: the old per-bay canDeployStartDock — the
+	 * legacy single-bay deploy-dock validator — was removed as dead code; no
+	 * callers remained. Deploy-dock validation is validateDeployBayOrders above
+	 * + the server-authoritative re-home in performDeployStartDockFromOrders.) */
 
 	/* (Stage 21: the old per-bay performDeployStartDock — which re-distributed
 	 * boxes server-side and, pre-21.1, split into fragments — was replaced by the
