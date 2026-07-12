@@ -3709,6 +3709,14 @@ window.confirm = {
                 var budget = baseBudgetByHangar.get(sys.id);
                 var cap   = Math.min(avail, budget);
                 var used  = per.get(sys.id) || 0;
+                //Hide bays with no room this recover (a full rail whose fighters are
+                //already committed): they can't receive anything, so listing them as
+                //"6/6" only clutters the readout and misled players into thinking a
+                //full rail was a valid target (user request 2026-07-12). A bay the
+                //dialog is actively filling (used > 0) always stays visible so it
+                //doesn't vanish mid-interaction (and an overfilled one must show to
+                //flag the error).
+                if (cap <= 0 && used <= 0) return;
                 var color = (used > cap) ? '#ff5050' : (used > 0 ? '#ffff80' : '#bdbdbd');
                 if (used > cap) anyOverflow = true;
                 $('<span class="hangar-capacity-pill" style="color:' + color + ';"></span>')
@@ -3716,7 +3724,7 @@ window.confirm = {
                     .appendTo($pillContainer);
             });
             if ($pillContainer.children().length === 0) {
-                $pillContainer.append('<span style="color:#bdbdbd;">none</span>');
+                $pillContainer.append('<span style="color:#bdbdbd;">All bays full</span>');
             }
             $capacityHeader.empty()
                 .append('<span class="hangar-capacity-label">Available Hangar Capacity:</span>')
