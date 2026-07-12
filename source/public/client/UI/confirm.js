@@ -3029,11 +3029,14 @@ window.confirm = {
         }
 
         allRows.forEach(function (r) {
-            var freeBoxes = r.capacity;
             // Initial max: physical cap clamped to flight size (other rows may tighten it live).
             var maxThis = Math.min(r.hardCap, flightCount);
             var row = $('<div class="multi-value-row"></div>');
-            $('<span class="multi-value-label"><span class="hangar-section-name">' + r.label + '</span> <span class="multi-value-max">(free: ' + freeBoxes + ', max: ' + maxThis + ')</span></span>').appendTo(row);
+            //Show the hangar's CURRENT capacity for this flight (in craft, own queued
+            //docks reclaimable). The old "max:" value was min(cap, flight size) — for
+            //any roomy hangar that's just the flight size, which the header already
+            //states — so it read as noise (user feedback 2026-07-12).
+            $('<span class="multi-value-label"><span class="hangar-section-name">' + r.label + '</span> <span class="multi-value-max">(capacity: ' + r.capacity + ')</span></span>').appendTo(row);
             var inputWrapper = $('<div style="display:flex; align-items:center;"></div>').appendTo(row);
             $('<input type="number" class="multiConfirmInput multi-value-input main-input dockCount" value="' + r.preset + '" min="0" max="' + maxThis + '">').appendTo(inputWrapper);
             row.data('rowData', r);
@@ -3320,8 +3323,15 @@ window.confirm = {
             var effective = effectiveHangarBoxes(sys);   //catapult → 1, regardless of damage
             //committed is in BOXES (fractional for ultralights); round the TOTAL up
             //to whole boxes so free space is whole boxes (mirrors occupiedBoxes).
+            //MUST be occupancy-aware ACROSS bays (hangarUsedBoxesOnBay): a multi-bay
+            //docked flight is ONE entry on its host bay whose occupancy list places
+            //boxes on SIBLING bays — summing only this bay's own entries read a full
+            //rail as empty and let the dialog allocate recovering flights onto it
+            //(2026-07-12 fix; the eligibility path already used this helper).
             var committed = 0;
-            if (Array.isArray(sys.hangarUsage)) {
+            if (typeof window.hangarUsedBoxesOnBay === 'function') {
+                committed = window.hangarUsedBoxesOnBay(carrier, sys, isCat);
+            } else if (Array.isArray(sys.hangarUsage)) {
                 sys.hangarUsage.forEach(function (entry) { committed += entryBoxesIn(sys, entry); });
             }
             if (Array.isArray(sys.pendingDockOrders)) {
@@ -3709,7 +3719,7 @@ window.confirm = {
                 $pillContainer.append('<span style="color:#bdbdbd;">none</span>');
             }
             $capacityHeader.empty()
-                .append('<span class="hangar-capacity-label">Hangar capacity:</span>')
+                .append('<span class="hangar-capacity-label">Available Hangar Capacity:</span>')
                 .append($pillContainer);
             $('.confirmok', e).css('opacity', anyOverflow ? 0.6 : 1);
         }
@@ -4277,7 +4287,7 @@ window.confirm = {
                 $pillContainer.append('<span style="color:#bdbdbd;">none</span>');
             }
             $capacityHeader.empty()
-                .append('<span class="hangar-capacity-label">Hangar capacity:</span>')
+                .append('<span class="hangar-capacity-label">Available Hangar Capacity:</span>')
                 .append($pillContainer);
             //Visual cue on OK button when overflowing — leave it clickable so the
             //alert above can explain WHICH hangar is over (clearer than greying it out).

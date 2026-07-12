@@ -187,6 +187,11 @@ window.HangarShared = (function () {
                 if (declared['ultralight']) return true;
                 return false;
             }
+            //Categories bound to DEDICATED systems never ride a universal fighter
+            //bay: 'superheavy' lives in the catapult, 'lcvs' on DockingCollar rails
+            //(mirrors the PHP guard — Stormfalcon's superheavy declaration must not
+            //open its 14-box hangar to the Sky Serpent).
+            if (cat === 'superheavy' || cat === 'lcvs') return false;
             //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
             //when the ship declares that exact category. allowedFighterClasses still
             //gates the actual phpclass.

@@ -3993,3 +3993,89 @@ dock (capped) and its size fighters still dock uncapped.
 ### Remaining (user)
 `yarn watch:legacy` (client edits) + Docker test in games 4231/4232. Optional: fix the `"mediuem"` typo in the two
 Sshelath Vulshara files. NOT committed (legacy bundles rebuilt by the user's build, never committed by us).
+
+## Five niche-bug fix round (2026-07-12, user report; test game 4240)
+
+User reported five issues after the T1/Stage-2-3 cleanup; investigation traced #1 to the 2026-07-09 HK
+custom-category work (not the cleanup), #2 to the multi-bay auto-distribute era, #3–#5 to display/stamp logic.
+Verified: `c:\tmp\hangar_fixes_test.php` in-container harness (31/31) + node mirror-parity on hangarShared (8/8).
+
+### #1 — Superheavy deploy-docked into the Stormfalcon's 14-box hangar instead of its catapult
+TWO coupled causes, both from the 2026-07-09 HK round: (a) `inferHangarType` treated the declared `superheavy`
+key as a custom-combat narrowing-blocker, so `{light:12, superheavy:1}` kept the bay universal `'fighters'`
+(pre-07-09 it narrowed to `light`); (b) the new universal-bay custom-category door (`declared[$cat]`) then
+accepted `'superheavy'`. The deploy auto-queue picks biggest-free-first → the 14-box hangar won over the 1-slot
+catapult (DB game 4240 ship 876169: SkySerpentAM entry on systemid 5 = the Hangar). Fixes:
+- `inferHangarType`: `superheavy`/`lcvs` are **dedicated-system categories** (catapult / LCV rail) — skipped like
+  the shuttle family, never narrowing-blockers. Stormfalcon's bay narrows to `light` again. Enumerated every
+  `$fighters` declaration containing superheavy: all flips restore pre-07-09 behavior (multi-size and `normal`
+  carriers keep universal bays via the other blockers; no `lcvs` key appears in any `$fighters` declaration —
+  that guard is defensive).
+- `hangarAcceptsCategory` (PHP + hangarShared.js): universal branch REFUSES `'superheavy'`/`'lcvs'` outright,
+  before the custom-category door — belt for ships that stay universal (`{normal, superheavy}`, multi-size).
+- `performDeployStartDockFromOrders`: **catapults are now valid deploy-dock targets** — the re-home previously
+  skipped them entirely (so even a correctly-ordered catapult dock would fail-note). Catapults count craft 1:1
+  (exempt from the box multiplier), use `effectiveCapacity()` = 1, and ignore their own damage (mirrors
+  `eligibleHangarsForLanding`). `hangarAcceptsCategory` keeps every other category out of them (T25).
+
+### #1b (adjacent, found during the fix) — lean no-occupancy entry mis-hosted on re-home
+The deploy re-home writes the entry on `$preferredPrimary` (the bay whose snapshot is pending) but places boxes
+wherever they fit. When the ordered bay is refused/full and the flight re-homes to ONE other bay, the old
+`count($occupancy) > 1` condition skipped the occupancy stamp — and every reader charges a no-occupancy entry's
+boxes to its HOST bay (the wrong one). Now the lean shape is used only when the single occupancy bay IS the host
+(`$singleOnHost`); regen flights stamp always, as before. (T21–T23: stale hangar-order for the SHF re-homes to
+the catapult, entry hosted on the hangar WITH `occupancy:[{catapult,1}]`, `usageCountFor(hangar)` stays 2.)
+KNOWN EDGE (accepted): a catapult occupied only via a foreign-hosted occupancy entry reads empty to
+`usageCountFor`'s catapult branch (it ignores occupancy) — reachable only through a stale/hostile client order
+on a multi-SHF ship, and current catapult carriers dock one SHF per catapult so live play can't hit it.
+
+### #2 — Thunderbolt/Rutarian (`customFtrName`) deploy-docked into any size-fitting carrier
+`eligibleHangarsForFlight` had the Stage-10.6.2 `customFighterRemainingFor` gate but the ACTUAL queue path —
+`distributeFlightAcrossHangars`, used by every deploy-dock button — did not (same lesson as the 07-09 HK §5a
+fix: a dock constraint must live in the shared packer). Server `validateDeployBayOrders` already rejected the
+commit (so the observed bug was client-side UI, plus a nasty limbo: the rejected flight ended up removed
+client-side but unplaced server-side). Added the customFighter gate at the top of the packer, own-flight
+reservations reclaimable. Firing-phase paths were already gated (unchanged).
+
+### #3 — Recover Flights dialog allocated recovering fighters onto FULL rails
+`confirm.hangarRecover`'s `baseFreeByHangar` summed only each bay's OWN `hangarUsage` entries. A multi-bay
+docked flight is ONE entry on its host bay whose `occupancy` places boxes on SIBLING bays (game 4240: Delta-V
+#13 ×12 hosted on rail 12, occupancy `[(12,6),(15,6)]`) — rail 15 read as empty, so the dialog allocated 6 of
+the 9 recovering fighters onto the full rail (screenshot: "Fighter Rail 5: 6/6" yellow), wrote a dock order the
+projection then couldn't render (only one "(Recovering)" line; per-flight dialog showed 3), while the server's
+occupancy-aware re-home docked all 9 correctly. Fix: `baseFreeByHangar` now uses `window.hangarUsedBoxesOnBay`
+(the same foreign-occupancy-aware accounting the eligibility path already used), with the old sum as a fallback
+when the helper isn't loaded. Pills, `distributeFlightAcrossBays`, the overflow guard, and the tooltip
+projection all read the fixed map, so allocation + "(Recovering)" lines + Enter-Hangar presets now agree.
+
+### #4 — Pristine Warrior Projectiles showed "(Regenerating — complete end of turn N)"
+Both dock paths stamped `regenTurn` unconditionally for a `$dockRegeneration` class ("harmless — the sweep heals
+nothing"), but the tooltip renders the stamp as a 5-turn "Regenerating" status on flights with nothing to
+regenerate (deploy-docks are virtually always pristine). Fixes:
+- Server: new `HangarOps::flightNeedsRegeneration($flight)` (any destroyed/dropped-out craft — `isDestroyed`
+  folds `DisengagedFighter` in — or net damage on a living craft); both `performWholeFlightDock` and
+  `performDeployStartDockFromOrders` stamp `regenTurn` only when true (T26–T30: pristine no stamp, damaged
+  stamps turn+5; occupancy/full-roster reservation unaffected — keyed on `isDockRegenFlight`, not the stamp).
+- Client (`baseSystems.js refreshHangarTooltip`): the `Regenerating` marker renders only when
+  `dockedFlightNeedsRegen(entry.dockedFlightId)` (mirror of the PHP helper via shipManager damage/crit reads;
+  fail-OPEN on unresolvable flights) — covers entries stamped before this fix in in-flight games (4240's two
+  Warriors). "(Regenerated)" rendering unchanged.
+
+### #5 — Enter-Hangar rows showed "max:" = flight size (already in the header)
+`confirm.hangarDock` row label `(free: X, max: Y)` → `(capacity: X)` — the hangar's current capacity in craft
+for this flight (own queued docks reclaimable). The input's live max attribute (hardCap/remaining clamp) is
+unchanged.
+
+### Files
+- `HangarOps.php` — `inferHangarType`, `hangarAcceptsCategory`, `performDeployStartDockFromOrders` (catapults +
+  `$singleOnHost` occupancy stamp), new `flightNeedsRegeneration`, `performWholeFlightDock` stamp gate.
+- `hangarShared.js` — `hangarAcceptsCategory` superheavy/lcvs refusal (single client mirror; all per-file
+  helpers delegate here).
+- `DeploymentDock.js` — customFighter gate in `distributeFlightAcrossHangars`.
+- `confirm.js` — `hangarRecover` occupancy-aware `baseFreeByHangar`; `hangarDock` capacity label.
+- `baseSystems.js` — `dockedFlightNeedsRegen` + regen-marker gating in `refreshHangarTooltip`.
+
+### Remaining (user)
+`yarn watch:legacy` (5 client files) + Docker re-test in game 4240 (or fresh): SHF → catapult at deployment;
+Rutarian offered only on Daragn-class carriers; Recover Flights pills/allocation on the StrikeCarrier; Warrior
+tooltip clean when pristine (in 4240 the old stamps clear at their regenTurn); Enter-Hangar capacity label.

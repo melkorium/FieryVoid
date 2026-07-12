@@ -217,6 +217,18 @@ window.DeploymentDock = (function () {
         var catCap = categoryCapRemainingFor(carrier, cat, parseInt(flight.id, 10));
         if (catCap < remaining) return [];   //carrier can't hold this whole flight within its category cap
 
+        //Stage 10.6.2: per-carrier customFighter cap (Thunderbolt, Rutarian, Ok-chn).
+        //eligibleHangarsForFlight already gates this, but THIS packer is the actual
+        //queue path for every deploy-dock button (same lesson as the HK cap above:
+        //a dock constraint must live in the shared packer, not just the dialog
+        //dropdown) — without it a Rutarian could deploy-dock into any Primus whose
+        //bay fits it by size, and the server would then reject the commit.
+        var customName = String(flight.customFtrName || '');
+        if (customName !== '') {
+            var ftrCap = customFighterRemainingFor(carrier, customName, parseInt(flight.id, 10));
+            if (ftrCap < remaining) return [];   //carrier isn't outfitted for this custom fighter
+        }
+
         var hangars = collectUsableHangars(carrier, reclaimFlightId).filter(function (h) {
             //Stage S: integrated-fighter bays accept only their own integrated
             //fighters (see eligibleHangarsForFlight — same gate).
