@@ -605,9 +605,17 @@ class HangarOps {
 			case 'CargoShuttle':
 				return 'Cargo Shuttle';
 			case 'Flyer':
-				return 'Flyer';
+				return 'Cargo Flyer';
 			case 'FlyerProtectorate':
-				return 'Flyer';
+				return 'Cargo Flyer';
+			case 'MedicalShuttle':
+				return 'Medical Shuttle';
+			case 'Lifeboat':
+				return 'Lifeboat';
+			case 'PresidentialShuttle':
+				return 'Presidential Shuttle';
+			case 'EmperorsYacht':
+				return 'Yacht';
 			case 'Shuttle':
 			default:
 				return 'Shuttle';
@@ -2099,7 +2107,7 @@ class HangarOps {
 		//if ($phpclass === 'MinesweepingShuttle') return 20;
 		if (self::isMinesweepingShuttleClass($phpclass)) return 20;		
 		if (stripos($phpclass, 'shuttle') !== false) return 10;
-		if ($phpclass === 'Flyer' || $phpclass === 'FlyerProtectorate') return 10;
+		if (self::isDefaultShuttleClass($phpclass)) return 10;
 		if (class_exists($phpclass)) {
 			try {
 				$probe = new $phpclass(0, 0, '', 0);

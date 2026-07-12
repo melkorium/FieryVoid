@@ -428,7 +428,7 @@ class EmperorsYacht extends Shuttle
     protected function setShuttleDefaults()
     {
         parent::setShuttleDefaults();
-        $this->phpclass = "EmperorYacht";
+        $this->phpclass = "EmperorsYacht";
         $this->shipClass = "Yacht";
         $this->hangarRequired = 'yacht';
         $this->faction = "Centauri republic";        
