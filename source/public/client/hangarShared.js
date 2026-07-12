@@ -127,6 +127,21 @@ window.HangarShared = (function () {
         return allowed.indexOf(cls) !== -1;
     }
 
+    // Mirrors HangarOps::bayReservesFlight (PHP). The auto-fill PRIORITY predicate:
+    // a bay is reserved for this flight by its phpclass allow-list OR by an EXACT
+    // hangarType category match (a bay typed 'ultralight' is reserved for ultralight
+    // flights). Reserved bays fill ahead of universal bays that merely accept the
+    // flight via the size hierarchy. "Exact" is deliberate — a 'light' bay accepts
+    // ultralights but does NOT reserve them; universal 'fighters'/'normal' reserve
+    // nothing. Ordering only, never eligibility.
+    function bayReservesFlight(sys, flight) {
+        if (!sys) return false;
+        if (bayReservesFighterClass(sys, flight)) return true;
+        var hType = String(sys.hangarType || '').toLowerCase().trim();
+        if (hType === '' || hType === 'fighters' || hType === 'normal') return false;
+        return hType === String(categoryForFlight(flight)).toLowerCase().trim();
+    }
+
     function lowerKeys(obj) {
         var out = {};
         for (var k in obj) {
@@ -272,6 +287,7 @@ window.HangarShared = (function () {
         categoryForFlight:         categoryForFlight,
         hangarAcceptsFighterClass: hangarAcceptsFighterClass,
         bayReservesFighterClass:   bayReservesFighterClass,
+        bayReservesFlight:         bayReservesFlight,
         hangarAcceptsCategory:     hangarAcceptsCategory,
         isCustomCombatCategory:    isCustomCombatCategory,
         hangarLabelFor:            hangarLabelFor,

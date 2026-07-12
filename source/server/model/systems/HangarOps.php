@@ -4680,16 +4680,41 @@ class HangarOps {
 		return in_array($cls, $allowed, true);
 	}
 
-	/* Stable sort: bays whose allow-list SPECIFICALLY reserves $flight's class
-	 * come first (so they fill before unrestricted bays the flight could also
-	 * use), preserving the input order within each group. Operates on a plain
-	 * list of Hangar objects. */
+	/* True when $hangar is SPECIFICALLY reserved for $flight — either by its
+	 * phpclass allow-list (bayReservesFighterClass) OR by an EXACT hangarType
+	 * category match (a bay typed 'ultralight' is reserved for ultralight flights,
+	 * a 'Breaching Pods' bay for BP flights). This is the auto-fill PRIORITY
+	 * predicate: a reserved bay fills ahead of a universal bay that merely accepts
+	 * the flight via the size hierarchy — so an ultralight flight prefers the
+	 * Qoricc's dedicated aft 'ultralight' bay before spilling into the universal
+	 * primary, mirroring how a Reska prefers the gaimSuom's Reska-only bay.
+	 *
+	 * "Exact" is deliberate: a 'light' bay ACCEPTS ultralights (size hierarchy)
+	 * but does NOT reserve them — only a bay whose type equals the flight's own
+	 * category is a reservation. Universal 'fighters'/'normal' bays reserve
+	 * nothing. This only affects ORDERING among bays that already accept the
+	 * flight; it never changes eligibility. */
+	public static function bayReservesFlight($hangar, $flight){
+		if (!is_object($hangar)) return false;
+		if (self::bayReservesFighterClass($hangar, $flight)) return true;   //phpclass allow-list reservation
+		//Exact hangarType category match. Skip universal types and structural
+		//bays (catapults are fixed 'superheavy', which DOES exact-match a
+		//superheavy flight — desirable, the SHF prefers its catapult).
+		$hType = strtolower(trim((string)$hangar->hangarType));
+		if ($hType === '' || $hType === 'fighters' || $hType === 'normal') return false;
+		return $hType === strtolower(trim((string)self::trueSizeOf($flight)));
+	}
+
+	/* Stable sort: bays SPECIFICALLY reserved for $flight (bayReservesFlight —
+	 * phpclass allow-list OR exact hangarType match) come first, so they fill
+	 * before universal bays that merely accept the flight, preserving input
+	 * order within each group. Operates on a plain list of Hangar objects. */
 	public static function sortBaysReservedFirst($bays, $flight){
 		if (!is_array($bays) || count($bays) < 2) return $bays;
 		$reserved = array();
 		$other = array();
 		foreach ($bays as $h){
-			if (self::bayReservesFighterClass($h, $flight)) $reserved[] = $h;
+			if (self::bayReservesFlight($h, $flight)) $reserved[] = $h;
 			else $other[] = $h;
 		}
 		return array_merge($reserved, $other);
@@ -4833,15 +4858,17 @@ class HangarOps {
 			if ($capacity > 0) $out[] = array('hangar' => $h, 'capacity' => $capacity);
 		}
 
-		//Prioritise bays that SPECIFICALLY reserve this flight's class (allowedFighterClasses)
-		//ahead of unrestricted bays that merely accept it — so a Reska auto-lands in the Suom's
-		//Reska-only bay before consuming the universal primary the medium Koist needs. Stable
-		//partition preserves the exact-match-then-hierarchy ordering within each group.
+		//Prioritise bays SPECIFICALLY reserved for this flight — by phpclass allow-list
+		//OR exact hangarType match (bayReservesFlight) — ahead of universal bays that
+		//merely accept it: a Reska auto-lands in the Suom's Reska-only bay, and an
+		//ultralight flight auto-lands in the Qoricc's dedicated 'ultralight' bay, before
+		//consuming the universal primary. Stable partition preserves the exact-match-
+		//then-hierarchy ordering within each group.
 		if (count($out) > 1){
 			$reservedOut = array();
 			$otherOut = array();
 			foreach ($out as $entry){
-				if (self::bayReservesFighterClass($entry['hangar'], $flight)) $reservedOut[] = $entry;
+				if (self::bayReservesFlight($entry['hangar'], $flight)) $reservedOut[] = $entry;
 				else $otherOut[] = $entry;
 			}
 			$out = array_merge($reservedOut, $otherOut);

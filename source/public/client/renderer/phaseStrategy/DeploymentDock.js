@@ -65,6 +65,7 @@ window.DeploymentDock = (function () {
     var categoryForFlight         = HS.categoryForFlight;
     var hangarAcceptsFighterClass = HS.hangarAcceptsFighterClass;
     var bayReservesFighterClass   = HS.bayReservesFighterClass;
+    var bayReservesFlight         = HS.bayReservesFlight;
     var hangarAcceptsCategory     = HS.hangarAcceptsCategory;
     var isCustomCombatCategory    = HS.isCustomCombatCategory;
 
@@ -236,13 +237,15 @@ window.DeploymentDock = (function () {
             return hangarAcceptsCategory(h.hangar.hangarType, cat, carrier) &&
                    hangarAcceptsFighterClass(h.hangar, flight);   //per-bay class allow-list
         });
-        //Fill order: bays that SPECIFICALLY reserve this flight's class first (so a
-        //Reska fills the Suom's Reska-only bay before spilling into the universal
-        //primary the medium Koist needs), THEN biggest free first (fewest bays —
-        //prefer the 6-box rail before the 3-box ones). Ties keep encounter order.
+        //Fill order: bays SPECIFICALLY reserved for this flight first — by phpclass
+        //allow-list OR exact hangarType match (bayReservesFlight) — so a Reska fills
+        //the Suom's Reska-only bay and an ultralight fills the Qoricc's dedicated
+        //'ultralight' bay before spilling into the universal primary; THEN biggest
+        //free first (fewest bays — prefer the 6-box rail before the 3-box ones).
+        //Ties keep encounter order.
         hangars.sort(function (a, b) {
-            var ra = bayReservesFighterClass(a.hangar, flight) ? 1 : 0;
-            var rb = bayReservesFighterClass(b.hangar, flight) ? 1 : 0;
+            var ra = bayReservesFlight(a.hangar, flight) ? 1 : 0;
+            var rb = bayReservesFlight(b.hangar, flight) ? 1 : 0;
             if (ra !== rb) return rb - ra;        //reserved bays first
             return b.free - a.free;
         });

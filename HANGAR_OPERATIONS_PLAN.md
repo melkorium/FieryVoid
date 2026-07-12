@@ -4079,3 +4079,42 @@ unchanged.
 `yarn watch:legacy` (5 client files) + Docker re-test in game 4240 (or fresh): SHF → catapult at deployment;
 Rutarian offered only on Daragn-class carriers; Recover Flights pills/allocation on the StrikeCarrier; Warrior
 tooltip clean when pristine (in 4240 the old stamps clear at their regenTurn); Enter-Hangar capacity label.
+
+## Follow-up refinements (2026-07-12, same session)
+
+### Recover Flights — hide bays with no room
+`confirm.hangarRecover recomputeCapacity`: the "Available Hangar Capacity" pill strip now SKIPS a bay whose
+`cap <= 0` AND `used <= 0` (a rail already full of committed fighters) — listing a full "6/6" rail cluttered the
+readout and misled players into thinking it was a valid target. A bay the dialog is actively filling (`used > 0`)
+always stays visible (so it doesn't vanish mid-interaction and an overfill still flags red). Empty state now reads
+"all bays full" instead of "none".
+
+### Typed-hangar reservation ordering — `bayReservesFlight`
+User wanted an ultralight flight to prefer the Qoricc's dedicated aft `'ultralight'` bay before the universal
+primary (a bespoke ship config: `new Hangar(4, 6, 6, 2, 'ultralight', array(), true)` — 5th arg types the bay,
+7th excludes it from the default-shuttle auto-fill). The firing-phase LANDING path already did exact-category-
+match-first (`eligibleHangarsForLanding`'s two-loop structure), but the deployment auto-distribute + the
+landing/re-home REORDER passes only recognised the phpclass `allowedFighterClasses` reservation. Generalised the
+"reserved bays fill first" concept: new `HangarOps::bayReservesFlight($hangar, $flight)` = the phpclass allow-list
+arm (`bayReservesFighterClass`) OR an **exact** `hangarType` category match (`hangarType === trueSizeOf(flight)`).
+"Exact" is deliberate — a `'light'` bay ACCEPTS ultralights via the hierarchy but does NOT reserve them; universal
+`'fighters'`/`'normal'` reserve nothing; a catapult (`'superheavy'`) reserves a superheavy flight (desirable). It
+affects ORDERING ONLY, never eligibility. Routed the three server reorder sites (`eligibleHangarsForLanding`
+partition, `sortBaysReservedFirst` used by `buildDockBays` + `performDeployStartDockFromOrders`) and the client
+deploy packer (`DeploymentDock.distributeFlightAcrossHangars` sort) through it; client mirror `bayReservesFlight`
+in `hangarShared.js`. Verified: PHP 8/8 (real Qoricc: ultra→aft first, medium can't use aft, catapult regression)
++ node parity 8/8. **NOT changed: a global "primary-section-first" tiebreak.** The user also asked for primary
+(location 0) before non-primary as a secondary order, but (a) the reservation-first change already delivers the
+Qoricc case, and (b) a global primary-first tiebreak would override the deploy packer's deliberate biggest-free-
+first rail ordering for EVERY ship — too broad for the benefit. Left as-is pending a concrete case that needs it.
+
+### Files (follow-up)
+- `confirm.js` — `hangarRecover` full-bay hide.
+- `HangarOps.php` — new `bayReservesFlight`; three reorder sites routed through it.
+- `hangarShared.js` — `bayReservesFlight` client mirror + export.
+- `DeploymentDock.js` — `distributeFlightAcrossHangars` sort uses `bayReservesFlight`.
+- `cascor/qoricc.php` — aft `Hangar(4, 6, 6, 2, 'ultralight', array(), true)` (positional-id caveat: new games only).
+
+### Remaining (user, follow-up)
+`yarn watch:legacy` (confirm.js, hangarShared.js, DeploymentDock.js) + Docker test the Qoricc: aft bay empty at
+deploy, ultralights auto-land aft-first, mediums use primary only, full rails hidden in Recover Flights.
