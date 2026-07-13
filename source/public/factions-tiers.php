@@ -358,7 +358,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
             <li>The TFS has three unique hulls including the Blockade Runner, System Monitor, and Freedom Base. Beyond this, the TFS will utilize any generic raider unit.</li>
             <li>The majority of TFS fighters are Delta-Vs, but they can field Armed Shuttles, Double-Vs, Goriths, Star Snakes, and Koists. The TFS only use Drazi Dudroma defense satellites.</li>   
         </ul>
-<h5>Torata Privateers</h5>
+<h5>Torata Privateers (Custom)</h5>
             <ul>
 <li>Based on the units created by Jason Stadnyk on The Great Machine. These Torata forces explored Markab and Vree space in search for resources and technologies.</li>
             <li>The Uala's low population makes the Torata Privateers relatively uncommon and with very few units. </li>
