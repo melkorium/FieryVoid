@@ -2445,12 +2445,24 @@ window.confirm = {
             out[parseInt(rd.entryHangar.id, 10)] = k;
             return out;
         }
+        // A row's effective craft count. When Split is active the main $input is
+        // kept in sync with the sum of the split sub-inputs (see wireSplit), so
+        // reading $input remains correct — but sum the sub-inputs directly here so
+        // the tally is right even mid-edit before syncMainFromSplit runs.
+        function rowTotal(rd) {
+            if (rd.splitActive && rd.splitInputs) {
+                var t = 0;
+                rd.splitInputs.forEach(function ($i) { var v = parseInt($i.val() || 0, 10); if (v > 0) t += v; });
+                return t;
+            }
+            return parseInt(rd.$input.val() || 0, 10);
+        }
         // Sum the craft every row charges to each bay → {hangarId: craft}.
         function tallyCharges() {
             var charged = {};
             rowData.forEach(function (rd) {
                 if (rd.isCat) return;   // catapults have no budget
-                var c = chargesForRow(rd, parseInt(rd.$input.val() || 0, 10));
+                var c = chargesForRow(rd, rowTotal(rd));
                 Object.keys(c).forEach(function (hid) { charged[hid] = (charged[hid] || 0) + c[hid]; });
             });
             return charged;
@@ -2470,6 +2482,10 @@ window.confirm = {
         function updateBudgets() {
             rowData.forEach(function (rd) {
                 if (rd.isCat) return;   // catapults have no budget
+                // Split rows guard their own budget in the sub-input handler (which
+                // reverts the offending sub-input, then syncs the main input); the
+                // main input is read-only there, so skip the single-input revert.
+                if (rd.splitActive) { rd.lastVal = rowTotal(rd); return; }
                 var cur = parseInt(rd.$input.val() || 0, 10);
                 if (cur < 0) cur = 0;
                 // Only an INCREASE can newly break a budget; if this row went up
@@ -2604,9 +2620,10 @@ window.confirm = {
                 if (!entry || entry.cannotLaunch) return;
                 if (parseInt(entry.dockedFlightId || 0, 10) > 0) return;   // docked, handled above
                 var cls = entry.phpclass || 'unknown';
-                if (!anon[cls]) anon[cls] = { name: entry.name || cls, count: 0 };
+                if (!anon[cls]) anon[cls] = { name: entry.name || cls, count: 0, isDefaultShuttle: gamedata.isDefaultShuttleEntry(entry) };
                 anon[cls].count += parseInt(entry.flightSize || 1, 10);
             });
+            var bayCap = parseInt(hangar.maxhealth || 0, 10);   // box capacity of this bay
             Object.keys(anon).forEach(function (cls) {
                 var info = anon[cls];
                 var max = Math.min(info.count, launchSizeMaxFor(cls), budget);
@@ -2618,10 +2635,134 @@ window.confirm = {
                 var fromBayHtml = fromBay ? ' <span class="multi-value-max">(' + fromBay + ')</span>' : '';
                 $('<span class="multi-value-label"><span class="hangar-craft-name">' + info.count + 'x ' + info.name + '</span>' + fromBayHtml + '</span>').appendTo(row);
                 var iw = $('<div style="display:flex; align-items:center;"></div>').appendTo(row);
+
+                // Split option (default shuttles only): launch the selected shuttles
+                // as several separate 1+ flights instead of one combined flight. The
+                // player gets full per-flight control (like the Fighter Bomb dialog).
+                // Suppressed when the bay can't hold >1 box or there aren't ≥2
+                // shuttles to split. Split flights still share the bay launch budget.
+                var canSplit = !!info.isDefaultShuttle && bayCap > 1 && info.count >= 2 && max >= 2;
+                var $splitChk = null;
+                if (canSplit) {
+                    var splitId = 'splitChk_' + parseInt(hangar.id, 10) + '_' + cls.replace(/[^A-Za-z0-9]/g, '');
+                    $splitChk = $('<input type="checkbox" class="multiConfirmInput launchSplitChk" id="' + splitId + '">').appendTo(iw);
+                    $('<label class="launchSplitLabel" for="' + splitId + '">Split</label>').appendTo(iw);
+                }
+
                 var $in = $('<input type="number" class="multiConfirmInput multi-value-input main-input launchSize" value="' + preset + '" min="0" max="' + max + '">').appendTo(iw);
                 container.append(row);
+
+                var rd = { $input: $in, dockedFlightId: 0, phpclass: cls, entryHangar: hangar, max: max, isAnon: true, splitActive: false, splitInputs: null };
+                rowData.push(rd);
                 $in.on('input change', updateBudgets);
-                rowData.push({ $input: $in, dockedFlightId: 0, phpclass: cls, entryHangar: hangar, max: max, isAnon: true });
+
+                if (canSplit) {
+                    // Sub-panel (hidden until Split is checked): one input per flight
+                    // with an "Add another flight" link, seeded from the main input.
+                    var splitPanel = $('<div class="launchSplitPanel" style="display:none;"></div>');
+                    splitPanel.insertAfter(row);
+                    var splitRows = $('<div class="launchSplitRows"></div>').appendTo(splitPanel);
+
+                    function splitSum() {
+                        var t = 0;
+                        if (!rd.splitInputs) return t;
+                        rd.splitInputs.forEach(function ($i) { var v = parseInt($i.val() || 0, 10); if (v > 0) t += v; });
+                        return t;
+                    }
+                    // Craft this row would charge to its bay if the split sub-inputs
+                    // held total T (an anonymous row charges only its own bay).
+                    function budgetHeadroom() {
+                        // Available budget on this bay = base minus every OTHER row's charge.
+                        var others = 0;
+                        rowData.forEach(function (o) {
+                            if (o === rd || o.isCat) return;
+                            var c = chargesForRow(o, rowTotal(o));
+                            others += (c[parseInt(hangar.id, 10)] || 0);
+                        });
+                        return Math.max(0, (bayBudget.get(hangar) || 0) - others);
+                    }
+                    function syncMain() {
+                        rd.$input.val(splitSum());
+                        updateBudgets();
+                    }
+                    function renumberSplit() {
+                        splitRows.find('.launchSplitFlightLabel').each(function (idx) { $(this).text('Flight ' + (idx + 1)); });
+                    }
+                    function addSplitRow(val) {
+                        var srow = $('<div class="multi-value-row launchSplitFlightRow"></div>').appendTo(splitRows);
+                        $('<span class="multi-value-label"><span class="multi-value-name launchSplitFlightLabel">Flight</span></span>').appendTo(srow);
+                        var siw = $('<div style="display:flex; align-items:center;"></div>').appendTo(srow);
+                        var $sin = $('<input type="number" class="multiConfirmInput multi-value-input launchSplitInput" value="' + Math.max(0, parseInt(val, 10) || 0) + '" min="0" max="' + max + '">').appendTo(siw);
+                        var $rm = $('<span class="launchSplitRemove" title="Remove this flight">✕</span>').appendTo(siw);
+                        $rm.on('click', function () {
+                            // Removing the LAST remaining flight collapses the split
+                            // entirely — uncheck the box so we fold back to a single
+                            // (editable) flight holding whatever total is left.
+                            if (rd.splitInputs.length <= 1) {
+                                $splitChk.prop('checked', false).trigger('change');
+                                return;
+                            }
+                            var i = rd.splitInputs.indexOf($sin);
+                            if (i !== -1) rd.splitInputs.splice(i, 1);
+                            srow.remove();
+                            renumberSplit();
+                            syncMain();
+                        });
+                        rd.splitInputs.push($sin);
+                        renumberSplit();
+                        return $sin;
+                    }
+
+                    var addRow = $('<div class="multi-value-row launchSplitAddRow"></div>').appendTo(splitPanel);
+                    var $addBtn = $('<span class="launchSplitAddFlight">+ Add another flight</span>').appendTo(addRow);
+                    $addBtn.on('click', function () {
+                        // Only add while there are unallocated shuttles within budget.
+                        var cap = Math.min(rd.max, budgetHeadroom());
+                        if (splitSum() >= cap) return;
+                        addSplitRow(Math.min(rd.max, cap - splitSum()));
+                        syncMain();
+                    });
+
+                    // Per-sub-input edit: clamp to the row's cap AND the bay budget,
+                    // reverting the offending sub-input if the sum would break either.
+                    splitPanel.on('input change', '.launchSplitInput', function () {
+                        var $this = $(this);
+                        var v = parseInt($this.val() || 0, 10);
+                        if (v < 0) { v = 0; $this.val(0); }
+                        if (v > rd.max) { v = rd.max; $this.val(rd.max); }
+                        var cap = Math.min(rd.max, budgetHeadroom());
+                        if (splitSum() > cap) {
+                            // This edit tipped the row past the budget/cap — pull just
+                            // this sub-input back so the total lands exactly on the cap.
+                            var overBy = splitSum() - cap;
+                            $this.val(Math.max(0, v - overBy));
+                        }
+                        syncMain();
+                    });
+
+                    $splitChk.on('change', function () {
+                        rd.splitActive = $(this).is(':checked');
+                        if (rd.splitActive) {
+                            // Seed the sub-rows from the current main input: keep it as
+                            // one flight (the player then splits it however they like).
+                            rd.splitInputs = [];
+                            splitRows.empty();
+                            var seed = Math.min(parseInt(rd.$input.val() || 0, 10), rd.max);
+                            addSplitRow(seed > 0 ? seed : Math.min(1, rd.max));
+                            splitPanel.show();
+                            rd.$input.prop('readonly', true).addClass('launchSplitLocked');
+                            syncMain();
+                        } else {
+                            // Fold back to a single flight: keep the current total in
+                            // the (now editable) main input, then drop the sub-inputs.
+                            splitPanel.hide();
+                            rd.$input.val(splitSum());
+                            rd.splitInputs = null;
+                            rd.$input.prop('readonly', false).removeClass('launchSplitLocked');
+                            updateBudgets();
+                        }
+                    });
+                }
             });
         });
 
@@ -2684,23 +2825,42 @@ window.confirm = {
             // a multi-bay docked launch charges its occupancy bays smallest-first).
             var charged = {};   // hangarId -> craft charged
             rowData.forEach(function (rd) {
-                var size = parseInt(rd.$input.val() || 0, 10);
-                if (size <= 0) return;
-                if (size > rd.max) size = rd.max;
+                // Split-active anonymous rows emit ONE order per sub-flight so the
+                // server (launchAnonymousStash, once per order) spawns that many
+                // separate flights. The per-flight sizes come from the sub-inputs;
+                // the bay charge is their sum (each order increments launchedThisTurn).
+                var sizes;
+                if (rd.splitActive && rd.splitInputs) {
+                    sizes = [];
+                    rd.splitInputs.forEach(function ($i) {
+                        var v = parseInt($i.val() || 0, 10);
+                        if (v > rd.max) v = rd.max;
+                        if (v > 0) sizes.push(v);
+                    });
+                } else {
+                    var single = parseInt(rd.$input.val() || 0, 10);
+                    if (single > rd.max) single = rd.max;
+                    sizes = single > 0 ? [single] : [];
+                }
+                if (sizes.length === 0) return;
+
+                var rowSize = sizes.reduce(function (a, b) { return a + b; }, 0);
                 if (!rd.isCat) {
                     if (rd.dockedFlightId > 0 && rd.occBays && rd.occBays.length) {
-                        var dist = distributeDockedCharge(rd, size);
+                        var dist = distributeDockedCharge(rd, rowSize);
                         Object.keys(dist).forEach(function (hid) { charged[hid] = (charged[hid] || 0) + dist[hid]; });
                     } else {
                         var hid = parseInt(rd.entryHangar.id, 10);
-                        charged[hid] = (charged[hid] || 0) + size;
+                        charged[hid] = (charged[hid] || 0) + rowSize;
                     }
                 }
-                var order = { phpclass: rd.phpclass, size: size };
-                if (rd.dockedFlightId > 0) order.dockedFlightId = rd.dockedFlightId;
-                if (dirChoice.has(rd.entryHangar)) order.direction = dirChoice.get(rd.entryHangar);
                 if (!byHangar.has(rd.entryHangar)) byHangar.set(rd.entryHangar, []);
-                byHangar.get(rd.entryHangar).push(order);
+                sizes.forEach(function (size) {
+                    var order = { phpclass: rd.phpclass, size: size };
+                    if (rd.dockedFlightId > 0) order.dockedFlightId = rd.dockedFlightId;
+                    if (dirChoice.has(rd.entryHangar)) order.direction = dirChoice.get(rd.entryHangar);
+                    byHangar.get(rd.entryHangar).push(order);
+                });
             });
 
             var over = null;
