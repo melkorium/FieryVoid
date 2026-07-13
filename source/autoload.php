@@ -722,7 +722,7 @@ spl_autoload_register(
                 'oraclescoutepsilon' => '/server/model/ships/EA/oracleScoutEpsilon.php',
                 'orak' => '/server/model/ships/hurr/orak.php',
                 'orano' => '/server/model/ships/hurr/orano.php',
-                'ore' => '/server/model/ships/civilians/oreBarge.php',
+                'orebarge' => '/server/model/ships/civilians/oreBarge.php',
                 'orestes' => '/server/model/ships/EA/orestes.php',
                 'orestesdelta' => '/server/model/ships/EA/orestesDelta.php',
                 'orestesgamma' => '/server/model/ships/EA/orestesGamma.php',
@@ -4182,6 +4182,74 @@ spl_autoload_register(
 						'baradatrukdestroyer' => '/server/model/ships/barada/baradaTrukDestroyer.php',
 						'baradavalialightcruiser' => '/server/model/ships/barada/baradaValiaLightCruiser.php',
 						'baradakarovshuttle' => '/server/model/ships/barada/baradaKarovShuttle.php',
+						
+						//Custom Raider and Civilians Units Batch
+						'hactrus' => '/server/model/ships/raiders/hactrus.php',
+						'raidertuka' => '/server/model/ships/raiders/raiderTuka.php',
+						'zendus' => '/server/model/ships/raiders/zendus.php',
+						'zenduspods' => '/server/model/ships/raiders/zendusPods.php',
+						'bidarka' => '/server/model/ships/raiders/bidarka.php',
+						'earlybattlewagon' => '/server/model/ships/raiders/earlybattlewagon.php',
+						'caravel' => '/server/model/ships/raiders/caravel.php',
+						'curragh' => '/server/model/ships/raiders/Curragh.php',
+						'freebooter' => '/server/model/ships/raiders/Freebooter.php',
+						
+						'qshipplasma' => '/server/model/ships/civilians/qshipPlasma.php',
+						
+						'transbird' => '/server/model/ships/drazi/transbird.php',
+						'freighteagle' => '/server/model/ships/drazi/freighteagle.php',
+						'massan' => '/server/model/ships/yolu/massan.php',
+						
+						'toratakalorbf' => '/server/model/ships/torata/torataKalorBF.php',
+						
+						'tlos' => '/server/model/ships/narn/tlos.php',
+						'tlosearly' => '/server/model/ships/narn/tlosEarly.php',
+						'tlacran' => '/server/model/ships/narn/tlacran.php',
+						'tlacranearly' => '/server/model/ships/narn/tlacranEarly.php',
+						
+						'shipcargohauler' => '/server/model/ships/ipsha/shipCargoHauler.php',
+						'gromecargobarge' => '/server/model/ships/grome/GromeCargoBarge.php',
+						
+						'passengerlinersmall' => '/server/model/ships/civilians/passengerLinerSmall.php',
+						'centaurilighttransport' => '/server/model/ships/centauri/CentauriLightTransport.php',
+						'centaurilighttransportarmed' => '/server/model/ships/centauri/CentauriLightTransportArmed.php',
+						'passengerlinersmallarmed' => '/server/model/ships/civilians/passengerLinerSmallArmed.php',
+						'centaurijavelinfastcourier' => '/server/model/ships/centauri/CentauriJavelinFastCourier.php',
+						'centauricivilianfreighter' => '/server/model/ships/centauri/centauricivilianfreighter.php',
+						
+						'allanti' => '/server/model/ships/abbai/allanti.php',
+						
+						'hakara' => '/server/model/ships/brakiri/hakara.php',
+						'brakiritransport' => '/server/model/ships/brakiri/BrakiriTransport.php',
+						
+						'vostovaamcpn' => '/server/model/ships/corillani/VostovaAMCPN.php',
+						'vostovaamosf' => '/server/model/ships/corillani/VostovaAMOSF.php',
+						'vostovaamdoc' => '/server/model/ships/corillani/VostovaAMDOC.php',
+						
+						//Torata Privateers
+						'privateerhactrus' => '/server/model/ships/raiders/privateerHactrus.php',
+						'privateertuka' => '/server/model/ships/raiders/privateerTuka.php',
+						'privateerzendus' => '/server/model/ships/raiders/privateerZendus.php',
+						'privateerzenduspods' => '/server/model/ships/raiders/privateerZendusPods.php',
+						'privateerhandus' => '/server/model/ships/raiders/privateerHandus.php',
+						
+						//Centauri Civilian Ships
+						'armus' => '/server/model/ships/centauri_old/armus.php',
+						'capit' => '/server/model/ships/centauri_old/capit.php',
+						'virlisi' => '/server/model/ships/centauri_old/virlisi.php',
+						
+						//Sh'lassan
+						'shlassantriumviratecruiser' => '/server/model/ships/smallraces/shlassantriumviratecruiser.php',
+						'shlassanarmakdestroyer' => '/server/model/ships/smallraces/shlassanarmakdestroyer.php',
+						'shlassanveltarfrigate' => '/server/model/ships/smallraces/shlassanveltarfrigate.php',
+						'shlassanvelmakescortcarrier' => '/server/model/ships/smallraces/shlassanvelmakescortcarrier.php',
+						'shlassandeltav' => '/server/model/ships/smallraces/shlassandeltaV.php',
+
+						//Mentaban
+						'mentabanaraskastrikecarrier' => '/server/model/ships/smallraces/mentabanaraskastrikecarrier.php',
+						'mentabankarakasfrigate' => '/server/model/ships/smallraces/mentabankarakasfrigate.php',
+						'mentabanaskarancorvette' => '/server/model/ships/smallraces/mentabanaskarancorvette.php',
+						'mentabanvalkara' => '/server/model/ships/smallraces/mentabanvalkara.php',
 
                 //Kelly's Star Trek
                 'kellytrekconstitution' => '/server/model/ships/StarTrekKelly/KellyTrekConstitution.php',
