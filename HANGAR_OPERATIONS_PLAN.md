@@ -4118,3 +4118,51 @@ first rail ordering for EVERY ship — too broad for the benefit. Left as-is pen
 ### Remaining (user, follow-up)
 `yarn watch:legacy` (confirm.js, hangarShared.js, DeploymentDock.js) + Docker test the Qoricc: aft bay empty at
 deploy, ultralights auto-land aft-first, mediums use primary only, full rails hidden in Recover Flights.
+
+## Launch dialog — "Split" default-shuttle launches into multiple flights (2026-07-13)
+
+Per-row **Split** checkbox on the Launch Fighters dialog (`confirm.hangarLaunchNoSplit`) that launches the selected
+DEFAULT SHUTTLES as several separate flights instead of one combined flight (e.g. 2 shuttles → 2×1 rather than
+1×2). Checked → the single count row expands to a sub-panel of per-flight inputs with a "+ Add another flight"
+link and a per-flight remove ✕ (same interaction model as the Shadow Fighter Bomb splitter). Scoped to shuttles
+for now; real fighters keep the single-flight row.
+
+**Client-only — no server change.** Each anonymous `{phpclass,size}` launch order already becomes exactly ONE
+flight via `HangarOps::launchAnonymousStash` (called once per order in `processWholeFlightLaunches`), and the
+server's `launches` list is NOT deduped by phpclass (`baseSystems.php doIndividualNotesTransfer` sanitise loop
+keeps every entry; the whole list round-trips as one `hangarLaunchOrder` note). So the dialog just emits N orders
+on the same bay → N flights. Launch budget aggregates correctly because each `launchAnonymousStash` call
+increments `launchedThisTurn` (order-independent since the client never lets the split total exceed budget).
+
+Gates (all must hold to show the checkbox): `gamedata.isDefaultShuttleEntry(entry)` true, bay box-cap
+(`hangar.maxhealth`) > 1, stash count ≥ 2, row max ≥ 2. Split flights STILL share the bay launch budget — the
+sub-input sum is clamped to `budgetHeadroom()` (remaining bay budget after every other row's charge).
+
+Implementation: split rows keep the (now readonly, `.launchSplitLocked`) main input synced to the sub-input sum
+via `syncMain()`, so the existing `tallyCharges`/`updateBudgets` budget machinery — which reads `rowTotal(rd)` —
+works unchanged. The OK handler fans a split-active row out into one order per positive sub-input; a non-split row
+still emits its single aggregate order. Removing the LAST split row unchecks Split (folds back to a single
+editable flight holding the remaining total).
+
+Known limitation: re-opening the dialog after a split shows the summed count in ONE unsplit row (checkbox
+unchecked) — `presetFor` sums all matching orders. Acceptable; mirrors the Fighter Bomb dialog not persisting its
+checkbox state.
+
+### Styling notes (row layout)
+- The Split checkbox + "Split" label + count input sit together in the row's right-hand flex group; the ✕ stays
+  on the RIGHT of each split input.
+- Vertical centring within a row is left entirely to the row's `align-items:center` — NO per-element
+  `position:relative;top` / `vertical-align` nudges (they knock a child off the shared centre-line). The lone
+  override is `top:0` on the checkbox to cancel the global `input[type=checkbox]{top:2px}`; `line-height:1` on the
+  "Split" label and the ✕ keeps their text boxes tight so they centre cleanly.
+
+### Files
+- `confirm.js` — `hangarLaunchNoSplit`: `isDefaultShuttle` per anon group, Split checkbox + sub-panel wiring
+  (`addSplitRow`/`splitSum`/`budgetHeadroom`/`syncMain`), `rowTotal` helper, split-aware `tallyCharges`/
+  `updateBudgets`, order fan-out in the OK handler.
+- `confirm.css` — `.launchSplit*` styling (checkbox/label/panel/add-link/remove-✕/locked-input).
+
+### Remaining (user)
+`yarn watch:legacy` (confirm.js) + Docker test: a carrier with 2+ default shuttles in a >1-box bay shows the Split
+box; splitting into e.g. 1+1 launches two separate 1-shuttle flights next turn; budget readout blocks over-launch;
+✕ on the last split row unchecks Split. Real-fighter rows show no Split box.
