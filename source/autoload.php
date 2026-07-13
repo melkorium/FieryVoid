@@ -3520,6 +3520,7 @@ spl_autoload_register(
                 //Torvalus
 				'darkknife' => '/server/model/ships/torvalus/DarkKnife.php',
 				'blackrapier' => '/server/model/ships/torvalus/BlackRapier.php',
+				'blackdagger' => '/server/model/ships/torvalus/BlackDagger.php',                
 				'shroudedsaber' => '/server/model/ships/torvalus/ShroudedSaber.php',
 				'veiledsaber' => '/server/model/ships/torvalus/VeiledSaber.php',
 				'falchion' => '/server/model/ships/torvalus/Falchion.php',                                                   
@@ -3531,6 +3532,7 @@ spl_autoload_register(
 				'volleylaser' => '/server/model/weapons/pulse.php',
 				'shademodulator' => '/server/model/weapons/supportWeapons.php',                 
                 'shadingfield' => '/server/model/systems/baseSystems.php',
+                'alphashadingfield' => '/server/model/systems/baseSystems.php',                
                 'transversedrive' => '/server/model/weapons/supportWeapons.php',                
                 
                 'increasedrecharge1' => '/server/model/cricialClasses.php',
