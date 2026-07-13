@@ -955,13 +955,14 @@ window.gamedata = {
 							breachingPodsList.push({ id: lship.id });
 						}
 					} else if (smallCraftSize == "heavy") {
-						totalFtrH += lship.flightSize / lship.unitSize;
+						totalFtrH += lship.flightSize / lship.unitSize;		
 					} else if (smallCraftSize == "medium") {
 						totalFtrM += lship.flightSize / lship.unitSize;
 					} else if (smallCraftSize == "light") {
 						totalFtrL += lship.flightSize / lship.unitSize;
 					} else if (smallCraftSize == "ultralight") {
-						totalFtrXL += lship.flightSize / lship.unitSize;
+						//totalFtrXL += lship.flightSize / lship.unitSize;
+						totalFtrXL += lship.flightSize; //Ultralight should show 1 usage in their own row.						
 					} else if (smallCraftSize == "assault shuttles") {
 						totalFtrAS += lship.flightSize / lship.unitSize;
 					} else { //something other than standard fighters
@@ -1299,7 +1300,7 @@ window.gamedata = {
 		var totalHangarCurr = 0;
 
 		checkResult += "<br><b><u>Fighters:</u></b><br>";
-		checkResult += "<br> Total Fighters: " + totalFtrPresent;
+		checkResult += "<br> Total Hangar Usage: " + totalFtrPresent;
 		checkResult += " (select between " + minFtrRequired + " and " + totalHangarAvailable + ")";
 		if ((totalFtrXL > 0) || (totalHangarXL > 0)) { //add disclaimer because sums will not add up straight
 			checkResult += " <i>[Note - Ultralights only use half a hangar slot]</i>";

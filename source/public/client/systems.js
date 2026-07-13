@@ -469,7 +469,7 @@ shipManager.systems = {
         //known default-shuttle phpclasses by name.
         var allowed = hangar.allowedFighterClasses;
         if (Array.isArray(allowed) && allowed.length > 0) {
-            var shuttleClasses = { "Shuttle": 1, "MinesweepingShuttle": 1, "CargoShuttle": 1, "MedicalShuttle": 1, "Flyer": 1, "FlyerProtectorate": 1 };
+            var shuttleClasses = { "Shuttle": 1, "MinesweepingShuttle": 1, "CargoShuttle": 1, "MedicalShuttle": 1, "Lifeboat": 1, "PresidentialShuttle": 1, "EmperorsYacht": 1, "Flyer": 1, "FlyerProtectorate": 1 };
             for (var i = 0; i < allowed.length; i++) {
                 if (shuttleClasses[allowed[i]]) return false;   //bay accepts a shuttle class, keep it in the pool
             }
