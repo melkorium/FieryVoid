@@ -4258,6 +4258,13 @@ spl_autoload_register(
 				'trekphaserkelly' => '/server/model/weapons/customTrek.php',            
 				'trekphotontorpkelly' => '/server/model/weapons/customTrek.php',        
 
+                //Paul's The System weapons
+                'neutronblaster' => '/server/model/weapons/customDevelopment.php',
+                'plasmadriver' => '/server/model/weapons/customDevelopment.php',
+
+                //Paul's The System ships
+                'systemliberator' => '/server/model/ships/theSystem/systemLiberator.php',
+
 
 						
 				// For the future
