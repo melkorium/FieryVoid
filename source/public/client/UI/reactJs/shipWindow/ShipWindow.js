@@ -90,7 +90,7 @@ const Column = styled.div`
     max-height: calc(33.3333333% - 11px);
     display: flex;
     flex-direction: row;
-    justify-content: ${props => props.$top ? 'space-between' : 'center'};
+    justify-content: ${props => (props.$top || props.$spread) ? 'space-between' : 'center'};
     overflow: hidden;
 `;
 
@@ -355,11 +355,27 @@ class ShipWindow extends React.Component {
                 {systemsByLocation[4].length > 0 && <ShipSection location={4} ship={ship} systems={systemsByLocation[4]} />}
                 {systemsByLocation[41].length > 0 && <ShipSection location={41} ship={ship} systems={systemsByLocation[41]} />}
             </Column>
-            <Column>
-                {systemsByLocation[32].length > 0 && <ShipSection location={32} ship={ship} systems={systemsByLocation[32]} />}
-                {systemsByLocation[2].length > 0 && <ShipSection location={2} ship={ship} systems={systemsByLocation[2]} />}
-                {systemsByLocation[42].length > 0 && <ShipSection location={42} ship={ship} systems={systemsByLocation[42]} />}
-            </Column>
+            {/*Six-sided hulls: Port-Aft (32) and Starboard-Aft (42) are SIDE sections, so
+               they get their own band at the window edges with Aft (2) alone on the row
+               below — sharing one row makes them read as flanking the aft section.
+               Stop-gap until the SCS grid layout (SHIPWINDOW_REDESIGN_PLAN.md Stage 1).*/}
+            {ship.SixSidedShip ? (
+                <React.Fragment>
+                    <Column $spread>
+                        {systemsByLocation[32].length > 0 && <ShipSection location={32} ship={ship} systems={systemsByLocation[32]} />}
+                        {systemsByLocation[42].length > 0 && <ShipSection location={42} ship={ship} systems={systemsByLocation[42]} />}
+                    </Column>
+                    <Column>
+                        {systemsByLocation[2].length > 0 && <ShipSection location={2} ship={ship} systems={systemsByLocation[2]} />}
+                    </Column>
+                </React.Fragment>
+            ) : (
+                <Column>
+                    {systemsByLocation[32].length > 0 && <ShipSection location={32} ship={ship} systems={systemsByLocation[32]} />}
+                    {systemsByLocation[2].length > 0 && <ShipSection location={2} ship={ship} systems={systemsByLocation[2]} />}
+                    {systemsByLocation[42].length > 0 && <ShipSection location={42} ship={ship} systems={systemsByLocation[42]} />}
+                </Column>
+            )}
         </ShipWindowContainer>)
     }
 
