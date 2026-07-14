@@ -636,6 +636,27 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		}
 		return parseInt(entry.flightSize || 1, 10);
 	}
+	// Mirrors HangarOps::flightNeedsRegeneration (PHP): true when the docked
+	// flight has a destroyed/dropped-out craft or net damage on a living one.
+	// Fail-OPEN (true) when the flight can't be resolved — an unverifiable entry
+	// keeps the old "Regenerating" display rather than hiding a real dwell.
+	function dockedFlightNeedsRegen(flightId) {
+		try {
+			if (flightId == null) return true;
+			var f = (typeof gamedata !== 'undefined' && gamedata.getShip) ? gamedata.getShip(flightId) : null;
+			if (!f || !Array.isArray(f.systems)) return true;
+			for (var ri = 0; ri < f.systems.length; ri++) {
+				var ftr = f.systems[ri];
+				if (!ftr) continue;
+				if (shipManager.systems.isDestroyed(f, ftr)) return true;               //destroyed craft to regrow
+				if (shipManager.criticals.isDisengagedFighter(ftr)) return true;        //dropped-out craft to recover
+				if (shipManager.systems.getTotalDamage(ftr) > 0) return true;           //damage to heal
+			}
+			return false;
+		} catch (err) {
+			return true;   //fail-open: tooltip status is cosmetic, keep old behaviour on error
+		}
+	}
 	var byClass = {};
 	for (var ei = 0; ei < displayEntries.length; ei++) {
 		var entry = displayEntries[ei];
@@ -653,9 +674,15 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		//regenTurn stamp regrows to full strength at the END of that turn (server
 		//HangarOps::applyDockedRegeneration). Bucket it apart from same-class
 		//committed craft so its status suffix renders on its own line.
+		//A PRISTINE docked flight shows NO regen status: the server no longer
+		//stamps regenTurn on undamaged docks (2026-07-12), but entries written
+		//before that fix (and mid-game states) may still carry the stamp — mirror
+		//the server's flightNeedsRegeneration so "Regenerating" only renders when
+		//the linked flight actually has losses/damage to restore.
 		var regenMarker = '';
 		if (!entry._pending && entry.regenTurn) {
-			regenMarker = entry.regenerated ? '|regenerated' : ('|regen' + entry.regenTurn);
+			if (entry.regenerated) regenMarker = '|regenerated';
+			else if (dockedFlightNeedsRegen(entry.dockedFlightId)) regenMarker = '|regen' + entry.regenTurn;
 		}
 		var entryDisplayName = entry.displayName
 			|| (entry.name && entry.name !== "" ? entry.name : phpKey);
@@ -2373,6 +2400,12 @@ var SelfRepair = function SelfRepair(json, ship) {
 };
 SelfRepair.prototype = Object.create(ShipSystem.prototype);
 SelfRepair.prototype.constructor = SelfRepair;
+
+SelfRepair.prototype.initializationUpdate = function () {
+	if(this.outputDoubled) this.outputDisplay = this.output * 2;
+
+	return this;
+}
 
 SelfRepair.prototype.doIndividualNotesTransfer = function () { //prepare individualNotesTransfer variable - if relevant for this particular system
 	this.individualNotesTransfer = Array();

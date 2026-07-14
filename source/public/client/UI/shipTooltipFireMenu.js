@@ -28,33 +28,15 @@ window.ShipTooltipFireMenu = function () {
         return ShipTooltipFireMenu.buttons.concat(ShipTooltipMenu.prototype.getAllButtons.call(this));
     };
 
-    // Hangar boxes a single craft occupies. A unitSize<1 craft (Vorlon Assault
-    // Fighter et al.) needs more than one box each (e.g. unitSize 0.5 → 2 boxes);
-    // every other craft is one box. Mirrors HangarOps::boxesPerCraftForClass /
-    // boxesPerCraftForEntry (PHP) so the in-game dock/recover capacity matches
-    // what the server will accept.
-    // Exposed on window because the dock/recover helpers below
+    // Per-craft box cost helpers — canonical bodies live in HangarShared
+    // (hangarShared.js, loaded earlier); kept exposed under their historical
+    // window names because the dock/recover helpers below
     // (window.findEligibleCarriersForDock / ...ForRecover and their nested
-    // collectReceivingHangars*) live OUTSIDE this IIFE and would otherwise not
-    // see this closure-private function. The local var keeps in-closure callers
-    // working unchanged.
-    window.hangarBoxesPerCraftFromUnitSize = function (unitSize) {
-        var u = (unitSize != null) ? parseFloat(unitSize) : 1;
-        if (u > 0 && u < 1) return Math.ceil(1 / u);   // superheavy: >1 box/craft
-        if (u > 1) return 1 / u;                        // ultralight: fractional box/craft (Zorth 0.5)
-        return 1;
-    };
+    // collectReceivingHangars*) live OUTSIDE this IIFE. The local vars keep
+    // in-closure callers working unchanged.
+    window.hangarBoxesPerCraftFromUnitSize = window.HangarShared.boxesPerCraftFromUnitSize;
     var hangarBoxesPerCraftFromUnitSize = window.hangarBoxesPerCraftFromUnitSize;
-    // Also exposed on window for the same reason as
-    // hangarBoxesPerCraftFromUnitSize above: the dock/recover helpers outside
-    // this IIFE call these.
-    window.hangarBoxesPerCraftForEntry = function (entry) {
-        if (entry && entry.boxesPerCraft) {
-            var b = parseFloat(entry.boxesPerCraft);   // float: fractional (0.5) round-trips
-            return b > 0 ? b : 1;
-        }
-        return hangarBoxesPerCraftFromUnitSize(entry ? entry.unitSize : 1);
-    };
+    window.hangarBoxesPerCraftForEntry = window.HangarShared.boxesPerCraftForEntry;
     var hangarBoxesPerCraftForEntry = window.hangarBoxesPerCraftForEntry;
     // Kirishiac Warrior regeneration (mirrors HangarOps::isDockRegenFlight /
     // fighterRosterCount). A flight whose class regenerates while docked
@@ -407,22 +389,8 @@ window.findEligibleCarriersForDock = function (flight) {
 
     return out;
 
-    // Mirrors HangarOps::trueSizeOf (PHP): an explicit hangarRequired wins;
-    // generic 'fighters'/'normal' falls back to jinkinglimit-based classification
-    // (the same buckets checkChoices() in gamelobby.js uses for fleet validation).
-    function categoryForFlight(f) {
-        var req = String(f.hangarRequired || '').trim();
-        var lower = req.toLowerCase();
-        if (lower === '' || lower === 'fighters' || lower === 'normal') {
-            var jink = parseInt(f.jinkinglimit || 0, 10);
-            if (jink >= 99) return 'ultralight';
-            if (jink >= 10) return 'light';
-            if (jink >= 8)  return 'medium';
-            if (jink >= 6)  return 'heavy';
-            return 'medium';
-        }
-        return req;
-    }
+    // Mirrors HangarOps::trueSizeOf (PHP) — canonical body in HangarShared.
+    function categoryForFlight(f) { return window.HangarShared.categoryForFlight(f); }
 
     function collectReceivingHangars(ship, category, carrierMove) {
         var hangars = [];
@@ -551,17 +519,8 @@ window.findEligibleCarriersForDock = function (flight) {
         return clamped;
     }
 
-    // Mirrors HangarOps::isCustomCombatCategory (PHP): a category routed through
-    // the fleet-builder's isolated per-name pool (currently only 'Hunter-Killers'),
-    // not the shared size hierarchy or shuttle/BP families.
-    function isCustomCombatCategory(category) {
-        var cat = String(category || '').toLowerCase().trim();
-        if (cat === '') return false;
-        var shared = { 'heavy':1,'medium':1,'light':1,'ultralight':1,'normal':1,
-            'shuttles':1,'minesweeping shuttles':1,'cargo shuttles':1,'medical shuttles':1,
-            'lifeboats':1,'assault shuttles':1,'breaching pods':1,'superheavy':1,'lcvs':1 };
-        return !shared[cat];
-    }
+    // Mirrors HangarOps::isCustomCombatCategory (PHP) — canonical body in HangarShared.
+    function isCustomCombatCategory(category) { return window.HangarShared.isCustomCombatCategory(category); }
 
     // Mirrors HangarOps::categoryCapRemaining (PHP). Per-CARRIER cap for a custom
     // combat category: ship.fighters[category] minus docked (entries stamped
@@ -579,7 +538,12 @@ window.findEligibleCarriersForDock = function (flight) {
         if (declared <= 0) return 0;
         var used = 0;
         carrier.systems.forEach(function (sys) {
-            if (!sys || sys.name !== 'hangar') return;
+            //Count usage on the whole hangar family (hangar/catapult/fighterRail) —
+            //a custom-named or custom-category flight stored on a rail counts against
+            //the carrier cap too. Mirrors the server collectHangars (instanceof Hangar)
+            //and the DeploymentDock copies; the old 'hangar'-only filter was blind to
+            //catapults/rails and could offer a dock the server then rejects.
+            if (!sys || !window.HangarShared.isDockHangar(sys)) return;
             if (Array.isArray(sys.hangarUsage)) {
                 sys.hangarUsage.forEach(function (e) {
                     if (String(e.hangarType || '').toLowerCase().trim() !== cat) return;
@@ -610,7 +574,12 @@ window.findEligibleCarriersForDock = function (flight) {
         var declared = parseInt(carrier.customFighter[name], 10);
         var used = 0;
         carrier.systems.forEach(function (sys) {
-            if (!sys || sys.name !== 'hangar') return;
+            //Count usage on the whole hangar family (hangar/catapult/fighterRail) —
+            //a custom-named or custom-category flight stored on a rail counts against
+            //the carrier cap too. Mirrors the server collectHangars (instanceof Hangar)
+            //and the DeploymentDock copies; the old 'hangar'-only filter was blind to
+            //catapults/rails and could offer a dock the server then rejects.
+            if (!sys || !window.HangarShared.isDockHangar(sys)) return;
             if (Array.isArray(sys.hangarUsage)) {
                 sys.hangarUsage.forEach(function (e) {
                     if (e.customFtrName !== name) return;
@@ -629,87 +598,11 @@ window.findEligibleCarriersForDock = function (flight) {
         return Math.max(0, declared - used);
     }
 
-    // Mirrors HangarOps::hangarAcceptsFighterClass (PHP). A hangar that declares
-    // a non-empty allowedFighterClasses list accepts ONLY flights whose phpclass
-    // is in it (e.g. the GaimSuom's Reska-only bays); an empty/absent list is a
-    // no-op. Keep in sync with the server helper so the dock/recover UI never
-    // offers a bay the server will reject.
-    function hangarAcceptsFighterClass(sys, theFlight) {
-        if (!sys) return false;
-        var allowed = sys.allowedFighterClasses;
-        if (!Array.isArray(allowed) || allowed.length === 0) return true;   //unrestricted bay
-        var cls = theFlight ? String(theFlight.phpclass) : '';
-        return allowed.indexOf(cls) !== -1;
-    }
+    // Mirrors HangarOps::hangarAcceptsFighterClass (PHP) — canonical body in HangarShared.
+    function hangarAcceptsFighterClass(sys, theFlight) { return window.HangarShared.hangarAcceptsFighterClass(sys, theFlight); }
 
-    // Mirrors HangarOps::hangarAcceptsCategory (PHP) — combat-fighter size
-    // hierarchy plus shuttle/BP compatibility. Keep in sync with the server
-    // helper so the eligibility gate matches end-of-turn validation. Universal
-    // 'fighters'/'normal' slots derive their permissions from the ship's
-    // $fighters declaration when ship is provided (handles multi-category
-    // ships like Decurion / Falenna).
-    function hangarAcceptsCategory(hangarType, category, ship) {
-        var hType = String(hangarType || '').toLowerCase().trim();
-        var cat   = String(category   || '').toLowerCase().trim();
-        if (hType === '' || cat === '') return false;
-        var rank = { ultralight: 1, light: 2, medium: 3, heavy: 4 };
-
-        if (hType === cat) return true;
-        if (rank[hType] && rank[cat]) return rank[cat] <= rank[hType];
-        if ((cat === 'shuttles' || cat === 'minesweeping shuttles') && rank[hType]) return true;
-
-        //Breaching Pods: dedicated BP slot (exact-match above), Assault Shuttle
-        //slot, or ANY combat fighter slot (heavy/medium/light/ultralight).
-        if (cat === 'breaching pods') {
-            if (hType === 'assault shuttles') return true;
-            if (rank[hType]) return true;
-        }
-
-        if (hType === 'fighters' || hType === 'normal') {
-            if (cat === 'shuttles' || cat === 'minesweeping shuttles') return true;
-            if (!ship || !ship.fighters) {
-                if (rank[cat]) return true;
-                return false;
-            }
-            var declared = lowerKeys(ship.fighters);
-            if (rank[cat]) {
-                if (declared['normal']) return true;
-                var sizes = ['heavy', 'medium', 'light', 'ultralight'];
-                for (var i = 0; i < sizes.length; i++) {
-                    if (!declared[sizes[i]]) continue;
-                    if (rank[cat] <= rank[sizes[i]]) return true;
-                }
-                return false;
-            }
-            if (cat === 'assault shuttles') return !!declared['assault shuttles'];
-            if (cat === 'breaching pods') {
-                if (declared['breaching pods']) return true;
-                if (declared['assault shuttles']) return true;
-                if (declared['normal']) return true;
-                if (declared['heavy']) return true;
-                if (declared['medium']) return true;
-                if (declared['light']) return true;
-                if (declared['ultralight']) return true;
-                return false;
-            }
-            //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
-            //when the ship declares that exact category. allowedFighterClasses still
-            //gates the actual phpclass. Mirrors HangarOps::hangarAcceptsCategory (PHP).
-            if (declared[cat]) return true;
-            return false;
-        }
-        return false;
-    }
-
-    function lowerKeys(obj) {
-        var out = {};
-        for (var k in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, k)) {
-                out[String(k).toLowerCase()] = obj[k];
-            }
-        }
-        return out;
-    }
+    // Mirrors HangarOps::hangarAcceptsCategory (PHP) — canonical body in HangarShared.
+    function hangarAcceptsCategory(hangarType, category, ship) { return window.HangarShared.hangarAcceptsCategory(hangarType, category, ship); }
 };
 
 // Carrier-perspective inverse of findEligibleCarriersForDock: given a carrier,
@@ -902,7 +795,12 @@ window.findEligibleFlightsForDocking = function (carrier) {
         var declared = parseInt(carrier.customFighter[name], 10);
         var used = 0;
         carrier.systems.forEach(function (sys) {
-            if (!sys || sys.name !== 'hangar') return;
+            //Count usage on the whole hangar family (hangar/catapult/fighterRail) —
+            //a custom-named or custom-category flight stored on a rail counts against
+            //the carrier cap too. Mirrors the server collectHangars (instanceof Hangar)
+            //and the DeploymentDock copies; the old 'hangar'-only filter was blind to
+            //catapults/rails and could offer a dock the server then rejects.
+            if (!sys || !window.HangarShared.isDockHangar(sys)) return;
             if (Array.isArray(sys.hangarUsage)) {
                 sys.hangarUsage.forEach(function (e) {
                     if (e.customFtrName !== name) return;
@@ -924,11 +822,8 @@ window.findEligibleFlightsForDocking = function (carrier) {
     // Recover-closure copy of the custom combat category cap (Hunter-Killers).
     // Mirrors HangarOps::categoryCapRemaining (PHP). See the Dock-closure twin.
     function categoryCapRemainingForRecover(carrier, category, ownFlightId) {
+        if (!window.HangarShared.isCustomCombatCategory(category)) return Infinity;   //shared categories: no per-category gate
         var cat = String(category || '').toLowerCase().trim();
-        var shared = { 'heavy':1,'medium':1,'light':1,'ultralight':1,'normal':1,
-            'shuttles':1,'minesweeping shuttles':1,'cargo shuttles':1,'medical shuttles':1,
-            'lifeboats':1,'assault shuttles':1,'breaching pods':1,'superheavy':1,'lcvs':1 };
-        if (cat === '' || shared[cat]) return Infinity;   //shared categories: no per-category gate
         var declared = 0;
         if (carrier.fighters) {
             for (var k in carrier.fighters) {
@@ -938,7 +833,12 @@ window.findEligibleFlightsForDocking = function (carrier) {
         if (declared <= 0) return 0;
         var used = 0;
         carrier.systems.forEach(function (sys) {
-            if (!sys || sys.name !== 'hangar') return;
+            //Count usage on the whole hangar family (hangar/catapult/fighterRail) —
+            //a custom-named or custom-category flight stored on a rail counts against
+            //the carrier cap too. Mirrors the server collectHangars (instanceof Hangar)
+            //and the DeploymentDock copies; the old 'hangar'-only filter was blind to
+            //catapults/rails and could offer a dock the server then rejects.
+            if (!sys || !window.HangarShared.isDockHangar(sys)) return;
             if (Array.isArray(sys.hangarUsage)) {
                 sys.hangarUsage.forEach(function (e) {
                     if (String(e.hangarType || '').toLowerCase().trim() !== cat) return;
@@ -971,94 +871,13 @@ window.findEligibleFlightsForDocking = function (carrier) {
         return n;
     }
 
-    function categoryForFlightRecover(f) {
-        var req = String(f.hangarRequired || '').trim();
-        var lower = req.toLowerCase();
-        if (lower === '' || lower === 'fighters' || lower === 'normal') {
-            var jink = parseInt(f.jinkinglimit || 0, 10);
-            if (jink >= 99) return 'ultralight';
-            if (jink >= 10) return 'light';
-            if (jink >= 8)  return 'medium';
-            if (jink >= 6)  return 'heavy';
-            return 'medium';
-        }
-        return req;
-    }
+    // Recover-closure twins of the Dock helpers above — the two closures don't
+    // share scope, so each carries its own name; canonical bodies in HangarShared.
+    function categoryForFlightRecover(f) { return window.HangarShared.categoryForFlight(f); }
 
-    function hangarAcceptsCategoryRecover(hangarType, category, ship) {
-        var hType = String(hangarType || '').toLowerCase().trim();
-        var cat   = String(category   || '').toLowerCase().trim();
-        if (hType === '' || cat === '') return false;
-        var rank = { ultralight: 1, light: 2, medium: 3, heavy: 4 };
+    function hangarAcceptsCategoryRecover(hangarType, category, ship) { return window.HangarShared.hangarAcceptsCategory(hangarType, category, ship); }
 
-        if (hType === cat) return true;
-        if (rank[hType] && rank[cat]) return rank[cat] <= rank[hType];
-        if ((cat === 'shuttles' || cat === 'minesweeping shuttles') && rank[hType]) return true;
-
-        if (cat === 'breaching pods') {
-            if (hType === 'assault shuttles') return true;
-            if (rank[hType]) return true;
-        }
-
-        if (hType === 'fighters' || hType === 'normal') {
-            if (cat === 'shuttles' || cat === 'minesweeping shuttles') return true;
-            if (!ship || !ship.fighters) {
-                if (rank[cat]) return true;
-                return false;
-            }
-            var declared = lowerKeysR(ship.fighters);
-            if (rank[cat]) {
-                if (declared['normal']) return true;
-                var sizes = ['heavy', 'medium', 'light', 'ultralight'];
-                for (var i = 0; i < sizes.length; i++) {
-                    if (!declared[sizes[i]]) continue;
-                    if (rank[cat] <= rank[sizes[i]]) return true;
-                }
-                return false;
-            }
-            if (cat === 'assault shuttles') return !!declared['assault shuttles'];
-            if (cat === 'breaching pods') {
-                if (declared['breaching pods']) return true;
-                if (declared['assault shuttles']) return true;
-                if (declared['normal']) return true;
-                if (declared['heavy']) return true;
-                if (declared['medium']) return true;
-                if (declared['light']) return true;
-                if (declared['ultralight']) return true;
-                return false;
-            }
-            //Custom combat category (e.g. 'Hunter-Killers'): universal bay accepts it
-            //when the ship declares that exact category. allowedFighterClasses still
-            //gates the actual phpclass. Mirrors HangarOps::hangarAcceptsCategory (PHP).
-            if (declared[cat]) return true;
-            return false;
-        }
-        return false;
-    }
-
-    // Mirrors HangarOps::hangarAcceptsFighterClass (PHP). Duplicated from the
-    // per-flight Dock helper of the same name — the two closures don't share
-    // scope (findEligibleCarriersForDock vs findEligibleFlightsForDocking), so
-    // each must carry its own copy. A bay with a non-empty allowedFighterClasses
-    // list accepts ONLY flights whose phpclass is in it; an empty/absent list is
-    // a no-op.
-    function hangarAcceptsFighterClassRecover(sys, theFlight) {
-        if (!sys) return false;
-        var allowed = sys.allowedFighterClasses;
-        if (!Array.isArray(allowed) || allowed.length === 0) return true;   //unrestricted bay
-        var cls = theFlight ? String(theFlight.phpclass) : '';
-        return allowed.indexOf(cls) !== -1;
-    }
-
-    function lowerKeysR(obj) {
-        var out = {};
-        for (var k in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, k)) {
-                out[String(k).toLowerCase()] = obj[k];
-            }
-        }
-        return out;
-    }
+    function hangarAcceptsFighterClassRecover(sys, theFlight) { return window.HangarShared.hangarAcceptsFighterClass(sys, theFlight); }
 };
 
 // ===================================================================== //

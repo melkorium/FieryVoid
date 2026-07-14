@@ -421,7 +421,7 @@ window.gamedata = {
     //and the default-shuttle pool hangarTypes.
     isDefaultShuttleEntry: function isDefaultShuttleEntry(entry) {
         if (!entry) return false;
-        var shuttleClasses = { "Shuttle": 1, "MinesweepingShuttle": 1, "CargoShuttle": 1, "Flyer": 1, "FlyerProtectorate": 1, "lifeboats":1, "MedicalShuttle": 1, "PresidentialShuttle": 1, "EmperorsYacht": 1 };
+        var shuttleClasses = { "Shuttle": 1, "MinesweepingShuttle": 1, "CargoShuttle": 1, "Flyer": 1, "FlyerProtectorate": 1, "Lifeboat":1, "MedicalShuttle": 1, "PresidentialShuttle": 1, "EmperorsYacht": 1 };
         if (entry.phpclass && shuttleClasses[entry.phpclass]) return true;
         var t = String(entry.hangarType || "").toLowerCase().trim();
         if (t === "shuttles" || t === "minesweeping shuttles") return true;
@@ -1168,7 +1168,7 @@ window.gamedata = {
                     for (var mi = 0; mi < mustDockNames.length; mi++) {
                         hangarDeployError += '<span class="ship-name">- ' + mustDockNames[mi] + '</span><br>';
                     }
-                    hangarDeployError += "<br>Dock them into a carrier's hangar before committing yor orders.";
+                    hangarDeployError += "<br>Dock them into a carrier's hangar before committing your orders.";
                     window.confirm.error(hangarDeployError, function () { });
                     return false;
                 }
