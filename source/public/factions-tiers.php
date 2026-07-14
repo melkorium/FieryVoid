@@ -31,7 +31,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 <div class="index-container">
     <ul class="faction-list">
-        <li><a href="#general">GENERAL NOTES</a></li>             
+        <li><a href="#general">GENERAL NOTES</a></li>  
+        <li><a href="#tiers">TIER RATINGS</a></li>                           
         <li><a href="#majorfactions">MAJOR FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#centauri">CENTAURI REPUBLIC</a></li>
@@ -114,8 +115,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li><a href="#starwars">STAR WARS</a></li>
                 <li><a href="#system">THE SYSTEM (Unofficial)</a></li>                                                          
             </ul>     
-      </li>
-      <a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a>                                                                      
+        </li>
+ <!--<li><a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a></li>-->                                                                   
         <!-- Add more sections here -->
     </ul>
 </div>    
@@ -1563,7 +1564,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 
-    <h4 id="customs" >CUSTOM SHIPS</h4>
+    <h4 id="custom" >CUSTOM SHIPS</h4>
     <p>A place to store customs ships from the Babylon 5 Wars setting, either because they are unofficial designs created by players or one-off campaign/scenario ships. Not a real faction.</p>                                                                                     
     <a class="back-to-top" href="#top">↩ Back to Top</a> 
 
