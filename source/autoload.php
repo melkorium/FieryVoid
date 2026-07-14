@@ -3456,6 +3456,7 @@ spl_autoload_register(
 					 	'lacannarefit' => '/server/model/ships/yolu/LacannaRefit.php',
 					 	'falaren' => '/server/model/ships/yolu/Falaren.php',
 		                'balosiandeltav' => '/server/model/ships/balosian/balosianDeltaV.php',						 	
+                        'vreesalvagezorth' => '/server/model/ships/raiders/VreeSalvageZorth.php',                        
 					 	
 					 	'alanti' => '/server/model/ships/abbai/Alanti.php',
 					 	'pirocia' => '/server/model/ships/abbai/Pirocia.php',
