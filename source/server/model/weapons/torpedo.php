@@ -488,8 +488,8 @@
 			$shield->criticals[] = $crit;
 		}
 
-        public function getDamage($fireOrder){        return Dice::d(10,2);   }
-        //public function getDamage($fireOrder){        return 20;   } //flat 20 per torpedo for this test run
+//        public function getDamage($fireOrder){        return Dice::d(10,2);   }
+        public function getDamage($fireOrder){        return 20;   } //flat 20 per torpedo for this test run
         public function setMinDamage(){     $this->minDamage = 20;   } //match flat getDamage (was 2, for Dice::d(10,2))
         public function setMaxDamage(){     $this->maxDamage = 20;     }
     
@@ -1175,6 +1175,10 @@ class LimpetBoreTorpedoBase extends LimpetBoreTorpedo{
     
     }//endof class FlexPacketTorpedo
     
+	
+
+	
+	
     
     
 ?>

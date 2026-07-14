@@ -7,7 +7,7 @@ class kirishiacOverlord extends BaseShip{
 	$this->pointCost = 4300;
 	$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacOverlord";
-        $this->imagePath = "img/ships/kirishiacLordship2.png";
+        $this->imagePath = "img/ships/kirishiacOverlord.png";
         $this->shipClass = "Overlord";
         $this->shipSizeClass = 3;
 	    $this->isd = "Ancient";
@@ -52,13 +52,13 @@ class kirishiacOverlord extends BaseShip{
 
 		//orbital 5th arg (profileAdjust) is legacy/ignored - defence profile is flat per class (8 / Light 7 / Heavy 10)
 		$orbitalA = new KirishiacOrbital(6, 18, 'L', 'A', 0, $orbitalHitChart);
-		$beamA = new AntigravityBeam(6, 6, 3, 270, 90, 'A');
+		$beamA = new AntigravityBeam(6, 6, 3, 240, 60, 'A');
 		$orbitalA->addOrbitalWeapon($beamA);
 		$this->addFrontSystem($orbitalA);
 		$this->addFrontSystem($beamA);
 
 		$orbitalB = new KirishiacOrbital(6, 18, 'R', 'B', 0, $orbitalHitChart);
-		$beamB = new AntigravityBeam(6, 6, 3, 270, 90, 'B');
+		$beamB = new AntigravityBeam(6, 6, 3, 300, 120, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
@@ -68,13 +68,13 @@ class kirishiacOverlord extends BaseShip{
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
 
 		$orbitalF = new KirishiacOrbital(6, 18, 'R', 'F', 0, $orbitalHitChart);
-		$beamF = new AntigravityBeam(6, 6, 3, 90, 270, 'F');
+		$beamF = new AntigravityBeam(6, 6, 3, 120, 300, 'F');
 		$orbitalF->addOrbitalWeapon($beamF);
 		$this->addAftSystem($orbitalF);
 		$this->addAftSystem($beamF);
 
 		$orbitalE = new KirishiacOrbital(6, 18, 'L', 'E', 0, $orbitalHitChart);
-		$beamE = new AntigravityBeam(6, 6, 3, 90, 270, 'E');
+		$beamE = new AntigravityBeam(6, 6, 3, 60, 240, 'E');
 		$orbitalE->addOrbitalWeapon($beamE);
 		$this->addAftSystem($orbitalE);
 		$this->addAftSystem($beamE);

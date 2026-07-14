@@ -202,5 +202,3 @@ FlexPacketTorpedo.prototype.doIndividualNotesTransfer = function () { //prepare 
  
 };
 
-
-
