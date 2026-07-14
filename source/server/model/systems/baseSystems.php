@@ -9262,6 +9262,48 @@ class MindriderHangar extends ShipSystem{
 
 	} //endof ShadingField
 
+//Early version of the Torvalus Shading Field, actually just a glorified EM Shield, with Jammer effect against Younger Races.
+class AlphaShadingField extends EMShield implements SpecialAbility, DefensiveSystem{
+    public $name = "AlphaShadingField";
+    public $displayName = "Alpha Shading Field";
+    public $iconPath = "ShadingField.png";
+    public $canOffLine = true;
+	public $specialAbilities = array("Jammer");			
+
+    function __construct($armour, $maxhealth, $powerReq, $shieldFactor, $startArc, $endArc){
+        // shieldfactor is handled as output.
+        parent::__construct($armour, $maxhealth, $powerReq, $shieldFactor, $startArc, $endArc);
+    }
+
+	//args for Jammer ability are array("shooter", "target")
+    public function getSpecialAbilityValue($args)
+    {
+        if (!isset($args["shooter"]) || !isset($args["target"]))
+            throw new InvalidArgumentException("Missing arguments for Jammer getSpecialAbilityValue");
+        
+        $shooter = $args["shooter"];
+        $target = $args["target"];
+        
+        //if ($shooter->faction === $target->faction) return 0; //same-faction units ignore Jammer
+		
+        if (! ($shooter instanceof BaseShip) || ! ($target instanceof BaseShip)) 
+            throw new InvalidArgumentException("Wrong argument type for Jammer getSpecialAbilityValue");
+        		
+		$jammerValue = 1;
+		
+		if ($jammerValue > 0){ //else no point
+			//Advanced Sensors negate Jammer, Improved Sensors halve Jammer
+			if ($shooter->hasSpecialAbility("AdvancedSensors")) {
+				$jammerValue = 0; //negated
+			}
+		} else {
+			$jammerValue = 0; //never negative
+		}
+			
+        return $jammerValue;
+    }
+
+}	
 
 class MineControllerDEW extends ShipSystem{
     public $name = "MineControllerDEW";
