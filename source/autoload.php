@@ -3563,7 +3563,7 @@ spl_autoload_register(
 				'kirishiacmastership' => '/server/model/ships/kirishiac/kirishiacMastership.php',  
 				'kirishiacoverlord' => '/server/model/ships/kirishiac/kirishiacOverlord.php',                              
 				'kirishiacwarrior' => '/server/model/ships/kirishiac/kirishiacWarrior.php',
-				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
+//				'kirishiacwarriortest' => '/server/model/ships/kirishiac/kirishiacWarriorTest.php',
 
 
 						//Development systems
