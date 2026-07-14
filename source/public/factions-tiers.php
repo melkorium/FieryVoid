@@ -1065,7 +1065,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 <h5>Gravitic Drives</h5>
 
         <ul>
-			<li>Allows ships to undertake manoeuvres even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced 
+			<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced 
 			critical they receive, increasing their resistance to damage.</li>                    
 		</ul>
 		
@@ -1329,7 +1329,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 <h5>Gravitic Drives</h5>
     <ul>
-		<li>Allows ships to undertake manoeuvres even while pivoted/pivoting using thrusters appropriate for their current orientation.  
+		<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation.  
         Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced critical they receive, increasing their resistance to damage.</li>                    
     </ul>
 
