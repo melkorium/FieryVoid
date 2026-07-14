@@ -164,6 +164,9 @@ window.gamedata = {
 			case 'Terrain':
 				powerRating = 'Tier Other';
 				break;
+			case 'The System':
+				powerRating = 'Tier Ancients, Custom faction, Playtest';
+				break;
 			case 'Thirdspace':
 				powerRating = 'Tier Ancients, Custom faction';
 				break;

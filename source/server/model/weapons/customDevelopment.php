@@ -1186,11 +1186,256 @@ class AncientPlasmaArc extends PlasmaStream {
     }//endof AncientParticleCutter
 
 
+/* The System primary weapon */
+class NeutronBlaster extends Weapon{
+	public $name = "NeutronBlaster";
+	public $displayName = "Neutron Blaster";
+	public $iconPath = "NeutronBlaster.png";
+	
+	public $animation = "laser";
+	public $animationColor = array(98, 127, 82);
+ 
+    public $factionAge = 3;//Ancient weapon, which sometimes has consequences!
+ 
+  	public $gunsArray = array(1=>2, 2=>1, 3=>1); // mode 1: fires twice per blaster (uncombined); modes 2/3: single combined shot
+ 
+	//technical variables for combined shot
+	public $isCombined = false;
+	public $alreadyConsidered = false;
+	
+	public $loadingtime = 1;
+	
+	public $uninterceptable = true; //Neutron Blaster is uninterceptable
+	public $intercept = 3; //intercept rating -3
+	public $modeLetters = 1;
+	public $modeLettersArray = array(
+		1 => 1,
+		2 => 1,
+		3 => 1,
+	);
+	
+	public $firingMode = 1;	
+	public $firingModes = array(
+		1 => "1-Blaster",
+		2 => "2-Blasters",
+		3 => "3-Blasters",
+	);
+	
+	public $priority = 6; 
+	public $priorityArray = array(1=>4, 2=>7, 3=>8); 
+    public $rangePenalty = 0.5; 
+	public $rangePenaltyArray = array(1=>0.5, 2=>0.33, 3=>0.25);
+	public $fireControl = array(6, 1, 1); // fighters, <=mediums, <=capitals 
+	public $fireControlArray = array( 1=>array(6, 3, 3), 2=>array(3,5,5), 3=>array(null,6,6)); 
+ 
+	//number of blasters required to fire per mode (mode 2 needs 2 combined, mode 3 needs 3 combined)
+	public $blastersRequiredArray = array( 1=>1, 2=>2, 3=>3 );
+ 
+	public $damageType = "Standard"; //(first letter upcase) actual mode of dealing damage (Standard, Flash, Raking, Pulse...) - overrides $this->data["Damage type"] if set!
+	public $damageTypeArray = array( 1=>"Standard", 2=>"Raking", 3=>"Raking");
+	public $weaponClass = "Electromagnetic"; //(first letter upcase) weapon class - overrides $this->data["Weapon type"] if set!
+	public $weaponClassArray = array(1=>'Electromagnetic', 2=>'Electromagnetic', 3=>'Electromagnetic');
+    public $canSplitShots = false; //Allows Firing Mode 1 to split shots.
+    public $canSplitShotsArray = array(1=>true, 2=>false, 3=>false );          
+	
+	//rake size array
+	public $raking = 15;//more in higher modes
+	public $rakingArray = array( 1=>15, 2=>15, 3=>20 );
+	
+	function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc )
+	{
+		//maxhealth and power reqirement are fixed; left option to override with hand-written values
+		if ( $maxhealth == 0 ){
+			$maxhealth = 15;
+		}
+		if ( $powerReq == 0 ){
+			$powerReq = 8;
+		}
+		parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+	}
+ 
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);   
+		if (!isset($this->data["Special"])) {
+			$this->data["Special"] = '';
+		}else{
+			$this->data["Special"] .= '<br>';
+		}	    		
+		$this->data["Special"] .= "Uninterceptable. Capable of multiple modes of fire. Higher modes require combining multiple blasters on the same target.";   
+		$this->data["Special"] .= "<br>Firing modes available (Number of blasters per shot/damage output (and mode)/range penalty):";  
+		$this->data["Special"] .= "<br> - 1 Blaster: 1d10+10 Standard - 2 shots, -2.5/hex"; 
+		$this->data["Special"] .= "<br> - 2 Blasters: 4d10+20 Raking(15), -1.65/hex";
+		$this->data["Special"] .= "<br> - 3 Blasters: 5d10+30 Raking(20), -1.25/hex"; 
+		$this->data["Special"] .= "<br>If weapon is mis-declared (shot is declared but not enough blasters are allocated in appropriate mode) shot will automatically miss."; 
+		$this->data["Special"] .= "<br>You must explicitly order this weapon to intercept.";		
+	}
+ 
+	public function getDamage($fireOrder){
+		switch($this->firingMode){
+			case 1:
+				return Dice::d(10, 1)+10; // fired individually, twice per blaster
+			case 2:
+				return Dice::d(10, 4)+20; // 1 shot from 2 combined blasters
+			case 3:	
+				return Dice::d(10, 5)+30; // 1 shot from 3 combined blasters
+			default: //should never go here
+				return Dice::d(10, 1)+10;
+		}
+	}
+        
+	public function setMinDamage(){
+		switch($this->firingMode){
+			case 1:
+				$this->minDamage = 11; 
+				break;
+			case 2:
+				$this->minDamage = 24; 
+				break;
+			case 3:
+				$this->minDamage = 35; 
+				break;
+			default: //should never go here
+				$this->minDamage = 11;
+				break;
+		}
+	}
+	
+	public function setMaxDamage(){
+		switch($this->firingMode){
+			case 1:
+				$this->maxDamage = 20; 
+				break;
+			case 2:
+				$this->maxDamage = 60; 
+				break;
+			case 3:
+				$this->maxDamage = 80; 
+				break;
+			default: //should never go here
+				$this->maxDamage = 20;
+				break;
+		}
+	}
+	
+	//hit chance calculation is standard - no power drain (unlike the weapon this was based on)
+	//if already combining - do not fire at all (set hit chance at 0, uninterceptable, zero shots)
+	public function calculateHitBase($gamedata, $fireOrder){
+		$this->changeFiringMode($fireOrder->firingMode);
+		$doCalculate = true;
+		$this->alreadyConsidered = true;
+		if ($this->isCombined){  //this weapon is being used as subordinate combination weapon! 
+			$notes = "technical fire order - weapon combined into another shot";
+			$fireOrder->chosenLocation = 0;
+			$fireOrder->needed = 0;
+			$fireOrder->shots = 0;
+			$fireOrder->notes = $notes;
+			$fireOrder->updated = true;
+			$this->doNotIntercept = true;
+			return;
+		}
+		
+		$blastersNeeded = $this->blastersRequiredArray[$fireOrder->firingMode]; 
+ 
+		if ($blastersNeeded < 2){ //nothing extra is needed, do fire!
+			$doCalculate = true;
+		} else {//additional blasters needed!
+			$firingShip = $gamedata->getShipById($fireOrder->shooterid);
+			$subordinateOrders = array();
+			$subordinateOrdersNo = 0;
+			//look for firing orders from same ship at same target (and same called id as well) in same mode - and make sure it's same type of weapon
+			$allOrders = $firingShip->getAllFireOrders($gamedata->turn);
+			foreach($allOrders as $subOrder) {
+				if (($subOrder->type == 'normal') && ($subOrder->targetid == $fireOrder->targetid) && ($subOrder->calledid == $fireOrder->calledid) && ($subOrder->firingMode == $fireOrder->firingMode) ){ 
+					//order data fits - is weapon another Neutron Blaster?...
+					$subWeapon = $firingShip->getSystemById($subOrder->weaponid);
+					if ($subWeapon instanceof NeutronBlaster){
+						if (!$subWeapon->alreadyConsidered){ //ok, can be combined then!
+							$subordinateOrdersNo++;
+							$subordinateOrders[] = $subOrder;
+						}
+					}
+				}
+				if ($subordinateOrdersNo>=($blastersNeeded-1)) break;//enough subordinate weapons found! - exit loop
+			}						
+			if ($subordinateOrdersNo == ($blastersNeeded-1)){ //combining - set other combining weapons/fire orders to technical status!
+				foreach($subordinateOrders as $subOrder){
+					$subWeapon = $firingShip->getSystemById($subOrder->weaponid);
+					$subWeapon->isCombined = true;
+					$subWeapon->alreadyConsidered = true;
+					$subWeapon->doNotIntercept = true;
+				}				
+				$doCalculate = true;
+			}else{//not enough weapons to combine in this mode - mark technical and don't fire
+				$notes = "technical fire order - weapon mis-declared";
+				$fireOrder->chosenLocation = 0;
+				$fireOrder->needed = 0;
+				$fireOrder->shots = 0;
+				$fireOrder->notes = $notes;
+				$fireOrder->updated = true;
+				$this->doNotIntercept = true;
+				$doCalculate = false;
+			}
+		}
+		
+		if($doCalculate){
+			parent::calculateHitBase($gamedata, $fireOrder); //standard hit chance calculation, no power drain
+		}
+	}//endof function calculateHitBase
+ 
+}//endof class NeutronBlaster
 
 
 
 
+class PlasmaDriver extends Pulse{
+        public $name = "PlasmaDriver";
+        public $displayName = "Plasma Driver";
+		public $iconPath = "PlasmaDriver.png";
 
+        public $animation = "bolt";
+        public $animationColor = array(75, 250, 90);
+
+        public $grouping = 15;
+        public $maxpulses = 5;
+        public $priority = 6;
+		protected $useDie = 3; //die used for base number of hits	
+        
+        public $loadingtime = 1;
+        public $intercept = 2;
+        
+        public $rangePenalty = 0.5;
+    	public $rangeDamagePenalty = 0.5;
+        public $fireControl = array(6, 4, 3); // fighters, <mediums, <capitals 
+
+	    public $damageType = "Pulse"; 
+	    public $weaponClass = "Plasma"; 
+        
+		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc )
+		{
+			//maxhealth and power reqirement are fixed; left option to override with hand-written values
+			if ( $maxhealth == 0 ){
+				$maxhealth = 6;
+			}
+			if ( $powerReq == 0 ){
+				$powerReq = 6;
+			}
+			parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+		}
+
+		public function setSystemDataWindow($turn){
+			parent::setSystemDataWindow($turn);   
+			if (!isset($this->data["Special"])) {
+				$this->data["Special"] = '';
+			}else{
+				$this->data["Special"] .= '<br>';
+			}	    		
+				$this->data["Special"] .= "Does less damage over distance (0.5 per hex).";   
+		$this->data["Special"] .= "<br>Ignores half of armor.";  
+		}
+
+        public function getDamage($fireOrder){        return 22;   }
+		
+    }  // end of class PlasmaDriver
 
 
 

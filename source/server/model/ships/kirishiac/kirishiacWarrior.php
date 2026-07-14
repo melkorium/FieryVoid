@@ -8,7 +8,7 @@ class kirishiacWarrior extends FighterFlight{
 		$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacWarrior";
         $this->shipClass = "Warrior Projectile";
-		$this->imagePath = "img/ships/kirishiacWarrior3.png";
+		$this->imagePath = "img/ships/kirishiacWarrior.png";
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
         
@@ -45,8 +45,8 @@ class kirishiacWarrior extends FighterFlight{
 			$armour = array(6, 6, 6, 6);
 			$fighter = new Fighter("kirishiacWarrior", $armour, 18, $this->id);
 			$fighter->displayName = "Warrior";
-			$fighter->imagePath = "img/ships/kirishiacWarrior3.png";
-			$fighter->iconPath = "img/ships/kirishiacWarrior_large3.png";
+			$fighter->imagePath = "img/ships/kirishiacWarrior.png";
+			$fighter->iconPath = "img/ships/kirishiacWarrior_large.png";
  			
 			$fighter->addFrontSystem(new GlancingRam(0, 360));
 			$fighter->addFrontSystem(new WarriorRam(0, 360));

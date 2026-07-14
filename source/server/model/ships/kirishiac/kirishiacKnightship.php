@@ -8,7 +8,7 @@ class KirishiacKnightship extends HeavyCombatVessel{
 		$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacKnightship";
         $this->shipClass = "Knightship";
-        $this->imagePath = "img/ships/kirishiacKnightship3.png";
+        $this->imagePath = "img/ships/kirishiacKnightship.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 2; 
@@ -56,13 +56,13 @@ class KirishiacKnightship extends HeavyCombatVessel{
 		$this->addPrimarySystem(new JumpEngine(6, 20, 8, 9));
 
 		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
-		$beamA = new MedAntigravityBeam(5, 6, 2, 210, 30, 'A');
+		$beamA = new MedAntigravityBeam(5, 6, 2, 180, 360, 'A');
 		$orbitalA->addOrbitalWeapon($beamA);
 		$this->addFrontSystem($orbitalA);
 		$this->addFrontSystem($beamA);
 
 		$orbitalB = new KirishiacOrbitalLight(5, 15, 'R', 'B', -7, $orbitalHitChart);
-		$beamB = new MedAntigravityBeam(5, 6, 2, 270, 90, 'B');
+		$beamB = new MedAntigravityBeam(5, 6, 2, 0, 180, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
 		$this->addFrontSystem($orbitalB);
 		$this->addFrontSystem($beamB);
@@ -71,14 +71,14 @@ class KirishiacKnightship extends HeavyCombatVessel{
         $this->addFrontSystem(new GraviticThruster(6, 13, 0, 4, 1));
 
 		$orbitalC = new KirishiacOrbitalLight(5, 15, 'R', 'C', -7, $orbitalHitChart);
-		$beamC = new MedAntigravityBeam(5, 6, 2, 90, 270, 'C');
+		$beamC = new MedAntigravityBeam(5, 6, 2, 180, 360, 'C');
 		$orbitalC->addOrbitalWeapon($beamC);
 		//$orbitalC->addTag('ORBITALAFT');
 		$this->addAftSystem($orbitalC);
 		$this->addAftSystem($beamC);
 
 		$orbitalD = new KirishiacOrbitalLight(5, 15, 'L', 'D', -7, $orbitalHitChart);
-		$beamD = new MedAntigravityBeam(5, 6, 2, 90, 270, 'D');
+		$beamD = new MedAntigravityBeam(5, 6, 2, 0, 180, 'D');
 		$orbitalD->addOrbitalWeapon($beamD);
 		//$orbitalC->addTag('ORBITALAFT');
 		$this->addAftSystem($orbitalD);

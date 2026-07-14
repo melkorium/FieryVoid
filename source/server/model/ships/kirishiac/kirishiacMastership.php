@@ -7,7 +7,7 @@ class kirishiacMastership extends BaseShip{
 	$this->pointCost = 2400;
 	$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacMastership";
-        $this->imagePath = "img/ships/kirishiacMastership4.png";
+        $this->imagePath = "img/ships/kirishiacMastership.png";
         $this->shipClass = "Mastership";
         $this->shipSizeClass = 3;
         $this->fighters = array("normal"=>54);
@@ -63,7 +63,7 @@ class kirishiacMastership extends BaseShip{
 		$this->addFrontSystem($orbitalC);
 		$this->addFrontSystem($beamC);
 
-		$this->addFrontSystem(new Hangar(5, 18, 12));
+		$this->addFrontSystem(new Hangar(5, 18, 12, 6));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
 		
@@ -106,7 +106,7 @@ class kirishiacMastership extends BaseShip{
 		$this->addLeftSystem($orbitalE);
 		$this->addLeftSystem($beamE);
 
-		$orbitalF = new KirishiacOrbital(6, 18, 'L', 'F', -7, $orbitalHitChart);
+		$orbitalF = new KirishiacOrbital(6, 18, 'R', 'F', -7, $orbitalHitChart);
 		$beamF = new AntigravityBeam(6, 6, 3, 120, 300, 'F');
 		$orbitalF->addOrbitalWeapon($beamF);
 		$this->addLeftSystem($orbitalF);
@@ -128,7 +128,7 @@ class kirishiacMastership extends BaseShip{
 		$this->addRightSystem($orbitalH);
 		$this->addRightSystem($beamH);
 
-		$orbitalI = new KirishiacOrbital(6, 18, 'R', 'I', -7, $orbitalHitChart);
+		$orbitalI = new KirishiacOrbital(6, 18, 'L', 'I', -7, $orbitalHitChart);
 		$beamI = new AntigravityBeam(6, 6, 3, 60, 240, 'I');
 		$orbitalI->addOrbitalWeapon($beamI);
 		$this->addRightSystem($orbitalI);

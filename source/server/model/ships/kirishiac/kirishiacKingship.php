@@ -7,7 +7,7 @@ class kirishiacKingship extends BaseShip{
 	$this->pointCost = 5700;
 	$this->faction = "Kirishiac Lords";
         $this->phpclass = "kirishiacKingship";
-        $this->imagePath = "img/ships/kirishiacKingship5.png";
+        $this->imagePath = "img/ships/kirishiacKingship.png";
         $this->shipClass = "Kingship Dreadnought";
         $this->shipSizeClass = 3;
         $this->limited = 33;
@@ -43,13 +43,13 @@ class kirishiacKingship extends BaseShip{
         $this->addPrimarySystem(new JumpEngine(8, 25, 6, 8));
         $this->addPrimarySystem(new SelfRepair(7, 12, 6)); //armor, structure, output
 
-		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
 		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 240, 360));
+		$this->addFrontSystem(new HypergravitonBlaster(7, 30, 15, 300, 60));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
 
-		$beamC = new AntigravityBeam(6, 6, 3, 120, 300, 'C');
-		$orbitalC = new KirishiacOrbital(6, 18, 'L', 'C', -7, $orbitalHitChart);
+		$beamC = new AntigravityBeam(6, 6, 3, 90, 270, 'C');
+		$orbitalC = new KirishiacOrbital(6, 18, 'C', 'C', -7, $orbitalHitChart);
 		$orbitalC->addOrbitalWeapon($beamC);
 		$this->addAftSystem($beamC);
 		$this->addAftSystem($orbitalC);        
@@ -61,7 +61,7 @@ class kirishiacKingship extends BaseShip{
         $this->addAftSystem(new GraviticThruster(7, 15, 0, 4, 2));
 
 		$orbitalA = new KirishiacOrbital(6, 18, 'L', 'A', -7, $orbitalHitChart);
-		$beamA = new AntigravityBeam(6, 6, 3, 270, 90, 'A');
+		$beamA = new AntigravityBeam(6, 6, 3, 150, 330, 'A');
 		$orbitalA->addOrbitalWeapon($beamA);
 		$this->addLeftSystem($orbitalA);
 		$this->addLeftSystem($beamA);
@@ -70,7 +70,7 @@ class kirishiacKingship extends BaseShip{
         $this->addLeftSystem(new GraviticThruster(7, 25, 0, 7, 3));
 
 		$orbitalB = new KirishiacOrbital(6, 18, 'R', 'B', -7, $orbitalHitChart);
-		$beamB = new AntigravityBeam(6, 6, 3, 270, 90, 'B');
+		$beamB = new AntigravityBeam(6, 6, 3, 330, 150, 'B');
 		$orbitalB->addOrbitalWeapon($beamB);
 		$this->addRightSystem($orbitalB);
 		$this->addRightSystem($beamB);

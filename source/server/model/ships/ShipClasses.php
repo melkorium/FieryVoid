@@ -949,7 +949,7 @@ class BaseShip {
 	                    && (!$ship->isDestroyed())){
 	                        $alivePolarenShips++;
 	                }
-					$mod = floor(($alivePolarenShips)/3); //Divide by four and round down
+					$mod = floor(($alivePolarenShips)/3); //Divide by three and round down
 					if ($mod > 10) $mod = 10;
 	            }
 	                
