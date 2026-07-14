@@ -397,7 +397,7 @@ spl_autoload_register(
                 'gravlance' => '/server/model/weapons/gravitic.php',
                 'graviticshifter' => '/server/model/weapons/gravitic.php',
                 'graviticmine' => '/server/model/weapons/gravitic.php',
-                'graviticminehandler ' => '/server/model/weapons/gravitic.php',                                  
+                'graviticminehandler' => '/server/model/weapons/gravitic.php',                                  
                 'gravitynet' => '/server/model/weapons/gravitic.php',
                 'gravitynethandler' => '/server/model/weapons/gravitic.php',
                 'greysharlin' => '/server/model/ships/minbari/greySharlin.php',
@@ -3438,7 +3438,7 @@ spl_autoload_register(
 						'superheavymoleculardisruptor' => '/server/model/weapons/molecular.php',
 						'molecularpenetrator' => '/server/model/weapons/molecular.php',
 						'earlyfusionagitator' => '/server/model/weapons/molecular.php',
-						'fusiocutter' => '/server/model/weapons/molecular.php',
+						'fusioncutter' => '/server/model/weapons/molecular.php',
 						'lightmoleculardisruptorship' => '/server/model/weapons/molecular.php',									
 					    'lashanna' => '/server/model/ships/yolu/Lashanna.php', 
 					    'lashassi' => '/server/model/ships/yolu/Lashassi.php',
@@ -3644,7 +3644,7 @@ spl_autoload_register(
                 'mine' => '/server/model/ships/ShipClasses.php',
                 'captormine' => '/server/model/weapons/AoE.php',
                 'proximitymine' => '/server/model/weapons/AoE.php', 
-                'minecontrollerdew' => '/server/model/weapons/baseSystems.php', 
+                'minecontrollerdew' => '/server/model/systems/baseSystems.php', 
                 
                 
                 //Terrain / Test Mines - 4
@@ -3986,8 +3986,8 @@ spl_autoload_register(
                 'shuttlebloodswords' => '/server/model/ships/Shuttle.php',
                 'shuttlesshelath' => '/server/model/ships/Shuttle.php',
                 'shuttlegcorieni' => '/server/model/ships/Shuttle.php',
-                'shuttlegvalheru' => '/server/model/ships/Shuttle.php',
-                'shuttlegbarada' => '/server/model/ships/Shuttle.php',
+                'shuttlevalheru' => '/server/model/ships/Shuttle.php',
+                'shuttlebarada' => '/server/model/ships/Shuttle.php',
  
                 //MINESWEEPING VARIANTS OF DEFAULT SHUTTLES
                 'minesweepingshuttleabbai' => '/server/model/ships/Shuttle.php',
@@ -4044,7 +4044,7 @@ spl_autoload_register(
                 'minesweepingshuttledalithorn' => '/server/model/ships/Shuttle.php',                                
                 'minesweepingshuttledalithornearly' => '/server/model/ships/Shuttle.php',                                
                 'minesweepingshuttlemakar' => '/server/model/ships/Shuttle.php',                                
-                'minesweepingshuttlemakarealy' => '/server/model/ships/Shuttle.php',                                
+                'minesweepingshuttlemakarearly' => '/server/model/ships/Shuttle.php',                                
                 'minesweepingshuttlepolaren' => '/server/model/ships/Shuttle.php',                                
                 'minesweepingshuttlepolarenearly' => '/server/model/ships/Shuttle.php',                                
                 'minesweepingshuttlesalbez' => '/server/model/ships/Shuttle.php',                                
