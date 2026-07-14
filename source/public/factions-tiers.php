@@ -105,13 +105,13 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <li><a href="#customfactions">CUSTOM FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#bsg">BSG</a></li>
-                <li><a href="#custom">CUSTOM SHIPS</a></li>                  
+                <li><a href="#custom">CUSTOM SHIPS</a></li>  
+                <li><a href="#escalationwars">ESCALATION WARS</a></li>                                
                 <li><a href="#nexus">NEXUS UNIVERSE</a></li>
-                <li><a href="#escalationwars">ESCALATION WARS</a></li>
+                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li> 
+                <li><a href="#valheru">HOUSE VALHERU</a></li>                  
+                <li><a href="#startrek">STAR TREK</a></li>   
                 <li><a href="#starwars">STAR WARS</a></li>
-                <li><a href="#startrek">STAR TREK</a></li>                                           
-                <li><a href="#valheru">HOUSE VALHERU</a></li>                                           
-                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li>  
                 <li><a href="#system">THE SYSTEM (Unofficial)</a></li>                                                          
             </ul>     
       </li>
@@ -1669,6 +1669,29 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 
 
+    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
+    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
+    <p>These are currently considered in Playtest until their units can be tested.</p>
+        <h5>Flak Array</h5>
+            <ul>
+<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
+			but with an offensive mode that can attack any units.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
+
+    <h4 id="valheru" >HOUSE VALHERU</h4>
+    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
+space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
+developer of said technologies were politically well connected or not.</p> 
+    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
+	are considered common hulls.</p>
+    <p>House Valheru was created by Fred Colman</p>
+        <h5>Snipper Cannon</h5>
+            <ul>
+<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
+
 
     <h4 id="nexus" >NEXUS UNIVERSE</h4>
     <p>The Nexus setting is designed by Jeremy and Geoffrey Stano. 
@@ -1976,31 +1999,6 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     Weapons typically come in single, twin, and quad configurations. As turbolasers, these fire every other turn, once per turn, and twice per turn, respectively. Shields use the B5 Wars EM shield rules. Ion weapons use Burst Beam effects.</p>                                                                                           
     <a class="back-to-top" href="#top">↩ Back to Top</a>          
 
-
-
-    <h4 id="valheru" >HOUSE VALHERU</h4>
-    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
-space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
-developer of said technologies were politically well connected or not.</p> 
-    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
-	are considered common hulls.</p>
-    <p>House Valheru was created by Fred Colman</p>
-        <h5>Snipper Cannon</h5>
-            <ul>
-<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
-    </ul>
-<a class="back-to-top" href="#top">↩ Back to Top</a>
-
-
-    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
-    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
-    <p>These are currently considered in Playtest until their units can be tested.</p>
-        <h5>Flak Array</h5>
-            <ul>
-<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
-			but with an offensive mode that can attack any units.</li>
-    </ul>
-<a class="back-to-top" href="#top">↩ Back to Top</a>
 
 <h4 id="system" >THE SYSTEM</h4>
     <p>The System is the name of a computer network that was the controlling authority of a highly advanced, Ancient-level alien civilisation. The System has mastered a number of extremely advanced technologies, able to construct advanced artificial intelligences 
