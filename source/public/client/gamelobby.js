@@ -1854,6 +1854,12 @@ window.gamedata = {
 			"Custom Factions": []
 		};
 
+		// Custom factions whose power rating also names a tier keyword (e.g. "Tier Ancients")
+		// would be grouped by that keyword instead of as customs. List them here to force
+		// them into Custom Factions while keeping their tier for the tier filter. Factions
+		// NOT listed here keep the keyword grouping (Thirdspace stays under Ancients).
+		const forceCustomGroup = ["The System"];
+
 		for (let faction of jsonFactions) {
 			const powerRating = gamedata.getPowerRating(faction);
 			const lowerPower = powerRating.toLowerCase();
@@ -1861,7 +1867,8 @@ window.gamedata = {
 
 			// ✅ Grouping prioritizes Minor > Major > Ancients > Other > Custom
 			let groupName = "Other Factions";
-			if (lowerPower.includes("minor")) groupName = "Minor Factions";
+			if (isCustom && forceCustomGroup.includes(faction)) groupName = "Custom Factions";
+			else if (lowerPower.includes("minor")) groupName = "Minor Factions";
 			else if (lowerPower.includes("major")) groupName = "Major Factions";
 			else if (lowerPower.includes("league")) groupName = "League of Non-Aligned Worlds";
 			else if (lowerPower.includes("ancients")) groupName = "Ancients";
