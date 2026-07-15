@@ -1016,136 +1016,133 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 
     <h4 id="kirishiac" >KIRISHIAC LORDS</h4>
-    <p>The Kirishiac Lords are the last of the hyper-evolved species and the youngest of the Ancients. They challenged the other Ancients in the past, spurring the Kirishiac War and, indirectly, initiating 
-	the cycle between the Shadows and Vorlon. At 7 meters tall and from a superterrestrial world, they are masters of gravitic technology. Their armor is just as much derived from their environment as their 
-	need to counter their Ancient cousins.</p>
+    <p>The Kirishiac Lords are the last of the hyper-evolved species and the youngest of the Ancients. They challenged the other Ancients in the past, spurring the Kirishiac War and, indirectly, initiating
+    the cycle between the Shadows and Vorlon. At 7 meters tall and from a superterrestrial world, they are masters of gravitic technology. Their armor is just as much derived from their environment as their
+    need to counter their Ancient cousins.</p>
 
-<h5>Hardened Advanced Armor</h5>
-	
-		<li>Kirishiac armor is incredibly dense. It conveys all of the benefits of advanced armor, but also earns several other advantages ... even against Ancient-class weapons! 
+    <h5>Hardened Advanced Armor</h5>
+        <ul>
+<li>Kirishiac armor is incredibly dense. It conveys all of the benefits of advanced armor, but also earns several other advantages ... even against Ancient-class weapons!
             <ul class="circle-list">
                 <li>Against weapons that ignore advanced armor, hardened advance armor counts as half, rounding fractions down. This includes Ancient weapons and raking sub-vollies.</li>
-                <li>Against flash weapons, hardened advanced armor is counted as double.</li>                   
-                <li>Against plasma weapons, the armor is not halved, even against Ancient weapons.</li>                   
-            </ul>            
+                <li>Against flash weapons, hardened advanced armor is counted as double.</li>
+                <li>Against plasma weapons, the armor is not halved, even against Ancient weapons.</li>
+            </ul>
         </li>
-
+    </ul>
 <h5>Antigravity Beams</h5>
-	
-		<li>The Kirishiac field two versions. Medium antigravity beams can fire one blast or be split into two shots. Standard antigravity beams are more powerful and can be split into three shots.</li> 
-
-		
-<h5>Hypergraviton Beam</h5>
-	
-		<li>The precursor to the Hypergraviton Blaster, this weapon scores +5 additional damage for every 4 points of thrust added to it.</li> 
-
-<h5>Hypergraviton Blaster</h5>
-	
-		<li>This is an extremely powerful gravitic weapon that the Kirishiac have significant control over. 
-            <ul class="circle-list">
-                <li>Scores +10 damage for every 6 thrust added.</li>
-                <li>If the weapon misses, it subtracts 20 damage and re-rolls. This continues until it hits or runs out of damage.</li>                   
-                <li>The Kirishiac player may choose to transfer the shot to a different target once the initial target has lost the facing structure block or has been destroyed. This is at the player's 
-				discretion. The new target must be in arc of the blaster and within 1 hex of the previous target. At the time of firing, a menu is provided. If the player chooses not to have any shot 
-				transfer, they may select fire normally. Otherwise, the unit they initially select will be listed. If the Kirishiac player wishes to transfer the beam when the facing structure is 
-				destroyed, they will check the 'Transfer on structure loss' box. Otherwise the blaster will not transfer until the first target is destroyed. The Kirishiac player may select the next target 
-				from the 'Available Next Targets' menu. The Kirishiac player is allowed to set the rules for a second transfer. As soon as the initial target's structure is destroyed or the unit itself is 
-				destroyed (depending on the option the Kirishiac player chose), all remaining damage is available for the next target.</li>
-				<li>Note: Every transfer will require a new to-hit roll, but this can be re-rolled with the 20 damage reduction again.</li>
-				<li>If targeted against a fighter flight, the blaster will sweep through each fighter as long as damage remains.</li>
-            </ul>            
-        </li>
-
-<h5>Gravitic Augmenter</h5>
-	
-		<li>The Kirishiac are masters of gravitic technology and the Gravitic Augmenter can be used for several offensive and defensive uses. 
-            <ul class="circle-list">
-                <li>Matter and Ballistic weapon manipulation: This is selected during the Initial Orders phase. If selected, all friendly matter weapons within range and arc receive a +15% to hit. Any 
-				enemy matter weapons receive a -15% to hit. This is cumulative with multiple augmenters. Additionally, friendly ballistics in arc receive a +30% chance to hit while enemy ballistics receive 
-				a -30% chance to hit. This too is cumulative.</li>
-                <li>Warrior enhancement: Selected during the Initial Orders phase, the augmenter targets a friendly Warrior Projectile flight. For the rest of the turn, and as long as the Warrior remains in 
-				arc the Warrior Projectile receives 3 levels of jinking, which counts against its total limit, +3 offensive bonus, +3 thrust, and -4 to dropout. Only one augmenter can be used on a Warrior 
-				flight at a time.</li>                   
-                <li>Gravity shift: Used during the Pre-Firing phase, this allows the augmentor to turn a target up to 120 degrees (or 60 degrees for gravitic units). Only one augmenter can affect a ship like 
-				this per turn. There is no effect on enormouse units and mines.</li>
-            </ul>            
-        </li>
-
-<h5>Gravitic Drives</h5>
-
         <ul>
-			<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced 
-			critical they receive, increasing their resistance to damage.</li>                    
-		</ul>
-		
+<li>The Kirishiac field two versions. Medium antigravity beams can fire one blast or be split into two shots. Standard antigravity beams are more powerful and can be split into three shots.</li>
+    </ul>
+<h5>Hypergraviton Beam</h5>
+        <ul>
+<li>The precursor to the Hypergraviton Blaster, this weapon scores +5 additional damage for every 4 points of thrust added to it.</li>
+    </ul>
+<h5>Hypergraviton Blaster</h5>
+        <ul>
+<li>This is an extremely powerful gravitic weapon that the Kirishiac have significant control over.
+            <ul class="circle-list">
+                <li>Can be boosted using engine thrust (instead of power) during Initial Orders and receives +10 damage for every 6 thrust added in this way.</li>
+                <li>If the weapon misses, it subtracts 20 damage and re-rolls. This continues until it hits or runs out of damage.  If the weapon misses with its first shot, it can re-roll to hit but will not be able to tranfer to other targets.</li>
+                <li>The Kirishiac player may choose to transfer the shot to a different target once the initial target has lost the facing structure block or has been destroyed. This is at the player's
+                discretion. The new target must be in arc of the blaster and within 1 hex of the previous target. At the time of firing, a menu is provided. If the player chooses not to have any shot
+                transfer, they may select fire normally. Otherwise, the unit they initially select will be listed. If the Kirishiac player wishes to transfer the beam when the facing structure is
+                destroyed, they will check the 'Transfer on structure loss' box. Otherwise the blaster will not transfer until the first target is destroyed. The Kirishiac player may select the next target
+                from the 'Available Next Targets' menu. The Kirishiac player is allowed to set the rules for a second transfer. As soon as the initial target's structure is destroyed or the unit itself is
+                destroyed (depending on the option the Kirishiac player chose), all remaining damage is available for the next target.</li>
+                <li>Note: Every transfer will require a new to-hit roll and 20 damage is lost whilst transferring. Transfer shots can also be re-rolled (with the usual 20 damage loss) again, until all remaining damage is exhuasted.</li>
+                <li>If targeted against a fighter flight, the blaster will sweep through each fighter as long as damage remains.</li>
+            </ul>
+        </li>
+    </ul>
+<h5>Gravitic Augmenter</h5>
+        <ul>
+<li>The Kirishiac are masters of gravitic technology and the Gravitic Augmenter can be used for several offensive and defensive uses.
+            <ul class="circle-list">
+                <li>Matter and Ballistic weapon manipulation: This is selected during the Initial Orders phase. If selected, all friendly matter weapons within range and arc receive a +15% bonus to their fire control. Any
+                enemy matter weapons receive a -15% penalty. This is cumulative with multiple augmenters. Additionally, friendly ballistics in arc receive a +30% bonus to their fire control while enemy ballistics receive
+                a -30% penalty. This too is cumulative.</li>
+                <li>Warrior enhancement: Selected during the Initial Orders phase, the augmenter targets a friendly Warrior Projectile flight. For the rest of the turn, and as long as the Warrior remains in
+                arc the Warrior Projectile receives 3 levels of jinking, which counts against its total limit, +3 offensive bonus, +3 thrust, and -4 to dropout. Only one augmenter can be used on a Warrior
+                flight at a time.</li>
+                <li>Gravity shift: Used during the Pre-Firing phase, this allows the augmentor to turn a target up to 120 degrees (or 60 degrees for gravitic units). Only one augmenter can affect a ship like
+                this per turn. There is no effect on enormouse units and mines.</li>
+            </ul>
+        </li>
+    </ul>
+<h5>Gravitic Drives</h5>
+        <ul>
+<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced
+            critical they receive, increasing their resistance to damage.</li>
+    </ul>
 <h5>Phased Gravitic Torpedo</h5>
-	
-		<li>Developed during their war with the other Ancients, the phased gravitic torpedo operates identically to the ballistic torpedo with the exceptions noted below.  
+        <ul>
+<li>Developed during their war with the other Ancients, the phased gravitic torpedo operates identically to the ballistic torpedo with the exceptions noted below.
             <ul class="circle-list">
                 <li>The weapon starts fully charged with 9 torpedoes and can regenerate one per turn.</li>
-                <li>It may fire at one or more targets per turn, limited only by available torpedoes.</li>                   
+                <li>It may fire at one or more targets per turn, limited only by available torpedoes.</li>
                 <li>If more than one torpedo is fired at the same target, it is fired in saturation mode with a grouping bonus of +1 per 15%.</li>
-				<li>The main advantage of the torpedo is its ability to phase throungh and disable enemy shields. Against, Younger Race shields, the torpedoes completely ignore the damage reduction. Against 
-				Ancient shields, each torpedo rolls a d10 and reduces the shield's value by that amount. Each torpedo treats the shield independently if they strike on the same turn. The overall reduction is 
-				permanent in subsequent turns. The shield will maintain any profile reduction abilities, but damage reduction can reduce the shield to zero.</li>
-            </ul>            
+                <li>The main advantage of the torpedo is its ability to phase throungh and disable enemy shields. Against, Younger Race shields, the torpedoes completely ignore the damage reduction. Against
+                Ancient shields, each torpedo rolls a d10 and reduces the shield's value by that amount. Each torpedo treats the shield independently if they strike on the same turn. The overall reduction is
+                permanent in subsequent turns. The shield will maintain any profile reduction abilities, but damage reduction can reduce the shield to zero.</li>
+            </ul>
         </li>
-
+    </ul>
 <h5>Ultra Matter Cannon</h5>
-	
-		<li>This is a long-ranged, rapid-firing matter weapon. It becomes particularly deadly when supported by gravitic augmenters.</li> 
-		
+        <ul>
+<li>This is a long-ranged, rapid-firing matter weapon. It becomes particularly deadly when supported by gravitic augmenters.</li>
+    </ul>
 <h5>Warrior Projectiles</h5>
-	
-		<li>These operate as fighters for the Kirishiac but are much better thought of as re-targetable railgun rounds. They attack using one of two special ramming methods that they are always free to use. These 
-		are resolved at the same time as other weapons fire. They can only attack at range zero. Additionally, they use the Warrior's offensive bonus to determine the chance to hit. 
+        <ul>
+<li>These operate as fighters for the Kirishiac but are much better thought of as re-targetable railgun rounds. They attack using one of two special ramming methods that they are always free to use. These
+            are resolved at the same time as other weapons fire. They can only attack at range zero. Additionally, they use the Warrior's offensive bonus to determine the chance to hit.
             <ul class="circle-list">
                 <li>Glancing ram: The Warrior makes an attack that ensures no return damage to itself. This is the only mode that can be used on fighters.</li>
                 <li>Warrior ram: In this mode, the Warrior attempts to punch straight through the target. This can do more damage, but risks damage in return. If the system hit is completely destroyed, the Warrior
-				is unharmed. However, if the system hit is not destroyed, the Warrior takes 2 times the system's armor value and must make a drop out roll with a +4 penalty. The return damage is mitigated by the 
-				Warrior's own armor. NOTE: The Warrior Ram cannot be used against fighters and it cannot be used on the same turn as the Glancing Ram.</li>                   
-            </ul>            
-        </li>		
-		<li>Warrior regeneration: As long as one Warrior survives, the flight can return to a Mastership and land. After 5 complete turns the ENTIRE flight will be regenerated to full strength. There is no limit on 
-		how many times this can occur in a scenario. 
-        </li>		
-
-<h5>Orbitals</h5>
-	
-		<li>These are the most unique system used by the Kirishiac. These are small segments of the ship that float over the hull and mount various weapons and systems. There are three types described below. 
-            <ul class="circle-list">
-                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. The Kirishiac player may 
-				choose either state for the start of a match. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
-				<li>Docked: 
-					<ul class="circle-list">
-						<li>The orbital's structure is merged with the structure block it is associated with.</li>
-						<li>Weapons can be deactivated for power and self repair can be used (note, heaavy orbitals have a special rule below).</li>
-					</ul>            
-				</li>
-				<li>Deployed:
-					<ul class="circle-list">
-						<li>Weapons may be used freely.</li>
-						<li>The ship's self-repair cannot be used on them and their weapons cannot be deactivated for power.</li>
-						<li>When damaged overkill to the weapon transfers to the attached orbital's structure. If the orbital's structure is destroyed, any overkill is lost.</li>
-						<li>All orbitals can be directly targeted. This uses any offensive EW applied to the parent ship, but the orbital has a smaller profile. To do so, select the orbital you wish to attack 
-						as if you were doing a called shot. Note, there is no called shot penalty.</li>
-					</ul>            
-				</li>
-                <li>Each orbital class has its own specific special rules as detailed here.
-					<ul class="circle-list">
-						<li>Light Orbitals: These are smaller and cannot regenerate on their own. If destroyed, they will automatically dock where the ship's self repair must rebuild the orbital's structure 
-						and weapon before it can be used again.</li>
-						<li>Medium Orbitals: These are the most common. In addition to the abilities above, they have the ability to regenerate. If the orbital's structure is fully destroyed, the orbital will automatically 
-						dock to its ship. After 5 turns, the orbital and it's attached systems will fully regenerate allowing its weapon to be used for power or to be deployed once again as long as the associated ship 
-						structure block has not been lost.</li>
-						<li>Heavy Orbitals: These are used as heavy weapon platforms and are much larger. Unlike medium orbitals, heavy orbitals CANNOT regenerate. However, they have their own self repair system that 
-						they can use while they are deployed to remove criticals, fixe the attached weapon, or restore the structure. If they are docked, the self repair system's repair rate is doubled and can be used 
-						on the ship or the heavy orbital can benefit from the ship's self repair system or other orbitals if they are also docked. Additionally, the weapon can still be fired when the heavy orbital is 
-						docked, but the are is significantly reduced.</li>
-					</ul>            
-				</li>                   
-            </ul>            
+                is unharmed. However, if the system hit is not destroyed, the Warrior takes 2 times the system's armor value and must make a drop out roll with a +4 penalty. The return damage is mitigated by the
+                Warrior's own armor. NOTE: The Warrior Ram cannot be used against fighters and it cannot be used on the same turn as the Glancing Ram.</li>
+            </ul>
         </li>
+        <li>Warrior regeneration: As long as one Warrior survives, the flight can return to a Mastership and land. After 5 complete turns the ENTIRE flight will be regenerated to full strength. There is no limit on
+            how many times this can occur in a scenario.</li>
+    </ul>
+<h5>Orbitals</h5>
+        <ul>
+<li>These are the most unique system used by the Kirishiac. These are small segments of the ship that float over the hull and mount various weapons and systems. There are three types described below.
+            <ul class="circle-list">
+                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. The Kirishiac player may
+                choose either state for the start of a match. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
+                <li>Docked:
+                    <ul class="circle-list">
+                        <li>The orbital's structure is merged with the structure block it is associated with.</li>
+                        <li>Weapons can be deactivated for power and self repair can be used (note, heaavy orbitals have a special rule below).</li>
+                    </ul>
+                </li>
+                <li>Deployed:
+                    <ul class="circle-list">
+                        <li>Weapons may be used freely.</li>
+                        <li>The ship's self-repair cannot be used on them and their weapons cannot be deactivated for power.</li>
+                        <li>When damaged overkill to the weapon transfers to the attached orbital's structure. If the orbital's structure is destroyed, any overkill is lost.</li>
+                        <li>All orbitals can be directly targeted. This uses any offensive EW applied to the parent ship, but the orbital has a smaller profile. To do so, select the orbital you wish to attack
+                        as if you were doing a called shot. Note, there is no called shot penalty.</li>
+                    </ul>
+                </li>
+                <li>Each orbital class has its own specific special rules as detailed here.
+                    <ul class="circle-list">
+                        <li>Light Orbitals: These are smaller and cannot regenerate on their own. If destroyed, they will automatically dock where the ship's self repair must rebuild the orbital's structure
+                        and weapon before it can be used again.</li>
+                        <li>Medium Orbitals: These are the most common. In addition to the abilities above, they have the ability to regenerate. If the orbital's structure is fully destroyed, the orbital will automatically
+                        dock to its ship. After 5 turns, the orbital and it's attached systems will fully regenerate allowing its weapon to be used for power or to be deployed once again as long as the associated ship
+                        structure block has not been lost.</li>
+                        <li>Heavy Orbitals: These are used as heavy weapon platforms and are much larger. Unlike medium orbitals, heavy orbitals CANNOT regenerate. However, they have their own self repair system that
+                        they can use while they are deployed to remove criticals, fixe the attached weapon, or restore the structure. If they are docked, the self repair system's repair rate is doubled and can be used
+                        on the ship or the heavy orbital can benefit from the ship's self repair system or other orbitals if they are also docked. Additionally, the weapon can still be fired when the heavy orbital is
+                        docked, but the are is significantly reduced.</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
 
 
 <a class="back-to-top" href="#top">↩ Back to Top</a> 
