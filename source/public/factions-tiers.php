@@ -31,7 +31,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 <div class="index-container">
     <ul class="faction-list">
-        <li><a href="#general">GENERAL NOTES</a></li>             
+        <li><a href="#general">GENERAL NOTES</a></li>  
+        <li><a href="#tiers">TIER RATINGS</a></li>                           
         <li><a href="#majorfactions">MAJOR FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#centauri">CENTAURI REPUBLIC</a></li>
@@ -88,7 +89,6 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li><a href="#kirishiac">KIRISHIAC LORDS</a></li>             
                 <li><a href="#mindriders">THE MINDRIDERS</a></li>             
                 <li><a href="#shadows">SHADOW ASSOCIATION</a></li>
-                <li><a href="#system">THE SYSTEM (Unofficial)</a></li> 
                 <li><a href="#thirdspace">THIRDSPACE (Unofficial)</a></li> 
                 <li><a href="#torvalus">TORVALUS SPECULATORS</a></li>                                   
                 <li><a href="#vorlons">VORLON EMPIRE</a></li> 
@@ -106,16 +106,17 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <li><a href="#customfactions">CUSTOM FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#bsg">BSG</a></li>
-                <li><a href="#custom">CUSTOM SHIPS</a></li>                  
+                <li><a href="#custom">CUSTOM SHIPS</a></li>  
+                <li><a href="#escalationwars">ESCALATION WARS</a></li>                                
                 <li><a href="#nexus">NEXUS UNIVERSE</a></li>
-                <li><a href="#escalationwars">ESCALATION WARS</a></li>
+                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li> 
+                <li><a href="#valheru">HOUSE VALHERU</a></li>                  
+                <li><a href="#startrek">STAR TREK</a></li>   
                 <li><a href="#starwars">STAR WARS</a></li>
-                <li><a href="#startrek">STAR TREK</a></li>                                           
-                <li><a href="#valheru">HOUSE VALHERU</a></li>                                           
-                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li>                                           
+                <li><a href="#system">THE SYSTEM (Unofficial)</a></li>                                                          
             </ul>     
-      </li>
-      <a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a>                                                                      
+        </li>
+ <!--<li><a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a></li>-->                                                                   
         <!-- Add more sections here -->
     </ul>
 </div>    
@@ -1321,51 +1322,6 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 
-<h4 id="system" >THE SYSTEM</h4>
-    <p>The System is the name of a computer network that was the controlling authority of a highly advanced, Ancient-level alien civilisation. The System has mastered a number of extremely advanced technologies, able to construct advanced artificial intelligences 
-	and extremely powerful starships. System vessels are characterized by their speed, resiliency, and shielding.</p>
-    <p>In Fiery Void, they have been created as a Custom faction (with credit to pauluk(Reman) to initiate the project and creating the graphics) with the following key features:</p>    
-
-<h5>Shielding</h5>
-    <ul>
-		<li>The System shields use the same mechanics as the Thirdspace shields. They absorb all incoming damage in the arc that they cover. Once these shields have been reduced to zero rating damage will start to be inflicted on their ships as normal.</li>
-        <li>During Initial Orders players can freely move shield power around via the Shield Generator. This system must be at 0 in order to commit your orders (e.g. you can't 'save' shield energy in the generator for future turns). 
-            The maximum amount you can allocate to any given shield is two times its base value.</li>
-        <li>The Shield Generator also comes with a number of preset options you can click on to assist in moving shield energy around.  
-            At the end of the turn, Shield Projectors will restore their respective shields by an amount based on their current rating.</li>
-    </ul>
-
-<h5>Gravitic Drives</h5>
-    <ul>
-		<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation.  
-        Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced critical they receive, increasing their resistance to damage.</li>                    
-    </ul>
-
-<h5>Artificial Intelligence</h5>
-	<li>System vessels are operated by an advanced artificial intelligence (AI). This conveys several advantages.
-        <ul class="circle-list">
-            <li>System vessels have an exceptional initiative bonus for their size.</li>
-            <li>System vessels are resilient to criticals and have a -2 bonus to all critical rolls.</li>                   
-            <li>The AI is manages highly efficient energy usage allowing for exceptional maneuvering and power-hungry weapons.</li>                   
-        </ul>            
-    </li> 
-
-<h5>Plasma Driver</h5>
-    <ul>
-		<li>Extremely potent pulse weapons scoring damage as plasma. They are highly effective against all targets.</li>                    
-    </ul>
-
-<h5>Neutron Blaster</h5>
-	<li>A versatile electromagnetic weapon with multiple modes of fire and may not be intercepted.
-        <ul class="circle-list">
-            <li>If a single blaster is used, it may fire twice per turn scoring 1d10+10 damage with a -2.5 per hex range penalty.</li>
-            <li>Two blasters can be combined to do 4d10+20 damage in raking (15) with a -1.65 per hex range penalty.</li>                   
-            <li>Three blasters can be combined to do 5d10+30 damage in raking (20) with a -1.25 per hex range penalty.</li>       
-			<li>If player mis-declares and not enough weapons are assigned for declared mode, the shot automatically misses.</li>
-        </ul>            
-    </li> 
-
-<a class="back-to-top" href="#top">↩ Back to Top</a>
 
     <h4 id="thirdspace" >THIRDSPACE</h4>
     <p>The ‘Thirdspace aliens’ are a mysterious and terrifying race of malevolent telepaths from an alternate dimension, in possession of technology considered more advanced than even the Shadows or Vorlons.  
@@ -1608,7 +1564,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 
-    <h4 id="customs" >CUSTOM SHIPS</h4>
+    <h4 id="custom" >CUSTOM SHIPS</h4>
     <p>A place to store customs ships from the Babylon 5 Wars setting, either because they are unofficial designs created by players or one-off campaign/scenario ships. Not a real faction.</p>                                                                                     
     <a class="back-to-top" href="#top">↩ Back to Top</a> 
 
@@ -1713,6 +1669,29 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 <a class="back-to-top" href="#escalationwars">↩ Back to Escalation Wars</a>    
 
 
+
+    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
+    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
+    <p>These are currently considered in Playtest until their units can be tested.</p>
+        <h5>Flak Array</h5>
+            <ul>
+<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
+			but with an offensive mode that can attack any units.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
+
+    <h4 id="valheru" >HOUSE VALHERU</h4>
+    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
+space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
+developer of said technologies were politically well connected or not.</p> 
+    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
+	are considered common hulls.</p>
+    <p>House Valheru was created by Fred Colman</p>
+        <h5>Snipper Cannon</h5>
+            <ul>
+<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
 
 
     <h4 id="nexus" >NEXUS UNIVERSE</h4>
@@ -2022,32 +2001,51 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     <a class="back-to-top" href="#top">↩ Back to Top</a>          
 
 
+<h4 id="system" >THE SYSTEM</h4>
+    <p>The System is the name of a computer network that was the controlling authority of a highly advanced, Ancient-level alien civilisation. The System has mastered a number of extremely advanced technologies, able to construct advanced artificial intelligences 
+	and extremely powerful starships. System vessels are characterized by their speed, resiliency, and shielding.</p>
+    <p>In Fiery Void, they have been created as a Custom faction (with credit to pauluk(Reman) to initiate the project and creating the graphics) with the following key features:</p>    
 
-    <h4 id="valheru" >HOUSE VALHERU</h4>
-    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
-space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
-developer of said technologies were politically well connected or not.</p> 
-    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
-	are considered common hulls.</p>
-    <p>House Valheru was created by Fred Colman</p>
-        <h5>Snipper Cannon</h5>
-            <ul>
-<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+<h5>Shielding</h5>
+    <ul>
+		<li>The System shields use the same mechanics as the Thirdspace shields. They absorb all incoming damage in the arc that they cover. Once these shields have been reduced to zero rating damage will start to be inflicted on their ships as normal.</li>
+        <li>During Initial Orders players can freely move shield power around via the Shield Generator. This system must be at 0 in order to commit your orders (e.g. you can't 'save' shield energy in the generator for future turns). 
+            The maximum amount you can allocate to any given shield is two times its base value.</li>
+        <li>The Shield Generator also comes with a number of preset options you can click on to assist in moving shield energy around.  
+            At the end of the turn, Shield Projectors will restore their respective shields by an amount based on their current rating.</li>
     </ul>
-<a class="back-to-top" href="#top">↩ Back to Top</a>
 
-
-    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
-    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
-    <p>These are currently considered in Playtest until their units can be tested.</p>
-        <h5>Flak Array</h5>
-            <ul>
-<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
-			but with an offensive mode that can attack any units.</li>
+<h5>Gravitic Drives</h5>
+    <ul>
+		<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation.  
+        Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced critical they receive, increasing their resistance to damage.</li>                    
     </ul>
+
+<h5>Artificial Intelligence</h5>
+	<li>System vessels are operated by an advanced artificial intelligence (AI). This conveys several advantages.
+        <ul class="circle-list">
+            <li>System vessels have an exceptional initiative bonus for their size.</li>
+            <li>System vessels are resilient to criticals and have a -2 bonus to all critical rolls.</li>                   
+            <li>The AI is manages highly efficient energy usage allowing for exceptional maneuvering and power-hungry weapons.</li>                   
+        </ul>            
+    </li> 
+
+<h5>Plasma Driver</h5>
+    <ul>
+		<li>Extremely potent pulse weapons scoring damage as plasma. They are highly effective against all targets.</li>                    
+    </ul>
+
+<h5>Neutron Blaster</h5>
+	<li>A versatile electromagnetic weapon with multiple modes of fire and may not be intercepted.
+        <ul class="circle-list">
+            <li>If a single blaster is used, it may fire twice per turn scoring 1d10+10 damage with a -2.5 per hex range penalty.</li>
+            <li>Two blasters can be combined to do 4d10+20 damage in raking (15) with a -1.65 per hex range penalty.</li>                   
+            <li>Three blasters can be combined to do 5d10+30 damage in raking (20) with a -1.25 per hex range penalty.</li>       
+			<li>If player mis-declares and not enough weapons are assigned for declared mode, the shot automatically misses.</li>
+        </ul>            
+    </li> 
+
 <a class="back-to-top" href="#top">↩ Back to Top</a>
-
-
 
 
 

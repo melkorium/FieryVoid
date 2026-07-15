@@ -12,7 +12,7 @@ class BlackDagger extends BaseShip{
         $this->canvasSize = 280;
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 3; 
-		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
+		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
         $this->agile = true;
 				
         $this->gravitic = true;

@@ -63,7 +63,7 @@ class kirishiacMastership extends BaseShip{
 		$this->addFrontSystem($orbitalC);
 		$this->addFrontSystem($beamC);
 
-		$this->addFrontSystem(new Hangar(5, 18, 12, 6));
+		$this->addFrontSystem(new Hangar(5, 18, 12));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(7, 15, 0, 4, 1));
 		
