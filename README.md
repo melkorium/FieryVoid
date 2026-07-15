@@ -82,6 +82,9 @@ cd...
 cd current
 php generateStaticShipFile.php
 
+(Or from PowerShell on the host: `.\FieryVoid\scripts\fvbuild.ps1 -Statics` —
+see "Building after a change" below.)
+
 5. Troubleshooting / Clean Rebuild
 If your containers get out of sync or you need to cleanly force a rebuild of the environment, use:
 
@@ -132,6 +135,99 @@ You can access the virtual box by:
 1. Code is shared in /vagrant/ folder
 1. Access database by typing: `mysql -uroot -proot`
 
+
+# Building after a change (scripts/fvbuild.ps1):
+
+`source/autoload.php` (the class map consumed by `spl_autoload_register`) is a
+**generated file — never edit it by hand**. It is produced by phpab
+(`theseer/autoload`, the repo's only composer dependency) via `autoload.sh`,
+which also carries the exclusion list, one commented reason per exclude. The
+map is committed, so regenerating it produces a normal reviewable git diff.
+
+Everything below assumes PowerShell in `c:\FV_env\FieryVoid` and Docker up
+(`docker compose up -d`). None of these steps touch the database. If
+PowerShell refuses to run scripts, use
+`powershell -ExecutionPolicy Bypass -File .\FieryVoid\scripts\fvbuild.ps1 ...`
+or allow local scripts once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+### The one command: you changed something, rebuild everything
+
+    .\scripts\fvbuild.ps1
+
+Runs, in order: autoload map → static ship files → `yarn build`. Fails fast
+and says which step broke. Statics regeneration doubles as the deepest proof
+of the autoload map — it constructs every ship class in the catalogue.
+
+### The one you'll actually use day-to-day
+
+    .\scripts\fvbuild.ps1 -Server
+
+= autoload + statics, skipping `yarn build`. Use this while `yarn watch` /
+`yarn watch:legacy` are running: a full `yarn build` *minifies* the legacy
+bundles, which makes debugging harder until the watcher flips them back.
+
+### Individual steps
+
+    .\scripts\fvbuild.ps1 -Autoload    # just the class map
+    .\scripts\fvbuild.ps1 -Statics     # just the static ship files
+    .\scripts\fvbuild.ps1 -Client      # just yarn build
+
+Or bypass the script entirely — this is all it does (**`-w /usr/src/current`
+is not optional**: without it the command runs in the container-local
+throwaway copy and the output never reaches your repo):
+
+    docker exec -w /usr/src/current fieryvoid-php-1 sh autoload.sh
+    docker exec -w /usr/src/current fieryvoid-php-1 php generateStaticShipFile.php
+    cd c:\FV_env\FieryVoid; yarn build
+
+(Running these from `/usr/src/current#` in Docker Desktop's Exec tab is
+exactly equivalent and stays fine.)
+
+### Before deploying (or any time you're suspicious)
+
+    .\FieryVoid\scripts\fvbuild.ps1 -Check
+
+Writes nothing. Two gates: regenerates the map to a temp file and
+byte-compares it against the committed one (fails if someone added a class
+and forgot to regenerate), then runs the replay harness over your local
+game corpus.
+
+### You added / renamed / deleted a PHP class (ship, weapon, system, crit…)
+
+1. Create or edit the class file as usual.
+2. `.\FieryVoid\scripts\fvbuild.ps1 -Server`
+3. `git diff source/autoload.php` — for one new ship you should see exactly
+   one added line. More lines just mean the map is catching up with someone
+   else's forgotten regeneration; sanity-check they look plausible.
+4. Commit `source/autoload.php` together with your class files.
+
+### Retiring or hiding a ship
+
+Set `$this->variantOf = 'NONE';` in the ship file — it disappears from the
+lobby but **stays loadable, so old games containing it keep working**. Never
+hide a ship by keeping it out of the autoload map (the old commented-entry
+practice): that breaks every existing game that contains one. phpab excludes
+(in `autoload.sh`, with a reason) are reserved for genuine junk files —
+dev scratch and `*_old.php` collision copies.
+
+### The generator fails with a collision error
+
+Two files declare the same class name; phpab names both and refuses to
+generate — deliberately. Decide which is real, then delete/rename the
+impostor's class or add the losing file to the excludes in `autoload.sh`
+with a reason, and rerun.
+
+### Merge conflict in source/autoload.php
+
+Do **not** hand-merge it. Take either side
+(`git checkout --theirs source/autoload.php`), finish merging the *source*
+files, then `.\FieryVoid\scripts\fvbuild.ps1 -Autoload` — a scan of the
+merged tree is by definition the correct map.
+
+(`source/autoload_old.php` is a frozen copy of the last hand-maintained map,
+kept as a reference while the generator beds in. It is not loaded and not
+scanned; delete it once the generated map has been trusted for a few
+releases.)
 
 # Game.php and gamelobby.php js bundling:
 
@@ -250,8 +346,8 @@ If you're finding images are not updating after you changed them, you can someti
 1. Define the subclass in Shuttle.php
 Subclass Shuttle and override setShuttleDefaults(). Set $this->phpclass, $this->shipClass, $this->faction, and any stat overrides. Use FlyerProtectorate (line 162) as the template:
 
-2. Register it in the autoload classmap — do not skip this
-'flyerxyz' => '/server/model/ships/Shuttle.php',
+2. Regenerate the autoload classmap: `.\FieryVoid\scripts\fvbuild.ps1 -Autoload`
+(phpab finds the new class automatically; commit the one-line diff in source/autoload.php)
 
 3. Add the faction → class entry in HangarOps
 In HangarOps.php:202, add to $factionShuttleMap:
