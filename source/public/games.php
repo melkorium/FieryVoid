@@ -135,7 +135,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
       <h3>Latest Updates — July 2026</h3>
       <ul class="updates-list">
         <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->    
-        <li><strong>Kirishiac Lords</strong> - A new Ancient faction has been added!</li>      
+        <li><strong>THE KIRISHIAC LORDS</strong> - A brand-new Ancient faction has been added to Fiery Void!</li>      
         <li><strong>Civilians and Raiders</strong> - A plethora of official and custom Civilian ships added for a huge number of factions (thanks to Lunara).</li> 
         <li><strong>Hangar Refinements</strong> - Hangars allowance have increased specificity and can split launch shuttles.</li>   
         <li><strong>Sh'lassan and Mentaban</strong> - Added these two Small Race factions which utilise exported EA hulls (thanks to Lunara).</li>                                                        
