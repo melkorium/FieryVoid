@@ -257,20 +257,17 @@ window.gamedata = {
         }
     },
 
-    // Base team colours (sRGB 0-255), team 1..8. Teams 1-2 match the mine/enemy
-    // colours used for participants so the two views stay consistent. Team 1 uses
-    // CSS limegreen (== combat-log FIRE: "mine" green); note the participant
-    // "mine" ship-icon overlay in getShipOverlayColor is intentionally a lighter
-    // green ([160,250,100]) and is NOT kept in sync with this.
-    //
-    // Team 3 is a DEEP/STEEL blue [70,110,220], deliberately distinct from the
-    // lighter participant "ally" blue [51,173,255] so an observer never confuses
-    // a plain team-3 fleet with "your allies". (It used to BE the ally blue,
-    // which caused exactly that confusion.)
+    // Base team colours (sRGB 0-255), team 1..8. Teams 1-3 match the
+    // mine/enemy/ally colours used for participants so the two views stay
+    // consistent. Team 1 uses CSS limegreen (== combat-log FIRE: "mine" green);
+    // note the participant "mine" ship-icon overlay in getShipOverlayColor is
+    // intentionally a lighter green ([160,250,100]) and is NOT kept in sync.
+    // Team 3 is the SAME blue as the participant "ally" (user preference — a
+    // deeper/steel blue was tried but read too dark).
     teamBaseColors: [
         [50, 205, 50],   // 1 Green  (== "mine")
         [255, 80, 80],   // 2 Red    (== "enemy")
-        [70, 110, 220],  // 3 Blue   (deep/steel — distinct from ally blue)
+        [51, 173, 255],  // 3 Blue   (== "ally")
         [255, 150, 40],  // 4 Orange
         [40, 230, 230],  // 5 Cyan
         [230, 40, 230],  // 6 Magenta

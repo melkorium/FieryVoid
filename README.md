@@ -60,8 +60,7 @@ Password: fieryvoid (or possibly just leave blank)
 Database: B5CGM
 
 3. Setup Client-Side Development (Yarn)
-Since FieryVoid bundles legacy code, you'll need to install the Node dependencies locally so things recompile when you make edits by running these commands in project root folder:
-
+Since FieryVoid bundles legacy code, you'll need to install the Node dependencies locally so things recompile when you make edits by running these commands in project root folder.  
 
 # First time setup
 yarn install
@@ -70,6 +69,7 @@ yarn watch:legacy
 # To do a one-off build
 yarn build
 
+Note, these commands can be useful sometimes, but the Yarn Build step has largely been replaced by the fvbuild.ps1 process detailed below.
 
 4. Interacting with the PHP Container
 If you need to run server-side scripts (like to generate new staticship files after adding new units, or changing class variables on server) or explore the backend container, you can drop into the PHP container's bash shell:
@@ -84,6 +84,8 @@ php generateStaticShipFile.php
 
 (Or from PowerShell on the host: `.\FieryVoid\scripts\fvbuild.ps1 -Statics` —
 see "Building after a change" below.)
+
+Note, this step has largely been replaced by the fvbuild.ps1 process detailed below.
 
 5. Troubleshooting / Clean Rebuild
 If your containers get out of sync or you need to cleanly force a rebuild of the environment, use:
