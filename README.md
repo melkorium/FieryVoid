@@ -150,6 +150,8 @@ of the autoload map — it constructs every ship class in the catalogue.
 `yarn watch:legacy` are running: a full `yarn build` *minifies* the legacy
 bundles, which makes debugging harder until the watcher flips them back.
 
+Note - You'll still need to restart the Docker container for server changes to show on local server.
+
 ### Individual steps
 
     .\scripts\fvbuild.ps1 -Autoload    # just the class map
