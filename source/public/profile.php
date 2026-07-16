@@ -137,7 +137,7 @@
 			</div>
 			<form method="post">
 				<div style="margin-right: 10px; margin-top: 10px; margin-bottom: 5px; text-align: right; font-size: 12px;">
-					<span><a href="games.php" style="color: #8bcaf2">Game Lobby</a></span>
+					<span><a href="games.php" style="color: #8bcaf2">Back to Game Lobby</a></span>
 					<button class="btn btn-primary" type="submit" name="action" value="test" style="margin-left: 8px; font-size: 12px;">Send test ping</button>
 					<button class="btn btn-primary" type="submit" name="action" value="unlink" style="margin-left: 4px; font-size: 12px;">Unlink</button>
 				</div>
