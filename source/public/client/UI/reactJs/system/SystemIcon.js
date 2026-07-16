@@ -74,7 +74,9 @@ const System = styled.div`
         } else if (props.$loading && props.$loadedAlternate) { //weapon not ready in current mode, but  alternate mode is ready
             return '#CD9E9E'; //pale red
         } else {
-            return 'black';
+            //slightly translucent so the ship-window watermark ghosts through idle
+            //icons; state colours above stay fully opaque for readability
+            return 'rgba(0, 0, 0, 0.6)';
         }
     }};
     box-shadow: ${props => {
@@ -90,8 +92,26 @@ const System = styled.div`
             return 'none';
         }
     }};
-    background-image: ${props => `url(${props.$background})`};
+    /*$mirror (rolled ship, port/starboard drawn swapped): the icon ART is flipped
+      horizontally on an ::after layer so its facing matches the drawn side, while
+      text, health bar and state overlays stay unflipped and readable*/
+    background-image: ${props => props.$mirror ? 'none' : `url(${props.$background})`};
     background-size: cover;
+    ${props => props.$mirror ? 'z-index: 0;' : ''} /*own stacking context keeps the z:-1 art layer inside this icon*/
+    ${props => props.$mirror ? `
+    &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url(${props.$background});
+        background-size: cover;
+        transform: scaleX(-1);
+        z-index: -1;
+    }
+    ` : ''}
     filter: ${props => props.$destroyed ? 'blur(1px)' : 'none'};
     cursor: pointer;
     -webkit-user-select: none;
@@ -385,7 +405,7 @@ class SystemIcon extends React.Component {
     }
 
     render() {
-        let { system, ship, scs, fighter, destroyed } = this.props;
+        let { system, ship, scs, fighter, destroyed, mirror } = this.props;
 
         system = shipManager.systems.initializeSystem(system);
 
@@ -404,7 +424,7 @@ class SystemIcon extends React.Component {
         //destroyed orbital can still be recovered (docked) for regeneration
         if ((getDestroyed(ship, system) || destroyed) && !system.clickableWhenDestroyed) {
             return (
-                <System $background={getBackgroundImage(system)} $destroyed><HealthBar $health="0" /></System>
+                <System $background={getBackgroundImage(system)} $destroyed $mirror={mirror}><HealthBar $health="0" /></System>
             )
         }
 
@@ -422,6 +442,7 @@ class SystemIcon extends React.Component {
                 onTouchCancel={this.onTouchCancel.bind(this)}
                 onContextMenu={this.onContextMenu.bind(this)}
                 $background={getBackgroundImage(system)}
+                $mirror={mirror}
                 $offline={isOffline(ship, system)}
                 $loading={isLoading(system)}
                 $loadedAlternate={isLoadedAlternate(system)} //alternate mode ready while primary is not
