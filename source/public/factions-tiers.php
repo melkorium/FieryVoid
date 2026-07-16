@@ -31,7 +31,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 <div class="index-container">
     <ul class="faction-list">
-        <li><a href="#general">GENERAL NOTES</a></li>             
+        <li><a href="#general">GENERAL NOTES</a></li>  
+        <li><a href="#tiers">TIER RATINGS</a></li>                           
         <li><a href="#majorfactions">MAJOR FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#centauri">CENTAURI REPUBLIC</a></li>
@@ -88,7 +89,6 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li><a href="#kirishiac">KIRISHIAC LORDS</a></li>             
                 <li><a href="#mindriders">THE MINDRIDERS</a></li>             
                 <li><a href="#shadows">SHADOW ASSOCIATION</a></li>
-                <li><a href="#system">THE SYSTEM (Unofficial)</a></li> 
                 <li><a href="#thirdspace">THIRDSPACE (Unofficial)</a></li> 
                 <li><a href="#torvalus">TORVALUS SPECULATORS</a></li>                                   
                 <li><a href="#vorlons">VORLON EMPIRE</a></li> 
@@ -106,16 +106,17 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <li><a href="#customfactions">CUSTOM FACTIONS</a>
            <ul class="sub-list">
                 <li><a href="#bsg">BSG</a></li>
-                <li><a href="#custom">CUSTOM SHIPS</a></li>                  
+                <li><a href="#custom">CUSTOM SHIPS</a></li>  
+                <li><a href="#escalationwars">ESCALATION WARS</a></li>                                
                 <li><a href="#nexus">NEXUS UNIVERSE</a></li>
-                <li><a href="#escalationwars">ESCALATION WARS</a></li>
+                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li> 
+                <li><a href="#valheru">HOUSE VALHERU</a></li>                  
+                <li><a href="#startrek">STAR TREK</a></li>   
                 <li><a href="#starwars">STAR WARS</a></li>
-                <li><a href="#startrek">STAR TREK</a></li>                                           
-                <li><a href="#valheru">HOUSE VALHERU</a></li>                                           
-                <li><a href="#greatcrusade">GREAT CRUSADE ORIENI</a></li>                                           
+                <li><a href="#system">THE SYSTEM (Unofficial)</a></li>                                                          
             </ul>     
-      </li>
-      <a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a>                                                                      
+        </li>
+ <!--<li><a href="#tiers" style="margin-right: 5px; margin-left: 5px; margin-top: 10px; font-size: 12px; color: #8bcaf2; font-size: 16px;"><span style="color:gold;">★</span> TIER RATINGS <span style="color:gold;">★</span></a></li>-->                                                                   
         <!-- Add more sections here -->
     </ul>
 </div>    
@@ -359,7 +360,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
             <li>The TFS has three unique hulls including the Blockade Runner, System Monitor, and Freedom Base. Beyond this, the TFS will utilize any generic raider unit.</li>
             <li>The majority of TFS fighters are Delta-Vs, but they can field Armed Shuttles, Double-Vs, Goriths, Star Snakes, and Koists. The TFS only use Drazi Dudroma defense satellites.</li>   
         </ul>
-<h5>Torata Privateers</h5>
+<h5>Torata Privateers (Custom)</h5>
             <ul>
 <li>Based on the units created by Jason Stadnyk on The Great Machine. These Torata forces explored Markab and Vree space in search for resources and technologies.</li>
             <li>The Uala's low population makes the Torata Privateers relatively uncommon and with very few units. </li>
@@ -1015,136 +1016,133 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
 
     <h4 id="kirishiac" >KIRISHIAC LORDS</h4>
-    <p>The Kirishiac Lords are the last of the hyper-evolved species and the youngest of the Ancients. They challenged the other Ancients in the past, spurring the Kirishiac War and, indirectly, initiating 
-	the cycle between the Shadows and Vorlon. At 7 meters tall and from a superterrestrial world, they are masters of gravitic technology. Their armor is just as much derived from their environment as their 
-	need to counter their Ancient cousins.</p>
+    <p>The Kirishiac Lords are the last of the hyper-evolved species and the youngest of the Ancients. They challenged the other Ancients in the past, spurring the Kirishiac War and, indirectly, initiating
+    the cycle between the Shadows and Vorlon. At 7 meters tall and from a superterrestrial world, they are masters of gravitic technology. Their armor is just as much derived from their environment as their
+    need to counter their Ancient cousins.</p>
 
-<h5>Hardened Advanced Armor</h5>
-	
-		<li>Kirishiac armor is incredibly dense. It conveys all of the benefits of advanced armor, but also earns several other advantages ... even against Ancient-class weapons! 
+    <h5>Hardened Advanced Armor</h5>
+        <ul>
+<li>Kirishiac armor is incredibly dense. It conveys all of the benefits of advanced armor, but also earns several other advantages ... even against Ancient-class weapons!
             <ul class="circle-list">
                 <li>Against weapons that ignore advanced armor, hardened advance armor counts as half, rounding fractions down. This includes Ancient weapons and raking sub-vollies.</li>
-                <li>Against flash weapons, hardened advanced armor is counted as double.</li>                   
-                <li>Against plasma weapons, the armor is not halved, even against Ancient weapons.</li>                   
-            </ul>            
+                <li>Against flash weapons, hardened advanced armor is counted as double.</li>
+                <li>Against plasma weapons, the armor is not halved, even against Ancient weapons.</li>
+            </ul>
         </li>
-
+    </ul>
 <h5>Antigravity Beams</h5>
-	
-		<li>The Kirishiac field two versions. Medium antigravity beams can fire one blast or be split into two shots. Standard antigravity beams are more powerful and can be split into three shots.</li> 
-
-		
-<h5>Hypergraviton Beam</h5>
-	
-		<li>The precursor to the Hypergraviton Blaster, this weapon scores +5 additional damage for every 4 points of thrust added to it.</li> 
-
-<h5>Hypergraviton Blaster</h5>
-	
-		<li>This is an extremely powerful gravitic weapon that the Kirishiac have significant control over. 
-            <ul class="circle-list">
-                <li>Scores +10 damage for every 6 thrust added.</li>
-                <li>If the weapon misses, it subtracts 20 damage and re-rolls. This continues until it hits or runs out of damage.</li>                   
-                <li>The Kirishiac player may choose to transfer the shot to a different target once the initial target has lost the facing structure block or has been destroyed. This is at the player's 
-				discretion. The new target must be in arc of the blaster and within 1 hex of the previous target. At the time of firing, a menu is provided. If the player chooses not to have any shot 
-				transfer, they may select fire normally. Otherwise, the unit they initially select will be listed. If the Kirishiac player wishes to transfer the beam when the facing structure is 
-				destroyed, they will check the 'Transfer on structure loss' box. Otherwise the blaster will not transfer until the first target is destroyed. The Kirishiac player may select the next target 
-				from the 'Available Next Targets' menu. The Kirishiac player is allowed to set the rules for a second transfer. As soon as the initial target's structure is destroyed or the unit itself is 
-				destroyed (depending on the option the Kirishiac player chose), all remaining damage is available for the next target.</li>
-				<li>Note: Every transfer will require a new to-hit roll, but this can be re-rolled with the 20 damage reduction again.</li>
-				<li>If targeted against a fighter flight, the blaster will sweep through each fighter as long as damage remains.</li>
-            </ul>            
-        </li>
-
-<h5>Gravitic Augmenter</h5>
-	
-		<li>The Kirishiac are masters of gravitic technology and the Gravitic Augmenter can be used for several offensive and defensive uses. 
-            <ul class="circle-list">
-                <li>Matter and Ballistic weapon manipulation: This is selected during the Initial Orders phase. If selected, all friendly matter weapons within range and arc receive a +15% to hit. Any 
-				enemy matter weapons receive a -15% to hit. This is cumulative with multiple augmenters. Additionally, friendly ballistics in arc receive a +30% chance to hit while enemy ballistics receive 
-				a -30% chance to hit. This too is cumulative.</li>
-                <li>Warrior enhancement: Selected during the Initial Orders phase, the augmenter targets a friendly Warrior Projectile flight. For the rest of the turn, and as long as the Warrior remains in 
-				arc the Warrior Projectile receives 3 levels of jinking, which counts against its total limit, +3 offensive bonus, +3 thrust, and -4 to dropout. Only one augmenter can be used on a Warrior 
-				flight at a time.</li>                   
-                <li>Gravity shift: Used during the Pre-Firing phase, this allows the augmentor to turn a target up to 120 degrees (or 60 degrees for gravitic units). Only one augmenter can affect a ship like 
-				this per turn. There is no effect on enormouse units and mines.</li>
-            </ul>            
-        </li>
-
-<h5>Gravitic Drives</h5>
-
         <ul>
-			<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced 
-			critical they receive, increasing their resistance to damage.</li>                    
-		</ul>
-		
+<li>The Kirishiac field two versions. Medium antigravity beams can fire one blast or be split into two shots. Standard antigravity beams are more powerful and can be split into three shots.</li>
+    </ul>
+<h5>Hypergraviton Beam</h5>
+        <ul>
+<li>The precursor to the Hypergraviton Blaster, this weapon scores +5 additional damage for every 4 points of thrust added to it.</li>
+    </ul>
+<h5>Hypergraviton Blaster</h5>
+        <ul>
+<li>This is an extremely powerful gravitic weapon that the Kirishiac have significant control over.
+            <ul class="circle-list">
+                <li>Can be boosted using engine thrust (instead of power) during Initial Orders and receives +10 damage for every 6 thrust added in this way.</li>
+                <li>If the weapon misses, it subtracts 20 damage and re-rolls. This continues until it hits or runs out of damage.  If the weapon misses with its first shot, it can re-roll to hit but will not be able to tranfer to other targets.</li>
+                <li>The Kirishiac player may choose to transfer the shot to a different target once the initial target has lost the facing structure block or has been destroyed. This is at the player's
+                discretion. The new target must be in arc of the blaster and within 1 hex of the previous target. At the time of firing, a menu is provided. If the player chooses not to have any shot
+                transfer, they may select fire normally. Otherwise, the unit they initially select will be listed. If the Kirishiac player wishes to transfer the beam when the facing structure is
+                destroyed, they will check the 'Transfer on structure loss' box. Otherwise the blaster will not transfer until the first target is destroyed. The Kirishiac player may select the next target
+                from the 'Available Next Targets' menu. The Kirishiac player is allowed to set the rules for a second transfer. As soon as the initial target's structure is destroyed or the unit itself is
+                destroyed (depending on the option the Kirishiac player chose), all remaining damage is available for the next target.</li>
+                <li>Note: Every transfer will require a new to-hit roll and 20 damage is lost whilst transferring. Transfer shots can also be re-rolled (with the usual 20 damage loss) again, until all remaining damage is exhuasted.</li>
+                <li>If targeted against a fighter flight, the blaster will sweep through each fighter as long as damage remains.</li>
+            </ul>
+        </li>
+    </ul>
+<h5>Gravitic Augmenter</h5>
+        <ul>
+<li>The Kirishiac are masters of gravitic technology and the Gravitic Augmenter can be used for several offensive and defensive uses.
+            <ul class="circle-list">
+                <li>Matter and Ballistic weapon manipulation: This is selected during the Initial Orders phase. If selected, all friendly matter weapons within range and arc receive a +15% bonus to their fire control. Any
+                enemy matter weapons receive a -15% penalty. This is cumulative with multiple augmenters. Additionally, friendly ballistics in arc receive a +30% bonus to their fire control while enemy ballistics receive
+                a -30% penalty. This too is cumulative.</li>
+                <li>Warrior enhancement: Selected during the Initial Orders phase, the augmenter targets a friendly Warrior Projectile flight. For the rest of the turn, and as long as the Warrior remains in
+                arc the Warrior Projectile receives 3 levels of jinking, which counts against its total limit, +3 offensive bonus, +3 thrust, and -4 to dropout. Only one augmenter can be used on a Warrior
+                flight at a time.</li>
+                <li>Gravity shift: Used during the Pre-Firing phase, this allows the augmentor to turn a target up to 120 degrees (or 60 degrees for gravitic units). Only one augmenter can affect a ship like
+                this per turn. There is no effect on enormouse units and mines.</li>
+            </ul>
+        </li>
+    </ul>
+<h5>Gravitic Drives</h5>
+        <ul>
+<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation. Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced
+            critical they receive, increasing their resistance to damage.</li>
+    </ul>
 <h5>Phased Gravitic Torpedo</h5>
-	
-		<li>Developed during their war with the other Ancients, the phased gravitic torpedo operates identically to the ballistic torpedo with the exceptions noted below.  
+        <ul>
+<li>Developed during their war with the other Ancients, the phased gravitic torpedo operates identically to the ballistic torpedo with the exceptions noted below.
             <ul class="circle-list">
                 <li>The weapon starts fully charged with 9 torpedoes and can regenerate one per turn.</li>
-                <li>It may fire at one or more targets per turn, limited only by available torpedoes.</li>                   
+                <li>It may fire at one or more targets per turn, limited only by available torpedoes.</li>
                 <li>If more than one torpedo is fired at the same target, it is fired in saturation mode with a grouping bonus of +1 per 15%.</li>
-				<li>The main advantage of the torpedo is its ability to phase throungh and disable enemy shields. Against, Younger Race shields, the torpedoes completely ignore the damage reduction. Against 
-				Ancient shields, each torpedo rolls a d10 and reduces the shield's value by that amount. Each torpedo treats the shield independently if they strike on the same turn. The overall reduction is 
-				permanent in subsequent turns. The shield will maintain any profile reduction abilities, but damage reduction can reduce the shield to zero.</li>
-            </ul>            
+                <li>The main advantage of the torpedo is its ability to phase throungh and disable enemy shields. Against, Younger Race shields, the torpedoes completely ignore the damage reduction. Against
+                Ancient shields, each torpedo rolls a d10 and reduces the shield's value by that amount. Each torpedo treats the shield independently if they strike on the same turn. The overall reduction is
+                permanent in subsequent turns. The shield will maintain any profile reduction abilities, but damage reduction can reduce the shield to zero.</li>
+            </ul>
         </li>
-
+    </ul>
 <h5>Ultra Matter Cannon</h5>
-	
-		<li>This is a long-ranged, rapid-firing matter weapon. It becomes particularly deadly when supported by gravitic augmenters.</li> 
-		
+        <ul>
+<li>This is a long-ranged, rapid-firing matter weapon. It becomes particularly deadly when supported by gravitic augmenters.</li>
+    </ul>
 <h5>Warrior Projectiles</h5>
-	
-		<li>These operate as fighters for the Kirishiac but are much better thought of as re-targetable railgun rounds. They attack using one of two special ramming methods that they are always free to use. These 
-		are resolved at the same time as other weapons fire. They can only attack at range zero. Additionally, they use the Warrior's offensive bonus to determine the chance to hit. 
+        <ul>
+<li>These operate as fighters for the Kirishiac but are much better thought of as re-targetable railgun rounds. They attack using one of two special ramming methods that they are always free to use. These
+            are resolved at the same time as other weapons fire. They can only attack at range zero. Additionally, they use the Warrior's offensive bonus to determine the chance to hit.
             <ul class="circle-list">
                 <li>Glancing ram: The Warrior makes an attack that ensures no return damage to itself. This is the only mode that can be used on fighters.</li>
                 <li>Warrior ram: In this mode, the Warrior attempts to punch straight through the target. This can do more damage, but risks damage in return. If the system hit is completely destroyed, the Warrior
-				is unharmed. However, if the system hit is not destroyed, the Warrior takes 2 times the system's armor value and must make a drop out roll with a +4 penalty. The return damage is mitigated by the 
-				Warrior's own armor. NOTE: The Warrior Ram cannot be used against fighters and it cannot be used on the same turn as the Glancing Ram.</li>                   
-            </ul>            
-        </li>		
-		<li>Warrior regeneration: As long as one Warrior survives, the flight can return to a Mastership and land. After 5 complete turns the ENTIRE flight will be regenerated to full strength. There is no limit on 
-		how many times this can occur in a scenario. 
-        </li>		
-
-<h5>Orbitals</h5>
-	
-		<li>These are the most unique system used by the Kirishiac. These are small segments of the ship that float over the hull and mount various weapons and systems. There are three types described below. 
-            <ul class="circle-list">
-                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. The Kirishiac player may 
-				choose either state for the start of a match. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
-				<li>Docked: 
-					<ul class="circle-list">
-						<li>The orbital's structure is merged with the structure block it is associated with.</li>
-						<li>Weapons can be deactivated for power and self repair can be used (note, heaavy orbitals have a special rule below).</li>
-					</ul>            
-				</li>
-				<li>Deployed:
-					<ul class="circle-list">
-						<li>Weapons may be used freely.</li>
-						<li>The ship's self-repair cannot be used on them and their weapons cannot be deactivated for power.</li>
-						<li>When damaged overkill to the weapon transfers to the attached orbital's structure. If the orbital's structure is destroyed, any overkill is lost.</li>
-						<li>All orbitals can be directly targeted. This uses any offensive EW applied to the parent ship, but the orbital has a smaller profile. To do so, select the orbital you wish to attack 
-						as if you were doing a called shot. Note, there is no called shot penalty.</li>
-					</ul>            
-				</li>
-                <li>Each orbital class has its own specific special rules as detailed here.
-					<ul class="circle-list">
-						<li>Light Orbitals: These are smaller and cannot regenerate on their own. If destroyed, they will automatically dock where the ship's self repair must rebuild the orbital's structure 
-						and weapon before it can be used again.</li>
-						<li>Medium Orbitals: These are the most common. In addition to the abilities above, they have the ability to regenerate. If the orbital's structure is fully destroyed, the orbital will automatically 
-						dock to its ship. After 5 turns, the orbital and it's attached systems will fully regenerate allowing its weapon to be used for power or to be deployed once again as long as the associated ship 
-						structure block has not been lost.</li>
-						<li>Heavy Orbitals: These are used as heavy weapon platforms and are much larger. Unlike medium orbitals, heavy orbitals CANNOT regenerate. However, they have their own self repair system that 
-						they can use while they are deployed to remove criticals, fixe the attached weapon, or restore the structure. If they are docked, the self repair system's repair rate is doubled and can be used 
-						on the ship or the heavy orbital can benefit from the ship's self repair system or other orbitals if they are also docked. Additionally, the weapon can still be fired when the heavy orbital is 
-						docked, but the are is significantly reduced.</li>
-					</ul>            
-				</li>                   
-            </ul>            
+                is unharmed. However, if the system hit is not destroyed, the Warrior takes 2 times the system's armor value and must make a drop out roll with a +4 penalty. The return damage is mitigated by the
+                Warrior's own armor. NOTE: The Warrior Ram cannot be used against fighters and it cannot be used on the same turn as the Glancing Ram.</li>
+            </ul>
         </li>
+        <li>Warrior regeneration: As long as one Warrior survives, the flight can return to a Mastership and land. After 5 complete turns the ENTIRE flight will be regenerated to full strength. There is no limit on
+            how many times this can occur in a scenario.</li>
+    </ul>
+<h5>Orbitals</h5>
+        <ul>
+<li>These are the most unique system used by the Kirishiac. These are small segments of the ship that float over the hull and mount various weapons and systems. There are three types described below.
+            <ul class="circle-list">
+                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. The Kirishiac player may
+                choose either state for the start of a match. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
+                <li>Docked:
+                    <ul class="circle-list">
+                        <li>The orbital's structure is merged with the structure block it is associated with.</li>
+                        <li>Weapons can be deactivated for power and self repair can be used (note, heaavy orbitals have a special rule below).</li>
+                    </ul>
+                </li>
+                <li>Deployed:
+                    <ul class="circle-list">
+                        <li>Weapons may be used freely.</li>
+                        <li>The ship's self-repair cannot be used on them and their weapons cannot be deactivated for power.</li>
+                        <li>When damaged overkill to the weapon transfers to the attached orbital's structure. If the orbital's structure is destroyed, any overkill is lost.</li>
+                        <li>All orbitals can be directly targeted. This uses any offensive EW applied to the parent ship, but the orbital has a smaller profile. To do so, select the orbital you wish to attack
+                        as if you were doing a called shot. Note, there is no called shot penalty.</li>
+                    </ul>
+                </li>
+                <li>Each orbital class has its own specific special rules as detailed here.
+                    <ul class="circle-list">
+                        <li>Light Orbitals: These are smaller and cannot regenerate on their own. If destroyed, they will automatically dock where the ship's self repair must rebuild the orbital's structure
+                        and weapon before it can be used again.</li>
+                        <li>Medium Orbitals: These are the most common. In addition to the abilities above, they have the ability to regenerate. If the orbital's structure is fully destroyed, the orbital will automatically
+                        dock to its ship. After 5 turns, the orbital and it's attached systems will fully regenerate allowing its weapon to be used for power or to be deployed once again as long as the associated ship
+                        structure block has not been lost.</li>
+                        <li>Heavy Orbitals: These are used as heavy weapon platforms and are much larger. Unlike medium orbitals, heavy orbitals CANNOT regenerate. However, they have their own self repair system that
+                        they can use while they are deployed to remove criticals, fixe the attached weapon, or restore the structure. If they are docked, the self repair system's repair rate is doubled and can be used
+                        on the ship or the heavy orbital can benefit from the ship's self repair system or other orbitals if they are also docked. Additionally, the weapon can still be fired when the heavy orbital is
+                        docked, but the are is significantly reduced.</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
 
 
 <a class="back-to-top" href="#top">↩ Back to Top</a> 
@@ -1321,51 +1319,6 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 
-<h4 id="system" >THE SYSTEM</h4>
-    <p>The System is the name of a computer network that was the controlling authority of a highly advanced, Ancient-level alien civilisation. The System has mastered a number of extremely advanced technologies, able to construct advanced artificial intelligences 
-	and extremely powerful starships. System vessels are characterized by their speed, resiliency, and shielding.</p>
-    <p>In Fiery Void, they have been created as a Custom faction (with credit to pauluk(Reman) to initiate the project and creating the graphics) with the following key features:</p>    
-
-<h5>Shielding</h5>
-    <ul>
-		<li>The System shields use the same mechanics as the Thirdspace shields. They absorb all incoming damage in the arc that they cover. Once these shields have been reduced to zero rating damage will start to be inflicted on their ships as normal.</li>
-        <li>During Initial Orders players can freely move shield power around via the Shield Generator. This system must be at 0 in order to commit your orders (e.g. you can't 'save' shield energy in the generator for future turns). 
-            The maximum amount you can allocate to any given shield is two times its base value.</li>
-        <li>The Shield Generator also comes with a number of preset options you can click on to assist in moving shield energy around.  
-            At the end of the turn, Shield Projectors will restore their respective shields by an amount based on their current rating.</li>
-    </ul>
-
-<h5>Gravitic Drives</h5>
-    <ul>
-		<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation.  
-        Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced critical they receive, increasing their resistance to damage.</li>                    
-    </ul>
-
-<h5>Artificial Intelligence</h5>
-	<li>System vessels are operated by an advanced artificial intelligence (AI). This conveys several advantages.
-        <ul class="circle-list">
-            <li>System vessels have an exceptional initiative bonus for their size.</li>
-            <li>System vessels are resilient to criticals and have a -2 bonus to all critical rolls.</li>                   
-            <li>The AI is manages highly efficient energy usage allowing for exceptional maneuvering and power-hungry weapons.</li>                   
-        </ul>            
-    </li> 
-
-<h5>Plasma Driver</h5>
-    <ul>
-		<li>Extremely potent pulse weapons scoring damage as plasma. They are highly effective against all targets.</li>                    
-    </ul>
-
-<h5>Neutron Blaster</h5>
-	<li>A versatile electromagnetic weapon with multiple modes of fire and may not be intercepted.
-        <ul class="circle-list">
-            <li>If a single blaster is used, it may fire twice per turn scoring 1d10+10 damage with a -2.5 per hex range penalty.</li>
-            <li>Two blasters can be combined to do 4d10+20 damage in raking (15) with a -1.65 per hex range penalty.</li>                   
-            <li>Three blasters can be combined to do 5d10+30 damage in raking (20) with a -1.25 per hex range penalty.</li>       
-			<li>If player mis-declares and not enough weapons are assigned for declared mode, the shot automatically misses.</li>
-        </ul>            
-    </li> 
-
-<a class="back-to-top" href="#top">↩ Back to Top</a>
 
     <h4 id="thirdspace" >THIRDSPACE</h4>
     <p>The ‘Thirdspace aliens’ are a mysterious and terrifying race of malevolent telepaths from an alternate dimension, in possession of technology considered more advanced than even the Shadows or Vorlons.  
@@ -1608,7 +1561,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     </ul>
 <a class="back-to-top" href="#top">↩ Back to Top</a>
 
-    <h4 id="customs" >CUSTOM SHIPS</h4>
+    <h4 id="custom" >CUSTOM SHIPS</h4>
     <p>A place to store customs ships from the Babylon 5 Wars setting, either because they are unofficial designs created by players or one-off campaign/scenario ships. Not a real faction.</p>                                                                                     
     <a class="back-to-top" href="#top">↩ Back to Top</a> 
 
@@ -1713,6 +1666,29 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 <a class="back-to-top" href="#escalationwars">↩ Back to Escalation Wars</a>    
 
 
+
+    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
+    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
+    <p>These are currently considered in Playtest until their units can be tested.</p>
+        <h5>Flak Array</h5>
+            <ul>
+<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
+			but with an offensive mode that can attack any units.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
+
+    <h4 id="valheru" >HOUSE VALHERU</h4>
+    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
+space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
+developer of said technologies were politically well connected or not.</p> 
+    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
+	are considered common hulls.</p>
+    <p>House Valheru was created by Fred Colman</p>
+        <h5>Snipper Cannon</h5>
+            <ul>
+<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
 
 
     <h4 id="nexus" >NEXUS UNIVERSE</h4>
@@ -2022,32 +1998,51 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     <a class="back-to-top" href="#top">↩ Back to Top</a>          
 
 
+<h4 id="system" >THE SYSTEM</h4>
+    <p>The System is the name of a computer network that was the controlling authority of a highly advanced, Ancient-level alien civilisation. The System has mastered a number of extremely advanced technologies, able to construct advanced artificial intelligences 
+	and extremely powerful starships. System vessels are characterized by their speed, resiliency, and shielding.</p>
+    <p>In Fiery Void, they have been created as a Custom faction (with credit to pauluk(Reman) to initiate the project and creating the graphics) with the following key features:</p>    
 
-    <h4 id="valheru" >HOUSE VALHERU</h4>
-    <p>House Valheru, led by Drem Valheru, had little clout or power. However, Drem had mysterious backers that provided financial backing and shipyard
-space. Valheru's concepts used existing Centauri hulls, but adapted them to use recent technologies and capabilities, regardless of the 
-developer of said technologies were politically well connected or not.</p> 
-    <p>House Valheru designs are considered rare variants if used in a traditional Centauri force. If only House Valheru units are used, these
-	are considered common hulls.</p>
-    <p>House Valheru was created by Fred Colman</p>
-        <h5>Snipper Cannon</h5>
-            <ul>
-<li>A long-range, piercing matter weapon unique to the Valheru forces.</li>
+<h5>Shielding</h5>
+    <ul>
+		<li>The System shields use the same mechanics as the Thirdspace shields. They absorb all incoming damage in the arc that they cover. Once these shields have been reduced to zero rating damage will start to be inflicted on their ships as normal.</li>
+        <li>During Initial Orders players can freely move shield power around via the Shield Generator. This system must be at 0 in order to commit your orders (e.g. you can't 'save' shield energy in the generator for future turns). 
+            The maximum amount you can allocate to any given shield is two times its base value.</li>
+        <li>The Shield Generator also comes with a number of preset options you can click on to assist in moving shield energy around.  
+            At the end of the turn, Shield Projectors will restore their respective shields by an amount based on their current rating.</li>
     </ul>
-<a class="back-to-top" href="#top">↩ Back to Top</a>
 
-
-    <h4 id="greatcrusade" >GREAT CRUSADE ORIENI</h4>
-    <p>This is a fan-based vision of the modern Orieni. This comes from the fan-based Great Crusade supplement by Steven Cross and Renaud Gagne.</p> 
-    <p>These are currently considered in Playtest until their units can be tested.</p>
-        <h5>Flak Array</h5>
-            <ul>
-<li>Most new Orieni weapons are improvements to their original armament. The exception is the flak array. This is treated like a dual flak cannon, 
-			but with an offensive mode that can attack any units.</li>
+<h5>Gravitic Drives</h5>
+    <ul>
+		<li>Allows ships to undertake maneuvers even while pivoted/pivoting using thrusters appropriate for their current orientation.  
+        Gravitic Thrusters also ignore the first "Efficiency Reduced" reduced critical they receive, increasing their resistance to damage.</li>                    
     </ul>
+
+<h5>Artificial Intelligence</h5>
+	<li>System vessels are operated by an advanced artificial intelligence (AI). This conveys several advantages.
+        <ul class="circle-list">
+            <li>System vessels have an exceptional initiative bonus for their size.</li>
+            <li>System vessels are resilient to criticals and have a -2 bonus to all critical rolls.</li>                   
+            <li>The AI is manages highly efficient energy usage allowing for exceptional maneuvering and power-hungry weapons.</li>                   
+        </ul>            
+    </li> 
+
+<h5>Plasma Driver</h5>
+    <ul>
+		<li>Extremely potent pulse weapons scoring damage as plasma. They are highly effective against all targets.</li>                    
+    </ul>
+
+<h5>Neutron Blaster</h5>
+	<li>A versatile electromagnetic weapon with multiple modes of fire and may not be intercepted.
+        <ul class="circle-list">
+            <li>If a single blaster is used, it may fire twice per turn scoring 1d10+10 damage with a -2.5 per hex range penalty.</li>
+            <li>Two blasters can be combined to do 4d10+20 damage in raking (15) with a -1.65 per hex range penalty.</li>                   
+            <li>Three blasters can be combined to do 5d10+30 damage in raking (20) with a -1.25 per hex range penalty.</li>       
+			<li>If player mis-declares and not enough weapons are assigned for declared mode, the shot automatically misses.</li>
+        </ul>            
+    </li> 
+
 <a class="back-to-top" href="#top">↩ Back to Top</a>
-
-
 
 
 

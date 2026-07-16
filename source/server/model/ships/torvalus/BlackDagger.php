@@ -1,18 +1,18 @@
 <?php
-class BlackRapier extends BaseShip{
+class BlackDagger extends BaseShip{
     
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
-		$this->pointCost = 3825;
+		$this->pointCost = 2300;
 		$this->faction = "Torvalus Speculators";
-        $this->phpclass = "BlackRapier";
-        $this->shipClass = "Black Rapier";
+        $this->phpclass = "BlackDagger";
+        $this->shipClass = "Black Dagger";
         $this->imagePath = "img/ships/TorvalusBlackRapier.png";
         $this->canvasSize = 280;
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 3; 
-		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
+		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
         $this->agile = true;
 				
         $this->gravitic = true;
@@ -29,8 +29,8 @@ class BlackRapier extends BaseShip{
         $this->pivotcost = 1;
 		$this->iniativebonus = 4 *5;
 
-		$this->trueStealth = true; //For ships that can actually be hidden, not just jammer from range.  Important for Front End.		
-		$this->canPreOrder = true;		
+		$this->trueStealth = false; //Alpha Shading Field does not grant true stealth		
+		$this->canPreOrder = false;		
 		//$this->fighters = array("normal"=>6);
 		$this->notes = "Can control 6 fighters";		
 		$this->notes .= '<br>Can skin dance'; 
@@ -39,28 +39,27 @@ class BlackRapier extends BaseShip{
 		Enhancements::nonstandardEnhancementSet($this, 'TorvalusShip');
 		
          
-		$this->addPrimarySystem(new Reactor( 6, 30, 0, 0));//armor, structure, power req, output
+		$this->addPrimarySystem(new Reactor(6, 20, 0, 0));//armor, structure, power req, output
         $this->addPrimarySystem(new CnC(6, 16, 0, 0));
 		$scanner = new Scanner(6, 18, 0, 10);
 		$scanner->markAdvanced();
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(6, 18, 0, 12, 4));
-        $this->addPrimarySystem(new SelfRepair(6, 10, 5)); //armor, structure, output
-		$this->addPrimarySystem(new ShadingField(6, 20, 6, 4, 0, 360));       
-		$this->addPrimarySystem(new TransverseDrive(5, 16, 5, 0, 360));
-		$this->addPrimarySystem(new JumpEngine(6, 25, 6, 8));        
+        $this->addPrimarySystem(new SelfRepair(6, 9, 4)); //armor, structure, output
+		$this->addPrimarySystem(new AlphaShadingField(6, 20, 2, 4, 0, 360));       
+		$this->addPrimarySystem(new JumpEngine(6, 20, 6, 14));        
 		
         $this->addFrontSystem(new VolleyLaser(5, 0, 0, 240, 120));        
 
 		$this->addAftSystem(new GraviticThruster(5, 15, 0, 4, 2));
         $this->addAftSystem(new MedPowerLaser(5, 0, 0, 90, 270));          
 
-        $this->addLeftSystem(new PowerLaser(5, 0, 0, 270, 90));    		
+        $this->addLeftSystem(new MedPowerLaser(5, 0, 0, 270, 90));    		
         $this->addLeftSystem(new GraviticThruster(5, 13, 0, 4, 1));       
 		$this->addLeftSystem(new GraviticThruster(5, 15, 0, 4, 2));
         $this->addLeftSystem(new GraviticThruster(5, 20, 0, 7, 3)); 		
 
-        $this->addRightSystem(new PowerLaser(5, 0, 0, 270, 90));     
+        $this->addRightSystem(new MedPowerLaser(5, 0, 0, 270, 90));     
         $this->addRightSystem(new GraviticThruster(5, 13, 0, 4, 1));       
 		$this->addRightSystem(new GraviticThruster(5, 15, 0, 4, 2));
         $this->addRightSystem(new GraviticThruster(5, 20, 0, 7, 4)); 				
@@ -75,9 +74,8 @@ class BlackRapier extends BaseShip{
 	
 		$this->hitChart = array(
 			0=> array( //PRIMARY
-				7 => "Structure",
-				9 => "Shading Field",
-				10 => "Transverse Drive",
+				8 => "Structure",
+				10 => "Alpha Shading Field",
 				12 => "Self Repair",
 				14 => "Scanner",                
 				16 => "Engine",
@@ -99,13 +97,13 @@ class BlackRapier extends BaseShip{
 			),
 			3=> array( //Fwd
 				7 => "TAG:Thruster",
-				10 => "Power Laser", 
+				10 => "Medium Power Laser", 
 				18 => "Structure",
 				20 => "Primary",
 			),
 			4=> array( //Fwd
 				7 => "TAG:Thruster",
-				10 => "Power Laser", 
+				10 => "Medium Power Laser", 
 				18 => "Structure",
 				20 => "Primary",
 			),

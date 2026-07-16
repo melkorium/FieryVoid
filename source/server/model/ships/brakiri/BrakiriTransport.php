@@ -7,7 +7,7 @@ class BrakiriTransport extends BaseShip{
         $this->faction = "Civilians";
         $this->phpclass = "BrakiriTransport";
         $this->imagePath = "img/ships/BrakiriTransport.png";
-        $this->shipClass = "Brakiri Transport";
+        $this->shipClass = "Enbrak Transport";
 		$this->canvasSize = 200; 
         $this->shipSizeClass = 3;
         $this->gravitic = true;
@@ -18,6 +18,7 @@ class BrakiriTransport extends BaseShip{
 		
 		
         $this->notes = 'Atmospheric Capable.';
+		$this->notes .= 'Tor-Sikar';//Corporation producing the design        
 
         $this->forwardDefense = 15;
         $this->sideDefense = 13;

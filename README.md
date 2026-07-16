@@ -60,8 +60,7 @@ Password: fieryvoid (or possibly just leave blank)
 Database: B5CGM
 
 3. Setup Client-Side Development (Yarn)
-Since FieryVoid bundles legacy code, you'll need to install the Node dependencies locally so things recompile when you make edits by running these commands in project root folder:
-
+Since FieryVoid bundles legacy code, you'll need to install the Node dependencies locally so things recompile when you make edits by running these commands in project root folder.  
 
 # First time setup
 yarn install
@@ -70,6 +69,7 @@ yarn watch:legacy
 # To do a one-off build
 yarn build
 
+Note, these commands can be useful sometimes, but the Yarn Build step has largely been replaced by the fvbuild.ps1 process detailed below.
 
 4. Interacting with the PHP Container
 If you need to run server-side scripts (like to generate new staticship files after adding new units, or changing class variables on server) or explore the backend container, you can drop into the PHP container's bash shell:
@@ -81,6 +81,11 @@ e.g.
 cd...
 cd current
 php generateStaticShipFile.php
+
+(Or from PowerShell on the host: `.\FieryVoid\scripts\fvbuild.ps1 -Statics` —
+see "Building after a change" below.)
+
+Note, this step has largely been replaced by the fvbuild.ps1 process detailed below.
 
 5. Troubleshooting / Clean Rebuild
 If your containers get out of sync or you need to cleanly force a rebuild of the environment, use:
@@ -116,21 +121,102 @@ Click Test Connection → should succeed → OK.
 Open the connection and the Fiery Void schema(s) will show up in the left-hand SCHEMAS panel. Browse tables, run queries, etc. — same as any local DB.
 
 
-## VAGRANT IS NO LONGER USED! ##
 
-Here were the old instructions for posterity
+# Building after a change (scripts/fvbuild.ps1):
 
-1. Install virtualbox https://www.virtualbox.org/
-1. Install vagrant https://www.vagrantup.com/
-1. Make sure you have ssh client and terminal
-1. Type  `vagrant up`
-1. Point your browser to localhost:8080/source/public
+`source/autoload.php` (the class map consumed by `spl_autoload_register`) is a
+**generated file — never edit it by hand**. It is produced by phpab
+(`theseer/autoload`, the repo's only composer dependency) via `autoload.sh`,
+which also carries the exclusion list, one commented reason per exclude. The
+map is committed, so regenerating it produces a normal reviewable git diff.
 
-You can access the virtual box by:
+Everything below assumes PowerShell in `c:\FV_env\FieryVoid` and Docker up
+(`docker compose up -d`). None of these steps touch the database. If
+PowerShell refuses to run scripts, use
+`powershell -ExecutionPolicy Bypass -File .\FieryVoid\scripts\fvbuild.ps1 ...`
+or allow local scripts once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
-1. Type `vagrant ssh`
-1. Code is shared in /vagrant/ folder
-1. Access database by typing: `mysql -uroot -proot`
+### The one command: you changed something, rebuild everything
+
+    .\scripts\fvbuild.ps1
+
+Runs, in order: autoload map → static ship files → `yarn build`. Fails fast
+and says which step broke. Statics regeneration doubles as the deepest proof
+of the autoload map — it constructs every ship class in the catalogue.
+
+### The one you'll actually use day-to-day
+
+    .\scripts\fvbuild.ps1 -Server
+
+= autoload + statics, skipping `yarn build`. Use this while `yarn watch` /
+`yarn watch:legacy` are running: a full `yarn build` *minifies* the legacy
+bundles, which makes debugging harder until the watcher flips them back.
+
+Note - You'll still need to restart the Docker container for server changes to show on local server.
+
+### Individual steps
+
+    .\scripts\fvbuild.ps1 -Autoload    # just the class map
+    .\scripts\fvbuild.ps1 -Statics     # just the static ship files
+    .\scripts\fvbuild.ps1 -Client      # just yarn build
+
+Or bypass the script entirely — this is all it does (**`-w /usr/src/current`
+is not optional**: without it the command runs in the container-local
+throwaway copy and the output never reaches your repo):
+
+    docker exec -w /usr/src/current fieryvoid-php-1 sh autoload.sh
+    docker exec -w /usr/src/current fieryvoid-php-1 php generateStaticShipFile.php
+    cd c:\FV_env\FieryVoid; yarn build
+
+(Running these from `/usr/src/current#` in Docker Desktop's Exec tab is
+exactly equivalent and stays fine.)
+
+### Before deploying (or any time you're suspicious)
+
+    .\FieryVoid\scripts\fvbuild.ps1 -Check
+
+Writes nothing. Two gates: regenerates the map to a temp file and
+byte-compares it against the committed one (fails if someone added a class
+and forgot to regenerate), then runs the replay harness over your local
+game corpus.
+
+### You added / renamed / deleted a PHP class (ship, weapon, system, crit…)
+
+1. Create or edit the class file as usual.
+2. `.\FieryVoid\scripts\fvbuild.ps1 -Server`
+3. `git diff source/autoload.php` — for one new ship you should see exactly
+   one added line. More lines just mean the map is catching up with someone
+   else's forgotten regeneration; sanity-check they look plausible.
+4. Commit `source/autoload.php` together with your class files.
+
+### Retiring or hiding a ship
+
+Set `$this->variantOf = 'NONE';` in the ship file — it disappears from the
+lobby but **stays loadable, so old games containing it keep working**. Never
+hide a ship by keeping it out of the autoload map (the old commented-entry
+practice): that breaks every existing game that contains one. phpab excludes
+(in `autoload.sh`, with a reason) are reserved for genuine junk files —
+dev scratch and `*_old.php` collision copies.
+
+### The generator fails with a collision error
+
+Two files declare the same class name; phpab names both and refuses to
+generate — deliberately. Decide which is real, then delete/rename the
+impostor's class or add the losing file to the excludes in `autoload.sh`
+with a reason, and rerun.
+
+### Merge conflict in source/autoload.php
+
+Do **not** hand-merge it. Take either side
+(`git checkout --theirs source/autoload.php`), finish merging the *source*
+files, then `.\FieryVoid\scripts\fvbuild.ps1 -Autoload` — a scan of the
+merged tree is by definition the correct map.
+
+(`source/autoload_old.php` is a frozen copy of the last hand-maintained map,
+kept as a reference while the generator beds in. It is not loaded and not
+scanned; delete it once the generated map has been trusted for a few
+releases.)
+
 
 
 # Game.php and gamelobby.php js bundling:
@@ -159,6 +245,8 @@ When uploading your branch to gitHub it's best not to include these files, as th
 Minification (from 3.6.2026):
 The bundler now depends on esbuild to minify the legacy bundles, (already present via Vite, so a normal yarn install covers it), and yarn watch:legacy intentionally produces un-minified output for debuggability while yarn build minifies.
 
+
+
 # THREE.js bundle (three.shim.bundle.js) — when to rebuild:
 
 (from 10.6.2026) THREE.js is no longer shipped as the full ~670KB vendored three.min.js. Instead, `scripts/build-three-shim.js` builds a slimmed, tree-shaken bundle (`client/lib/three.shim.bundle.js`, ~500KB) that contains ONLY the THREE features FV actually uses. It's installed onto the global `window.THREE` exactly like before, so none of the legacy client code had to change.
@@ -175,6 +263,8 @@ When you do NOT need to rebuild it (i.e. almost all the time):
 When in doubt: just run `yarn build`. It runs all three steps in order (THREE shim → Vite/React → legacy bundle), so you can never end up with a stale THREE bundle by running the full build. The standalone `yarn build:three` is only there to save time when you KNOW the THREE bundle is the only thing that changed.
 
 (The old `client/lib/three.min.js` is now unused and can be deleted.)
+
+
 
 # Replay regression harness (tests/replay):
 
@@ -236,38 +326,27 @@ The harness works for everyone, but **the baseline is per-developer and is never
 
 Images are optimised on Web Server by navigating to https://fieryvoid.eu/game/source/public/mass_optimizer.php or https://fieryvoid.eu/testInstance/source/public/mass_optimizer.php
 
-As a result, users can work with full png images, and then this script can be run on game and testInstance Server whenever required.
+As a result, users can work with full png images, and then this script can be run on game and testInstance server whenever required.
 
-On local server, images are simply not optimised, although in theroy you could run the mass_optimser script to do so.
+On local server, images are simply not optimised, although in theory you could run the mass_optimser script to do so.
 
 
 # Sticky Images
 If you're finding images are not updating after you changed them, you can sometimes add ‘?v=2’ after .png to force image refresh.
 
 
-# Adding faction defaults shuttles: 
+## VAGRANT IS NO LONGER USED! ##
 
-1. Define the subclass in Shuttle.php
-Subclass Shuttle and override setShuttleDefaults(). Set $this->phpclass, $this->shipClass, $this->faction, and any stat overrides. Use FlyerProtectorate (line 162) as the template:
+Here were the old instructions for posterity
 
-2. Register it in the autoload classmap — do not skip this
-'flyerxyz' => '/server/model/ships/Shuttle.php',
+1. Install virtualbox https://www.virtualbox.org/
+1. Install vagrant https://www.vagrantup.com/
+1. Make sure you have ssh client and terminal
+1. Type  `vagrant up`
+1. Point your browser to localhost:8080/source/public
 
-3. Add the faction → class entry in HangarOps
-In HangarOps.php:202, add to $factionShuttleMap:
-'Some Faction' => 'FlyerXYZ',
+You can access the virtual box by:
 
-4. Add the tooltip display name
-shuttleDisplayNameFor() — add a case 'FlyerXYZ': return 'Flyer';. Without it the hangar tooltip falls through to default and labels the craft "Shuttle".  This may be fine if it’s a generic shuttle unit for faction
-
-5. Check eviction priority
-evictionPriorityFor() returns priority 10 for things whose phpclass contains the substring "shuttle". A name like Flyer does not contain "shuttle", so it would fall through to the class_exists probe and get treated as a fighter (priority 1000+). That's why line 469 has an explicit Flyer/FlyerProtectorate check. If your new class name doesn't contain "shuttle", add it to that line so it's evicted as a shuttle, not as a fighter.
-
-6. Art (only if needed)
-getImage() keys off $this->faction. If your faction string already matches an existing case you're done; otherwise add a case returning your [imagePath, iconPath]. (Setting $this->faction correctly in step 1 is what makes this work automatically.)
-
-7. Client preload — automatic, nothing to do
-game.php:109-112 calls shuttleClassForFactionName() over $factionShuttleMap, so once step 3 is done the blueprint preloads for any game containing that faction's carrier. No client wiring needed.
-Test
-Quick test before considering it done: add a carrier of the faction to a game, then surrender or save/reload — that's the deserialize path that exercises the autoload entry. If it survives a surrender, all four touchpoints are wired.
-
+1. Type `vagrant ssh`
+1. Code is shared in /vagrant/ folder
+1. Access database by typing: `mysql -uroot -proot`
