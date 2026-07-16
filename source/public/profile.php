@@ -101,10 +101,9 @@
 			<?php } ?>
 
 			<div style="font-size: 13px; margin: 4px 12px 10px 12px; max-width: 440px;">
-				<b>Discord turn notifications</b><br>
-				Get a Discord DM when a game is waiting on you. To stop someone else
-				linking your Discord ID, you verify ownership with a one-time code the
-				bot DMs to you.
+				<b>Discord Turn Notifications</b><br>
+				Get a Discord DM when a game is waiting on you to take your turn. 
+				<br><a href="faq.php#notifications" target="_blank" rel="noopener noreferrer" style="color: #8bcaf2">Setup guide &amp; how it works &rarr;</a>
 				<?php if (!$notifierConfigured){ ?>
 				<br><br><i>Note: Discord notifications are not configured on this server, so verification will fail.</i>
 				<?php } ?>
@@ -150,14 +149,14 @@
 			<!-- STATE: not linked -->
 			<form method="post">
 				<div style="font-size: 13px; margin: 4px 12px 8px 12px; max-width: 440px;">
-					Paste your Discord user ID (Settings → Advanced → Developer Mode ON,
-					then click your name → Copy User ID). The bot will DM you a code to confirm it's you.
+					Paste your Discord User ID (Settings → Advanced → Developer Mode ON,
+					then right-click your name in Discord → Copy User ID). The bot will DM you a code to confirm it's you.
 				</div>
 				<table style="font-size: 14px; margin-left: 12px;">
 					<tr><td><label>Discord User ID:</label></td><td><input type="text" name="discordid" placeholder="e.g. 302150981024947210" style="width: 200px;"></td></tr>
 				</table>
 				<div style="margin-right: 10px; margin-top: 10px; margin-bottom: 5px; text-align: right; font-size: 12px;">
-					<span><a href="games.php" style="color: #8bcaf2">Game Lobby</a></span>
+					<span><a href="games.php" style="color: #8bcaf2">Back to Game Lobby</a></span>
 					<button class="btn btn-primary" type="submit" name="action" value="sendcode" style="margin-left: 8px; font-size: 12px;">Send verification code</button>
 				</div>
 			</form>
