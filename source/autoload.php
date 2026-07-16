@@ -1000,6 +1000,7 @@ spl_autoload_register(
                 'diffusertendril' => '/server/model/systems/baseSystems.php',
                 'diffusertendrilftr' => '/server/model/systems/baseSystems.php',
                 'directemine' => '/server/model/weapons/customDevelopment.php',
+                'discordnotifier' => '/server/lib/DiscordNotifier.php',
                 'disengagedfighter' => '/server/model/cricialClasses.php',
                 'dockedfighter' => '/server/model/cricialClasses.php',
                 'dockingcollar' => '/server/model/systems/baseSystems.php',
