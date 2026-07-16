@@ -126,13 +126,13 @@ class kirishiacConqueror extends SixSidedHCV{
 				4 => "Thruster",
 				8 => "Hypergraviton Beam",
 				10 => "Ultra Matter Cannon",
-				11 => "TAG:ORBITALFWD", //tag search is ship-wide: finds orbitals A-C on the left/front/right display sections; beams are only hit through the orbital sub-chart
+				12 => "TAG:ORBITALFWD", //tag search is ship-wide: finds orbitals A-C on the left/front/right display sections; beams are only hit through the orbital sub-chart
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
 				6 => "Thruster",
-				7 => "TAG:ORBITALAFT", //orbitals D-F
+				8 => "TAG:ORBITALAFT", //orbitals D-F
 				18 => "Structure",
 				20 => "Primary",
 			),
