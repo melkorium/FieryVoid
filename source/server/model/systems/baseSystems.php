@@ -2386,7 +2386,8 @@ class OSATCnC extends CnC{	//Special technical OSAT CnC system, so criticals eff
     public $iconPath = "cnCtechnical.png";
     public $isPrimaryTargetable = false;
 	public $isTargetable = false;   
-	public $doCountForCombatValue = false;   
+	public $doCountForCombatValue = false;  
+	public $hideInShipWindow = true;	 
 
 	public function setSystemDataWindow($turn){
 		parent::setSystemDataWindow($turn);     
