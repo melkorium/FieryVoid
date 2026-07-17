@@ -97,6 +97,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<?php if (!$debug): ?>
 		<link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/gamelobby.legacy.bundle.js'); ?>" as="script">
 		<?php endif; ?>
+		<link rel="preload" href="<?php echo AssetLoader::getAssetUrl('client/UI/reactJs/UI.bundle.js'); ?>" as="script">
 
 		<link href="styles/base.css" rel="stylesheet" type="text/css">
 		<link href="styles/lobby.css" rel="stylesheet" type="text/css">
@@ -114,7 +115,10 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         <script>window.assetVersion = "<?php echo AssetLoader::getDeployVersion(); ?>";</script>
         <script defer src="<?php echo AssetLoader::getAssetUrl('client/assetManager.js'); ?>"></script>
         <script src="<?php echo AssetLoader::getAssetUrl('client/lib/jquery-ui-1.14.2.min.js'); ?>"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">        
+        <!-- React UI bundle (ship window + system info) — ship-window redesign Stage 3.
+             AssetLoader tag, so bundle-legacy.js skips it (same as game.php). -->
+        <script defer src="<?php echo AssetLoader::getAssetUrl('client/UI/reactJs/UI.bundle.js'); ?>"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 		
 		<!-- replaced by php include below
         <script src="static/ships.js"></script>
@@ -129,7 +133,9 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
     <?php if ($debug): ?>
     <script src="client/gamelobby.js"></script>
 		<script src="client/ajaxInterface.js"></script>
-		<script src="client/lobbyEnhancements.js"></script>        
+		<script src="client/lobbyEnhancements.js"></script>
+		<script src="client/uiEventRelay.js"></script>
+		<script src="client/renderer/shipWindowManager.js"></script>
 		<script src="client/player.js"></script>
         <script src="client/ships.js"></script>
         <script src="client/criticals.js"></script>
@@ -180,9 +186,33 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
     <?php endif; ?>		
 		<script>
 			
-            window.weaponManager = 
+            /* Lobby weaponManager stub: predicate/data functions the React
+               SystemIcon + SystemInfo render paths call. The lobby is read-only,
+               so everything reads as idle/unloaded-order and the action functions
+               are no-ops (SystemIcon's action branches are additionally gated off
+               by gamephase -2 / gamedata.waiting). */
+            window.weaponManager =
             {
-                
+                hasFiringOrder: function(){return false},
+                isLoaded: function(){return true},
+                isLoadedAlternate: function(){return false},
+                isSelectedWeapon: function(){return false},
+                getFiringOrder: function(){return null},
+                getCalledShotInfo: function(){return null},
+                selectAllWeapons: function(){}, //right-click select-all: nothing to select pre-game
+                getWeaponCurrentLoading: function(weapon)
+                {
+                    /* Weapons enter the game fully loaded, so the icon load counter
+                       shows the ready state ("1/1", or "2/2" for normalload weapons).
+                       Plain normalload (the old stub) read "0/1" on standard weapons. */
+                    return weapon.normalload > 0 ? weapon.normalload : weapon.loadingtime;
+                },
+            }
+
+            /* Stage 3c — legacy ship-window hover glue (fed UI/systemInfo.js from
+               the old DOM windows), superseded by the React SystemIcon →
+               window.uiEvents → React SystemInfo path. Delete in Stage 4.
+
                 mouseoverTimer: null,
                 mouseOutTimer: null,
                 mouseoverSystem: null,
@@ -190,7 +220,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
                 onWeaponMouseover: function(e){
 
                     if (weaponManager.mouseOutTimer != null){
-                        clearTimeout(weaponManager.mouseOutTimer); 
+                        clearTimeout(weaponManager.mouseOutTimer);
                         weaponManager.mouseOutTimer = null;
                     }
 
@@ -203,7 +233,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
                 onWeaponMouseOut: function(e){
                     if (weaponManager.mouseoverTimer != null){
-                        clearTimeout(weaponManager.mouseoverTimer); 
+                        clearTimeout(weaponManager.mouseoverTimer);
                         weaponManager.mouseoverTimer = null;
                     }
 
@@ -212,7 +242,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
                 doWeaponMouseOver: function(e){
                     if (weaponManager.mouseoverTimer != null){
-                        clearTimeout(weaponManager.mouseoverTimer); 
+                        clearTimeout(weaponManager.mouseoverTimer);
                         weaponManager.mouseoverTimer = null;
                     }
 
@@ -222,7 +252,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
                     var id = t.data("shipid");
 
-                    //Added button to view actual details of purchased ships, so need ot make sure right ship is called for correct tooltip info - DK 30.3.25 
+                    //Added button to view actual details of purchased ships, so need ot make sure right ship is called for correct tooltip info - DK 30.3.25
                     if(gamedata.fleetWindowOpen){
                         var ship = gamedata.getFleetShipById(id);
                     }else{
@@ -242,7 +272,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
                 doWeaponMouseout: function(){
                     if (weaponManager.mouseOutTimer != null){
-                        clearTimeout(weaponManager.mouseOutTimer); 
+                        clearTimeout(weaponManager.mouseOutTimer);
                         weaponManager.mouseOutTimer = null;
                     }
 
@@ -250,26 +280,28 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
                     weaponManager.mouseoverSystem = null;
                 },
-                hasFiringOrder: function(){return false},
-                isLoaded: function(){return true},
-                isSelectedWeapon: function(){return false},
-                getWeaponCurrentLoading: function(weapon)
-                {
-                    return weapon.normalload;
-                },
-            }
-            
+            */
+
             $(function(){
                 window.shipManager.movement.isRolled = function(ship)
                 {
                     return false;
                 }
             });
-            
-            
+
+
             $(function(){
-                window.shipWindowManager.addEW = function(){}; 
-            });            
+                window.shipWindowManager.addEW = function(){};
+            });
+
+            $(function(){
+                /* Lobby: your own purchased mines are always identified — there is
+                   no reveal mechanic pre-game, and blueprint ships have no .team so
+                   the game-side check would render every mine as an unknown "?". */
+                if (window.MineStealth) {
+                    MineStealth.prototype.isMineRevealed = function () { return true; };
+                }
+            });
 
         
         jQuery(function($){            
@@ -945,6 +977,14 @@ $optionsUsed = '';
         ?>
         </div>-->
                     
+    <!-- React mounts (ship-window redesign Stage 3). Fixed full-viewport wrappers so
+         the absolutely-positioned windows/tooltips anchor to the VIEWPORT on this
+         scrolling page (the legacy equivalent was lobby.css forcing .shipwindow to
+         position: fixed). pointer-events is re-enabled inside the components
+         (ShipWindowContainer); the info tooltip stays click-through by design. -->
+    <div id="shipWindowsReact" style="position:fixed; inset:0; pointer-events:none; z-index:10001;"></div>
+    <div id="systemInfoReact" style="position:fixed; inset:0; pointer-events:none; z-index:20000;"></div>
+
     <div id="systemInfo">
 		<div class="name"><span class="name header">test</span></div>
 		<div class="datacontainer"></div>

@@ -267,7 +267,7 @@ class Enhancements{
 	  if (array_key_exists("assault shuttles", $ship->fighters)) { //Only add if ship has Assault Shuttle hangar space! 	  
 	    $enhID = 'HANG_F';
 		if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
-				$enhName = 'Assault Shuttle to Fighter slot';
+				$enhName = 'Assault Shuttle to Fighter';
 				$enhLimit = $ship->fighters["assault shuttles"]; //The number of assault shuttle slots ship has is max conversion amount.
 				$enhPrice = 5; //Flat 5 pts per slot converted	  
 				$enhPriceStep = 0; //flat rate
@@ -282,7 +282,7 @@ class Enhancements{
 	  if ($totalCount > 0) {
 	    $enhID = 'HANG_AS';
 		if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
-				$enhName = 'Fighter to Assault Shuttle slot';
+				$enhName = 'Fighter to Assault Shuttle';
 				$enhLimit = $totalCount; //The number of assault shuttle slots ship has is max conversion amount.
 				$enhPrice = 5; //Flat 5 pts per slot converted
 				$enhPriceStep = 0; //flat rate
@@ -304,8 +304,8 @@ class Enhancements{
 	    $enhID = 'HANG_BP';
 		if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
 				$enhName = ($defaultShuttles['key'] === 'minesweeping shuttles')
-					? 'Shuttle to Breaching Pod slot' //Can add a specific minesweeping shuttle reference, but brevity is better in Confirm window for now.
-					: 'Shuttle to Breaching Pod slot';
+					? 'Shuttle to Breaching Pod' //Can add a specific minesweeping shuttle reference, but brevity is better in Confirm window for now.
+					: 'Shuttle to Breaching Pod';
 				$enhLimit = $defaultShuttles['count']; //leftover hangar capacity = default shuttle pool
 				$enhPrice = 10; //Flat 10 pts per slot converted
 				$enhPriceStep = 0; //flat rate
@@ -318,7 +318,7 @@ class Enhancements{
 	    if ($defaultShuttles['key'] === 'shuttles') {
 	      $enhID = 'HANG_MSW';
 		  if(!in_array($enhID, $ship->enhancementOptionsDisabled)){ //Check option is also not disabled.
-				$enhName = 'Shuttle to Minesweeping Shuttle';
+				$enhName = 'Shuttle to Minesweeper';
 				$enhLimit = $defaultShuttles['count'];
 				//Per B5W: 10pts or 20% of MinesweepingShuttle cost, whichever is higher.
 				//MinesweepingShuttle auto-populates with pointCost=0, so floor of 10 currently wins.

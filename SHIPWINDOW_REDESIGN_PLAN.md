@@ -2,9 +2,209 @@
 
 **Status: DESIGNED 2026-07-14. Stage 1 COMPLETE — user-accepted 2026-07-16 after
 five feedback rounds tested in gameid 4247 (all of 1a–1e, rolled-ship mirroring,
-and the round-1–5 refinements recorded below). Stage 2 BUILT 2026-07-17 —
-pending user in-game test + bundle rebuild (see the Stage 2 record below).
-Stages 3–4 not started.**
+and the round-1–5 refinements recorded below). Stage 2 COMPLETE — exit tests
+passed 2026-07-17 (see the Stage 2 record below). Stage 3 BUILT 2026-07-17 —
+pending user bundle rebuild + in-lobby test (see the Stage 3 record below).
+Stage 4 not started.**
+
+**Stage 3 (2026-07-17) — BUILT, awaiting user test.** Two user riders (2026-07-17)
+refine §3.2: (1) the Hit Chart button sits in the same top-left position as
+game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
+stacked directly beneath it; (2) the fighters/notes content is ALWAYS visible —
+an un-obscurable datasheet rail, not a popup — and lobbyEnhancements.js got the
+requested review (bugs found + fixed, see below). Superseded legacy code is
+commented out in place, never deleted (Stage 2 convention; deletion is Stage 4).
+- **3a bootstrap**: gamelobby.php now loads `UI.bundle.js` (AssetLoader tag +
+  preload, skipped by bundle-legacy.js) and the debug list gained
+  `uiEventRelay.js` + `renderer/shipWindowManager.js` (so the lobby legacy bundle
+  auto-includes them). React mounts `#shipWindowsReact` / `#systemInfoReact` are
+  **fixed full-viewport `pointer-events:none` wrappers** — the lobby page
+  scrolls, and absolute positioning would anchor windows/tooltips to the
+  document (the legacy equivalent was lobby.css forcing `.shipwindow` to
+  `position: fixed`); `ShipWindowContainer` re-enables pointer-events.
+  Bootstrap block at the end of gamelobby.js (DOM-ready, after all deferred
+  bundles): builds a `UIManager` + `window.shipWindowManagerReact`, installs the
+  `uiEvents` handler — SystemMouseOver/SystemClicked → React SystemInfo popup,
+  SystemMouseOut/CloseSystemInfo → hide, CloseShipWindow → close, all other
+  events ignored. Read-onlyness costs nothing: lobby `gamedata.waiting` is
+  `true` and gamephase is -2, so SystemIcon's click/action branches are inert
+  while hover and touch long-press (both ungated) drive the info popup.
+- **3b lobby mode in the React window** (`isLobby()` = gamephase === -2):
+  - Grid variant: no `ShipWindowEw`; `renderControls` renders the new
+    `ManoeuvreStats` panel (120px, styled like the EW panel) under the Hit
+    Chart button; the Notes button is suppressed (`withNotes = false` — notes
+    are in the rail); a `LobbyBody` flex row wraps the `SectionGrid`
+    (`$inRow`: flex auto-width) plus the 200px `ShipNotesPanel` rail
+    (border-left, wraps BELOW the grid on narrow screens — overlap with system
+    icons impossible by construction). Rail blocks: Complement / Notes (+
+    limited %, variant-of + occurrence, ISD, CUSTOM/SEMI-CUSTOM flag) /
+    Enhancements (from the rebuilt tooltip).
+  - Flight variant `flightLobby` (max-width 620px): FighterList + rail, rail
+    topped by a Flight Stats block (armor F/S/A, offensive bonus ×5, thrust,
+    initiative).
+  - Compact variant (purchased mines): rail renders full-width beneath the
+    body; ManoeuvreStats skipped for mines.
+  - New `helpers/buildComplement.js` ports shipwindow.js:423-530 (restricted-
+    bay reserved-fighter merge + default-shuttle rows); the legacy copy is
+    unreachable in the lobby from this stage on, so no shared-helper dance.
+  - Window sides: new `ShipWindowManager.isLeftSide(ship)` is the single
+    source for BOTH the manager's one-window-per-side filter and the
+    container's CSS side — lobby: `userid == 0` left (store) / fleet right
+    (the legacy split, §8.3); game.php: team-based, unchanged.
+    `ShipWindowsContainer` keys gained `userid` (a store blueprint and a fleet
+    ship can be open together sharing a numeric id).
+  - `getHeaderTint` no longer constructs a `THREE.Color` — the lobby loads no
+    THREE (it would throw), and the object stringified into an invalid CSS
+    declaration anyway, so returning null renders identically on both pages.
+  - Hit chart: `hasHitChart` feature-detect unchanged; in-lobby presence of
+    blueprint `hitChart` still to be eyeballed in the exit test (expected
+    present — legacy read `ship.hitChart.length` in-lobby without error).
+- **3c legacy path retirement (commented in place)**: `onShipContextMenu` →
+  `shipWindowManagerReact.open` (fleet ships get `lobbyEnhancements.apply`
+  first; store blueprints are the SHARED allShips objects and never have
+  enhancements taken, so the mutator is not run over them); edit-confirm's
+  destroy/rebuild dance → membership check + `shipWindowManagerReact.update()`;
+  gamelobby.php's fake-weaponManager **hover half** commented out (legacy
+  systemInfo.js glue), predicate stubs kept and extended for SystemIcon's
+  render path (`isLoadedAlternate`/`getFiringOrder`/`getCalledShotInfo` →
+  false/null, `selectAllWeapons` no-op); new lobby stub:
+  `MineStealth.prototype.isMineRevealed` → true (blueprints have no `.team`,
+  so the game-side check would render every purchased mine as an unknown "?").
+- **lobbyEnhancements review (user request)** — kept the 1,700-line mutation
+  switch, fixed the orchestration around it:
+  1. New one-shot `apply(ship)` choke point (`ship.enhancementsApplied` flag;
+     the per-enhancement `*Enh` markers stay as a second line of defence). Call
+     sites: window open (fleet ships) + edit-confirm re-apply.
+  2. Tooltip rebuilt fresh inside `apply()` from enhancementOptions. The old
+     per-open append sat OUTSIDE the marker guards so lines duplicated on every
+     window open, and its `<br>` separator was written to `this` instead of the
+     ship so lines ran together. In-switch appends commented out;
+     `resetEnhancementMarkers*` now also clear the flag + tooltip.
+  3. Edit-confirm reset block extended with EVERY enhancement-mutated
+     ship-level stat (iniativebonus, critRollMod, toHitBonus, turncost,
+     turndelaycost, pivotcost, signature, detectedSignature, IFFSystem) —
+     previously only defenses (+ a few flight fields) were reset, so
+     enhancements kept through an edit compounded ini/crit/to-hit/etc. on every
+     pass (pre-existing bug).
+  React re-rendering from the mutated ship object is what kills the legacy
+  remove/rebuild dance — enhancement stat changes now show live in the window.
+- **Verified**: `node --check` on gamelobby.js / lobbyEnhancements.js /
+  shipWindowManager.js; esbuild JSX parse on ShipWindow.js, ShipNotesPanel.js,
+  buildComplement.js, ShipWindowsContainer.js; `php -l` + inline-`<script>`
+  parse on gamelobby.php.
+- **Remaining for exit (user)**: rebuild bundles (`yarn build` — UI.bundle,
+  gamelobby.legacy.bundle AND game.legacy.bundle all changed), then the §5
+  Stage 3 exit list: lobby side-by-side vs live for capital / six-sided / base /
+  flight / LCV / mine / enhanced ship (buy + edit → window updates live, no
+  duplicated tooltip lines) / restricted-hangar (Suom/Roka) / default shuttles /
+  variant-ISD-custom flags; store window left + fleet right; hover AND touch
+  long-press info popups; hit chart popup; no overlap at any fleet size; plus a
+  game.php + replay spot-check (shared files changed: ShipWindow,
+  ShipWindowsContainer, shipWindowManager).
+
+**Stage 3 feedback round 1 (2026-07-17) — applied:**
+1. Datasheet moved off the window's side: `ShipNotesPanel` now occupies the `ew`
+   GRID AREA — the exact place the EW panel has in game.php (`$grid` mode:
+   150px, EW-panel glass/dotted-border styling; flight windows keep the side
+   rail, mines the full-width block). "Complement" renamed **"Hangar
+   Capacity"**; stacked blocks get a 6px gap (`Block + Block`).
+2. Hit chart popup sizes to its content: `$fit` on its PopupHolder (supersedes
+   Stage 1 round 5's full-width decision — the geographic columns shrink-wrap).
+3. Icons showed no Turn Loaded/Output in the lobby: game.php's inline
+   staticShips serialise `outputDisplay: ""` for every system, but the lobby's
+   default-stripped faction JSONs OMIT it, and `undefined != ''` is true — so
+   `SystemIcon.getText` returned undefined for every generic system (the Jump
+   Engine's client model sets its own outputDisplay, hence its lone "0").
+   Fixed with an undefined/null guard in getText (loose `!= ''` kept so
+   numeric-0 fall-through behaviour is unchanged in game). The lobby
+   `getWeaponCurrentLoading` stub now returns the fully-loaded value
+   (`normalload || loadingtime` → "1/1"/"2/2"; plain normalload read "0/1").
+4. Store (left) windows looked headerless — blueprints have no ship name, so
+   the white name slot was empty. Nameless ships now promote the CLASS into
+   the name slot (white) and leave the class slot empty.
+5. "Hit Chart"/"Notes" button labels sat high beside their glyphs: CtrlButton
+   `align-items` center → baseline (12px glyph and 8px label share a baseline).
+6. Bases show only Profile in ManoeuvreStats (TC/TD/Accel/Pivot/Roll/Ini rows
+   dropped — bases don't manoeuvre).
+
+**Stage 3 feedback round 2 (2026-07-17) — applied:**
+1. Forward↔Primary gap (tall chrome stacks inflated grid row 1, worst on ships
+   without side sections): `buildTemplateAreas` now EXTENDS the `ctrl` and `ew`
+   areas downward through consecutive rows whose side cell is otherwise empty,
+   so the buttons/stats and datasheet stacks span rows instead of stretching
+   row 1. Side-section rows still always name both areas as a pair (rolled-ship
+   mirrored `displayLocation` must always find its area). Six-sided/base
+   layouts unchanged (their side cells are occupied).
+2. **Bought ships had no section header bars (the green health bars) and a
+   stray "0" icon** — root cause: lobby fleet ships are `jQuery.extend` clones
+   (gamelobby.js getShipByType) whose systems LOSE the prototype chain
+   (for..in copies prototype methods as own props, so everything else worked),
+   so `instanceof Structure` was false: no header, and the structure system
+   leaked into the icon grid as a "0". ShipSection now tests
+   `system.name === 'structure'` (the systems.js getStructureSystem
+   convention). Same latent bug fixed in SystemInfo: `system instanceof Ship`
+   missed ship-level events for those clones (render fell into the system
+   branch and crashed) — now `instanceof Ship || system === ship`.
+3. Window position memory: drag-stop records the position per SIDE
+   (module-level, session-lifetime); the next window opened on that side
+   restores it (clamped on-screen; skipped on the ≤1024px full-screen layout).
+   Applies to game.php too — same component.
+4. Port-column sections `justify-self: end` (hug the centre column, mirroring
+   starboard's `start`) via GRID_JUSTIFY, visible when side tracks are wider
+   than a section (e.g. beside the 150px lobby datasheet).
+5. Datasheet restructured into separate panels: the Rail is now a transparent
+   4px-gap stack and each block (Hangar Capacity / Notes / Enhancements /
+   Flight Stats) is its own dotted-bordered glass panel — same construction as
+   Ship Stats below the Hit Chart button.
+6. Width symmetry: CtrlButton min-width and StatsPanel width are 150px in the
+   lobby (`$wide`), matching the datasheet panels opposite; game.php keeps
+   120px (matching its EW panel).
+7. All chrome headers (Hit Chart/Notes buttons idle fill, Ship Stats title,
+   datasheet block titles) use the shaded header-bar blue
+   rgba(73,103,145,0.25) with white text — the hit-chart section-name shade.
+
+**Stage 3 feedback round 3 (2026-07-17) — applied:**
+1. Enhancements got a standalone BOTTOM-RIGHT panel (`EnhancementsPanel`, grid
+   area `enh`): buildTemplateAreas carves `enh` out of the last row's free
+   right cell (or appends a `". . enh"` row when occupied); the ew span stops
+   above it, so a long enhancement list no longer lengthens the datasheet
+   stack and re-inflates row 1 (the carrier screenshot). The rail keeps its
+   inline Enhancements block for flight/mine variants (no grid there);
+   `hideEnhancements` suppresses it in grid mode.
+2. Enhancement counts read "(2)" not "(x2)" (lobbyEnhancements.apply builder).
+3. Notes "inconsistency" investigated — NOT a bug: the compared windows were
+   DIFFERENT ships (Vorlon Heavy Cruiser `limited: 0` vs Heavy Carrier
+   `limited: 33` in the blueprint JSON — verified), and the bought Omega's
+   extra "Extra Marine Contingents (7)" line is the note its purchased
+   enhancement appends. Each window lists its own ship's data correctly.
+4. Ship Stats typography: labels 10px sentence case (was 8px CAPS) in the
+   notes blue (textAccent), values white — colours flipped; same treatment in
+   the Flight Stats block; "Agile ship" de-capsed.
+5. Hit Chart/Notes button labels always white (matching the Ship Stats title).
+
+**Stage 3 feedback round 4 (2026-07-17) — applied (bought-flight crash):**
+1. **Bought flight windows crashed** (`Cannot read properties of undefined
+   (reading 'destroyed')`) — the jQuery.extend-clone instanceof trap ONE level
+   deeper: systems.js `isDestroyed` treats any flight system failing
+   `instanceof Fighter` as a fighter SUBSYSTEM; a bought flight's plain-clone
+   fighters failed it, `getFighterForSystem` found nothing, `.destroyed` threw.
+   Now duck-types (only fighter units carry a `.systems` array) + null-guards
+   the lookup; game.php behaviour identical (real instances short-circuit on
+   instanceof). This was the LAST lobby-reachable `instanceof
+   Fighter/Structure/Ship` (grep-verified; the rest live in game-only
+   animation/PhaseStrategy code). getFighterForSystem (identity `.includes`)
+   and the criticals helpers (`hasCritical` array reads) are clone-safe as-is.
+2. The crash also killed the OTHER window and all later opens — an uncaught
+   render error unmounts the whole React root. `ShipWindowsContainer` now
+   wraps each window in a per-window error boundary: a broken window renders a
+   small amber fallback frame naming the unit with a working ✕ (close →
+   remove from manager → boundary remounts fresh on reopen); the sibling
+   window and future opens survive. Protects game.php too.
+3. Flight-window layout: the datasheet rail sat left-aligned BELOW the fighter
+   images — the wrap + fit-content sizing collapsed. LobbyBody is now
+   `flex-wrap: nowrap` (FighterList wraps its icons internally; FlightArea
+   flex 1 1 auto, min 120px, max 400px), putting Flight Stats/Notes to the
+   RIGHT of the fighters.
 
 **Stage 2 (2026-07-17) — BUILT, awaiting user test.** Per user request, every
 superseded legacy function was commented out in place (not deleted) — actual

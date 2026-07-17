@@ -536,7 +536,14 @@ const hasBorderHighlight = (ship, system) => shipManager.systems.hasBorderHighli
 const isSelected = (system) => weaponManager.isSelectedWeapon(system)
 
 const getText = (ship, system) => {
-    if (system.outputDisplay != '') { //some systems have very specific visual output, rather than generic
+    /*some systems have very specific visual output, rather than generic. The
+      undefined/null guard matters in the LOBBY: game.php's inline staticShips carry
+      outputDisplay for every system, but the lobby's default-stripped faction JSONs
+      omit it, and `undefined != ''` is true - every generic system would return
+      undefined here and render a blank icon. Loose `!= ''` on the last check is
+      deliberate: systems that set a numeric 0 keep falling through to the generic
+      display, exactly as before.*/
+    if (system.outputDisplay !== undefined && system.outputDisplay !== null && system.outputDisplay != '') {
         return system.outputDisplay;
     } else if (system.weapon) {
 

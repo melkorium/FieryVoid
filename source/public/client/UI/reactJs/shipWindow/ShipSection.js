@@ -36,6 +36,7 @@ const ShipSectionContainer = styled.div`
     background-color: ${theme.colors.panelBgGlass};
     ${props => props.$area ? `grid-area: ${props.$area};` : ''}
     ${props => props.$valign ? `align-self: ${props.$valign};` : ''}
+    ${props => props.$justify ? `justify-self: ${props.$justify};` : ''}
     width: ${props => {
         if (props.$isTerrain) return '125px';
         //fixed widths keep the icon rows at 4-wide (centre column) and 3-wide (side
@@ -119,7 +120,7 @@ const IconArea = styled.div`
 
 class ShipSection extends React.Component {
     render() {
-        const { ship, systems, location, displayLocation, area, valign, wide, isTerrain, minHeight } = this.props;
+        const { ship, systems, location, displayLocation, area, valign, justify, wide, isTerrain, minHeight } = this.props;
 
         const structure = getStructure(systems);
         const health = structure ? getStructureLeft(ship, structure) : 0;
@@ -129,7 +130,7 @@ class ShipSection extends React.Component {
         const mirrored = displayLocation !== undefined && displayLocation !== location;
 
         return (
-            <ShipSectionContainer $location={location} $area={area} $valign={valign} $wide={wide} $isTerrain={isTerrain} $minHeight={minHeight}>
+            <ShipSectionContainer $location={location} $area={area} $valign={valign} $justify={justify} $wide={wide} $isTerrain={isTerrain} $minHeight={minHeight}>
                 {/*sections without structure exist purely for icon placement - no header*/}
                 {structure && <SectionHeader $health={health} $criticals={hasCriticals(structure)}>
                     <SectionName>{SECTION_NAMES[location] || ""}</SectionName>
@@ -149,9 +150,15 @@ const getStructureLeft = (ship, system) => (system.maxhealth - damageManager.get
 
 const hasCriticals = (system) => shipManager.criticals.hasCriticals(system)
 
-const getStructure = systems => systems.find(system => system instanceof Structure)
+/*name check, NOT instanceof (matches systems.js getStructureSystem): lobby fleet
+  ships are jQuery.extend clones of the blueprint whose systems lose their prototype
+  chain - instanceof Structure was false for them, so bought-ship sections rendered
+  headerless (no health bar) and the structure leaked into the icon grid as a "0".*/
+const isStructure = system => system.name === 'structure';
 
-const filterStructure = systems => systems.filter(system => !(system instanceof Structure))
+const getStructure = systems => systems.find(isStructure)
+
+const filterStructure = systems => systems.filter(system => !isStructure(system))
 
 const orderSystems = (systems, location, wide) => {
     systems = filterStructure(systems);

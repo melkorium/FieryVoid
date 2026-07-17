@@ -7,6 +7,7 @@ import ShipSection from "./ShipSection";
 import ShipWindowEw from "./ShipWindowEw";
 import FighterList from "./FighterList";
 import HitChartPanel from "./HitChartPanel";
+import ShipNotesPanel, { ManoeuvreStats, EnhancementsPanel } from "./ShipNotesPanel";
 import ShipInfo from "../system/ShipInfo";
 
 /*"Digital SCS" ship window (SHIPWINDOW_REDESIGN_PLAN.md Stage 1): sections arranged
@@ -26,7 +27,16 @@ import ShipInfo from "../system/ShipInfo";
   ship is rolled - the window then matches what the enemy actually faces - with an
   amber ROLLED banner at the bottom of the window confirming the mirroring. Section
   headers keep their true names (the port section stays "PORT", it is just drawn on
-  the right).*/
+  the right).
+
+  Lobby mode (Stage 3, gamedata.gamephase === -2): the same component doubles as the
+  fleet-selection datasheet. No EW panel (meaningless pre-game); the ctrl column
+  keeps the Hit Chart button in its game.php position with the manoeuvre stats
+  (ManoeuvreStats) stacked beneath it; the Notes popup is replaced by an
+  always-visible ShipNotesPanel rail to the RIGHT of the section grid (complement /
+  notes / enhancements can never be obscured by ship icon elements). Window sides:
+  store blueprints open left, own-fleet ships right - the legacy lobby's
+  userid == 0 split, resolved by ShipWindowManager.isLeftSide.*/
 
 const ShipWindowContainer = styled.div`
     display: flex;
@@ -44,12 +54,17 @@ const ShipWindowContainer = styled.div`
         if (props.$variant === 'flight') return 'auto';
         return 'fit-content';
     }};
-    max-width: ${props => props.$variant === 'flight' ? '400px' : 'unset'};
+    max-width: ${props => {
+        if (props.$variant === 'flight') return '400px';
+        if (props.$variant === 'flightLobby') return '620px'; /*FighterList + datasheet rail*/
+        return 'unset';
+    }};
     height: auto;
     border: 1px solid ${theme.colors.line};
     background-color: ${theme.colors.windowBg};
     opacity: 0.95;
     z-index: 10001;
+    pointer-events: auto; /*the lobby mounts windows inside a pointer-events: none fixed overlay*/
     overflow: visible; /*lets the Hit Chart / Notes popup extend past the window; the watermark is clipped by the body instead*/
     box-shadow: 5px 5px 10px black;
     font-size: 10px;
@@ -172,14 +187,20 @@ const ControlsArea = styled.div`
 
 const CtrlButton = styled.div`
     display: flex;
-    align-items: center;
+    /*baseline, not center: the 12px glyph and 8px label share a text baseline, so
+      the label no longer floats high beside the icon (feedback 2026-07-17)*/
+    align-items: baseline;
     gap: 4px;
     padding: 2px 6px 2px 4px;
     box-sizing: border-box;
-    min-width: 120px; /*match the EW panel opposite; also equalises the two buttons*/
+    /*matches the panel opposite: 120px EW panel in game, 150px datasheet in the
+      lobby ($wide) - keeps the two chrome columns visually symmetric*/
+    min-width: ${props => props.$wide ? '150px' : '120px'};
     border: 1px solid ${theme.colors.line};
-    background-color: ${props => props.$active ? 'rgba(198, 226, 255, 0.12)' : theme.colors.panelBg};
-    color: ${props => props.$active ? theme.colors.text : theme.colors.textAccent};
+    /*idle fill = the shaded header-bar blue (same as the hit chart section names)
+      so the chrome buttons read as section headers (feedback 2026-07-17)*/
+    background-color: ${props => props.$active ? 'rgba(198, 226, 255, 0.12)' : 'rgba(73, 103, 145, 0.25)'};
+    color: ${theme.colors.text}; /*white like the Ship Stats title (feedback round 3)*/
     font-size: 8px;
     letter-spacing: 0.8px;
     text-transform: uppercase;
@@ -249,6 +270,24 @@ const SectionGrid = styled.div`
     box-sizing: border-box;
     width: 100%;
     overflow: hidden; /*clips the watermark now that the window itself is overflow: visible*/
+`;
+
+/*Lobby flight body: FighterList on the left, always-visible ShipNotesPanel rail to
+  its RIGHT (grid windows put the panel in the `ew` grid area instead). nowrap, not
+  wrap: with the window's fit-content width the wrap sizing collapsed and dropped the
+  rail below the fighters (feedback round 4) - a single row plus FighterList's own
+  internal icon wrapping is what we actually want.*/
+const LobbyBody = styled.div`
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 100%;
+`;
+
+const FlightArea = styled.div`
+    flex: 1 1 auto;
+    min-width: 120px; /*at least one fighter icon column*/
+    max-width: 400px;
 `;
 
 /*Monochrome hull art behind the sections, nose-up like the old thumbnail. Purely
@@ -344,6 +383,10 @@ const MIRRORED_LOCATION = { 3: 4, 4: 3, 31: 41, 41: 31, 32: 42, 42: 32 };
 //vertical alignment inside the grid band, per area (the Stage 1 lesson: Primary only
 //centres between Forward and Aft because it shares the middle band with all sides)
 const GRID_VALIGN = { fwd: 'center', aft: 'center', prim: 'center', left: 'center', right: 'center', lfwd: 'start', rfwd: 'start', laft: 'end', raft: 'end' };
+//horizontal alignment: side sections hug the centre column - port drawn right-aligned
+//mirroring starboard's left alignment (feedback 2026-07-17; visible when the side
+//tracks are wider than a section, e.g. next to the 150px lobby datasheet)
+const GRID_JUSTIFY = { left: 'end', lfwd: 'end', laft: 'end', right: 'start', rfwd: 'start', raft: 'start' };
 //render order is irrelevant for grid placement; kept geographic for DOM readability
 const GRID_LOCATIONS = [1, 3, 31, 32, 0, 4, 41, 42, 2];
 const COMPACT_LOCATIONS = [1, 3, 31, 0, 4, 41, 32, 2, 42];
@@ -472,9 +515,31 @@ class ShipWindow extends React.Component {
 
     componentDidMount() {
         const element = jQuery(this.elementRef.current);
+        const side = isLeftWindow(this.props.ship) ? 'left' : 'right';
+
         //drag by the header bar only (plan §6) - body drags would fight the ship-click
-        //underlay and system icon interactions; the header ✕ stays click-only
-        element.draggable({ handle: ".shipwindow-drag-handle", cancel: ".shipwindow-nodrag" });
+        //underlay and system icon interactions; the header ✕ stays click-only.
+        //Drag end records the position per SIDE so the next window opened on that side
+        //(reopen or a different ship) appears where the player left it (feedback
+        //2026-07-17) instead of snapping back to the default corner.
+        element.draggable({
+            handle: ".shipwindow-drag-handle",
+            cancel: ".shipwindow-nodrag",
+            stop: (event, ui) => {
+                savedWindowPositions[side] = { top: ui.position.top, left: ui.position.left };
+            }
+        });
+
+        //restore the side's remembered position (desktop only - the ≤1024px layout
+        //pins windows full-screen via the media query). Clamped so a stale position
+        //can't strand the window off-screen after a resize.
+        const saved = savedWindowPositions[side];
+        const smallScreen = window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+        if (saved && !smallScreen) {
+            const top = Math.max(0, Math.min(saved.top, window.innerHeight - 60));
+            const left = Math.max(60 - element.outerWidth(), Math.min(saved.left, window.innerWidth - 60));
+            element.css({ top: top + 'px', left: left + 'px', right: 'auto' });
+        }
 
         //close the Hit Chart / Notes popup on any press outside it (2026-07-16 feedback)
         document.addEventListener('pointerdown', this.onDocumentPointerDown);
@@ -532,20 +597,22 @@ class ShipWindow extends React.Component {
         );
     }
 
-    renderControls(withHitChart, withNotes, compact) {
-        if (!withHitChart && !withNotes) return null;
+    renderControls(withHitChart, withNotes, compact, withStats) {
+        if (!withHitChart && !withNotes && !withStats) return null;
 
         const { openPanel } = this.state;
+        const wide = isLobby(); //match the 150px datasheet panels opposite
 
         return (
             <ControlsArea ref={this.controlsRef} $compact={compact}>
                 {withHitChart && (
-                    <CtrlButton $active={openPanel === 'hitchart'} onClick={this.togglePanel.bind(this, 'hitchart')}>
+                    <CtrlButton $wide={wide} $active={openPanel === 'hitchart'} onClick={this.togglePanel.bind(this, 'hitchart')}>
                         <CtrlIcon>⊕</CtrlIcon>Hit Chart
                     </CtrlButton>
                 )}
                 {withNotes && (
                     <CtrlButton
+                        $wide={wide}
                         $active={openPanel === 'notes'}
                         onClick={this.togglePanel.bind(this, 'notes')}
                         onMouseEnter={this.onNotesHoverStart.bind(this)}
@@ -554,6 +621,9 @@ class ShipWindow extends React.Component {
                         <CtrlIcon>✎</CtrlIcon>Notes
                     </CtrlButton>
                 )}
+                {/*lobby: manoeuvre stats live under the Hit Chart button (user layout
+                   decision 2026-07-17), leaving the right rail to complement/notes*/}
+                {withStats && <ManoeuvreStats ship={this.props.ship} />}
             </ControlsArea>
         );
     }
@@ -566,7 +636,9 @@ class ShipWindow extends React.Component {
         const shown = openPanel || (hoverNotes && withNotes ? 'notes' : null);
 
         if (shown === 'hitchart' && withHitChart) {
-            return <PopupHolder ref={this.popupRef} $top={top}><HitChartPanel ship={ship} /></PopupHolder>;
+            //$fit (feedback 2026-07-17, supersedes round 5's full-width span): the
+            //geographic columns size themselves, so the popup shrink-wraps them
+            return <PopupHolder ref={this.popupRef} $top={top} $fit><HitChartPanel ship={ship} /></PopupHolder>;
         }
         if (shown === 'notes' && withNotes) {
             return (
@@ -586,7 +658,8 @@ class ShipWindow extends React.Component {
 
     render() {
         const { ship } = this.props;
-        const isMyTeam = ship.team === window.gamedata.getPlayerTeam();
+        const lobby = isLobby();
+        const isMyTeam = isLeftWindow(ship);
 
         var unitName = ship.shipClass;
         var shipName = ship.name;
@@ -601,10 +674,29 @@ class ShipWindow extends React.Component {
             }
         }
 
+        //nameless ships (lobby store blueprints) promote the class into the white
+        //name slot so the header doesn't read as missing (feedback 2026-07-17)
+        if (!shipName) {
+            shipName = unitName;
+            unitName = "";
+        }
+
         const withHitChart = !isUnrevealedMine && hasHitChart(ship);
-        const withNotes = !isUnrevealedMine && hasNotes(ship);
+        //lobby: notes live in the always-visible ShipNotesPanel rail, not a popup
+        const withNotes = !lobby && !isUnrevealedMine && hasNotes(ship);
 
         if (ship.flight) {
+            if (lobby) {
+                return (
+                    <ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="flightLobby">
+                        {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
+                        <LobbyBody>
+                            <FlightArea><FighterList ship={ship} /></FlightArea>
+                            <ShipNotesPanel ship={ship} />
+                        </LobbyBody>
+                    </ShipWindowContainer>
+                )
+            }
             return (
                 <ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="flight">
                     {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
@@ -627,7 +719,8 @@ class ShipWindow extends React.Component {
         const systemsByLocation = sortIntoLocations(ship);
         const isTerrain = window.gamedata.isTerrain(ship.shipSizeClass, ship.userid) || ship.mine;
 
-        //terrain + revealed mines keep the compact thumbnail variant
+        //terrain + revealed mines keep the compact thumbnail variant; in the lobby
+        //(purchased mines) the datasheet renders as a full-width block underneath
         if (isTerrain) {
             return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="terrain">
                 {this.renderHeader(shipName, unitName, null)}
@@ -640,22 +733,29 @@ class ShipWindow extends React.Component {
                         <ShipSection key={`section-${ship.id}-${location}`} location={location} ship={ship} systems={systemsByLocation[location]} isTerrain />
                     ))}
                 </CompactBody>
+                {lobby && <ShipNotesPanel ship={ship} full />}
                 {this.renderPopup(withHitChart, withNotes, 72)}
             </ShipWindowContainer>)
         }
 
         //full "digital SCS" grid window
         const rolled = shipManager.movement.isRolled(ship);
-        const areas = buildTemplateAreas(systemsByLocation);
+        //lobby: purchased enhancements get their own bottom-right panel so the
+        //datasheet stack in `ew` stays short (feedback round 3)
+        const withEnhPanel = lobby && Boolean(ship.enhancementTooltip);
+        const areas = buildTemplateAreas(systemsByLocation, withEnhPanel);
         const isBigBase = ship.base && !ship.smallBase;
 
-        return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="ship">
-            {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
+        //lobby: manoeuvre stats under the ctrl buttons, and the always-visible
+        //datasheet panel in the `ew` grid area - the exact place the EW panel has in
+        //game.php (feedback 2026-07-17; the EW panel itself is meaningless pre-game)
+        const sectionGrid = (
             <SectionGrid $areas={areas}>
                 <ShipHitArea onClick={this.onShipClick.bind(this)} />
                 <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} />
-                {this.renderControls(withHitChart, withNotes)}
-                <ShipWindowEw ship={ship} />
+                {this.renderControls(withHitChart, withNotes, false, lobby && !ship.mine)}
+                {lobby ? <ShipNotesPanel ship={ship} grid hideEnhancements={withEnhPanel} /> : <ShipWindowEw ship={ship} />}
+                {withEnhPanel && <EnhancementsPanel ship={ship} />}
                 {GRID_LOCATIONS.map(location => {
                     if (systemsByLocation[location].length === 0) return null;
 
@@ -675,6 +775,7 @@ class ShipWindow extends React.Component {
                             displayLocation={displayLocation}
                             area={area}
                             valign={GRID_VALIGN[area]}
+                            justify={GRID_JUSTIFY[area]}
                             wide={wide}
                             minHeight={minHeight}
                             ship={ship}
@@ -683,6 +784,11 @@ class ShipWindow extends React.Component {
                     );
                 })}
             </SectionGrid>
+        );
+
+        return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="ship">
+            {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
+            {sectionGrid}
             {rolled && <RolledBanner>⟲ Rolled — port / starboard reversed</RolledBanner>}
             {this.renderPopup(withHitChart, withNotes)}
         </ShipWindowContainer>)
@@ -691,6 +797,24 @@ class ShipWindow extends React.Component {
 }
 
 const shipWindowClicked = () => window.uiEvents.relay('CloseSystemInfo');
+
+//last dragged-to position per window side, session-lifetime (feedback 2026-07-17:
+//reopened windows should appear where the player previously moved them)
+const savedWindowPositions = { left: null, right: null };
+
+//gamelobby.php is the only page whose gamedata reports gamephase -2 (buy phase)
+const isLobby = () => Boolean(window.gamedata) && window.gamedata.gamephase === -2;
+
+/*Which side of the screen the window docks to. Single source of truth is
+  ShipWindowManager.isLeftSide (renderer/shipWindowManager.js) so the manager's
+  one-window-per-side filter and the container's CSS placement can never disagree;
+  the fallback mirrors its game.php branch for safety.*/
+const isLeftWindow = (ship) => {
+    if (window.ShipWindowManager && typeof window.ShipWindowManager.isLeftSide === 'function') {
+        return window.ShipWindowManager.isLeftSide(ship);
+    }
+    return ship.team === window.gamedata.getPlayerTeam();
+};
 
 const hasHitChart = (ship) => Boolean(ship.hitChart) && Object.keys(ship.hitChart).length > 0;
 
@@ -709,7 +833,13 @@ const getHeaderTint = (ship) => {
     if (!slot) return null;
 
     return gamedata.getFleetHeaderColorRGB(slot);*/
-    return new THREE.Color(224 / 255, 231 / 255, 239 / 255).convertSRGBToLinear(); //Keep off-white for now   
+    /*Keep off-white for now. Was `new THREE.Color(224/255, 231/255, 239/255)
+      .convertSRGBToLinear()` - but a THREE.Color object is not a CSS colour (the
+      styled prop stringified to an invalid declaration, so the header always fell
+      back to the container's theme text colour anyway), and the lobby (Stage 3)
+      doesn't load THREE at all, where it would throw. null keeps the exact same
+      rendered colour on both pages via HeaderName's `$tint || theme.colors.text`.*/
+    return null;
 };
 
 const sortIntoLocations = (ship) => {
@@ -732,18 +862,42 @@ const sortIntoLocations = (ship) => {
       "lfwd prim  rfwd"    six-sided ships / big bases (31/41)
       "laft prim  raft"    six-sided ships / big bases (32/42)
       ".    aft   ."       always when Aft exists
-  Primary spans every middle row present (a contiguous rectangle, as grid requires).*/
-const buildTemplateAreas = (locations) => {
-    const rows = ['"ctrl  fwd   ew"'];
+  Primary spans every middle row present (a contiguous rectangle, as grid requires).
+
+  The chrome areas then EXTEND DOWNWARD through consecutive rows whose side cell is
+  otherwise empty (ctrl in column 1, ew in column 3). Without this, a tall
+  buttons/stats or EW/datasheet stack inflates row 1 and Forward floats away from
+  Primary (Stage 3 feedback round 2: huge Forward↔Primary gap on ships without side
+  sections). Side-section rows always name BOTH side areas (left+right etc. as a
+  pair) so a rolled ship's mirrored displayLocation always finds its area.
+
+  withEnhArea (lobby, ship has purchased enhancements): an `enh` area is carved out
+  of the BOTTOM-RIGHT cell (feedback round 3: keeping Enhancements out of the `ew`
+  stack stops it lengthening row 1 further); the ew span stops above it.*/
+const buildTemplateAreas = (locations, withEnhArea) => {
+    //rows as [col1, col2, col3]; null = free cell (becomes "." unless a chrome span claims it)
+    const rows = [['ctrl', 'fwd', 'ew']];
     let middleRows = 0;
 
-    if (locations[3].length || locations[4].length) { rows.push('"left  prim  right"'); middleRows++; }
-    if (locations[31].length || locations[41].length) { rows.push('"lfwd  prim  rfwd"'); middleRows++; }
-    if (locations[32].length || locations[42].length) { rows.push('"laft  prim  raft"'); middleRows++; }
-    if (middleRows === 0 && locations[0].length) rows.push('".    prim  ."');
-    if (locations[2].length) rows.push('".    aft   ."');
+    if (locations[3].length || locations[4].length) { rows.push(['left', 'prim', 'right']); middleRows++; }
+    if (locations[31].length || locations[41].length) { rows.push(['lfwd', 'prim', 'rfwd']); middleRows++; }
+    if (locations[32].length || locations[42].length) { rows.push(['laft', 'prim', 'raft']); middleRows++; }
+    if (middleRows === 0 && locations[0].length) rows.push([null, 'prim', null]);
+    if (locations[2].length) rows.push([null, 'aft', null]);
 
-    return rows.join(' ');
+    if (withEnhArea) {
+        const last = rows[rows.length - 1];
+        if (rows.length > 1 && last[2] === null) {
+            last[2] = 'enh'; //usually the Aft row's free right cell
+        } else {
+            rows.push([null, null, 'enh']); //last row's right cell occupied (e.g. quarter sections with no Aft)
+        }
+    }
+
+    for (let i = 1; i < rows.length && rows[i][0] === null; i++) rows[i][0] = 'ctrl';
+    for (let i = 1; i < rows.length && rows[i][2] === null; i++) rows[i][2] = 'ew';
+
+    return rows.map(row => `"${row[0] || '.'}  ${row[1] || '.'}  ${row[2] || '.'}"`).join(' ');
 }
 
 
