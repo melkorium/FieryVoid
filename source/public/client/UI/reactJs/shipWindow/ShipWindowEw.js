@@ -89,7 +89,7 @@ class ShipWindowEw extends React.Component {
     componentWillUnmount() {
         //window closed mid-hover: make sure no EW line stays emphasised
         if (this.activeHighlight && window.webglScene) {
-            webglScene.customEvent('EwTargetHighlight', {
+            window.uiEvents.relay('EwTargetHighlight', {
                 shipId: this.props.ship.id,
                 targetId: this.activeHighlight.targetId,
                 type: this.activeHighlight.type,
@@ -104,13 +104,13 @@ class ShipWindowEw extends React.Component {
         if (!window.webglScene) return;
         if (shipManager.shouldBeHidden(target)) return; //enemy, stealthed or undeployed - do not leak its position
 
-        webglScene.customEvent('ScrollToShip', { shipId: target.id });
+        window.uiEvents.relay('ScrollToShip', { shipId: target.id });
     }
 
     setTargetHighlight(target, type, active) {
         if (!window.webglScene) return;
 
-        webglScene.customEvent('EwTargetHighlight', {
+        window.uiEvents.relay('EwTargetHighlight', {
             shipId: this.props.ship.id,
             targetId: target.id,
             type: type,

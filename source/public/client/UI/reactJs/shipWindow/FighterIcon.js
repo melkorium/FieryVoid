@@ -140,7 +140,7 @@ class FighterIcon extends React.Component {
 
         let { ship } = this.props;
 
-        webglScene.customEvent('SystemMouseOver', {
+        window.uiEvents.relay('SystemMouseOver', {
             ship: ship,
             system: ship,
             element: event.target
@@ -151,7 +151,7 @@ class FighterIcon extends React.Component {
         if (this.touchActive) return;
         if (window.lastTouchActiveTime && Date.now() - window.lastTouchActiveTime < 1000) return;
 
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onFighterTouchStart(event) {
@@ -173,7 +173,7 @@ class FighterIcon extends React.Component {
             let { ship } = this.props;
 
             // Long Press -> generic tooltip
-            webglScene.customEvent('SystemMouseOver', {
+            window.uiEvents.relay('SystemMouseOver', {
                 ship: ship,
                 system: ship,
                 element: target,
@@ -204,7 +204,7 @@ class FighterIcon extends React.Component {
             this.longPressTimer = null;
         }
         this.touchActive = false;
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onFighterTouchEnd(event) {
@@ -214,7 +214,7 @@ class FighterIcon extends React.Component {
             this.longPressTimer = null;
         } else {
             // Timer already fired (long press). Hide info on release.
-            webglScene.customEvent('SystemMouseOut');
+            window.uiEvents.relay('SystemMouseOut');
         }
 
         setTimeout(() => {

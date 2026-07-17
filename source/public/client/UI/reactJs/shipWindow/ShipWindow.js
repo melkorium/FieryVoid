@@ -73,7 +73,27 @@ const ShipWindowContainer = styled.div`
     }}
         max-width: 100vw;
         max-height: 100vh;
-        overflow-y: scroll;
+        /*auto, not scroll: scroll pins a permanent (usually inert) scrollbar to
+          the window on classic-scrollbar platforms even when nothing overflows.
+          When it does engage, it wears the site-standard scrollbar (same as
+          PopupHolder / #gameinfo / the log panel).*/
+        overflow-y: auto;
+
+        scrollbar-width: thin;
+        scrollbar-color: #3c5574 #0d1620;
+
+        &::-webkit-scrollbar {
+            width: 10px;
+        }
+        &::-webkit-scrollbar-track {
+            background: #0d1620;
+        }
+        &::-webkit-scrollbar-thumb {
+            background: #3c5574;
+        }
+        &::-webkit-scrollbar-thumb:hover {
+            background: #5a7ea8;
+        }
     }
 `;
 
@@ -351,7 +371,7 @@ class ShipWindow extends React.Component {
             return;
         }
 
-        webglScene.customEvent('SystemClicked', {
+        window.uiEvents.relay('SystemClicked', {
             ship: ship,
             system: ship,
             element: event.target
@@ -378,7 +398,7 @@ class ShipWindow extends React.Component {
             this.longPressTimer = null;
         }
         this.touchActive = false;
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onShipTouchEnd(event) {
@@ -388,7 +408,7 @@ class ShipWindow extends React.Component {
             this.longPressTimer = null;
         } else {
             // Timer already fired (long press). Hide info on release.
-            webglScene.customEvent('SystemMouseOut');
+            window.uiEvents.relay('SystemMouseOut');
         }
 
         setTimeout(() => {
@@ -403,7 +423,7 @@ class ShipWindow extends React.Component {
         let { ship } = this.props;
         let stealthSystem = shipManager.systems.getSystemByName(ship, "mineStealth");
 
-        webglScene.customEvent('SystemMouseOver', {
+        window.uiEvents.relay('SystemMouseOver', {
             ship: ship,
             system: stealthSystem ? stealthSystem : ship.systems[0],
             element: event.currentTarget,
@@ -415,7 +435,7 @@ class ShipWindow extends React.Component {
         if (this.touchActive) return;
         if (window.lastTouchActiveTime && Date.now() - window.lastTouchActiveTime < 1000) return;
 
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onUnknownTouchStart(event) {
@@ -438,7 +458,7 @@ class ShipWindow extends React.Component {
             let stealthSystem = shipManager.systems.getSystemByName(ship, "mineStealth");
 
             // Long Press -> generic tooltip
-            webglScene.customEvent('SystemMouseOver', {
+            window.uiEvents.relay('SystemMouseOver', {
                 ship: ship,
                 system: stealthSystem ? stealthSystem : ship.systems[0],
                 element: target,
@@ -494,7 +514,7 @@ class ShipWindow extends React.Component {
     }
 
     close() {
-        webglScene.customEvent('CloseShipWindow', { ship: this.props.ship });
+        window.uiEvents.relay('CloseShipWindow', { ship: this.props.ship });
     }
 
     togglePanel(name, event) {
@@ -670,7 +690,7 @@ class ShipWindow extends React.Component {
 
 }
 
-const shipWindowClicked = () => webglScene.customEvent('CloseSystemInfo');
+const shipWindowClicked = () => window.uiEvents.relay('CloseSystemInfo');
 
 const hasHitChart = (ship) => Boolean(ship.hitChart) && Object.keys(ship.hitChart).length > 0;
 

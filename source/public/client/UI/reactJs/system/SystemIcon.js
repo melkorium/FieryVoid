@@ -76,7 +76,7 @@ const System = styled.div`
         } else {
             //slightly translucent so the ship-window watermark ghosts through idle
             //icons; state colours above stay fully opaque for readability
-            return 'rgba(0, 0, 0, 0.6)';
+            return 'rgba(0, 0, 0, 0.7)';
         }
     }};
     box-shadow: ${props => {
@@ -195,7 +195,7 @@ class SystemIcon extends React.Component {
             if (gamedata.isMyShip(ship)) {
                 var selectedSystem = gamedata.selectedSystems.length > 0 ? gamedata.selectedSystems[0] : null;
                 if (selectedSystem && selectedSystem.ship.id != ship.id && !weaponManager.isSelectedWeapon(system)) {
-                    webglScene.customEvent('SystemTargeted', { ship: ship, system: system });
+                    window.uiEvents.relay('SystemTargeted', { ship: ship, system: system });
                     return;
                 }
             }
@@ -278,9 +278,9 @@ class SystemIcon extends React.Component {
         }
 
         if (gamedata.isMyShip(ship)) {
-            webglScene.customEvent('SystemClicked', { ship: ship, system: system, element: e.currentTarget, showMenu: true });
+            window.uiEvents.relay('SystemClicked', { ship: ship, system: system, element: e.currentTarget, showMenu: true });
         } else {
-            webglScene.customEvent('SystemTargeted', { ship: ship, system: system });
+            window.uiEvents.relay('SystemTargeted', { ship: ship, system: system });
         }
     }
 
@@ -294,7 +294,7 @@ class SystemIcon extends React.Component {
         let { system, ship } = this.props;
         system = shipManager.systems.initializeSystem(system);
 
-        webglScene.customEvent('SystemMouseOver', {
+        window.uiEvents.relay('SystemMouseOver', {
             ship: ship,
             system: system,
             element: event.currentTarget,
@@ -309,7 +309,7 @@ class SystemIcon extends React.Component {
 
         event.stopPropagation();
         event.preventDefault();
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onTouchStart(event) {
@@ -333,7 +333,7 @@ class SystemIcon extends React.Component {
             system = shipManager.systems.initializeSystem(system);
 
             // Long Press -> generic tooltip
-            webglScene.customEvent('SystemMouseOver', {
+            window.uiEvents.relay('SystemMouseOver', {
                 ship: ship,
                 system: system,
                 element: target,
@@ -366,7 +366,7 @@ class SystemIcon extends React.Component {
             this.longPressTimer = null;
         }
         this.touchActive = false;
-        webglScene.customEvent('SystemMouseOut');
+        window.uiEvents.relay('SystemMouseOut');
     }
 
     onTouchEnd(event) {
@@ -378,7 +378,7 @@ class SystemIcon extends React.Component {
             // Short tap should not show arcs, clickSystem will handle selection and showing Action Menu.
         } else {
             // Timer already fired (long press). Hide info on release.
-            webglScene.customEvent('SystemMouseOut');
+            window.uiEvents.relay('SystemMouseOut');
         }
 
         setTimeout(() => {

@@ -259,6 +259,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     <script defer src="client/lib/HexagonMath.js"></script>
     <script defer src="client/lib/AbstractCanvas.js"></script>
     <script defer src="client/Settings.js"></script>
+    <script defer src="client/uiEventRelay.js"></script>
     <script defer src="client/renderer/webglHexGridRenderer.js"></script>
     <script defer src="client/renderer/canvasHexGridRenderer.js"></script>
     <script defer src="client/renderer/webglScene.js"></script>

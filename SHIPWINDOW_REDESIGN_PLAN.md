@@ -2,8 +2,78 @@
 
 **Status: DESIGNED 2026-07-14. Stage 1 COMPLETE — user-accepted 2026-07-16 after
 five feedback rounds tested in gameid 4247 (all of 1a–1e, rolled-ship mirroring,
-and the round-1–5 refinements recorded below). Next: Stage 2 (event relay +
-game.php legacy delinking). Stages 2–4 not started.**
+and the round-1–5 refinements recorded below). Stage 2 BUILT 2026-07-17 —
+pending user in-game test + bundle rebuild (see the Stage 2 record below).
+Stages 3–4 not started.**
+
+**Stage 2 (2026-07-17) — BUILT, awaiting user test.** Per user request, every
+superseded legacy function was commented out in place (not deleted) — actual
+deletion stays a Stage 4 concern.
+- **2a event relay**: new `client/uiEventRelay.js` defines `window.uiEvents`
+  (`setHandler`/`relay`; events relayed before a handler exists are dropped,
+  mirroring webglScene's own not-initialized guard). game.php loads it right
+  before webglScene.js (defer order matters only for the wiring, not the React
+  calls — those fire at interaction time); the bundler reads game.php's script
+  tags, so the legacy bundle picks it up automatically. The wiring lives at the
+  bottom of `webglScene.js` (guarded `if (window.uiEvents)`): every relayed
+  event funnels INTO `webglScene.customEvent`, preserving the PhaseDirector
+  chain and the render-request/idle-gating invariant. Converted call sites
+  (`webglScene.customEvent(` → `window.uiEvents.relay(`): `ShipWindow.js` (8),
+  `ShipWindowEw.js` (3 — its `window.webglScene` interactivity gates kept),
+  `FighterIcon.js` (5), `SystemIcon.js` (8). Other React components
+  (SystemInfoButtons, power/EW menus etc.) intentionally stay on
+  `webglScene.customEvent` — they never render in the lobby (plan scope).
+- **2b assign-thrust extraction**: the four functions moved to
+  `shipManager.movement` in movement.js, minus their legacy-DOM styling
+  (thruster/assignThrust classes, setData refreshes — all no-ops with the
+  legacy window DOM never built). **Rename**: `shipWindowManager.assignThrust
+  (ship)` became `shipManager.movement.updateAssignThrust(ship)` because
+  movement.js already had the per-system `assignThrust(ship, system)`;
+  `doneAssignThrust`/`cancelAssignThrustEvent`/`cancelAssignThrust` kept their
+  names (the DOM-resolution `if (!ship)` fallbacks were dropped — every live
+  caller passes the ship). Event names/payloads byte-identical. Callers
+  updated: movement.js (10 sites), `ShipThrust.js` (ready/cancel/resetThrust/
+  autoAssign + the two thruster-click closures; its two
+  `shipWindowManager.setData` no-ops dropped), shipwindow.js clickPlus/
+  clickMinus (legacy-window-only path, updated anyway). Originals commented
+  out in shipwindow.js.
+- **2c botPanel**: found DEAD — nothing anywhere calls `botPanel.setEW` (or
+  `onShipStatusChanged`), and game.php has no `#botPanel` element, so the
+  planned `ew.fillEWSummary` helper was unnecessary. `setEW` commented out;
+  `onLogUIClicked` (live log-tab UI) untouched.
+- **2d docked flights**: fleetList `doScrollToShip` now fires the existing
+  `OpenShipWindowFor` custom event (same one shipTooltipMenu uses;
+  `PhaseStrategy.onOpenShipWindowFor` → React `shipWindowManager.open`) —
+  legacy `flightWindowManager.open` call commented out. This was the last
+  visible legacy window in game.php.
+- **Deliberately left**: `PhaseStrategy.js` `onShipEwChanged` still calls
+  `window.shipWindowManager.addEW(ship)` — a guarded no-op (addEW returns when
+  the legacy window DOM is absent) and addEW itself must stay live for the
+  lobby's setData path; it goes with the ~40 guarded call sites in Stage 4.
+- **Verified**: node/esbuild parse checks on all 11 touched files; grep sweep —
+  zero live references to the moved/retired functions outside comment blocks,
+  bundles and the lobby stub.
+- **Remaining for exit** (user): rebuild bundles (`yarn build` or watches —
+  UI.bundle AND game.legacy.bundle both changed), then the §5 Stage 2 exit
+  test: DevTools breakpoint on legacy `ensureShipWindow` (shipwindow.js:37)
+  never hit across a full session (all phases + thrust assignment + docked
+  flight from fleet list + bot game + replay), plus the ForcedOffline
+  regression check (§6): fire a SurgeBlaster, never open the ship's window,
+  verify next-turn cooldown + server rejection of re-enable.
+  → **Tests PASSED 2026-07-17** (user), with two follow-up fixes the same day:
+  1. ≤1024px window scrollbar: the Container media query used `overflow-y:
+     scroll`, pinning a permanent inert scrollbar on classic-scrollbar
+     platforms — now `auto` + the site-standard scrollbar styles (same as
+     PopupHolder) for when it genuinely engages.
+  2. Fleet-list docked flight STILL didn't open — turned out to be a
+     pre-existing Hangar Ops 9.1 bug, not a Stage 2 regression: doScrollToShip's
+     `shouldBeHidden` guard treats every removed flight as destroyed
+     (ships.js:1007 isDestroyed check), so the docked-flight branch below it
+     was unreachable and the 9.1 "open the flight window from the list"
+     feature had NEVER fired. Fix: the branch now sits ABOVE the guard
+     (window-opening leaks no board position, which is all that guard
+     protects; `.clickable` is applied to all rows, so enemy docked flights
+     open too — same information you'd get clicking their on-board icon).
 
 Stage 1 files: `shipWindow/ShipWindow.js` (grid/watermark/header/rolled),
 `shipWindow/ShipSection.js` (header-integrated structure bar),
