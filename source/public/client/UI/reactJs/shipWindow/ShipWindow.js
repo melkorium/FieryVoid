@@ -381,8 +381,13 @@ const UnknownSystemIcon = styled.div`
 const GRID_AREAS = { 1: 'fwd', 2: 'aft', 0: 'prim', 3: 'left', 4: 'right', 31: 'lfwd', 41: 'rfwd', 32: 'laft', 42: 'raft' };
 const MIRRORED_LOCATION = { 3: 4, 4: 3, 31: 41, 41: 31, 32: 42, 42: 32 };
 //vertical alignment inside the grid band, per area (the Stage 1 lesson: Primary only
-//centres between Forward and Aft because it shares the middle band with all sides)
-const GRID_VALIGN = { fwd: 'center', aft: 'center', prim: 'center', left: 'center', right: 'center', lfwd: 'start', rfwd: 'start', laft: 'end', raft: 'end' };
+//centres between Forward and Aft because it shares the middle band with all sides).
+//fwd is 'end', not 'center': when the chrome stacks DO inflate row 1 (ships whose
+//side cells hold systems, e.g. MCVs like the Hawk Frigate, where the round-2 chrome
+//spans are blocked), Forward hugs Primary and the spare space moves to the window
+//top over the watermark art instead of opening a gap mid-ship; in an uninflated
+//row 1 'end' renders identically to 'center'.
+const GRID_VALIGN = { fwd: 'end', aft: 'center', prim: 'center', left: 'center', right: 'center', lfwd: 'start', rfwd: 'start', laft: 'end', raft: 'end' };
 //horizontal alignment: side sections hug the centre column - port drawn right-aligned
 //mirroring starboard's left alignment (feedback 2026-07-17; visible when the side
 //tracks are wider than a section, e.g. next to the 150px lobby datasheet)

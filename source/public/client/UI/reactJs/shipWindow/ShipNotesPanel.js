@@ -149,7 +149,7 @@ const AgileRow = styled.div`
 const EnhArea = styled.div`
     grid-area: enh;
     justify-self: center;
-    align-self: end;
+    align-self: start; /*top of its cell - starts directly below the Starboard section (feedback round 5)*/
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
     width: 150px;

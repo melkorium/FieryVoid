@@ -3,11 +3,11 @@
 **Status: DESIGNED 2026-07-14. Stage 1 COMPLETE — user-accepted 2026-07-16 after
 five feedback rounds tested in gameid 4247 (all of 1a–1e, rolled-ship mirroring,
 and the round-1–5 refinements recorded below). Stage 2 COMPLETE — exit tests
-passed 2026-07-17 (see the Stage 2 record below). Stage 3 BUILT 2026-07-17 —
-pending user bundle rebuild + in-lobby test (see the Stage 3 record below).
-Stage 4 not started.**
+passed 2026-07-17 (see the Stage 2 record below). Stage 3 COMPLETE —
+user-accepted 2026-07-17 after five in-lobby feedback rounds (records below).
+NEXT: Stage 4 (retirement sweep §4.6).**
 
-**Stage 3 (2026-07-17) — BUILT, awaiting user test.** Two user riders (2026-07-17)
+**Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
 stacked directly beneath it; (2) the fighters/notes content is ALWAYS visible —
@@ -205,6 +205,21 @@ commented out in place, never deleted (Stage 2 convention; deletion is Stage 4).
    `flex-wrap: nowrap` (FighterList wraps its icons internally; FlightArea
    flex 1 1 auto, min 120px, max 400px), putting Flight Stats/Notes to the
    RIGHT of the fighters.
+
+**Stage 3 feedback round 5 (2026-07-17) — applied, stage accepted:**
+1. Enhancements panel `align-self` end → start: it now starts at the top of
+   its cell, directly below the Starboard section.
+2. MCV fringe case (Hawk Frigate: side cells hold SYSTEMS — structureless
+   boxes — so the round-2 chrome spans are blocked and the tall lobby stacks
+   inflated row 1 again): `GRID_VALIGN.fwd` center → **end**. Whenever row 1
+   is inflated Forward hugs Primary and the spare space moves to the window
+   TOP (over the watermark hull art); an uninflated row 1 renders identically,
+   so game.php and normal hulls are unaffected (it also improves game.php
+   ships with long EW target lists, the only game case that inflates row 1).
+3. (User, same round: the enhancement-note appends into `ship.notes` inside
+   lobbyEnhancements' setEnhancements* cases were commented out — the
+   Enhancements panel is now the sole display of purchased enhancements, so
+   the Notes block no longer duplicates them.)
 
 **Stage 2 (2026-07-17) — BUILT, awaiting user test.** Per user request, every
 superseded legacy function was commented out in place (not deleted) — actual
