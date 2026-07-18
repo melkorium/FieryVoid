@@ -979,11 +979,16 @@ const sortIntoLocations = (ship) => {
 
 /*Grid template rows, built from whichever locations exist so absent sections collapse:
       "ctrl fwd   ew"      always - window chrome (buttons / Forward / EW panel)
-      "left prim  right"   ships with Port/Starboard (3/4)
       "lfwd prim  rfwd"    six-sided ships / big bases (31/41)
+      "left prim  right"   ships with Port/Starboard (3/4)
       "laft prim  raft"    six-sided ships / big bases (32/42)
       ".    aft   ."       always when Aft exists
   Primary spans every middle row present (a contiguous rectangle, as grid requires).
+  The three port-side rows are ordered fore→amidships→aft (lfwd, left, laft) so that
+  a rare ship carrying BOTH a mid Port section (loc 3) AND its quarter sections
+  (31 Port Fwd / 32 Port Aft) draws Port BETWEEN the two quarters rather than above
+  them (user request 2026-07-18, aimed at Vree hulls). Ships with only the mid row,
+  or only the quarter rows, are unaffected - just one of the three exists.
 
   The chrome areas then EXTEND DOWNWARD through consecutive rows whose side cell is
   otherwise empty (ctrl in column 1, ew in column 3). Without this, a tall
@@ -1000,8 +1005,10 @@ const buildTemplateAreas = (locations, withEnhArea) => {
     const rows = [['ctrl', 'fwd', 'ew']];
     let middleRows = 0;
 
-    if (locations[3].length || locations[4].length) { rows.push(['left', 'prim', 'right']); middleRows++; }
+    //fore→amidships→aft: quarter-forward (31/41), then mid Port/Starboard (3/4), then
+    //quarter-aft (32/42) - so a mid section coexisting with quarters sits between them
     if (locations[31].length || locations[41].length) { rows.push(['lfwd', 'prim', 'rfwd']); middleRows++; }
+    if (locations[3].length || locations[4].length) { rows.push(['left', 'prim', 'right']); middleRows++; }
     if (locations[32].length || locations[42].length) { rows.push(['laft', 'prim', 'raft']); middleRows++; }
     if (middleRows === 0 && locations[0].length) rows.push([null, 'prim', null]);
     if (locations[2].length) rows.push([null, 'aft', null]);

@@ -141,6 +141,22 @@ inside the dotted panel. Big-base quarters were already floor-free (they use
 `$minHeight` prop support is left dormant. UI.bundle only — needs `yarn build`;
 esbuild JSX parse clean.
 
+**Stage 4 feedback round 5 (2026-07-18) — applied:** a rare six-sided ship that
+carries BOTH a mid Port/Starboard section (loc 3/4) AND its quarter sections
+(31 Port Fwd / 32 Port Aft) now draws the mid section BETWEEN the two quarters
+instead of above them (user experiment on the Vree Mind's Eye; aimed at future
+Vree hulls). Cause: `buildTemplateAreas` pushed the middle rows in numeric-ish
+order `left`(3/4) → `lfwd`(31/41) → `laft`(32/42), so Port landed on top. Fix:
+reorder the push to fore→amidships→aft — `lfwd`(31/41), then `left`(3/4), then
+`laft`(32/42); `GRID_VALIGN` already gives lfwd 'start' / left 'center' / laft
+'end', so Port centres between Port Fwd (hugging top) and Port Aft (hugging
+bottom). Only affects ships where a mid row AND a quarter row coexist; normal
+5-section ships (only 3/4) and standard six-sided ships (only quarters) render
+identically — just one of the three port-side rows exists for them. Sections
+are grid-area-placed (GRID_LOCATIONS render order is irrelevant), so only the
+template string changed. UI.bundle only — needs `yarn build`; esbuild JSX parse
+clean.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
