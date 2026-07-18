@@ -529,12 +529,21 @@ window.weaponManager = {
         if (!result) return '';
         if (result.breakdownReason) return result.breakdownReason;
         if (!result.modifiers || result.modifiers.length === 0) return '';
+        function fmtPct(value, key) {
+            var pct = Math.round(value * 5 * 10) / 10; //one-decimal %, trailing .0 dropped by toString
+            var sign = (pct > 0 && key !== 'base') ? '+' : ''; //base is the starting value, not a modifier; +0 shown as 0
+            return sign + pct + '%';
+        }
         var lines = ['Hit chance: ' + result.hitChance + '%'];
         for (var i = 0; i < result.modifiers.length; i++) {
             var m = result.modifiers[i];
-            var pct = Math.round(m.value * 5 * 10) / 10; //one-decimal %, trailing .0 dropped by toString
-            var sign = (pct >= 0 && m.key !== 'base') ? '+' : ''; //base is the starting value, not a modifier
-            lines.push('• ' + m.label + ': ' + sign + pct + '%');
+            //A modifier may carry a value range (valueHigh/valueLow, d20 units) - e.g. the
+            //cumulative split penalty spread across already-locked shots - rendered "high to low".
+            if (typeof m.valueHigh === 'number' && typeof m.valueLow === 'number' && m.valueHigh !== m.valueLow) {
+                lines.push('• ' + m.label + ': ' + fmtPct(m.valueHigh, m.key) + ' to ' + fmtPct(m.valueLow, m.key));
+            } else {
+                lines.push('• ' + m.label + ': ' + fmtPct(m.value, m.key));
+            }
         }
         return lines.join('\n');
     },
