@@ -129,6 +129,11 @@ const StatsPanel = styled.div`
 `;
 
 const StatsTitle = styled.div`
+    display: flex;
+    /*baseline (like the Hit Chart button) so the bar-graph's base sits on the text
+      baseline - align-items:center left the bottom-anchored bars reading low*/
+    align-items: baseline;
+    gap: 4px; /*matches the Hit Chart button's icon/label gap so the title lines up*/
     font-size: 8px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -138,8 +143,30 @@ const StatsTitle = styled.div`
     /*shaded header-bar blue, matching BlockTitle / the ctrl buttons*/
     background-color: rgba(73, 103, 145, 0.25);
     margin: -2px -4px 2px;
-    padding: 2px 4px;
+    padding: 1px 4px;
     border-bottom: 1px solid ${theme.colors.line};
+`;
+
+/*Small CSS bar-graph glyph left of the "Ship Stats" title so the title lines up with
+  the Hit Chart button's ⊕ directly above it (user request 2026-07-18). Drawn in CSS
+  rather than an emoji to stay monochrome and match the chrome; sized to the 12px
+  CtrlIcon footprint so "Ship Stats" starts at the same x as "Hit Chart".*/
+const StatsIcon = styled.span`
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1px;
+    flex: 0 0 auto;
+    width: 12px;
+    height: 9px;
+    i {
+        display: block;
+        width: 2px;
+        background-color: ${theme.colors.text};
+    }
+    i:nth-child(1) { height: 45%; }
+    i:nth-child(2) { height: 70%; }
+    i:nth-child(3) { height: 100%; }
 `;
 
 const AgileRow = styled.div`
@@ -175,7 +202,7 @@ export const ManoeuvreStats = ({ ship }) => {
     const mobile = !ship.base;
     return (
         <StatsPanel>
-            <StatsTitle>Ship Stats</StatsTitle>
+            <StatsTitle><StatsIcon><i /><i /><i /></StatsIcon>Ship Stats</StatsTitle>
             {mobile && <StatRow><StatLabel>Turn cost</StatLabel><StatValue>{fix2(ship.turncost)}</StatValue></StatRow>}
             {mobile && <StatRow><StatLabel>Turn delay</StatLabel><StatValue>{fix2(ship.turndelaycost)}</StatValue></StatRow>}
             {mobile && <StatRow><StatLabel>Accel/decel</StatLabel><StatValue>{ship.accelcost}</StatValue></StatRow>}

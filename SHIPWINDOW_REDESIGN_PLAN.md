@@ -103,6 +103,18 @@ deletion is now a deliberate future step, not part of this stage.
    `3px 6px` (the border-top reads as a separator line, not banner fill, so it
    never compensated the asymmetry).
 
+**Stage 4 feedback round 2 (2026-07-18) — applied (lobby cosmetic):**
+1. **Bar-graph glyph left of the "Ship Stats" title** (`ManoeuvreStats`): a
+   CSS-drawn three-bar icon (`StatsIcon` in ShipNotesPanel.js — no emoji, stays
+   monochrome) sized to the 12px `CtrlIcon` footprint with the same 4px gap, so
+   the title text lines up with the "Hit Chart" button's `⊕` directly above it
+   (`StatsTitle` became a flex row).
+2. **Enhancements list body text goes gold**: new theme token
+   `colors.enhText` (`#d8be86`); `Row` gained a `$gold` prop applied to the
+   enhancement lines in BOTH the standalone `EnhancementsPanel` and the rail's
+   inline block — the list now reads in the block's bronze/gold family instead
+   of the default blue `textAccent`, matching its border/title.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
