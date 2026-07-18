@@ -1110,8 +1110,8 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
         <ul>
 <li>These are the most unique system used by the Kirishiac. These are small segments of the ship that float over the hull and mount various weapons and systems. There are three types described below.
             <ul class="circle-list">
-                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. The Kirishiac player may
-                choose either state for the start of a match. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
+                <li>Basic functionality (all orbitals): Orbitals can be in one of two states; docked or deployed. There is no penalty to the ship or orbital for docking or deploying. 
+                    Orbitals are deployed at the start of a match and their state can be toggled by clickng on the system icon during Firing Phase, with any change taking effect at the very end of the turn e.g. after firing is resolved. If the associated ship structure block is destroyed, all associated orbitals are lost.</li>
                 <li>Docked:
                     <ul class="circle-list">
                         <li>The orbital's structure is merged with the structure block it is associated with.</li>
