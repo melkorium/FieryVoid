@@ -805,7 +805,20 @@ class TacGamedata {
                 //the +3 jink (and the -15% to-hit it grants against the Warrior) during the Movement phase.
                 //Server-side the only forced movement is that transient jink; persisted moves never carry
                 //forced (no DB column), so this can't leak a normal manoeuvre.
-                if ($move->turn == $this->turn && $move->type !== "deploy" && $move->type !== "start" && empty($move->forced)) {
+                //
+                //Also never hide the turn-start STATE MARKERS (isRolled / isRolling /
+                //isPivotingLeft / isPivotingRight, written at end-of-turn movement generation):
+                //they carry state established at the START of the turn — a completed roll flip,
+                //or a roll/pivot announced the previous turn and still in progress — which the
+                //owner cannot change with this turn's move, and which the opponent already saw
+                //in last turn's tooltip. Hiding them made an active-initiative enemy's tooltip /
+                //ship window / icon lose its Rolled/Rolling/Pivoting status (and the window's
+                //port-starboard mirroring) while awaiting their move. A roll or pivot ORDERED
+                //this turn is a normal "roll"/"pivot" move and stays hidden until committed.
+                if ($move->turn == $this->turn && $move->type !== "deploy" && $move->type !== "start"
+                    && $move->type !== "isRolled" && $move->type !== "isRolling"
+                    && $move->type !== "isPivotingLeft" && $move->type !== "isPivotingRight"
+                    && empty($move->forced)) {
                     $toDelete[] = $i;
                 }
             }
