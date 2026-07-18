@@ -1486,6 +1486,20 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
 		$ship = $this->getUnit();
 		if($ship->getTurnDeployed($gamedata) > $gamedata->turn) return;
 
+		/*Initial Orders masking: while phase 1 is still open, a pending Mode 1/2 order is the
+		owner's secret. This hook runs on EVERY gamedata build - including one prepared for an
+		ENEMY viewer - and its effects all serialize to the client (Warrior stat buff + forced
+		jink, matter FC mods stamped isModified on BOTH fleets' weapons), so applying them here
+		let the opponent see the augmentation the moment the owner committed, before committing
+		themselves. Skip application when this build is for an enemy/spectator viewer during
+		phase 1. Can't use isRevealedToCurrentViewer(): notes load BEFORE TacGamedata::
+		onConstructed sets the viewer-team static, so read viewer + team off $gamedata directly.
+		Server-side resolution is unaffected: every load that CONSUMES the buffs (movement
+		validation, pre-firing, firing) happens at phase 2/5/3/4, where this gate is inactive.*/
+		if ($gamedata->phase == 1
+			&& $ship->userid != $gamedata->forPlayer
+			&& $ship->team != $gamedata->getPlayerTeam()) return;
+
 		$weaponFiringOrders = $this->getFireOrders($gamedata->turn);
 		if (empty($weaponFiringOrders)) return; // No fire orders
 

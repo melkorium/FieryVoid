@@ -8651,12 +8651,13 @@ class SecondSight extends Weapon{
     public $useOEW = false;
 	public $noLockPenalty = false;
     
-    public $doNotIntercept = true; 		    		          
+    public $doNotIntercept = true;
     public $uninterceptable = true;
    	public $ignoreJinking = true;//weapon ignores jinking completely.
-        
-    public $rangePenalty = 0; 
-    public $fireControl = array(null, null, null); // fighters, <mediums, <capitals 
+	protected $hideFireOrdersFromEnemies = true; //psychic activation - invisible to enemies until it resolves (no launch hex/icon)
+
+    public $rangePenalty = 0;
+    public $fireControl = array(null, null, null); // fighters, <mediums, <capitals
 
 	public $damageType = "Standard"; //(first letter upcase) actual mode of dealing damage (Standard, Flash, Raking, Pulse...) - overrides $this->data["Damage type"] if set!   
 	public $weaponClass = "Electromagnetic"; //(first letter upcase) weapon class - overrides $this->data["Weapon type"] if set! 
@@ -8826,12 +8827,12 @@ class ThoughtWave extends Plasma{
     public $useOEW = false;
 	public $noLockPenalty = false;
     
-    public $doNotIntercept = true; 		    		          
+    public $doNotIntercept = true;
     public $uninterceptable = true;
    	public $ignoreJinking = true;//weapon ignores jinking completely.
-        
-    public $rangePenalty = 0.33; 
-    public $fireControl = array(0, 0, 0); // fighters, <mediums, <capitals 
+
+    public $rangePenalty = 0.33;
+    public $fireControl = array(0, 0, 0); // fighters, <mediums, <capitals
 
 	public $damageType = "Flash"; //(first letter upcase) actual mode of dealing damage (Standard, Flash, Raking, Pulse...) - overrides $this->data["Damage type"] if set!   
 	public $weaponClass = "Plasma"; //(first letter upcase) weapon class - overrides $this->data["Weapon type"] if set! 

@@ -104,7 +104,15 @@ class Weapon extends ShipSystem
     public $freeinterceptspecial = false;  //has its own routine for handling decision whether it's capable of interception - for freeintercept only?
     public $hidetarget = false;
 	public $hidetargetArray = array();  //for weapons that do not show their target
-	protected $alwaysHideFireOrders = false; //To not show animtaiton in replay, e.g. for launched mines.    
+	protected $alwaysHideFireOrders = false; //To not show animtaiton in replay, e.g. for launched mines.
+	/*true = this weapon's use is completely invisible to enemies until it resolves: its pending
+	current-turn fire orders are stripped from enemy/spectator gamedata in every live phase
+	(TacGamedata::hideSystemFireOrders via the getter below), not just the declaration phase -
+	no launch hex, no icon. For activation-style weapons with no physical launch (Thought Wave,
+	Second Sight). Owner and teammates still see the order; the resolved order is public next
+	turn (replay/log intact). PROTECTED like $alwaysHideFireOrders so raw-embedded weapon
+	objects (e.g. a launcher's missileArray) don't serialize it into the payload.*/
+	protected $hideFireOrdersFromEnemies = false;
     public $canChangeShots = false;
     public $isPrimaryTargetable = true; //can this system be targeted by called shot if it's on PRIMARY?
 	public $isRammingAttack = false; //true means hit chance calculations are completely different, relying on speed
@@ -425,6 +433,10 @@ class Weapon extends ShipSystem
 
 	public function getAlwaysHideFireOrders(){
 		return $this->alwaysHideFireOrders;
+	}
+
+	public function getHideFireOrdersFromEnemies(){
+		return $this->hideFireOrdersFromEnemies;
 	}
 
     public function getRange($fireOrder)

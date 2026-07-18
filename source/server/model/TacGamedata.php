@@ -714,7 +714,11 @@ class TacGamedata {
         if ($this->phase == 2) {
             $this->hideActiveShipMovement();
         }
-       
+
+        if ($this->phase == 3) {
+            $this->hideEnemyCombatPivots();
+        }
+
         foreach ($this->ships as $ship){
             if ($ship instanceof FighterFlight) {
                 foreach ($ship->systems as $fighter){
@@ -747,7 +751,16 @@ class TacGamedata {
                         unset($system->fireOrders[$i]);
                     }    
                 }
-                if ($fire->turn == $this->turn && $weapon->ballistic && $this->phase == 1){                   
+                /*Initial Orders is still open - this turn's launch declarations are not public yet.
+                Match the ORDER's own type as well as the weapon's ballistic flag: some weapons whose
+                class is not ballistic still declare type-'ballistic' orders in Initial Orders (e.g.
+                Gravitic Augmenter Modes 1/2), and the client draws launch/target hexes straight from
+                fire orders - so those leaked the moment the owner committed. Load-generated plasma
+                cloud markers (damageclass 'PersistentEffectPlasma') represent LAST turn's already
+                public cloud and must keep flowing.*/
+                if ($fire->turn == $this->turn && $this->phase == 1
+                    && ($weapon->ballistic || $fire->type == 'ballistic')
+                    && $fire->damageclass != 'PersistentEffectPlasma'){
                     unset($system->fireOrders[$i]);
                 }
 
@@ -758,6 +771,17 @@ class TacGamedata {
                 //phase 5 (they only resolve in Firing). A normal pre-firing weapon's orders are all
                 //type 'prefiring', so this extra guard is a no-op for them.
                 if ($fire->turn == $this->turn && $weapon->preFires && $this->phase == 5 && $fire->type == 'prefiring'){
+                    unset($system->fireOrders[$i]);
+                }
+
+                /*Weapons whose use is entirely invisible to the enemy until it resolves (Thought
+                Wave, Second Sight): strip their pending CURRENT-turn orders from enemy/spectator
+                payloads in every live phase. Ballistic launches are normally public once Initial
+                Orders close, but these weapons have no visible launch - the orange launch hex from
+                Movement phase onward betrayed the activation. Once the turn resolves the orders are
+                historical (turn < current) and flow normally, so the replay and combat log still work.*/
+                if ($fire->turn == $this->turn && !$isAlly && $weapon->getHideFireOrdersFromEnemies()
+                    && ($this->phase == 1 || $this->phase == 2 || $this->phase == 5 || $this->phase == 3)){
                     unset($system->fireOrders[$i]);
                 }
                
@@ -858,6 +882,29 @@ class TacGamedata {
 
             foreach ($toDelete as $i) {
                 unset($ship->movement[$i]);
+            }
+        }
+    }
+
+    /*Fighter flights may change facing (combat pivot) while declaring their fire in the Firing
+    phase; FireGamePhase::process persists those as current-turn value='combatpivot' movement rows
+    at COMMIT time. A player still declaring their own fire must not see the enemy flight's icon
+    already rotated (facing feeds arcs and hit modifiers), so strip enemy pivot rows declared this
+    turn while the Firing phase is still open. Once firing resolves the turn advances and the rows
+    are public history - the next-turn replay animates them normally.*/
+    private function hideEnemyCombatPivots() {
+        $playerTeam = $this->getPlayerTeam();
+
+        foreach ($this->ships as $ship) {
+            if ($ship->userid == $this->forPlayer || $ship->team == $playerTeam) {
+                continue; //owner and teammates see their own pending pivots
+            }
+
+            for ($i = sizeof($ship->movement) - 1; $i >= 0; $i--) {
+                $move = $ship->movement[$i];
+                if ($move->turn == $this->turn && $move->value == 'combatpivot') {
+                    unset($ship->movement[$i]);
+                }
             }
         }
     }
