@@ -79,14 +79,16 @@ class Thoughtforce extends MindriderCapital{
 		$tPulsar = new TriopticPulsar(6, 0, 0, 180, 360);
 		$tPulsar->addTag("Trioptic Pulsar");
 		$this->addLeftFrontSystem($tPulsar);
-        $this->addLeftAftSystem(new MindriderThruster(6, 35, 0, 12, 3));                                                               
+        //$this->addLeftAftSystem(new MindriderThruster(6, 35, 0, 12, 3));  
+        $this->addLeftSystem(new MindriderThruster(6, 35, 0, 12, 3));   		                                                             
 
 		$this->addRightAftSystem(new ThoughtShield(0, 50, 25, 90, 180, 'AS'));		
 		$this->addRightAftSystem(new SelfRepair(6, 6, 3)); //armor, structure, output 
 		$tPulsar = new TriopticPulsar(6, 0, 0, 0, 180);
 		$tPulsar->addTag("Trioptic Pulsar");
 		$this->addRightFrontSystem($tPulsar);	         
-        $this->addRightAftSystem(new MindriderThruster(6, 35, 0, 12, 4));    			                  		                      
+        //$this->addRightAftSystem(new MindriderThruster(6, 35, 0, 12, 4));   
+        $this->addRightSystem(new MindriderThruster(6, 35, 0, 12, 4)); 		 			                  		                      
               			          
 		//structures
         $this->addLeftFrontSystem(new Structure(7, 88));
