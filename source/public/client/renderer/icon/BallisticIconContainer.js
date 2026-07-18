@@ -336,9 +336,19 @@ window.BallisticIconContainer = function () {
 				}
 			}
 			
-			// Damage class-based override logic
-			if (ballistic.damageclass && modeName) {
-				switch (ballistic.damageclass) {
+			// Damage class-based override logic.
+			// A few hex-targeted launchers (mines) rely on their fire order carrying
+			// damageclass 'MultiModeHex' so the icon prints the firing-mode (mine type) name.
+			// That flag is stamped lazily by the weapon's initializationUpdate (via
+			// initializeSystem), which for a freshly-declared targeting order hasn't run yet -
+			// and even then only ever tags fireOrders[0]. Honour a stable weapon-level flag
+			// instead, so the name shows the moment the hex is targeted and on every mine order.
+			const effectiveDamageClass = (weapon && weapon.multiModeHexIcon && modeName)
+				? 'MultiModeHex'
+				: ballistic.damageclass;
+
+			if (effectiveDamageClass && modeName) {
+				switch (effectiveDamageClass) {
 					case 'MultiModeHex':
 						const isFriendly = gamedata.isMyOrTeamOneShip(shooter);
 						var modeText = isFriendly ? modeName : weapon.getModeNameForEnemy();
