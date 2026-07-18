@@ -170,6 +170,7 @@ const fix2 = (value) => (typeof value === 'number' ? value.toFixed(2) : value);
 
 //Bases don't manoeuvre: only their Profile is relevant (feedback 2026-07-17),
 //so the movement rows are dropped for them.
+//            {Boolean(ship.agile) && <AgileRow>Agile ship</AgileRow>} Can re-add if we want the Agile notification here too
 export const ManoeuvreStats = ({ ship }) => {
     const mobile = !ship.base;
     return (
@@ -182,7 +183,7 @@ export const ManoeuvreStats = ({ ship }) => {
             {mobile && <StatRow><StatLabel>Roll</StatLabel><StatValue>{ship.rollcost}</StatValue></StatRow>}
             <StatRow><StatLabel>Profile F/S</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
             {mobile && <StatRow><StatLabel>Initiative</StatLabel><StatValue>{ship.iniativebonus}</StatValue></StatRow>}
-            {Boolean(ship.agile) && <AgileRow>Agile ship</AgileRow>}
+
         </StatsPanel>
     );
 };
