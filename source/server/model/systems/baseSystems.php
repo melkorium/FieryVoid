@@ -1281,6 +1281,7 @@ class MagGravReactorTechnical extends MagGravReactor{
 	protected $doCountForCombatValue = false;
     public $iconPath = "reactorTechnical.png";
 	public $isTargetable = false; //cannot be targeted ever!	
+    public $hideInShipWindow = true; //if true, system is omitted from ship-window icon grid (technical-only systems with no gameplay interaction)	
 	public function setSystemDataWindow($turn){
 		$this->data["Output"] = $this->output;
 		parent::setSystemDataWindow($turn);     
@@ -1288,6 +1289,7 @@ class MagGravReactorTechnical extends MagGravReactor{
 		$ship = $this->getUnit();
 		//I'm reusing this system in Asteroid unit, but don't want this text here - DK
 		if($ship->factionAge > 2){
+			$this->hideInShipWindow = false; //We do want to show it for Vorlons.
 			$this->data["Special"] .= "<br>Mag-Gravitic Reactor: provides fixed total power, regardless of destroyed systems.";
 			$this->data["Special"] .= "<br>System icon displays CURRENT power available to this vessel.";			
 		}
