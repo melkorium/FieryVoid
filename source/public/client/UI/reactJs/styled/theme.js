@@ -4,7 +4,7 @@
 //rather than hard-coding hex colours in components.
 const theme = {
     colors: {
-        windowBg: "#152029",                    //window body / backdrop - dark + desaturated so the grayscale watermark pops
+        windowBg: "#152029de",                    //window body / backdrop - dark + desaturated so the grayscale watermark pops
         panelBg: "#04161c",                     //darker panel + header fill
         panelBgGlass: "rgba(4, 22, 28, 0.22)",  //panel over the watermark - translucent so the hull art reads through
         line: "#496791",                        //standard border / divider
@@ -15,6 +15,8 @@ const theme = {
         healthOk: "#427231",                    //structure bar fill, healthy
         healthCrit: "#ed6738",                  //structure bar fill when criticals present
         warning: "#e1b000",                     //amber status (e.g. ROLLED banner)
+        statusOk: "limegreen",                  //green status banners - matches the map tooltip (Undetected / Attached)
+        statusAlert: "#e1b000",                  //orange alert banners - matches the map tooltip (boarding)
     },
     fonts: {
         body: "arial",

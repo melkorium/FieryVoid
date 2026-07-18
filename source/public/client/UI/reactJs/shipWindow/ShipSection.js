@@ -120,7 +120,7 @@ const IconArea = styled.div`
 
 class ShipSection extends React.Component {
     render() {
-        const { ship, systems, location, displayLocation, area, valign, justify, wide, isTerrain, minHeight } = this.props;
+        const { ship, systems, location, displayLocation, area, valign, justify, wide, isTerrain, minHeight, nameOverride } = this.props;
 
         const structure = getStructure(systems);
         const health = structure ? getStructureLeft(ship, structure) : 0;
@@ -132,8 +132,10 @@ class ShipSection extends React.Component {
         return (
             <ShipSectionContainer $location={location} $area={area} $valign={valign} $justify={justify} $wide={wide} $isTerrain={isTerrain} $minHeight={minHeight}>
                 {/*sections without structure exist purely for icon placement - no header*/}
+                {/*nameOverride: ships with a single side structure spread over both
+                   quarter sections read plain "Port"/"Starboard" (set by ShipWindow)*/}
                 {structure && <SectionHeader $health={health} $criticals={hasCriticals(structure)}>
-                    <SectionName>{SECTION_NAMES[location] || ""}</SectionName>
+                    <SectionName>{nameOverride || SECTION_NAMES[location] || ""}</SectionName>
                     <StructureText $destroyed={health === 0}>
                         {structure.maxhealth - damageManager.getDamage(ship, structure)}/{structure.maxhealth} A{shipManager.systems.getArmour(ship, structure)}
                     </StructureText>

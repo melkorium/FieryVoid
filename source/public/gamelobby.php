@@ -102,12 +102,13 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<link href="styles/base.css" rel="stylesheet" type="text/css">
 		<link href="styles/lobby.css" rel="stylesheet" type="text/css">
 		<link href="styles/confirm.css" rel="stylesheet" type="text/css">
-        <link href="styles/gamesNew.css" rel="stylesheet" type="text/css">          
-        <link href="styles/shipwindow.css" rel="stylesheet" type="text/css">
+        <link href="styles/gamesNew.css" rel="stylesheet" type="text/css">
+        <!-- STAGE4-RETIRED legacy ship-window stylesheet (ship-window redesign Stage 4) - delete once the redesign is stable on live
+        <link href="styles/shipwindow.css" rel="stylesheet" type="text/css"> -->
         <!-- jQuery + jQuery-UI self-hosted (same-origin HTTP/2 + cache-control, no 3rd-party
-             TLS). Both kept SYNCHRONOUS: the lobby's synchronous client/*.js scripts (and
-             debug-mode shipwindow.js) run during parse and expect $.fn.draggable present,
-             so jQuery-UI must not defer here. assetManager.js has no jQuery dep, so it defers. -->
+             TLS). Both kept SYNCHRONOUS: the lobby's synchronous client/*.js scripts run
+             during parse and expect $.fn.draggable present, so jQuery-UI must not defer
+             here. assetManager.js has no jQuery dep, so it defers. -->
         <script src="<?php echo AssetLoader::getAssetUrl('client/lib/jquery-4.0.0.min.js'); ?>"></script>
         <!-- Deploy-version cache-buster for images (see AssetManager.appendVersion). Plain
              inline <script> runs at parse time, before the deferred assetManager.js, so the
@@ -146,11 +147,13 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         <script src="client/mathlib.js"></script>
 		<script src="client/hangarShared.js"></script>
 		<script src="client/UI/confirm.js"></script>
-        <script src="client/UI/shipwindow.js"></script>
+        <!-- STAGE4-RETIRED legacy ship-window scripts (ship-window redesign Stage 4) - single-line
+             comments so bundle-legacy.js skips them; delete once the redesign is stable on live -->
+        <!-- STAGE4-RETIRED <script src="client/UI/shipwindow.js"></script> -->
         <script src="client/UI/fleetList.js"></script>
         <script src="client/UI/gameInfo.js"></script>
-        <script src="client/UI/flightwindow.js"></script>
-        <script src="client/UI/systemInfo.js"></script>
+        <!-- STAGE4-RETIRED <script src="client/UI/flightwindow.js"></script> -->
+        <!-- STAGE4-RETIRED <script src="client/UI/systemInfo.js"></script> -->
         <script src="client/model/ship.js"></script>
         <script src="client/model/shipSystem.js"></script>
         <script src="client/model/systemFactory.js"></script>
@@ -290,9 +293,13 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
             });
 
 
+            /* STAGE4-RETIRED (ship-window redesign Stage 4): the legacy
+               window.shipWindowManager no longer exists (UI/shipwindow.js not
+               loaded), so this stub would throw. Delete once stable on live.
             $(function(){
                 window.shipWindowManager.addEW = function(){};
             });
+            */
 
             $(function(){
                 /* Lobby: your own purchased mines are always identified — there is
@@ -985,10 +992,12 @@ $optionsUsed = '';
     <div id="shipWindowsReact" style="position:fixed; inset:0; pointer-events:none; z-index:10001;"></div>
     <div id="systemInfoReact" style="position:fixed; inset:0; pointer-events:none; z-index:20000;"></div>
 
+    <!-- STAGE4-RETIRED legacy UI/systemInfo.js tooltip container (ship-window redesign
+         Stage 4; the React SystemInfo mounts in #systemInfoReact above) - delete once stable on live
     <div id="systemInfo">
 		<div class="name"><span class="name header">test</span></div>
 		<div class="datacontainer"></div>
-	</div>
+	</div> -->
                     
     <div id="lobbyTeamTemplate" style="display:none;">
         <div class="team-section" data-team-id="">
@@ -1111,6 +1120,9 @@ $optionsUsed = '';
         
     </div>
 
+    <?php /* STAGE4-RETIRED legacy ship-window HTML templates (ship-window redesign Stage 4).
+             Never emitted (if false); delete this whole block once the redesign is stable on live. */
+    if (false): ?>
     <div id="shipwindowtemplatecontainer" style="display:none;">
         <div class="shipwindow ship">
             <div class="topbar">
@@ -1296,9 +1308,10 @@ $optionsUsed = '';
                             </tr>
                     </table>
         </div>
-        
+
     </div>
-                                    
+    <?php endif; /* STAGE4-RETIRED legacy ship-window templates */ ?>
+
     <div class="missileSelectItem" style="display:none">
         <span>
             <span class="selectText"></span>

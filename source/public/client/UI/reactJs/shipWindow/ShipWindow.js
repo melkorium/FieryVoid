@@ -308,7 +308,7 @@ const WatermarkLayer = styled.div`
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: grayscale(1) brightness(1.9);
+    filter: grayscale(1) brightness(1.8);
     opacity: 0.55;
     pointer-events: none;
     z-index: 0;
@@ -328,7 +328,10 @@ const ShipHitArea = styled.div`
     z-index: 0;
 `;
 
-const RolledBanner = styled.div`
+/*Bottom-of-window status banner. The amber ROLLED banner was the first; user request
+  2026-07-18 generalised it to carry the map tooltip's ship-level status lines too
+  (Undetected / boarding / attached) - $color/$bg select the status colour.*/
+const StatusBanner = styled.div`
     width: 100%;
     box-sizing: border-box;
     padding: 2px 6px 3px;
@@ -336,8 +339,8 @@ const RolledBanner = styled.div`
     font-size: 9px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: ${theme.colors.warning};
-    background-color: rgba(225, 176, 0, 0.10);
+    color: ${props => props.$color || theme.colors.warning};
+    background-color: ${props => props.$bg || 'rgba(225, 176, 0, 0.10)'};
     border-top: 1px solid ${theme.colors.line};
     flex-shrink: 0;
 `;
@@ -706,6 +709,7 @@ class ShipWindow extends React.Component {
                 <ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="flight">
                     {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
                     <FighterList ship={ship} />
+                    {renderStatusBanners(ship)}
                 </ShipWindowContainer>
             )
         }
@@ -722,6 +726,8 @@ class ShipWindow extends React.Component {
         }
 
         const systemsByLocation = sortIntoLocations(ship);
+        //single-side-structure ships label that structure plain "Port"/"Starboard"
+        const nameOverrides = getSectionNameOverrides(systemsByLocation);
         const isTerrain = window.gamedata.isTerrain(ship.shipSizeClass, ship.userid) || ship.mine;
 
         //terrain + revealed mines keep the compact thumbnail variant; in the lobby
@@ -735,9 +741,10 @@ class ShipWindow extends React.Component {
                     {/*compact windows: vertical button list above the sections*/}
                     {this.renderControls(withHitChart, withNotes, true)}
                     {COMPACT_LOCATIONS.map(location => systemsByLocation[location].length > 0 && (
-                        <ShipSection key={`section-${ship.id}-${location}`} location={location} ship={ship} systems={systemsByLocation[location]} isTerrain />
+                        <ShipSection key={`section-${ship.id}-${location}`} location={location} nameOverride={nameOverrides[location]} ship={ship} systems={systemsByLocation[location]} isTerrain />
                     ))}
                 </CompactBody>
+                {renderStatusBanners(ship)}
                 {lobby && <ShipNotesPanel ship={ship} full />}
                 {this.renderPopup(withHitChart, withNotes, 72)}
             </ShipWindowContainer>)
@@ -783,6 +790,7 @@ class ShipWindow extends React.Component {
                             justify={GRID_JUSTIFY[area]}
                             wide={wide}
                             minHeight={minHeight}
+                            nameOverride={nameOverrides[location]}
                             ship={ship}
                             systems={systemsByLocation[location]}
                         />
@@ -794,7 +802,8 @@ class ShipWindow extends React.Component {
         return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="ship">
             {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
             {sectionGrid}
-            {rolled && <RolledBanner>⟲ Rolled — port / starboard reversed</RolledBanner>}
+            {rolled && <StatusBanner>⟲ Rolled — port / starboard reversed</StatusBanner>}
+            {renderStatusBanners(ship)}
             {this.renderPopup(withHitChart, withNotes)}
         </ShipWindowContainer>)
     }
@@ -845,6 +854,103 @@ const getHeaderTint = (ship) => {
       doesn't load THREE at all, where it would throw. null keeps the exact same
       rendered colour on both pages via HeaderName's `$tint || theme.colors.text`.*/
     return null;
+};
+
+/*Ship-level status lines lifted from the map tooltip (ShipTooltip.js), rendered as
+  bottom banners like ROLLED (user request 2026-07-18). Game/replay only — none of
+  this state exists in the lobby.*/
+const getStatusBanners = (ship) => {
+    if (isLobby()) return [];
+
+    const banners = [];
+
+    //trueStealth ships: green "Undetected" (a Detected banner is deliberately omitted)
+    if (ship.trueStealth && isUndetected(ship)) {
+        banners.push({ key: 'undetected', color: theme.colors.statusOk, bg: 'rgba(50, 205, 50, 0.08)', text: 'Undetected' });
+    }
+
+    //this ship rides a host (e.g. breaching pod attached to its target)
+    if (ship.attached && Object.keys(ship.attached).length > 0 && !ship.detached) {
+        const hostShip = window.gamedata.getShip(Object.keys(ship.attached)[0]);
+        if (hostShip) {
+            const location = Object.values(ship.attached)[0];
+            let side = '';
+            if (location == 1) side = 'Front';
+            else if (location == 2) side = 'Aft';
+            else if (location == 3 || location == 31 || location == 32) side = 'Port';
+            else if (location == 4 || location == 41 || location == 42) side = 'Starboard';
+            banners.push({
+                key: 'attached', color: theme.colors.statusOk, bg: 'rgba(50, 205, 50, 0.08)',
+                text: 'Attached to ' + hostShip.name + (side ? ' [' + side + ']' : '')
+            });
+        }
+    }
+
+    //something hostile is attached to THIS ship
+    if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {
+        banners.push({ key: 'boarded', color: theme.colors.statusAlert, bg: 'rgba(255, 165, 0, 0.10)', text: 'Ship is being boarded!' });
+    }
+
+    return banners;
+};
+
+/*Mirrors ShipTooltip.js's trueStealth block (including the own-ship check of the
+  stealth system's per-team detected/detectedNew lists, which the plain isDetected
+  call misses) so the banner can never claim Undetected while the tooltip says
+  Detected. Loose compares kept deliberately — same as the tooltip.*/
+const isUndetected = (ship) => {
+    //deployment phase, deploying this turn: the tooltip always treats this as unseen
+    if (gamedata.gamephase == -1 && shipManager.getTurnDeployed(ship) == gamedata.turn) return true;
+
+    let detected = shipManager.isDetected(ship);
+
+    if (!detected && ship.team == gamedata.getPlayerTeam()) {
+        let stealthSys = null;
+        if (ship.mine) {
+            stealthSys = shipManager.systems.getSystemByName(ship, 'mineStealth');
+        } else if (ship.faction == 'Torvalus Speculators') {
+            stealthSys = shipManager.systems.getSystemByName(ship, 'ShadingField');
+        } else if (shipManager.getSpecialAbilityStealth(ship, 'Cloaking')) {
+            stealthSys = shipManager.systems.getSystemByName(ship, 'CloakingDevice');
+        } else if (shipManager.getSpecialAbilityStealth(ship, 'Stealth')) {
+            stealthSys = shipManager.systems.getSystemByName(ship, 'stealth');
+        }
+        if (stealthSys) {
+            if ((Array.isArray(stealthSys.detected) && stealthSys.detected.length > 0) || stealthSys.detected === true) {
+                detected = true;
+            } else if ((Array.isArray(stealthSys.detectedNew) && stealthSys.detectedNew.length > 0) || stealthSys.detectedNew === true) {
+                detected = true;
+            }
+        }
+    }
+
+    return !detected;
+};
+
+const renderStatusBanners = (ship) => getStatusBanners(ship).map(banner => (
+    <StatusBanner key={banner.key} $color={banner.color} $bg={banner.bg}>{banner.text}</StatusBanner>
+));
+
+/*Ships that use both quarter sections on a side purely for system placement but have
+  only ONE side structure (e.g. Vorlon capitals: the real Port structure lives in 32
+  "Port Aft", with 31 a structureless weapons shelf) label that lone structure header
+  plain "Port"/"Starboard" (user request 2026-07-18). Sides with structures in more
+  than one section keep the quarter names.*/
+const getSectionNameOverrides = (systemsByLocation) => {
+    const overrides = {};
+
+    [{ locations: [3, 31, 32], name: 'Port' }, { locations: [4, 41, 42], name: 'Starboard' }].forEach(side => {
+        const withStructure = side.locations.filter(location =>
+            systemsByLocation[location].some(system => system.name === 'structure'));
+
+        //a lone structure in location 3/4 already reads "Port"/"Starboard" - only the
+        //quarter locations (31/32/41/42) need the override
+        if (withStructure.length === 1 && withStructure[0] !== side.locations[0]) {
+            overrides[withStructure[0]] = side.name;
+        }
+    });
+
+    return overrides;
 };
 
 const sortIntoLocations = (ship) => {

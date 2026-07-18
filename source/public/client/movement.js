@@ -2016,8 +2016,8 @@ shipManager.movement = {
 
         system.thrustwasted += wasted;
 
-        shipWindowManager.setDataForSystem(ship, system);
-        shipWindowManager.setDataForSystem(ship, shipManager.systems.getSystemByName(ship, "engine"));
+        //STAGE4-RETIRED shipWindowManager.setDataForSystem(ship, system);
+        //STAGE4-RETIRED shipWindowManager.setDataForSystem(ship, shipManager.systems.getSystemByName(ship, "engine"));
 
         return true;
     },
@@ -2074,8 +2074,8 @@ shipManager.movement = {
 
         system.thrustwasted -= wasted;
 
-        shipWindowManager.setDataForSystem(ship, system);
-        shipWindowManager.setDataForSystem(ship, shipManager.systems.getSystemByName(ship, "engine"));
+        //STAGE4-RETIRED shipWindowManager.setDataForSystem(ship, system);
+        //STAGE4-RETIRED shipWindowManager.setDataForSystem(ship, shipManager.systems.getSystemByName(ship, "engine"));
 
         return true;
     },
@@ -2370,7 +2370,7 @@ shipManager.movement = {
                         toDo--;
                     }
 
-                    shipWindowManager.setDataForSystem(ship, thrusters[j]);
+                    //STAGE4-RETIRED shipWindowManager.setDataForSystem(ship, thrusters[j]);
                     if (toDo < 1) {
                         break;
                     }

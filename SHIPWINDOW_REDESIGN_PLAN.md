@@ -5,7 +5,80 @@ five feedback rounds tested in gameid 4247 (all of 1a–1e, rolled-ship mirrorin
 and the round-1–5 refinements recorded below). Stage 2 COMPLETE — exit tests
 passed 2026-07-17 (see the Stage 2 record below). Stage 3 COMPLETE —
 user-accepted 2026-07-17 after five in-lobby feedback rounds (records below).
-NEXT: Stage 4 (retirement sweep §4.6).**
+Stage 4 BUILT 2026-07-18 (retirement sweep + 2 refinements — record below),
+awaiting bundle rebuild + user test.**
+
+**Stage 4 (2026-07-18) — BUILT, awaiting user test.** User rider: NOTHING is
+deleted — every retired piece is commented out in place under a single
+greppable marker, **`STAGE4-RETIRED`**, so the whole sweep can be found (and
+then really deleted) once the redesign has proven stable on live. Actual file
+deletion is now a deliberate future step, not part of this stage.
+- **Script tags / CSS links / templates commented out** (not removed):
+  - game.php: `styles/shipwindow.css` link; `UI/systemInfo.js`,
+    `UI/shipwindow.js`, `UI/flightwindow.js` script tags (single-line `<!-- -->`
+    comments — bundle-legacy.js skips lines starting `<!--`, so the three files
+    also drop out of game.legacy.bundle automatically); the
+    `#shipwindowtemplatecontainer` + `#hitChartTable` template block is wrapped
+    in `<?php if (false): ?>…<?php endif; ?>` (never emitted, easy to restore).
+  - gamelobby.php: same treatment (css link, 3 script tags, template block);
+    plus the `window.shipWindowManager.addEW` stub (would now THROW — the
+    global no longer exists) and the legacy `#systemInfo` tooltip div.
+  - lobby.css `.shipwindow { position: fixed }` override commented out.
+  - The four retired files themselves (`UI/shipwindow.js`, `UI/flightwindow.js`,
+    `UI/systemInfo.js`, `styles/shipwindow.css`) got STAGE4-RETIRED header
+    comments marking them delete-when-stable.
+- **~30 live legacy call sites commented out** (`//STAGE4-RETIRED` prefix keeps
+  the original statement intact for one-glance restore): power.js (16),
+  weaponManager.js (7 setDataForSystem sites), movement.js (5), defensive.js
+  (2), gamedata.js shipStatusChanged, PhaseStrategy.js onShipEwChanged's
+  `window.shipWindowManager.addEW`, ajaxInterface.js shipStatusWindow reset,
+  ships.js doShipContextMenu opens (dead canvas-era path, belt-and-braces).
+- **Structural retirements**: `ShipIcon.prototype.createShipWindow` +
+  `FlightIcon.prototype.createShipWindow` (legacy DOM re-link) wrapped in block
+  comments and the `consumeShipdata` call removed — `ship.shipStatusWindow` is
+  never set again in game.php. weaponManager's dead legacy-DOM handlers
+  commented out wholesale: `onHoldfireClicked` (line comments — it contains an
+  inner block comment) and the hover glue block
+  `onWeaponMouseover`→`doWeaponMouseout` (only ever bound by the retired
+  windows; held the last live `systemInfo.` references in game.php code).
+- **Gotcha hit during the sweep**: ships.js `initShips`/`createHexShipDiv`/
+  `drawShips` were ALREADY inside a giant `/* … */` (lines 4–249) — nesting a
+  new block comment there ended the outer one early and broke the parse. Those
+  sites needed no action at all (reverted).
+- **Verified**: node --check on all 13 touched plain-JS files + esbuild JSX
+  parse on ShipWindow/ShipSection/theme; a dry-run of bundle-legacy.js's
+  extractScriptSources shows the 3 retired files out of BOTH bundles and no
+  missing includes; grep sweep — every remaining
+  `shipWindowManager./flightWindowManager/systemInfo.` reference in loaded code
+  is inside a comment. php -l pending (Docker was down); IDE PHP diagnostics
+  clean on both pages.
+- **Stage 4 refinements (user requests, 2026-07-18):**
+  1. **Single-side-structure quarter names**: ships that use both quarter
+     sections on a side purely for icon placement but have only ONE side
+     structure (Vorlon capitals: real Port structure in 32 "Port Aft", 31 a
+     structureless weapons shelf — VorlonCapitalShip maps addLeftSystem→32)
+     now label that lone structure header plain "PORT"/"STBD".
+     `getSectionNameOverrides` in ShipWindow.js (override only when exactly one
+     of {3,31,32} / {4,41,42} holds a structure and it is a quarter location);
+     ShipSection takes a `nameOverride` prop. Sides with two structures keep
+     the quarter names; hit-chart popup keeps true location names.
+  2. **Status banners**: `RolledBanner` generalised to `StatusBanner`
+     ($color/$bg, amber defaults) and the map tooltip's ship-level status lines
+     now render as bottom-of-window banners (grid + compact + game flight
+     variants; never in lobby, never on unrevealed mines):
+     green **Undetected** (trueStealth & not detected — `isUndetected` mirrors
+     ShipTooltip.js's block incl. the own-ship stealth-system
+     detected/detectedNew check, so banner and tooltip can never disagree; a
+     Detected banner deliberately omitted per user), orange **"Ship is being
+     boarded!"** (`hasAttached`), green **"Attached to <host> [side]"**
+     (`attached` + `!detached`). New theme tokens `statusOk`/`statusAlert`.
+- **Remaining for exit (user)**: rebuild bundles (`yarn build` — UI.bundle,
+  game.legacy.bundle AND gamelobby.legacy.bundle all changed), then the §7 full
+  sweep: a normal game.php session (all phases + thrust + power + fire +
+  replay), a lobby session (buy/edit/windows), no `shipwindow` selectors in the
+  DevTools DOM, bundle sizes noted before/after; eyeball a Vorlon Heavy
+  Cruiser (PORT/STBD headers), a trueStealth ship, a boarded ship and an
+  attached breaching pod for the new banners.
 
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
