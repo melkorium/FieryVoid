@@ -80,6 +80,29 @@ deletion is now a deliberate future step, not part of this stage.
   Cruiser (PORT/STBD headers), a trueStealth ship, a boarded ship and an
   attached breaching pod for the new banners.
 
+**Stage 4 feedback round 1 (2026-07-18) — applied:**
+1. **Enemy Rolled status invisible during Movement (pre-existing bug, user
+   report from game 4247)**: `TacGamedata::hideActiveShipMovement()` stripped
+   ALL of an active-initiative enemy ship's current-turn moves — including the
+   turn-start STATE MARKERS (`isRolled`/`isRolling`/`isPivotingLeft`/
+   `isPivotingRight`, written by end-of-turn movement generation) — so the
+   tooltip's Rolled/Rolling/Pivoting lines, the window's ROLLED banner and its
+   port-starboard mirroring all vanished while awaiting that ship's move. Same
+   family as the Gravitic Augmenter forced-jink exception. Fix: preserve those
+   four marker types (turn-start facts the owner cannot change this turn and
+   the opponent already saw last turn; a roll/pivot ORDERED this turn is a
+   normal "roll"/"pivot" move and stays hidden until committed). Pivot markers
+   included on the same principle — trim to roll-only if unwanted. Verified:
+   php -l + replay harness 158 PASS (lone 4071 FAIL is a stale baseline — the
+   game advanced phase 2→3 in the DB since recording; fails byte-identically
+   with the fix stashed).
+2. Lobby Enhancements block headers get a muted bronze/gold variant
+   (`BlockTitle $gold`: text #e8cf93 on rgba(169,128,56,0.30), border
+   #8a6d3b) — both the standalone grid panel and the rail's inline block.
+3. StatusBanner text sat high: padding 2px-top/3px-bottom equalised to
+   `3px 6px` (the border-top reads as a separator line, not banner fill, so it
+   never compensated the asymmetry).
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)

@@ -2667,7 +2667,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     padding: 4px;`}
 `,ap=O.div`
     background-color: ${ze.colors.panelBgGlass};
-    border: 1px dotted ${ze.colors.line};
+    /*$gold: the Enhancements block matches its bronze header border (user request
+      2026-07-18) so the whole panel reads as the gold-accented one*/
+    border: 1px dotted ${s=>s.$gold?"#8a6d3b":ze.colors.line};
     padding: 0 8px 3px;
 `,ip=O.div`
     font-size: 8px;
@@ -2675,11 +2677,13 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
-    color: ${ze.colors.text};
+    color: ${s=>s.$gold?"#e8cf93":ze.colors.text};
     /*shaded header-bar blue (same as the hit chart section names) so the block
-      headers stand out against the glass panels (feedback 2026-07-17)*/
-    background-color: rgba(73, 103, 145, 0.25);
-    border-bottom: 1px solid ${ze.colors.line};
+      headers stand out against the glass panels (feedback 2026-07-17).
+      $gold: muted bronze variant for the Enhancements blocks (user request
+      2026-07-18) - stands out from the blue chrome without going garish.*/
+    background-color: ${s=>s.$gold?"rgba(169, 128, 56, 0.30)":"rgba(73, 103, 145, 0.25)"};
+    border-bottom: 1px solid ${s=>s.$gold?"#8a6d3b":ze.colors.line};
     margin: 0 -8px 3px;
     padding: 2px 8px;
 `,op=O.div`
@@ -2699,10 +2703,12 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     font-size: 10px;
     color: ${ze.colors.textAccent};
     white-space: nowrap;
+    margin-left: 5px;    
 `,Zi=O.span`
     font-family: ${ze.fonts.mono};
     font-size: 10px;
     color: ${ze.colors.text};
+    margin-right: 5px;
 `,gA=O.div`
     width: 150px;
     box-sizing: border-box;
@@ -2737,7 +2743,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     font-size: 10px;
     line-height: 1.4;
     color: ${ze.colors.textAccent};
-`,sC=s=>typeof s=="number"?s.toFixed(2):s,SA=({ship:s})=>{const i=!s.base;return x.jsxs(gA,{children:[x.jsx(mA,{children:"Ship Stats"}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Turn cost"}),x.jsx(Zi,{children:sC(s.turncost)})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Turn delay"}),x.jsx(Zi,{children:sC(s.turndelaycost)})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Accel/decel"}),x.jsx(Zi,{children:s.accelcost})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Pivot"}),x.jsx(Zi,{children:s.pivotcost})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Roll"}),x.jsx(Zi,{children:s.rollcost})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Profile F/S"}),x.jsxs(Zi,{children:[s.forwardDefense*5,"/",s.sideDefense*5]})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Initiative"}),x.jsx(Zi,{children:s.iniativebonus})]}),!!s.agile&&x.jsx(yA,{children:"Agile ship"})]})},bA=({ship:s})=>{const i=Nx(s.enhancementTooltip);return i.length===0?null:x.jsx(xA,{children:x.jsxs(ap,{children:[x.jsx(ip,{children:"Enhancements"}),i.map((c,p)=>x.jsx(op,{children:c},`enh-${p}`))]})})},Nx=s=>(s||"").split(/<br\s*\/?>/i).map(i=>i.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").trim()).filter(Boolean);class $x extends yt.Component{render(){const{ship:i,full:c,grid:p,hideEnhancements:m}=this.props,C=pA(i),T=Nx(i.notes),S=m?[]:Nx(i.enhancementTooltip),R=[];if(i.limited&&i.limited!=0&&R.push("Limited: "+i.limited+"%"),i.variantOf){const I=i.occurence?i.occurence.charAt(0).toUpperCase()+i.occurence.slice(1)+" ":"";R.push(I+"variant of "+i.variantOf)}i.isd&&R.push("In-Service (ISD): "+i.isd);let N=null;i.unofficial==="S"?N="Semi-Custom":i.unofficial&&(N="Custom");const j=T.length>0||R.length>0||N;return x.jsxs(hA,{$full:c,$grid:p,children:[i.flight&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Flight Stats"}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Armor F/S/A"}),x.jsx(Zi,{children:shipManager.systems.getFlightArmour(i)})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Off. bonus"}),x.jsx(Zi,{children:i.offensivebonus*5})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Thrust"}),x.jsx(Zi,{children:i.freethrust})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Initiative"}),x.jsx(Zi,{children:i.iniativebonus})]})]}),C.length>0&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Hangar Capacity"}),C.map((I,$)=>x.jsx(op,{children:I},`comp-${$}`))]}),j&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Notes"}),T.map((I,$)=>x.jsx(op,{children:I},`note-${$}`)),R.map((I,$)=>x.jsx(op,{children:I},`meta-${$}`)),N&&x.jsx(vA,{children:N})]}),S.length>0&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Enhancements"}),S.map((I,$)=>x.jsx(op,{children:I},`enh-${$}`))]})]})}}const lp=O.div`
+`,sC=s=>typeof s=="number"?s.toFixed(2):s,SA=({ship:s})=>{const i=!s.base;return x.jsxs(gA,{children:[x.jsx(mA,{children:"Ship Stats"}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Turn cost"}),x.jsx(Zi,{children:sC(s.turncost)})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Turn delay"}),x.jsx(Zi,{children:sC(s.turndelaycost)})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Accel/decel"}),x.jsx(Zi,{children:s.accelcost})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Pivot"}),x.jsx(Zi,{children:s.pivotcost})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Roll"}),x.jsx(Zi,{children:s.rollcost})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Profile F/S"}),x.jsxs(Zi,{children:[s.forwardDefense*5,"/",s.sideDefense*5]})]}),i&&x.jsxs(qi,{children:[x.jsx(Xi,{children:"Initiative"}),x.jsx(Zi,{children:s.iniativebonus})]}),!!s.agile&&x.jsx(yA,{children:"Agile ship"})]})},bA=({ship:s})=>{const i=Nx(s.enhancementTooltip);return i.length===0?null:x.jsx(xA,{children:x.jsxs(ap,{$gold:!0,children:[x.jsx(ip,{$gold:!0,children:"Enhancements"}),i.map((c,p)=>x.jsx(op,{children:c},`enh-${p}`))]})})},Nx=s=>(s||"").split(/<br\s*\/?>/i).map(i=>i.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").trim()).filter(Boolean);class $x extends yt.Component{render(){const{ship:i,full:c,grid:p,hideEnhancements:m}=this.props,C=pA(i),T=Nx(i.notes),S=m?[]:Nx(i.enhancementTooltip),R=[];if(i.limited&&i.limited!=0&&R.push("Limited: "+i.limited+"%"),i.variantOf){const I=i.occurence?i.occurence.charAt(0).toUpperCase()+i.occurence.slice(1)+" ":"";R.push(I+"variant of "+i.variantOf)}i.isd&&R.push("In-Service (ISD): "+i.isd);let N=null;i.unofficial==="S"?N="Semi-Custom":i.unofficial&&(N="Custom");const j=T.length>0||R.length>0||N;return x.jsxs(hA,{$full:c,$grid:p,children:[i.flight&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Flight Stats"}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Armor F/S/A"}),x.jsx(Zi,{children:shipManager.systems.getFlightArmour(i)})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Off. bonus"}),x.jsx(Zi,{children:i.offensivebonus*5})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Thrust"}),x.jsx(Zi,{children:i.freethrust})]}),x.jsxs(qi,{children:[x.jsx(Xi,{children:"Initiative"}),x.jsx(Zi,{children:i.iniativebonus})]})]}),C.length>0&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Hangar Capacity"}),C.map((I,$)=>x.jsx(op,{children:I},`comp-${$}`))]}),j&&x.jsxs(ap,{children:[x.jsx(ip,{children:"Notes"}),T.map((I,$)=>x.jsx(op,{children:I},`note-${$}`)),R.map((I,$)=>x.jsx(op,{children:I},`meta-${$}`)),N&&x.jsx(vA,{children:N})]}),S.length>0&&x.jsxs(ap,{$gold:!0,children:[x.jsx(ip,{$gold:!0,children:"Enhancements"}),S.map((I,$)=>x.jsx(op,{children:I},`enh-${$}`))]})]})}}const lp=O.div`
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -2943,8 +2949,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: grayscale(1) brightness(1.8);
-    opacity: 0.55;
+    filter: grayscale(1) brightness(2.1);
+    opacity: 0.7;
     pointer-events: none;
     z-index: 0;
 `,Px=O.div`
@@ -2957,7 +2963,10 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
 `,dC=O.div`
     width: 100%;
     box-sizing: border-box;
-    padding: 2px 6px 3px;
+    /*equal top/bottom: the old 2px-top/3px-bottom made the text sit visibly high in
+      the tinted strip (the border-top reads as a separator line, not banner fill,
+      so it doesn't compensate). At 9px uppercase every half-pixel shows.*/
+    padding: 3px 6px;
     text-align: center;
     font-size: 9px;
     letter-spacing: 2px;

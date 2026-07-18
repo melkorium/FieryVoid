@@ -60,7 +60,9 @@ const Rail = styled.div`
 
 const Block = styled.div`
     background-color: ${theme.colors.panelBgGlass};
-    border: 1px dotted ${theme.colors.line};
+    /*$gold: the Enhancements block matches its bronze header border (user request
+      2026-07-18) so the whole panel reads as the gold-accented one*/
+    border: 1px dotted ${props => props.$gold ? '#8a6d3b' : theme.colors.line};
     padding: 0 8px 3px;
 `;
 
@@ -70,11 +72,13 @@ const BlockTitle = styled.div`
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
-    color: ${theme.colors.text};
+    color: ${props => props.$gold ? '#e8cf93' : theme.colors.text};
     /*shaded header-bar blue (same as the hit chart section names) so the block
-      headers stand out against the glass panels (feedback 2026-07-17)*/
-    background-color: rgba(73, 103, 145, 0.25);
-    border-bottom: 1px solid ${theme.colors.line};
+      headers stand out against the glass panels (feedback 2026-07-17).
+      $gold: muted bronze variant for the Enhancements blocks (user request
+      2026-07-18) - stands out from the blue chrome without going garish.*/
+    background-color: ${props => props.$gold ? 'rgba(169, 128, 56, 0.30)' : 'rgba(73, 103, 145, 0.25)'};
+    border-bottom: 1px solid ${props => props.$gold ? '#8a6d3b' : theme.colors.line};
     margin: 0 -8px 3px;
     padding: 2px 8px;
 `;
@@ -104,12 +108,14 @@ const StatLabel = styled.span`
     font-size: 10px;
     color: ${theme.colors.textAccent};
     white-space: nowrap;
+    margin-left: 5px;    
 `;
 
 const StatValue = styled.span`
     font-family: ${theme.fonts.mono};
     font-size: 10px;
     color: ${theme.colors.text};
+    margin-right: 5px;
 `;
 
 /*Manoeuvre block, styled as a sibling of the ctrl buttons and the datasheet panels
@@ -188,8 +194,8 @@ export const EnhancementsPanel = ({ ship }) => {
     if (enhLines.length === 0) return null;
     return (
         <EnhArea>
-            <Block>
-                <BlockTitle>Enhancements</BlockTitle>
+            <Block $gold>
+                <BlockTitle $gold>Enhancements</BlockTitle>
                 {enhLines.map((line, i) => <Row key={`enh-${i}`}>{line}</Row>)}
             </Block>
         </EnhArea>
@@ -258,8 +264,8 @@ class ShipNotesPanel extends React.Component {
                 )}
 
                 {enhLines.length > 0 && (
-                    <Block>
-                        <BlockTitle>Enhancements</BlockTitle>
+                    <Block $gold>
+                        <BlockTitle $gold>Enhancements</BlockTitle>
                         {enhLines.map((line, i) => <Row key={`enh-${i}`}>{line}</Row>)}
                     </Block>
                 )}

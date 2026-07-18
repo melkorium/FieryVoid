@@ -308,8 +308,8 @@ const WatermarkLayer = styled.div`
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: grayscale(1) brightness(1.8);
-    opacity: 0.55;
+    filter: grayscale(1) brightness(2.1);
+    opacity: 0.7;
     pointer-events: none;
     z-index: 0;
 `;
@@ -334,7 +334,10 @@ const ShipHitArea = styled.div`
 const StatusBanner = styled.div`
     width: 100%;
     box-sizing: border-box;
-    padding: 2px 6px 3px;
+    /*equal top/bottom: the old 2px-top/3px-bottom made the text sit visibly high in
+      the tinted strip (the border-top reads as a separator line, not banner fill,
+      so it doesn't compensate). At 9px uppercase every half-pixel shows.*/
+    padding: 3px 6px;
     text-align: center;
     font-size: 9px;
     letter-spacing: 2px;
