@@ -89,6 +89,31 @@ window.ShipTooltipBallisticsMenu = function () {
             // of how the chance was derived at launch).
             var ballTarget = gamedata.getShip(ball.fireOrder.targetid);
             var hitChanceResult = weaponManager.calculateHitChange(ball.shooter, ballTarget, ball.weapon, undefined);
+
+            // Direct-fire split weapons (Molecular / Shadow Slicer) add a cumulative -5%
+            // per shot after the first. A *live* recalc bakes in the penalty for the NEXT
+            // (uncommitted) shot, so the breakdown over-states what the already-locked shots
+            // actually took. Re-anchor it to the representative (headline) locked shot: its
+            // stored chance vs the live figure differs only by that split penalty (geometry
+            // is locked this turn), so shift the header and the bundled 'Other' line by the
+            // delta to keep the tooltip self-consistent with the % shown on the row.
+            if (ball.fireOrder.type === 'normal' && ball.weapon.specialHitChanceCalculation
+                    && hitChanceResult && hitChanceResult.modifiers) {
+                var deltaPct = hitchanceNormalMode - hitChanceResult.hitChance; // % the live figure over-penalised by
+                if (deltaPct !== 0) {
+                    hitChanceResult.hitChance = hitchanceNormalMode;
+                    var otherMod = null;
+                    for (var mI = 0; mI < hitChanceResult.modifiers.length; mI++) {
+                        if (hitChanceResult.modifiers[mI].key === 'other') { otherMod = hitChanceResult.modifiers[mI]; break; }
+                    }
+                    if (otherMod) {
+                        otherMod.value += deltaPct / 5; // modifiers are in d20 units (value * 5 = %)
+                    } else {
+                        hitChanceResult.modifiers.push({ key: 'other', label: 'Other', value: deltaPct / 5 });
+                    }
+                }
+            }
+
             var tooltipText = weaponManager.buildHitChanceTooltipText(hitChanceResult);
         
             // Build hitchance list manually, based on number of ballistics.
