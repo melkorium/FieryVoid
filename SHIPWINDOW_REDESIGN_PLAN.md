@@ -115,6 +115,32 @@ deletion is now a deliberate future step, not part of this stage.
    inline block — the list now reads in the block's bronze/gold family instead
    of the default blue `textAccent`, matching its border/title.
 
+**Stage 4 feedback round 3 (2026-07-18) — applied (lobby only):** fighter-image
+hover tooltip suppressed in the LOBBY flight window (`shipWindow/FighterIcon.js`
+gained a local `isLobby()` and early-returns from both
+`onSystemMouseOver`/`onSystemMouseOut`; touch long-press `onFighterTouchStart`
+also lobby-gated). game.php flight windows keep the tooltip; child SystemIcon
+hovers unaffected on both screens. UI.bundle only.
+
+**Stage 4 feedback round 4 (2026-07-18) — applied:** six-sided ships'
+PORT FWD / PORT AFT / STBD FWD / STBD AFT quarter sections (locations
+31/32/41/42) no longer reserve a phantom second icon row (user report from the
+Thoughtforce / Heavy Carrier screenshots). They carried an 84px `min-height`
+floor (feedback round 1, "sparse hulls keep presence"), but a one-row icon
+section is only ~57px (15px header + 1px border + ~3px padding + one 38px icon
+row), so that floor inflated every single-row quarter by ~27px of dead space.
+Since every rendered section already holds ≥1 system (≥1 row ≈ 57px), a floor
+at-or-below one row is a no-op — 84px was the sole cause and only ever bit the
+1-row case. Fix: `minHeight` for six-sided quarters dropped to `undefined`
+(`ShipWindow.js` ~line 784) so they size to content exactly like Port/Starboard
+(3/4). `align-self` start/end (GRID_VALIGN) still pins Fwd quarters to the top
+and Aft quarters to the bottom of the Primary-stretched grid column, so the
+spare space now falls in the transparent gap over the watermark instead of
+inside the dotted panel. Big-base quarters were already floor-free (they use
+`wide`/4-wide); Port/Starboard were always floor-free. ShipSection's generic
+`$minHeight` prop support is left dormant. UI.bundle only — needs `yarn build`;
+esbuild JSX parse clean.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)

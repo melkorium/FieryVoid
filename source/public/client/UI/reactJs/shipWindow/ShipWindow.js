@@ -777,11 +777,18 @@ class ShipWindow extends React.Component {
                     const displayLocation = rolled && MIRRORED_LOCATION[location] !== undefined ? MIRRORED_LOCATION[location] : location;
                     const area = GRID_AREAS[displayLocation];
                     //big-base quarter sections spread 4-wide so their many systems don't
-                    //stack into a metre-tall window; sparse six-sided quarters get a
-                    //minimum height so small hulls (Xill) keep some presence
+                    //stack into a metre-tall window
                     const wide = location === 0 || location === 1 || location === 2
                         || (isBigBase && QUARTER_LOCATIONS.includes(location));
-                    const minHeight = ship.SixSidedShip && QUARTER_LOCATIONS.includes(location) ? 84 : undefined;
+                    //quarter sections (31/32/41/42) size to their content, exactly like
+                    //Port/Starboard (3/4). They previously carried an 84px min-height floor
+                    //to give sparse six-sided hulls "presence", but a one-row section is only
+                    //~57px, so that floor inflated every single-row quarter by a phantom
+                    //second row of empty space. align-self start/end (GRID_VALIGN) still pins
+                    //Fwd quarters to the top and Aft quarters to the bottom of the
+                    //Primary-stretched column, so the spare space now falls in the
+                    //transparent gap over the watermark instead of inside the panel.
+                    const minHeight = undefined;
 
                     return (
                         <ShipSection
