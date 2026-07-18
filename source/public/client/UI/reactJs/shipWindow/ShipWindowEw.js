@@ -24,12 +24,14 @@ const EwPanel = styled.div`
     width: 120px;
     box-sizing: border-box;
     background-color: ${theme.colors.panelBgGlass};
-    border: 1px dotted ${theme.colors.line};
-    padding: 2px 4px 3px;
+    border: 1px solid ${theme.colors.line};
+    padding: 3px 4px 3px;
 `;
 
 /*title bar spans the panel edge-to-edge (negative margins cancel EwPanel's padding)
-  with the same dark fill as the Hit Chart / Notes buttons; nowrap keeps
+  with the same white text on shaded-blue fill as the Hit Chart / Notes buttons
+  (rgba(73,103,145,0.25) - the shared header-bar blue used by CtrlButton /
+  HitChartPanel section names / ShipNotesPanel titles); nowrap keeps
   "Electronic Warfare" on one line in the 120px panel*/
 const EwTitle = styled.div`
     font-size: 8px;
@@ -37,11 +39,12 @@ const EwTitle = styled.div`
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
-    color: ${theme.colors.textAccent};
-    background-color: ${theme.colors.panelBg};
-    margin: -2px -4px 2px;
-    padding: 2px 4px;
+    color: ${theme.colors.text};
+    background-color: rgba(73, 103, 145, 0.25);
+    margin: -1px -2px 2px;
+    padding: 3px 4px;
     border-bottom: 1px solid ${theme.colors.line};
+    text-align: center;
 `;
 
 const Row = styled.div`
@@ -50,7 +53,7 @@ const Row = styled.div`
     justify-content: space-between;
     gap: 4px;
     font-size: 9px;
-    color: ${theme.colors.textAccent};
+    color: ${theme.colors.text};
     padding-top: 1px;
 `;
 
@@ -58,7 +61,7 @@ const RowLabel = styled.span`
     font-size: 8px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: ${theme.colors.text};
+    color: ${theme.colors.textAccent};
     white-space: nowrap;
 `;
 

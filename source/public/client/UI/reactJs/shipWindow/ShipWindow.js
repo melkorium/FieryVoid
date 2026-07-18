@@ -191,7 +191,7 @@ const CtrlButton = styled.div`
       the label no longer floats high beside the icon (feedback 2026-07-17)*/
     align-items: baseline;
     gap: 4px;
-    padding: 2px 6px 2px 4px;
+    padding: 2px 6px 4px 4px;
     box-sizing: border-box;
     /*matches the panel opposite: 120px EW panel in game, 150px datasheet in the
       lobby ($wide) - keeps the two chrome columns visually symmetric*/

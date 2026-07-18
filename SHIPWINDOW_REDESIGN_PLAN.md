@@ -157,6 +157,13 @@ are grid-area-placed (GRID_LOCATIONS render order is irrelevant), so only the
 template string changed. UI.bundle only — needs `yarn build`; esbuild JSX parse
 clean.
 
+**Stage 4 feedback round 6 (2026-07-18) — applied (cosmetic):** the EW panel's
+"Electronic Warfare" title bar (`EwTitle` in `ShipWindowEw.js`) now matches the
+Hit Chart / Notes buttons — white `theme.colors.text` on the shared header-bar
+blue `rgba(73, 103, 145, 0.25)` (was blue `textAccent` on the dark `panelBg`
+fill). game.php EW panel only (lobby uses ShipNotesPanel). UI.bundle — needs
+`yarn build`; esbuild JSX parse clean.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
