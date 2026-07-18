@@ -794,11 +794,44 @@ class TacGamedata {
         foreach ($this->ships as $ship) {
             $toDelete = [];
 
-            if ($ship->userid === $this->forPlayer || $ship->iniative !== $iniative) {
+            $hideOwn = $ship->userid !== $this->forPlayer && $ship->iniative === $iniative;
+
+            //A mirrored 'attached' move is a copy of the HOST's committed movement
+            //(auto-duplicated at host commit — MovementGamePhase::process), so it must be
+            //hidden whenever the host's own movement is hidden — INCLUDING on the viewer's
+            //OWN pod, which $hideOwn never covers: showing the pod at the host's
+            //destination hex leaks the enemy host's secret move while the pod's owner is
+            //still plotting in the same initiative bracket. Hidden, the pod falls back to
+            //its preturn 'sync' row = the host's start-of-turn hex — identical to the
+            //state before the host committed, and to where a detach plotted BEFORE the
+            //host's commit starts from (commit order no longer changes what either
+            //player sees or plots).
+            $hideAttachedMirror = false;
+            if (!empty($ship->attached)) {
+                $host = $this->getShipById((int)key($ship->attached));
+                if ($host && $host->userid !== $this->forPlayer && $host->iniative === $iniative) {
+                    $hideAttachedMirror = true;
+                }
+            }
+
+            if (!$hideOwn && !$hideAttachedMirror) {
                 continue;
             }
 
             foreach ($ship->movement as $i => $move) {
+                if ($move->turn != $this->turn) {
+                    continue;
+                }
+
+                if ($hideAttachedMirror && $move->type === "attached") {
+                    $toDelete[] = $i;
+                    continue;
+                }
+
+                if (!$hideOwn) {
+                    continue;
+                }
+
                 //Never hide a forced move (Gravitic Augmenter's free jinks are marked forced=true):
                 //they are a REVEALED committed effect (declared in Initial Orders alongside the visible
                 //stat buffs), not the enemy's secret in-progress plot. Hiding it made the opponent lose
@@ -815,7 +848,7 @@ class TacGamedata {
                 //ship window / icon lose its Rolled/Rolling/Pivoting status (and the window's
                 //port-starboard mirroring) while awaiting their move. A roll or pivot ORDERED
                 //this turn is a normal "roll"/"pivot" move and stays hidden until committed.
-                if ($move->turn == $this->turn && $move->type !== "deploy" && $move->type !== "start"
+                if ($move->type !== "deploy" && $move->type !== "start"
                     && $move->type !== "isRolled" && $move->type !== "isRolling"
                     && $move->type !== "isPivotingLeft" && $move->type !== "isPivotingRight"
                     && empty($move->forced)) {
