@@ -3712,7 +3712,7 @@ class ShadowFighterBomb extends Weapon{
 		$this->data["Special"]  = "Used to launch integrated fighters at a target hex.";
 		$this->data["Special"] .= "<br>Targets a hex within range; fighters deploy there at the carrier's heading and speed next turn.";
         $this->data["Special"] .= "<br>Technical system, cannot be damaged or destroyed.";			
-		//$this->data["Special"] .= "<br>This is the integrated hangar's ONLY way to launch fighters — it draws from the bay's held pool. If the bay is empty, the bomb cannot fire.";
+		$this->data["Special"] .= "<br>Cannot be used when ship is Half-Phased.";
 	}
 
 	public function getDamage($fireOrder){ return 0; }
@@ -3757,6 +3757,16 @@ class ShadowFighterBomb extends Weapon{
 
 		$shooter = $gamedata->getShipById($fireOrder->shooterid);
 		if (!$shooter) return;
+
+		//A carrier that HALF-PHASED this turn is partly shifted into hyperspace and
+		//cannot form/expel its integrated fighters (B5W): the Fighter Bomb does not
+		//launch. rolled is already set above so the guarded fire() never re-runs on
+		//replay; we simply spawn nothing and note why. The client mirrors this in
+		//weaponManager.queueShadowFighterBombOrder.
+		if (Movement::isHalfPhased($shooter, $gamedata->turn)){
+			$fireOrder->pubnotes .= " Fighter Bomb: carrier half-phased — integrated fighters cannot launch.";
+			return;
+		}
 
 		//$fireOrder->shots carries the player's chosen launch count (set by the
 		//client hex-target count picker, clamped there to the held pool). 0/absent

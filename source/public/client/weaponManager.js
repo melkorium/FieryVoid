@@ -2881,6 +2881,13 @@ window.weaponManager = {
     //   - MANUAL (checkbox off): ONE fire order PER chosen flight, shots = that size.
     // The combat log groups the same-hex orders into one "Fighter Bomb" entry.
     queueShadowFighterBombOrder: function queueShadowFighterBombOrder(carrier, weapon, hexpos, type) {
+        //A carrier that half-phased this turn is partly in hyperspace and cannot
+        //form/expel its integrated fighters — the server (ShadowFighterBomb::fire)
+        //rejects the launch too, so block the order here for immediate feedback.
+        if (shipManager.movement.isHalfPhased(carrier)) {
+            confirm.warning("Half-phased ships cannot launch fighters with the Fighter Bomb.");
+            return;
+        }
         //Multi-bay: scope the offered pool to THIS bomb's bay (weapon.bombHangarIndex).
         var pool = weaponManager.shadowFighterBombPool(carrier, weapon);
         if (pool <= 0) {
