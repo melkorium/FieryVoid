@@ -189,6 +189,9 @@ EW tooltip):** two user requests.
    (ShipNotesPanel.js) — seeded from the former `BlockTitle $gold` look but independent,
    so it can be restyled without touching the Notes / Hangar Capacity / Flight Stats
    titles (both enh render sites use it; `BlockTitle`'s `$gold` branch is now unused).
+   The gap above the Enhancements box is a single shared knob — `EnhArea`'s
+   `margin-top` (marked `>>> ENHANCEMENTS-BOX GAP <<<`, set to 15px, applies to both
+   pages since the component is shared).
 2. **Ammo enhancements excluded from the Enhancements list.** Consumable
    ammunition enhancements (missiles / railgun shells / launcher-loaded mines)
    load an AmmoMagazine and already show in its system tooltip, so they are kept

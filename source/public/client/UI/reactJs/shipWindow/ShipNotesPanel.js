@@ -200,6 +200,10 @@ const EnhArea = styled.div`
     grid-area: enh;
     justify-self: center;
     align-self: start; /*top of its cell - starts directly below the Starboard section (feedback round 5)*/
+    /*>>> ENHANCEMENTS-BOX GAP <<< minimum space above the Enhancements box (between it
+      and the Starboard section above), applied on BOTH game.php and the lobby since they
+      share this component. Adjust this one value to taste.*/
+    margin-top: 0px;
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
     /*$wide: 150px in the lobby (matches the datasheet panels); 130px in game (user
