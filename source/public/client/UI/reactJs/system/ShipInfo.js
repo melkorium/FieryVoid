@@ -3,7 +3,12 @@ import styled from "styled-components"
 import { Header, Entry } from './SystemInfo';
 import buildHitChart from "../helpers/buildHitChart";
 
-const InfoContainer = styled.div``;
+//$tightBottom (ship window Notes popup, feedback 2026-07-19): drop the trailing
+//blank separator Entry so the popup's small bottom padding sets the gap under the
+//last line, instead of a full empty text row plus padding.
+const InfoContainer = styled.div`
+    ${props => props.$tightBottom ? '& > *:last-child { display: none; }' : ''}
+`;
 
 class ShipInfo extends React.Component {
 
@@ -11,7 +16,7 @@ class ShipInfo extends React.Component {
 	render() {
 		//hideHitChart: the ship window's Notes popup reuses this block but has its own
 		//dedicated HitChartPanel, so it suppresses the chart lines here.
-		const { ship, hideHitChart } = this.props;
+		const { ship, hideHitChart, tightBottom } = this.props;
 
 		//Purchased enhancements are surfaced in the always-visible gold Enhancements box
 		//for full grid ship windows, so they are NOT repeated inline here for those ships
@@ -91,7 +96,7 @@ class ShipInfo extends React.Component {
 		}
 
 		return (
-			<InfoContainer>
+			<InfoContainer $tightBottom={tightBottom}>
 				{ship.flight && isRevealed && <Entry key={reactKey++}><Header>Offensive bonus: </Header>{displayOffensiveBonus * 5}</Entry>}
 				{ship.flight && isRevealed && <Entry key={reactKey++}><Header>Armor (F/S/A): </Header>{shipManager.systems.getFlightArmour(ship)}</Entry>}
 				{ship.flight && isRevealed && <Entry key={reactKey++}><Header>Thrust per turn: </Header>{ship.freethrust}</Entry>}

@@ -222,11 +222,16 @@ const CtrlIcon = styled.span`
 const PopupHolder = styled.div`
     position: absolute;
     top: ${props => props.$top || 78}px;
-    left: 6px;
+    /*left edge aligns with the control buttons (measured - they sit centred in the
+      grid's ctrl column, not at the window's 6px margin); feedback 2026-07-19*/
+    left: ${props => props.$left != null ? props.$left : 6}px;
     /*$fit (Notes): size to content instead of spanning the window*/
     ${props => props.$fit
         ? 'right: auto; width: fit-content; max-width: calc(100% - 12px);'
         : 'right: 6px;'}
+    /*Notes popup never narrower than the 130px Notes button it drops from (both
+      border-box), so short notes still read as one block under the button*/
+    ${props => props.$notes ? 'min-width: 130px;' : ''}
     z-index: 20;
     max-height: 70vh;
     overflow-y: auto;
@@ -234,7 +239,10 @@ const PopupHolder = styled.div`
     background-color: ${theme.colors.panelBg};
     border: 1px solid ${theme.colors.line};
     box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.7);
-    padding: 5px 5px 10px; /*extra bottom padding so the last chart rows never look clipped*/
+    /*Notes ($notes) trims the bottom gap to ~5px (feedback 2026-07-19; paired with
+      ShipInfo dropping its trailing blank line); Hit Chart keeps the extra bottom
+      padding so the last chart rows never look clipped*/
+    padding: 5px 5px ${props => props.$notes ? '5px' : '10px'};
     cursor: default;
 
     scrollbar-width: thin;
@@ -640,31 +648,55 @@ class ShipWindow extends React.Component {
         );
     }
 
+    //left offset (relative to the window container) of the control-button stack, so
+    //the popup's left edge lines up with the buttons. Measured live because the offset
+    //depends on the ctrl column width, which the grid resolves from the section sizes.
+    getButtonLeft() {
+        const controls = this.controlsRef.current;
+        const container = this.elementRef.current;
+        if (!controls || !container) return null;
+        //subtract the container's left border: the popup's `left` is measured from the
+        //container's padding edge (inside the 1px border), but getBoundingClientRect
+        //reports outer-border coords - without this the popup sits 1px right of the buttons
+        return Math.round(
+            controls.getBoundingClientRect().left
+            - container.getBoundingClientRect().left
+            - container.clientLeft
+        );
+    }
+
     renderPopup(withHitChart, withNotes, top) {
         const { ship } = this.props;
         const { openPanel, hoverNotes } = this.state;
 
         //clicked panel wins; otherwise a desktop hover on the Notes button peeks the notes
         const shown = openPanel || (hoverNotes && withNotes ? 'notes' : null);
+        if (!shown) return null;
+
+        const left = this.getButtonLeft();
 
         if (shown === 'hitchart' && withHitChart) {
             //$fit (feedback 2026-07-17, supersedes round 5's full-width span): the
             //geographic columns size themselves, so the popup shrink-wraps them
-            return <PopupHolder ref={this.popupRef} $top={top} $fit><HitChartPanel ship={ship} /></PopupHolder>;
+            return <PopupHolder ref={this.popupRef} $top={top} $left={left} $fit><HitChartPanel ship={ship} /></PopupHolder>;
         }
         if (shown === 'notes' && withNotes) {
             return (
                 <PopupHolder
                     ref={this.popupRef}
                     $top={top}
+                    $left={left}
                     $fit
+                    $notes
                     onMouseEnter={this.onNotesHoverStart.bind(this)}
                     onMouseLeave={this.onNotesHoverEnd.bind(this)}
                 >
                     {/*ShipInfo itself decides whether to list enhancements inline: hidden
                        for full grid ships (they have the gold Enhancements box), shown for
-                       mines / fighters / terrain (no box) - so no flag is needed here*/}
-                    <ShipInfo ship={ship} hideHitChart />
+                       mines / fighters / terrain (no box) - so no flag is needed here.
+                       tightBottom drops its trailing blank line so PopupHolder's 5px
+                       bottom padding sets the gap under the last note.*/}
+                    <ShipInfo ship={ship} hideHitChart tightBottom />
                 </PopupHolder>
             );
         }
