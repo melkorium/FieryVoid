@@ -80,7 +80,7 @@ const BlockTitle = styled.div`
     background-color: ${props => props.$gold ? 'rgba(169, 128, 56, 0.30)' : 'rgba(73, 103, 145, 0.25)'};
     border-bottom: 1px solid ${props => props.$gold ? '#8a6d3b' : theme.colors.line};
     margin: 0 -8px 3px;
-    padding: 2px 8px;
+    padding: 2px 6px 2px 4px;
 `;
 
 const Row = styled.div`

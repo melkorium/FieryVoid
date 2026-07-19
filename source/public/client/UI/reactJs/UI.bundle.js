@@ -2686,7 +2686,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-color: ${s=>s.$gold?"rgba(169, 128, 56, 0.30)":"rgba(73, 103, 145, 0.25)"};
     border-bottom: 1px solid ${s=>s.$gold?"#8a6d3b":ze.colors.line};
     margin: 0 -8px 3px;
-    padding: 2px 8px;
+    padding: 2px 6px 2px 4px;
 `,op=O.div`
     padding: 1px 0;
 `,vA=O.div`
