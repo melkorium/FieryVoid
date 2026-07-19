@@ -72,7 +72,7 @@ const SectionHeader = styled.div`
     padding: 0 4px;
     box-sizing: border-box;
     background-color: black;
-    border-bottom: 1px solid ${theme.colors.line};
+    border-bottom: 1px solid ${theme.colors.healthOk};
     overflow: hidden;
 
     /*structure health fill - the header line doubles as the section's health bar*/

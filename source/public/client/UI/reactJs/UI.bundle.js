@@ -2419,8 +2419,9 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     padding: 0 4px;
     box-sizing: border-box;
     background-color: black;
-    border-bottom: 1px solid ${ze.colors.line};
+    border-bottom: 1px solid ${ze.colors.healthOk};
     overflow: hidden;
+
 
     /*structure health fill - the header line doubles as the section's health bar*/
     &::before {
@@ -2431,6 +2432,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
         bottom: 0;
         width: ${s=>s.$health}%;
         background-color: ${s=>s.$criticals?ze.colors.healthCrit:ze.colors.healthOk};
+
     }
 `,D_=O.span`
     position: relative;
