@@ -179,12 +179,15 @@ EW tooltip):** two user requests.
    lobby/game `$wide` split is kept (`wide = isLobby()` in `renderControls`): `CtrlButton`
    (Hit Chart / Notes) min-width `$wide ? 150 : 130`; `EnhArea` (ShipNotesPanel.js)
    `$wide ? 150 : 130`; `EwPanel` (ShipWindowEw.js, game-only) flat 130. The box
-   **replaces** the old ENHANCEMENTS lines in the Notes popup: `ShipInfo.js` gained a
-   `hideEnhancements` prop (mirrors `hideHitChart`). It is passed **only when the gold
-   panel is actually shown** — `renderPopup` took a 4th `hideEnh` arg: the grid ship
-   window passes `withEnhPanel`, the compact variant passes `false`. So **mines/terrain
-   (compact variant, no gold panel) keep listing enhancements in the Notes popup**
-   (user 2026-07-19). The ship-level SystemInfo popup (SystemInfo.js) still lists them.
+   **replaces** the old ENHANCEMENTS lines. `ShipInfo.js` now **decides for itself**
+   whether to list enhancements inline, from ship type: **hidden for full grid ships**
+   (they have the gold box), **shown for mines / fighters / terrain** (compact / flight
+   variants, no box) — `showEnhancements = ship.flight || ship.mine ||
+   gamedata.isTerrain(...)`. Deciding inside ShipInfo rather than via a caller prop means
+   every consumer obeys one rule: the Notes-button popup AND the ship-info popup
+   (SystemInfo.js `<ShipInfo>`), game and lobby. (Superseded the first cut's
+   `hideEnhancements` prop + `renderPopup` `hideEnh` plumbing, both removed 2026-07-19 —
+   the ship-info popup was still listing enhancements for grid ships.)
    The Enhancements box header is its own styled component `EnhTitle`
    (ShipNotesPanel.js) — seeded from the former `BlockTitle $gold` look but independent,
    so it can be restyled without touching the Notes / Hangar Capacity / Flight Stats

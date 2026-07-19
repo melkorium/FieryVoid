@@ -640,7 +640,7 @@ class ShipWindow extends React.Component {
         );
     }
 
-    renderPopup(withHitChart, withNotes, top, hideEnh) {
+    renderPopup(withHitChart, withNotes, top) {
         const { ship } = this.props;
         const { openPanel, hoverNotes } = this.state;
 
@@ -661,11 +661,10 @@ class ShipWindow extends React.Component {
                     onMouseEnter={this.onNotesHoverStart.bind(this)}
                     onMouseLeave={this.onNotesHoverEnd.bind(this)}
                 >
-                    {/*enhancements are suppressed here ONLY when the gold Enhancements
-                       panel (the `enh` grid area) is shown - i.e. the full grid ship
-                       window. Mines use the compact variant, which has no gold panel, so
-                       they keep listing enhancements in the Notes popup (user 2026-07-19)*/}
-                    <ShipInfo ship={ship} hideHitChart hideEnhancements={hideEnh} />
+                    {/*ShipInfo itself decides whether to list enhancements inline: hidden
+                       for full grid ships (they have the gold Enhancements box), shown for
+                       mines / fighters / terrain (no box) - so no flag is needed here*/}
+                    <ShipInfo ship={ship} hideHitChart />
                 </PopupHolder>
             );
         }
@@ -754,9 +753,7 @@ class ShipWindow extends React.Component {
                 </CompactBody>
                 {renderStatusBanners(ship)}
                 {lobby && <ShipNotesPanel ship={ship} full />}
-                {/*compact variant (mines/terrain) has no gold Enhancements panel, so the
-                   Notes popup keeps listing enhancements (hideEnh false)*/}
-                {this.renderPopup(withHitChart, withNotes, 72, false)}
+                {this.renderPopup(withHitChart, withNotes, 72)}
             </ShipWindowContainer>)
         }
 
