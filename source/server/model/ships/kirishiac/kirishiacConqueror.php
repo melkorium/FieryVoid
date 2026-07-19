@@ -34,6 +34,9 @@ class kirishiacConqueror extends SixSidedHCV{
             20 => "Orbital"
             );
 		
+		/*Kirishiac use their own enhancement set */		
+		Enhancements::nonstandardEnhancementSet($this, 'KirshiacShip');  
+
         $this->addPrimarySystem(new CnC(7, 16, 0, 0));
 		$scanner = new Scanner(6, 24, 0, 10);
 		$scanner->markAdvanced();
