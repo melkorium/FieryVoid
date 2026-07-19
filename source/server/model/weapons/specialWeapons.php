@@ -3012,7 +3012,7 @@ class RammingAttack extends Weapon{
 			$fireOrder->calledid = -1; //just in case!
 			$this->setAlreadyRammed($fireOrder->targetid); //prevent repeating			
 		}
-Debug::log("fireOrder->chosenLocation4 " . $fireOrder->chosenLocation);		
+		//Debug::log("fireOrder->chosenLocation4 " . $fireOrder->chosenLocation);		
 	} //endof function fire
 
 	
