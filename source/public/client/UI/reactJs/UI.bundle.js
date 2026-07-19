@@ -2493,10 +2493,11 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     text-transform: uppercase;
     color: ${ze.colors.textAccent};
     white-space: nowrap;
+    margin-left: 2px;     
 `,Mu=O.span`
     font-family: ${ze.fonts.mono};
     font-size: 10px;
-    margin-right: 5px;    
+    margin-right: 6px;    
 `,U_=O.span`
     flex: 1 1 auto;
     min-width: 0;

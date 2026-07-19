@@ -68,12 +68,13 @@ const RowLabel = styled.span`
     text-transform: uppercase;
     color: ${theme.colors.textAccent};
     white-space: nowrap;
+    margin-left: 2px;     
 `;
 
 const RowValue = styled.span`
     font-family: ${theme.fonts.mono};
     font-size: 10px;
-    margin-right: 5px;    
+    margin-right: 6px;    
 `;
 
 const RowTarget = styled.span`
