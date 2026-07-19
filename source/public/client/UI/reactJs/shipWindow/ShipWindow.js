@@ -193,9 +193,10 @@ const CtrlButton = styled.div`
     gap: 4px;
     padding: 2px 6px 4px 4px;
     box-sizing: border-box;
-    /*matches the panel opposite: 120px EW panel in game, 150px datasheet in the
-      lobby ($wide) - keeps the two chrome columns visually symmetric*/
-    min-width: ${props => props.$wide ? '150px' : '120px'};
+    /*chrome column width: 150px datasheet panels in the lobby ($wide), 130px in game
+      (user 2026-07-19: 150 was too wide on the game screen, 120 too tight) - matches the
+      EW / Enhancements panels on each page so the two chrome columns stay symmetric*/
+    min-width: ${props => props.$wide ? '150px' : '130px'};
     border: 1px solid ${theme.colors.line};
     /*idle fill = the shaded header-bar blue (same as the hit chart section names)
       so the chrome buttons read as section headers (feedback 2026-07-17)*/
@@ -612,7 +613,7 @@ class ShipWindow extends React.Component {
         if (!withHitChart && !withNotes && !withStats) return null;
 
         const { openPanel } = this.state;
-        const wide = isLobby(); //match the 150px datasheet panels opposite
+        const wide = isLobby(); //150px datasheet panels in the lobby, 130px in game
 
         return (
             <ControlsArea ref={this.controlsRef} $compact={compact}>
@@ -639,7 +640,7 @@ class ShipWindow extends React.Component {
         );
     }
 
-    renderPopup(withHitChart, withNotes, top) {
+    renderPopup(withHitChart, withNotes, top, hideEnh) {
         const { ship } = this.props;
         const { openPanel, hoverNotes } = this.state;
 
@@ -660,7 +661,11 @@ class ShipWindow extends React.Component {
                     onMouseEnter={this.onNotesHoverStart.bind(this)}
                     onMouseLeave={this.onNotesHoverEnd.bind(this)}
                 >
-                    <ShipInfo ship={ship} hideHitChart />
+                    {/*enhancements are suppressed here ONLY when the gold Enhancements
+                       panel (the `enh` grid area) is shown - i.e. the full grid ship
+                       window. Mines use the compact variant, which has no gold panel, so
+                       they keep listing enhancements in the Notes popup (user 2026-07-19)*/}
+                    <ShipInfo ship={ship} hideHitChart hideEnhancements={hideEnh} />
                 </PopupHolder>
             );
         }
@@ -749,15 +754,21 @@ class ShipWindow extends React.Component {
                 </CompactBody>
                 {renderStatusBanners(ship)}
                 {lobby && <ShipNotesPanel ship={ship} full />}
-                {this.renderPopup(withHitChart, withNotes, 72)}
+                {/*compact variant (mines/terrain) has no gold Enhancements panel, so the
+                   Notes popup keeps listing enhancements (hideEnh false)*/}
+                {this.renderPopup(withHitChart, withNotes, 72, false)}
             </ShipWindowContainer>)
         }
 
         //full "digital SCS" grid window
         const rolled = shipManager.movement.isRolled(ship);
-        //lobby: purchased enhancements get their own bottom-right panel so the
-        //datasheet stack in `ew` stays short (feedback round 3)
-        const withEnhPanel = lobby && Boolean(ship.enhancementTooltip);
+        //purchased enhancements get their own bottom-right gold panel (the `enh` grid
+        //area). In the lobby it keeps the datasheet stack in `ew` short (feedback round
+        //3); in game.php it sits below the EW panel and replaces the ENHANCEMENTS lines
+        //that used to live in the Notes popup (2026-07-19). Ammo enhancements are already
+        //excluded server-side (Enhancements::isAmmoEnhancement) so ship.enhancementTooltip
+        //carries only the enhancements worth surfacing here.
+        const withEnhPanel = Boolean(ship.enhancementTooltip);
         const areas = buildTemplateAreas(systemsByLocation, withEnhPanel);
         const isBigBase = ship.base && !ship.smallBase;
 

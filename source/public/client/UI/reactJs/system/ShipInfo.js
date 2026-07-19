@@ -10,8 +10,11 @@ class ShipInfo extends React.Component {
 
 	render() {
 		//hideHitChart: the ship window's Notes popup reuses this block but has its own
-		//dedicated HitChartPanel, so it suppresses the chart lines here
-		const { ship, hideHitChart } = this.props;
+		//dedicated HitChartPanel, so it suppresses the chart lines here.
+		//hideEnhancements: likewise the window now shows purchased enhancements in the
+		//always-visible gold Enhancements panel, so the Notes popup drops them here
+		//(2026-07-19). Left as a prop so the SystemInfo ship popup still lists them.
+		const { ship, hideHitChart, hideEnhancements } = this.props;
 		var notes = new Array;
 		var hitChart = new Array;
 		var enhArray = new Array;
@@ -104,11 +107,11 @@ class ShipInfo extends React.Component {
 				}
 				{Object.keys(attachedSummary).length > 0 && <Entry key={reactKey++}>&nbsp;</Entry>}
 
-				{ship.enhancementTooltip != '' && isRevealed && <Entry key={reactKey++}><Header>ENHANCEMENTS:</Header>&nbsp;</Entry>}
-				{ship.enhancementTooltip != '' && isRevealed &&
+				{!hideEnhancements && ship.enhancementTooltip != '' && isRevealed && <Entry key={reactKey++}><Header>ENHANCEMENTS:</Header>&nbsp;</Entry>}
+				{!hideEnhancements && ship.enhancementTooltip != '' && isRevealed &&
 					Object.keys(enhArray).map(i => <Entry key={reactKey++}>{enhArray[i]}</Entry>)
 				}
-				{ship.enhancementTooltip != '' && isRevealed && <Entry key={reactKey++}>&nbsp;</Entry>}
+				{!hideEnhancements && ship.enhancementTooltip != '' && isRevealed && <Entry key={reactKey++}>&nbsp;</Entry>}
 
 			</InfoContainer>
 		);

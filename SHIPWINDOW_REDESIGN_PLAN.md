@@ -164,6 +164,56 @@ blue `rgba(73, 103, 145, 0.25)` (was blue `textAccent` on the dark `panelBg`
 fill). game.php EW panel only (lobby uses ShipNotesPanel). UI.bundle — needs
 `yarn build`; esbuild JSX parse clean.
 
+**Stage 4 feedback round 7 (2026-07-19) — applied (game.php Enhancements box +
+EW tooltip):** two user requests.
+1. **Gold Enhancements box promoted to game.php.** The standalone bottom-right
+   `enh` grid panel (`EnhancementsPanel`, ShipNotesPanel.js) — previously
+   lobby-only — now also renders in game.php's grid ship window, in the same
+   bottom-right spot it has in the lobby, below the EW panel. `withEnhPanel` in
+   `ShipWindow.js` dropped its `lobby &&` guard (now just
+   `Boolean(ship.enhancementTooltip)`); `buildTemplateAreas` already carves the
+   `enh` cell out of the bottom-right and the EW-panel span stops above it, so EW
+   (top) / Starboard (mid) / Enhancements (bottom) stack cleanly in the right
+   column. **Chrome width: 150px lobby / 130px game** (user follow-up 2026-07-19 — 150
+   everywhere read too wide on the game screen, the original 120 too tight). The
+   lobby/game `$wide` split is kept (`wide = isLobby()` in `renderControls`): `CtrlButton`
+   (Hit Chart / Notes) min-width `$wide ? 150 : 130`; `EnhArea` (ShipNotesPanel.js)
+   `$wide ? 150 : 130`; `EwPanel` (ShipWindowEw.js, game-only) flat 130. The box
+   **replaces** the old ENHANCEMENTS lines in the Notes popup: `ShipInfo.js` gained a
+   `hideEnhancements` prop (mirrors `hideHitChart`). It is passed **only when the gold
+   panel is actually shown** — `renderPopup` took a 4th `hideEnh` arg: the grid ship
+   window passes `withEnhPanel`, the compact variant passes `false`. So **mines/terrain
+   (compact variant, no gold panel) keep listing enhancements in the Notes popup**
+   (user 2026-07-19). The ship-level SystemInfo popup (SystemInfo.js) still lists them.
+   The Enhancements box header is its own styled component `EnhTitle`
+   (ShipNotesPanel.js) — seeded from the former `BlockTitle $gold` look but independent,
+   so it can be restyled without touching the Notes / Hangar Capacity / Flight Stats
+   titles (both enh render sites use it; `BlockTitle`'s `$gold` branch is now unused).
+2. **Ammo enhancements excluded from the Enhancements list.** Consumable
+   ammunition enhancements (missiles / railgun shells / launcher-loaded mines)
+   load an AmmoMagazine and already show in its system tooltip, so they are kept
+   out of the box. Done at the authoritative source, server-side:
+   `Enhancements::isAmmoEnhancement($enhID)` (prefix `AMMO_`/`SHELL_` + an explicit
+   launcher-mine list — the `MINE_BL*/ML*/AML/BML/CML` ammo, distinct from the
+   `MINE_ACC/ARM/DMG/...` mine-SHIP enhancements) now guards the `enhancementTooltip`
+   append in both `setEnhancementsShip` and `setEnhancementsFighter` (the effect
+   switch incl. `addAmmoEntry` still runs). This exactly mirrors the lobby, which
+   already routes ammo into `ammoMagazine.data["Special"]` and never into
+   `enhancementTooltip` (lobbyEnhancements.js §"end of non-ammo enhancements list")
+   — so game.php and lobby are now consistent. Client can't do this filtering
+   (it only receives the `enhancementTooltip` string, not the structured
+   `enhancementOptions`). Verified: esbuild JSX parse (ShipWindow/ShipNotesPanel/
+   ShipWindowEw/ShipInfo) + `php -l` Enhancements.php (Docker, both container
+   paths). UI.bundle + server PHP changed; no legacy-bundle change. Open note for
+   the user: in game.php the box shows enemy-ship enhancements too (same data the
+   Notes popup already exposed — no new leak, but now always-visible).
+3. **EW target-name `title` tooltip suppressed** (`ShipWindowEw.js`): the
+   OEW/DIST/SOEW/SDEW rows already show the target name as their visible text, so
+   the redundant native hover tooltip is off. Kept trivially reversible via a
+   module-level `const SHOW_EW_TARGET_TOOLTIP = false` (flip to true to restore);
+   `title={SHOW_EW_TARGET_TOOLTIP ? target.name : undefined}`. game.php only
+   (interactive rows exist only where a map does).
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)

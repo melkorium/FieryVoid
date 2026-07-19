@@ -3,6 +3,12 @@ import styled, { css } from "styled-components"
 
 import theme from "../styled/theme";
 
+/*The EW target rows (OEW/DIST/SOEW/SDEW) already show the target's name as their
+  visible text, so the native `title` hover tooltip that repeated it was redundant.
+  Suppressed 2026-07-19 (user request, game.php EW list). Flip this to true to bring
+  the hover tooltip back.*/
+const SHOW_EW_TARGET_TOOLTIP = false;
+
 /*EW panel (SHIPWINDOW_REDESIGN_PLAN.md Stages 1c/1e, vertical top-right layout after
   the 2026-07-16 feedback round): occupies the `ew` grid area - the top-right corner
   cell of the ship window's SCS grid - as a vertical list. Same numbers, same maths
@@ -21,7 +27,7 @@ const EwPanel = styled.div`
     align-self: start;
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
-    width: 120px;
+    width: 130px; /*matches the Hit Chart / Notes / Enhancements chrome in game (user 2026-07-19)*/
     box-sizing: border-box;
     background-color: ${theme.colors.panelBgGlass};
     border: 1px solid ${theme.colors.line};
@@ -44,7 +50,6 @@ const EwTitle = styled.div`
     margin: -1px -2px 2px;
     padding: 3px 4px;
     border-bottom: 1px solid ${theme.colors.line};
-    text-align: center;
 `;
 
 const Row = styled.div`
@@ -68,6 +73,7 @@ const RowLabel = styled.span`
 const RowValue = styled.span`
     font-family: ${theme.fonts.mono};
     font-size: 10px;
+    margin-right: 5px;    
 `;
 
 const RowTarget = styled.span`
@@ -190,7 +196,7 @@ const getTargetRows = (ship, component) => {
                     <RowLabel>{ewEntry.type}</RowLabel>
                     <RowTarget
                         $interactive={interactive}
-                        title={target.name}
+                        title={SHOW_EW_TARGET_TOOLTIP ? target.name : undefined}
                         onClick={interactive ? component.onTargetClick.bind(component, target) : undefined}
                         onMouseEnter={interactive ? () => component.setTargetHighlight(target, ewEntry.type, true) : undefined}
                         onMouseLeave={interactive ? () => component.setTargetHighlight(target, ewEntry.type, false) : undefined}

@@ -176,6 +176,23 @@ const AgileRow = styled.div`
     padding-top: 2px;
 `;
 
+/*Dedicated header for the Enhancements box (user request 2026-07-19): its own styled
+  component so it can be tweaked freely without touching the other block titles
+  (Notes / Hangar Capacity / Flight Stats). Seeded from the former gold BlockTitle
+  ($gold) look, so it starts identical - change anything below to taste.*/
+const EnhTitle = styled.div`
+    font-size: 8px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    color: #e8cf93;
+    background-color: rgba(169, 128, 56, 0.30);
+    border-bottom: 1px solid #8a6d3b;
+    margin: 0 -8px 3px;
+    padding: 2px 6px 2px 4px;
+`;
+
 /*Enhancements as a standalone bottom-right grid panel (feedback round 3): keeping it
   out of the `ew` datasheet stack stops long enhancement lists inflating grid row 1
   and pushing Forward away from Primary.*/
@@ -185,11 +202,13 @@ const EnhArea = styled.div`
     align-self: start; /*top of its cell - starts directly below the Starboard section (feedback round 5)*/
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
-    width: 150px;
+    /*$wide: 150px in the lobby (matches the datasheet panels); 130px in game (user
+      2026-07-19: 150 too wide, matches the EW panel it sits below)*/
+    width: ${props => props.$wide ? '150px' : '130px'};
     box-sizing: border-box;
     font-size: 10px;
     line-height: 1.4;
-    color: ${theme.colors.textAccent};
+    color: ${theme.colors.enhText};
 `;
 
 //legacy parity: TC/TD to two decimals, Profile as defense * 5, Ini raw
@@ -215,15 +234,17 @@ export const ManoeuvreStats = ({ ship }) => {
     );
 };
 
-//standalone bottom-right Enhancements panel for the lobby grid window; the rail
-//keeps its inline block for flight/mine variants (no grid there)
+//standalone bottom-right Enhancements panel for the grid window (both the lobby and
+//game.php, 2026-07-19); the rail keeps its inline block for flight/mine variants (no
+//grid there)
 export const EnhancementsPanel = ({ ship }) => {
     const enhLines = splitHtmlLines(ship.enhancementTooltip);
     if (enhLines.length === 0) return null;
+    const wide = Boolean(window.gamedata) && window.gamedata.gamephase === -2; //lobby: 150px; game.php: 130px
     return (
-        <EnhArea>
+        <EnhArea $wide={wide}>
             <Block $gold>
-                <BlockTitle $gold>Enhancements</BlockTitle>
+                <EnhTitle>Enhancements</EnhTitle>
                 {enhLines.map((line, i) => <Row key={`enh-${i}`}>{line}</Row>)}
             </Block>
         </EnhArea>
@@ -293,7 +314,7 @@ class ShipNotesPanel extends React.Component {
 
                 {enhLines.length > 0 && (
                     <Block $gold>
-                        <BlockTitle $gold>Enhancements</BlockTitle>
+                        <EnhTitle>Enhancements</EnhTitle>
                         {enhLines.map((line, i) => <Row key={`enh-${i}`}>{line}</Row>)}
                     </Block>
                 )}
