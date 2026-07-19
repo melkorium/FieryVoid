@@ -80,7 +80,9 @@ class Thoughtforce extends MindriderCapital{
 		$tPulsar->addTag("Trioptic Pulsar");
 		$this->addLeftFrontSystem($tPulsar);
         //$this->addLeftAftSystem(new MindriderThruster(6, 35, 0, 12, 3));  
-        $this->addLeftSystem(new MindriderThruster(6, 35, 0, 12, 3));   		                                                             
+        $thrust = new MindriderThruster(6, 35, 0, 12, 3);
+		$thrust->overkillArcStructures = array(31, 42); //overkill spills to whichever Port quarter is in arc
+		$this->addLeftSystem($thrust);   		                                                             
 
 		$this->addRightAftSystem(new ThoughtShield(0, 50, 25, 90, 180, 'AS'));		
 		$this->addRightAftSystem(new SelfRepair(6, 6, 3)); //armor, structure, output 
@@ -88,7 +90,9 @@ class Thoughtforce extends MindriderCapital{
 		$tPulsar->addTag("Trioptic Pulsar");
 		$this->addRightFrontSystem($tPulsar);	         
         //$this->addRightAftSystem(new MindriderThruster(6, 35, 0, 12, 4));   
-        $this->addRightSystem(new MindriderThruster(6, 35, 0, 12, 4)); 		 			                  		                      
+        $thrust = new MindriderThruster(6, 35, 0, 12, 4);
+		$thrust->overkillArcStructures = array(41, 32); //overkill spills to whichever Stbd quarter is in arc
+		$this->addRightSystem($thrust); 		 			                  		                      
               			          
 		//structures
         $this->addLeftFrontSystem(new Structure(7, 88));

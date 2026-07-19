@@ -3616,7 +3616,6 @@ spl_autoload_register(
                 'xill' => '/server/model/ships/vree/Xill.php',
                 'ximm' => '/server/model/ships/vree/Ximm.php',
                 'xixx' => '/server/model/ships/vree/Xixx.php',
-                'xonn' => '/server/model/ships/vree/Xonn.php',
                 'xonnupdated' => '/server/model/ships/vree/XonnUpdated.php',
                 'xorr' => '/server/model/ships/vree/Xorr.php',
                 'xotia' => '/server/model/ships/vree/XotiA.php',
