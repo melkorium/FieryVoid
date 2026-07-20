@@ -272,13 +272,42 @@ shipManager.power = {
 			var deployTurn = shipManager.getTurnDeployed(ship);
 			if (deployTurn > gamedata.turn) continue;  //Don't bother checking for ships that haven't deployed yet.
 
-			if (shipManager.power.getReactorPower(ship, shipManager.systems.getSystemByName(ship, "reactor")) < 0) {
+			//Discount power drawn by systems that are locked online and cannot be
+			//voluntarily shut down (deployed Kirishiac orbital beams). That draw can
+			//never be freed by the player, so a reactor output-reduction crit could
+			//otherwise leave the ship permanently unable to reach a non-negative
+			//balance and block the commit. See getUnfreeableLockedPower.
+			var reactorPower = shipManager.power.getReactorPower(ship, shipManager.systems.getSystemByName(ship, "reactor"));
+			reactorPower += shipManager.power.getUnfreeableLockedPower(ship);
+
+			if (reactorPower < 0) {
 				shipNames[counter] = ship.name;
 				counter++;
 			}
 		}
 
 		return shipNames;
+	},
+
+	//Sum the powerReq of systems that are powered on but locked online — i.e. cannot
+	//be voluntarily powered down by the player. Currently this is the Kirishiac
+	//Antigravity / Hypergraviton Beams (and orbital torpedo / Augmenter) while their
+	//Orbital is deployed: powerLocked is set true (server: !stowed) and copyLastTurnPower
+	//forces them back online every turn. Because that draw can never be freed, it must be
+	//discounted from the "turn systems off to cover a reactor output reduction" commit
+	//check (getShipsNegativePower); otherwise an OutputReduced crit blocks the commit with
+	//no legal way to comply. Only counts currently-drawing systems (not destroyed, not
+	//offline) so it never double-counts power already credited back by getReactorPower.
+	getUnfreeableLockedPower: function getUnfreeableLockedPower(ship) {
+		var locked = 0;
+		for (var i in ship.systems) {
+			var system = ship.systems[i];
+			if (!system.powerLocked) continue;
+			if (shipManager.systems.isDestroyed(ship, system)) continue;
+			if (shipManager.power.isOfflineOnTurn(ship, system, gamedata.turn)) continue;
+			locked += system.powerReq;
+		}
+		return locked;
 	},
 
 	//like getShipsNegativePower BUT only looks for PowerCapacitor-equipped ships
