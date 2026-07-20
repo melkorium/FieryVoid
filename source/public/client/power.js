@@ -272,15 +272,17 @@ shipManager.power = {
 			var deployTurn = shipManager.getTurnDeployed(ship);
 			if (deployTurn > gamedata.turn) continue;  //Don't bother checking for ships that haven't deployed yet.
 
-			//Discount power drawn by systems that are locked online and cannot be
-			//voluntarily shut down (deployed Kirishiac orbital beams). That draw can
-			//never be freed by the player, so a reactor output-reduction crit could
-			//otherwise leave the ship permanently unable to reach a non-negative
-			//balance and block the commit. See getUnfreeableLockedPower.
+			//A reactor output-reduction crit forces the player to power systems down until
+			//the reactor balance is non-negative. Some systems draw reactor power yet CANNOT
+			//be voluntarily powered down (deployed Kirishiac orbital beams: powerLocked, and
+			//copyLastTurnPower forces them back online) — their draw is real and stays counted
+			//in getReactorPower. So the rule is: block while there is still a deficit AND the
+			//player has at least one eligible system left to switch off. Once every switchable
+			//system is already off, the residual deficit is unavoidable (locked draw only) and
+			//the commit is allowed — the player is not blocked with no legal move.
 			var reactorPower = shipManager.power.getReactorPower(ship, shipManager.systems.getSystemByName(ship, "reactor"));
-			reactorPower += shipManager.power.getUnfreeableLockedPower(ship);
 
-			if (reactorPower < 0) {
+			if (reactorPower < 0 && shipManager.power.getRemainingFreeablePower(ship) > 0) {
 				shipNames[counter] = ship.name;
 				counter++;
 			}
@@ -289,25 +291,27 @@ shipManager.power = {
 		return shipNames;
 	},
 
-	//Sum the powerReq of systems that are powered on but locked online — i.e. cannot
-	//be voluntarily powered down by the player. Currently this is the Kirishiac
-	//Antigravity / Hypergraviton Beams (and orbital torpedo / Augmenter) while their
-	//Orbital is deployed: powerLocked is set true (server: !stowed) and copyLastTurnPower
-	//forces them back online every turn. Because that draw can never be freed, it must be
-	//discounted from the "turn systems off to cover a reactor output reduction" commit
-	//check (getShipsNegativePower); otherwise an OutputReduced crit blocks the commit with
-	//no legal way to comply. Only counts currently-drawing systems (not destroyed, not
-	//offline) so it never double-counts power already credited back by getReactorPower.
-	getUnfreeableLockedPower: function getUnfreeableLockedPower(ship) {
-		var locked = 0;
+	//Total reactor power the player could still free by voluntarily powering systems down
+	//RIGHT NOW — the powerReq of every system that is currently drawing power and is still
+	//eligible for the phase-1 Off toggle. Mirrors the client Off-button gate
+	//(SystemPowerSettings / SystemInfoButtons): a system is switchable when it draws power
+	//(powerReq > 0), is NOT powerLocked (deployed orbital beams are — they draw power but
+	//can't be switched off), is not already offline, is not destroyed, and has no firing
+	//order. getShipsNegativePower uses this to tell "you still have load to shed" (> 0, keep
+	//blocking) from "everything switchable is already off" (0, allow the residual deficit).
+	getRemainingFreeablePower: function getRemainingFreeablePower(ship) {
+		var freeable = 0;
 		for (var i in ship.systems) {
 			var system = ship.systems[i];
-			if (!system.powerLocked) continue;
+			if (system.name == "reactor") continue;
+			if (!(system.powerReq > 0)) continue;            //nothing to free by switching it off
+			if (system.powerLocked) continue;                //deployed orbital beam etc. — draws power but cannot be switched off
 			if (shipManager.systems.isDestroyed(ship, system)) continue;
-			if (shipManager.power.isOfflineOnTurn(ship, system, gamedata.turn)) continue;
-			locked += system.powerReq;
+			if (shipManager.power.isOfflineOnTurn(ship, system, gamedata.turn)) continue;  //already off
+			if (weaponManager.hasFiringOrder(ship, system)) continue;  //locked on by a declared fire order
+			freeable += system.powerReq;
 		}
-		return locked;
+		return freeable;
 	},
 
 	//like getShipsNegativePower BUT only looks for PowerCapacitor-equipped ships
