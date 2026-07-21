@@ -103,7 +103,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
     <span>|</span>
     <a href="chpass.php">Change password</a>
     <span>|</span>
-    <a href="profile.php">Set-Up Turn Notifications</a>
+    <a href="profile.php">Set-Up Discord Notifications</a>
     <a href="logout.php" class="btn btn-primary">Logout</a>
   </div>
 </header>
