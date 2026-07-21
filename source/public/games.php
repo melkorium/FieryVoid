@@ -139,7 +139,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
         <!--<li style="color: #cc0000ff;"><strong>Merry Christmas from Fiery Void!</strong></li>-->    
         <li><strong>KIRISHIAC LORDS</strong> - A brand-new Ancient faction has been added to Fiery Void!</li>  
         <li><strong>Ship Window Revamp</strong> - Ship windows (SCS) have been updated in Game and Fleet Selection screens to improve appearance and functionality.</li> 
-        <li><strong>Discord Notifications</strong> - You can now add your Discord account details in 'Set-Up Turn Notifications' to get a message when it's your turn.  See <a href="./faq.php" target="_blank" rel="noopener noreferrer">Fiery Void FAQ:</a> for details.</li>           
+        <li><strong>Discord Notifications</strong> - You can now add your Discord account details in 'Set-Up Discord Notifications' to get a message when it's your turn.  See <a href="./faq.php" target="_blank" rel="noopener noreferrer">Fiery Void FAQ:</a> for details.</li>           
         <li><strong>Civilians and Raiders</strong> - A plethora of official and custom Civilian ships added for a huge number of factions (thanks to Lunara).</li>          
         <li><strong>Sh'lassan and Mentaban</strong> - Added these two Small Race factions which utilise exported EA hulls (thanks to Lunara).</li>                                                              
         <li><strong>General Fixes</strong> - Many other small bug fixes/updates. Thanks for the reports!</li>           
