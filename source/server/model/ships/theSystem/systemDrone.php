@@ -9,6 +9,7 @@ class systemDrone extends FighterFlight{
 		$this->phpclass = "systemDrone";
 		$this->shipClass = "Drone";
 		$this->imagePath = "img/ships/systemDrone.png";
+		$this->unofficial = true;
 	    
 		$this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
