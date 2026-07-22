@@ -220,6 +220,74 @@ EW tooltip):** two user requests.
    `title={SHOW_EW_TARGET_TOOLTIP ? target.name : undefined}`. game.php only
    (interactive rows exist only where a map does).
 
+**Post-Stage-4 improvements round 8 (2026-07-22) — BUILT, awaiting user test
+(UI.bundle only, `yarn build`; four user requests):**
+1. **EW row labels colour-coded** (`ShipWindowEw.js`, game.php EW panel): only the
+   LABELS are tinted, never the values or target names. `EW_LABEL_COLORS` map +
+   `ewLabelColor()`; `RowLabel` took a `$color` prop. Muted pastels on the dark panel:
+   DEW white, CCEW+SDEW soft blue `#9dc3e6`, OEW+BDEW soft green `#9ccf97`, the two
+   detect rows ("Detect Mines"/"Detect Stealth") soft purple `#c2a7dd`, DIST+SOEW soft
+   orange `#e6b98f`. The user's spec had two overlaps (OEW under green AND orange; SDEW
+   under blue AND purple) — resolved: target SDEW→blue, the detect rows (the spec's
+   MDEW/SDEW)→purple, OEW→green, SOEW→orange. Retune via the one map.
+2. **Section-header text vertical alignment** (`ShipSection.js`): the section name
+   (`SectionName`, 8px arial) and structure readout (`StructureText`, 10px mono) both
+   got `line-height: 1` so `align-items:center` co-centres two tight glyph boxes instead
+   of the fonts' differing default line boxes (Consolas's large Windows line-gap made the
+   mono readout's box tall/centred while the smaller arial name read high — the
+   "top-aligned label vs centred value" jarring the user reported).
+3. **Lobby Hit Chart button moved to bottom-left** (`ShipWindow.js`, lobby grid only):
+   new `hcbtn` grid area carved from the bottom-LEFT cell by `buildTemplateAreas` (3rd
+   arg `withHcBtn`), mirroring `enh` bottom-right; `HitChartArea` component +
+   `renderLobbyHitChart()`. The manoeuvre-stats (`ManoeuvreStats`) stay top-left in
+   `ctrl`; the `ctrl` span stops above `hcbtn`. Net lobby symmetry: Ship Stats top-left /
+   datasheet top-right / Hit Chart+Art bottom-left / Enhancements bottom-right. The Hit
+   Chart popup now anchors to the button's actual position via `getAnchorBelow(ref)`
+   (lobby → `hitChartAreaRef`; game/compact → `controlsRef`), replacing the fixed
+   `top:78`/`72` — also fixes the game 3-button overlap from item 4.
+4. **"Ship Art" toggle** (`ShipWindow.js`, both pages): hides the sections/icons and
+   overlays the hull art in FULL colour (`ArtCover` opaque backdrop + `ArtCoverImage`,
+   the square nose-up `rotate(-90deg)` watermark treatment minus grayscale, at 88%), with
+   its own toggle to switch back. Per-window `state.showArt`; `toggleArt()`;
+   `artAvailable(ship)` (has imagePath, not a flight). Button placement: game.php →
+   between Hit Chart and Notes in the top-left `ctrl` block; lobby → beneath the moved Hit
+   Chart button in `hcbtn`. Icon is a CSS-drawn monochrome "picture" glyph (`ArtIcon`,
+   sun+mountain in a frame) — matching the codebase's no-emoji chrome convention
+   (cf. `StatsIcon`). Rendered for grid + compact/terrain windows; not flights.
+   Verified: esbuild JSX parse ×3 + bundle-resolve of ShipWindow.js. UI.bundle only.
+
+**Post-Stage-4 improvements round 9 (2026-07-22) — BUILT, awaiting user test
+(UI.bundle only; four refinements to round 8):**
+1. **Hit Chart button reverted to the lobby top-left** (`ShipWindow.js`): back in the
+   `ctrl` block above Ship Stats, exactly as pre-round-8 (`renderControls` renders it on
+   every page again; the round-8 bottom-left move undone). Its popup now anchors to the
+   button itself (`hitChartBtnRef` + `getAnchorBelow`) in the lobby so it stays attached
+   over the tall Ship Stats panel; game/Notes/compact still drop below the whole control
+   block.
+2. **Ship Art toggle bottom-aligned in the lobby** (`ShipWindow.js`): it KEEPS the
+   bottom-left grid cell (renamed `hcbtn`→`artbtn`; `ArtButtonArea`/`renderLobbyArt`;
+   `buildTemplateAreas` 3rd arg `withArtBtn = lobby && artAvailable`), now
+   `align-self: end` so it sits flush with the bottom of its section (was `start`/top).
+   Net lobby symmetry: Hit Chart+Ship Stats ↖ / datasheet ↗ / Ship Art ↙ / Enhancements ↘.
+   game.php keeps Ship Art between Hit Chart and Notes in `ctrl`.
+3. **Ship Art mode rebuilt to recolour-in-place** (`ShipWindow.js` + `ShipSection.js`):
+   the opaque `ArtCover`/`ArtCoverImage` overlay is GONE (it used a different 88% size, so
+   toggling nudged the image — the "resizing is jarring" report). Now the SAME
+   `WatermarkLayer` turns full colour via a `$art` prop (`filter:none; opacity:1`), and only
+   the `ShipSection` panels hide — `$hidden` → `visibility:hidden` (keeps grid footprint so
+   nothing resizes). Every chrome block stays visible per request (Hit Chart / Ship Stats /
+   Hangar Capacity / Notes / Enhancements / Electronic Warfare); the toggle itself stays in
+   place. Grid + compact/terrain; not flights/unrevealed-mines.
+4. **All chrome title/header bars vertically centred** (`ShipWindow.js` `CtrlButton`,
+   `ShipSection.js` `SectionHeader` texts, `ShipWindowEw.js` `EwTitle`, `ShipNotesPanel.js`
+   `BlockTitle`/`EnhTitle`/`StatsTitle`): unified to `display:flex; align-items:center;
+   min-height:15px; line-height:1;` horizontal-only padding — one consistent 15px bar. The
+   **healthbar**: the readout KEEPS the mono font the user prefers (`theme.fonts.mono`); the
+   arial name centres a touch high against it, so `SectionName` gets a 1px downward `top`
+   nudge to sit level (2026-07-22 follow-up — the interim "make both `theme.fonts.body`" was
+   reverted). CtrlButton/StatsTitle changed from baseline to center alignment.
+   Verified: esbuild JSX parse ×4 + bundle-resolve. UI.bundle only.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)

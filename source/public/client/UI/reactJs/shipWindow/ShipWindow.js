@@ -187,11 +187,12 @@ const ControlsArea = styled.div`
 
 const CtrlButton = styled.div`
     display: flex;
-    /*baseline, not center: the 12px glyph and 8px label share a text baseline, so
-      the label no longer floats high beside the icon (feedback 2026-07-17)*/
-    align-items: baseline;
+    /*center: icon + label are vertically centred in the button, consistent with every
+      other chrome title/header bar (user request 2026-07-22)*/
+    align-items: center;
+    line-height: 1;
     gap: 4px;
-    padding: 2px 6px 4px 4px;
+    padding: 3px 6px 3px 4px;
     box-sizing: border-box;
     /*chrome column width: 150px datasheet panels in the lobby ($wide), 130px in game
       (user 2026-07-19: 150 was too wide on the game screen, 120 too tight) - matches the
@@ -213,6 +214,60 @@ const CtrlIcon = styled.span`
     font-size: 12px;
     line-height: 1;
     color: inherit;
+`;
+
+/*Small monochrome "picture" glyph for the Ship Art toggle (item 4, 2026-07-22). Drawn
+  in CSS rather than an emoji to stay monochrome and match the chrome - same convention
+  as ShipNotesPanel's StatsIcon. A framed box with a sun (top-right dot) and a mountain
+  (bottom-left triangle): the universal image/graphic mark. currentColor tracks the
+  button's text colour.*/
+const ArtIcon = styled.span`
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+    align-self: center;
+    box-sizing: border-box;
+    width: 12px;
+    height: 10px;
+    border: 1px solid currentColor;
+    overflow: hidden;
+    &::before { /*sun*/
+        content: "";
+        position: absolute;
+        top: 1.5px;
+        right: 1.5px;
+        width: 2.5px;
+        height: 2.5px;
+        border-radius: 50%;
+        background-color: currentColor;
+    }
+    &::after { /*mountain*/
+        content: "";
+        position: absolute;
+        left: -1px;
+        bottom: -1px;
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 7px solid transparent;
+        border-bottom: 5px solid currentColor;
+    }
+`;
+
+/*Lobby only: the Ship Art toggle sits in the bottom-left `artbtn` grid area -
+  underneath the lowest Port section - mirroring the Enhancements block bottom-right.
+  align-self:end pins it to the BOTTOM of its cell (item 2, 2026-07-22: flush with the
+  bottom of the adjacent section). The Hit Chart button lives in the top-left control
+  block on every page (item 1 revert); in game.php the Ship Art toggle stays there too.*/
+const ArtButtonArea = styled.div`
+    grid-area: artbtn;
+    justify-self: center;
+    align-self: end;
+    position: relative; /*above the watermark + ship-click underlay*/
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 `;
 
 /*Shared popup box for the Hit Chart / Notes panels: anchored below the control
@@ -299,10 +354,15 @@ const FlightArea = styled.div`
     max-width: 400px;
 `;
 
-/*Monochrome hull art behind the sections, nose-up like the old thumbnail. Purely
-  decorative: pointer-events pass through to the ship hit underlay below. Sized as a
-  square from the body's HEIGHT (clamped by width) so short windows never crop the art
-  vertically - a centre-cropped slice is what made satellites look "stretched".*/
+/*Hull art behind the sections, nose-up like the old thumbnail. Purely decorative:
+  pointer-events pass through to the ship hit underlay below. Sized as a square from the
+  body's HEIGHT (clamped by width) so short windows never crop the art vertically - a
+  centre-cropped slice is what made satellites look "stretched".
+
+  $art (Ship Art toggle, item 3/4): the SAME layer turns full colour in place - no
+  grayscale, full opacity - while the sections are hidden around it. Because it is the
+  very same element at the very same size, toggling never resizes or shifts the image
+  (the earlier separate-overlay approach nudged the art, which read as jarring).*/
 const WatermarkLayer = styled.div`
     position: absolute;
     top: 50%;
@@ -317,8 +377,8 @@ const WatermarkLayer = styled.div`
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: grayscale(1) brightness(2.1);
-    opacity: 0.7;
+    filter: ${props => props.$art ? 'none' : 'grayscale(1) brightness(2.1)'};
+    opacity: ${props => props.$art ? 1 : 0.7};
     pointer-events: none;
     z-index: 0;
 `;
@@ -418,9 +478,14 @@ class ShipWindow extends React.Component {
         this.elementRef = React.createRef();
         this.controlsRef = React.createRef();
         this.popupRef = React.createRef();
+        //the Hit Chart popup drops from directly below this button (the button sits in the
+        //top-left control block; measuring the button rather than the whole block keeps the
+        //lobby popup attached to it, above the Ship Stats panel)
+        this.hitChartBtnRef = React.createRef();
         //openPanel: clicked open (sticky until click-outside); hoverNotes: desktop
-        //hover peek on the Notes button/popup, hides shortly after mouse-out
-        this.state = { openPanel: null, hoverNotes: false }; //openPanel: null | 'hitchart' | 'notes'
+        //hover peek on the Notes button/popup, hides shortly after mouse-out; showArt:
+        //Ship Art toggle - hides the sections and shows the hull art in full colour
+        this.state = { openPanel: null, hoverNotes: false, showArt: false }; //openPanel: null | 'hitchart' | 'notes'
         this.notesHoverTimer = null;
         this.onDocumentPointerDown = this.onDocumentPointerDown.bind(this);
     }
@@ -607,6 +672,14 @@ class ShipWindow extends React.Component {
         this.setState(state => ({ openPanel: state.openPanel === name ? null : name }));
     }
 
+    //Ship Art toggle (item 4, 2026-07-22): overlay the window body with the ship's own
+    //art in full colour, hiding the section grid/icons. Closing any open popup on entry
+    //keeps the focused-art view clean.
+    toggleArt(event) {
+        if (event) event.stopPropagation();
+        this.setState(state => ({ showArt: !state.showArt, openPanel: null }));
+    }
+
     renderHeader(shipName, unitName, tint) {
         return (
             <Header className="shipwindow-drag-handle">
@@ -617,34 +690,72 @@ class ShipWindow extends React.Component {
         );
     }
 
-    renderControls(withHitChart, withNotes, compact, withStats) {
-        if (!withHitChart && !withNotes && !withStats) return null;
-
+    renderHitChartButton(wide) {
         const { openPanel } = this.state;
-        const wide = isLobby(); //150px datasheet panels in the lobby, 130px in game
+        return (
+            <CtrlButton ref={this.hitChartBtnRef} $wide={wide} $active={openPanel === 'hitchart'} onClick={this.togglePanel.bind(this, 'hitchart')}>
+                <CtrlIcon>⊕</CtrlIcon>Hit Chart
+            </CtrlButton>
+        );
+    }
+
+    renderArtButton(wide) {
+        return (
+            <CtrlButton $wide={wide} $active={this.state.showArt} onClick={this.toggleArt.bind(this)}>
+                <ArtIcon />Ship Art
+            </CtrlButton>
+        );
+    }
+
+    renderNotesButton(wide) {
+        const { openPanel } = this.state;
+        return (
+            <CtrlButton
+                $wide={wide}
+                $active={openPanel === 'notes'}
+                onClick={this.togglePanel.bind(this, 'notes')}
+                onMouseEnter={this.onNotesHoverStart.bind(this)}
+                onMouseLeave={this.onNotesHoverEnd.bind(this)}
+            >
+                <CtrlIcon>✎</CtrlIcon>Notes
+            </CtrlButton>
+        );
+    }
+
+    /*Top-left control block. game.php: Hit Chart / Ship Art / Notes. In the lobby the Hit
+      Chart button is here too (item 1 revert 2026-07-22 - back to its original lobby spot)
+      with the manoeuvre stats beneath it; only the Ship Art toggle moves to the bottom-left
+      artbtn area (renderLobbyArt). Compact windows (mines/terrain) keep every button here.*/
+    renderControls(withHitChart, withNotes, compact, withStats) {
+        const lobby = isLobby();
+        const showArtBtn = artAvailable(this.props.ship);
+        //lobby grid routes the Ship Art toggle to the bottom-left artbtn area instead
+        const artHere = showArtBtn && (compact || !lobby);
+
+        if (!withHitChart && !withNotes && !withStats && !artHere) return null;
+
+        const wide = lobby; //150px datasheet panels in the lobby, 130px in game
 
         return (
             <ControlsArea ref={this.controlsRef} $compact={compact}>
-                {withHitChart && (
-                    <CtrlButton $wide={wide} $active={openPanel === 'hitchart'} onClick={this.togglePanel.bind(this, 'hitchart')}>
-                        <CtrlIcon>⊕</CtrlIcon>Hit Chart
-                    </CtrlButton>
-                )}
-                {withNotes && (
-                    <CtrlButton
-                        $wide={wide}
-                        $active={openPanel === 'notes'}
-                        onClick={this.togglePanel.bind(this, 'notes')}
-                        onMouseEnter={this.onNotesHoverStart.bind(this)}
-                        onMouseLeave={this.onNotesHoverEnd.bind(this)}
-                    >
-                        <CtrlIcon>✎</CtrlIcon>Notes
-                    </CtrlButton>
-                )}
+                {withHitChart && this.renderHitChartButton(wide)}
+                {artHere && this.renderArtButton(wide)}
+                {withNotes && this.renderNotesButton(wide)}
                 {/*lobby: manoeuvre stats live under the Hit Chart button (user layout
-                   decision 2026-07-17), leaving the right rail to complement/notes*/}
+                   decision 2026-07-17)*/}
                 {withStats && <ManoeuvreStats ship={this.props.ship} />}
             </ControlsArea>
+        );
+    }
+
+    //Lobby grid only (item 2, 2026-07-22): the Ship Art toggle in the bottom-left artbtn
+    //grid area, bottom-aligned (underneath the lowest Port section).
+    renderLobbyArt() {
+        if (!artAvailable(this.props.ship)) return null;
+        return (
+            <ArtButtonArea>
+                {this.renderArtButton(true)}
+            </ArtButtonArea>
         );
     }
 
@@ -665,6 +776,22 @@ class ShipWindow extends React.Component {
         );
     }
 
+    //popup anchor (top/left relative to the window container): the popup drops just below
+    //the given control block, its left edge aligned to it. Measured live because the
+    //control column's size depends on grid tracks the CSS resolves at render. Falls back
+    //to a fixed top (and the measured left) if the ref isn't mounted yet.
+    getAnchorBelow(ref, fallbackTop) {
+        const el = ref && ref.current;
+        const container = this.elementRef.current;
+        if (!el || !container) return { top: fallbackTop, left: this.getButtonLeft() };
+        const eRect = el.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        return {
+            left: Math.round(eRect.left - cRect.left - container.clientLeft),
+            top: Math.round(eRect.bottom - cRect.top - container.clientTop) + 4,
+        };
+    }
+
     renderPopup(withHitChart, withNotes, top) {
         const { ship } = this.props;
         const { openPanel, hoverNotes } = this.state;
@@ -673,18 +800,23 @@ class ShipWindow extends React.Component {
         const shown = openPanel || (hoverNotes && withNotes ? 'notes' : null);
         if (!shown) return null;
 
-        const left = this.getButtonLeft();
+        //the lobby stacks Hit Chart + the tall Ship Stats panel in the control block, so
+        //its Hit Chart popup drops from the BUTTON (staying attached to it, over Ship Stats)
+        //rather than the whole block; game.php / Notes / compact drop below the whole block
+        //(keeps the popup clear of the buttons now that game.php stacks three of them).
+        const anchorRef = (shown === 'hitchart' && isLobby()) ? this.hitChartBtnRef : this.controlsRef;
+        const { top: anchorTop, left } = this.getAnchorBelow(anchorRef, top);
 
         if (shown === 'hitchart' && withHitChart) {
             //$fit (feedback 2026-07-17, supersedes round 5's full-width span): the
             //geographic columns size themselves, so the popup shrink-wraps them
-            return <PopupHolder ref={this.popupRef} $top={top} $left={left} $fit><HitChartPanel ship={ship} /></PopupHolder>;
+            return <PopupHolder ref={this.popupRef} $top={anchorTop} $left={left} $fit><HitChartPanel ship={ship} /></PopupHolder>;
         }
         if (shown === 'notes' && withNotes) {
             return (
                 <PopupHolder
                     ref={this.popupRef}
-                    $top={top}
+                    $top={anchorTop}
                     $left={left}
                     $fit
                     $notes
@@ -776,11 +908,13 @@ class ShipWindow extends React.Component {
                 {this.renderHeader(shipName, unitName, null)}
                 <CompactBody>
                     <ShipHitArea onClick={this.onShipClick.bind(this)} />
-                    <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} />
+                    {/*Ship Art (item 3): the SAME watermark turns full colour in place while
+                       the sections hide - no resize*/}
+                    <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} $art={this.state.showArt} />
                     {/*compact windows: vertical button list above the sections*/}
                     {this.renderControls(withHitChart, withNotes, true)}
                     {COMPACT_LOCATIONS.map(location => systemsByLocation[location].length > 0 && (
-                        <ShipSection key={`section-${ship.id}-${location}`} location={location} nameOverride={nameOverrides[location]} ship={ship} systems={systemsByLocation[location]} isTerrain />
+                        <ShipSection key={`section-${ship.id}-${location}`} location={location} nameOverride={nameOverrides[location]} ship={ship} systems={systemsByLocation[location]} isTerrain hidden={this.state.showArt} />
                     ))}
                 </CompactBody>
                 {renderStatusBanners(ship)}
@@ -798,7 +932,10 @@ class ShipWindow extends React.Component {
         //excluded server-side (Enhancements::isAmmoEnhancement) so ship.enhancementTooltip
         //carries only the enhancements worth surfacing here.
         const withEnhPanel = Boolean(ship.enhancementTooltip);
-        const areas = buildTemplateAreas(systemsByLocation, withEnhPanel);
+        //lobby (item 2): the Ship Art toggle gets its own bottom-left grid area, mirroring
+        //the Enhancements block bottom-right (Hit Chart is back in the top-left ctrl block)
+        const withArtBtn = lobby && artAvailable(ship);
+        const areas = buildTemplateAreas(systemsByLocation, withEnhPanel, withArtBtn);
         const isBigBase = ship.base && !ship.smallBase;
 
         //lobby: manoeuvre stats under the ctrl buttons, and the always-visible
@@ -807,8 +944,11 @@ class ShipWindow extends React.Component {
         const sectionGrid = (
             <SectionGrid $areas={areas}>
                 <ShipHitArea onClick={this.onShipClick.bind(this)} />
-                <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} />
+                {/*Ship Art (item 3): the SAME watermark turns full colour in place while the
+                   sections hide - keeps the window/image at the exact same size (no resize)*/}
+                <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} $art={this.state.showArt} />
                 {this.renderControls(withHitChart, withNotes, false, lobby && !ship.mine)}
+                {lobby && this.renderLobbyArt()}
                 {lobby ? <ShipNotesPanel ship={ship} grid hideEnhancements={withEnhPanel} /> : <ShipWindowEw ship={ship} />}
                 {withEnhPanel && <EnhancementsPanel ship={ship} />}
                 {GRID_LOCATIONS.map(location => {
@@ -841,6 +981,7 @@ class ShipWindow extends React.Component {
                             wide={wide}
                             minHeight={minHeight}
                             nameOverride={nameOverrides[location]}
+                            hidden={this.state.showArt}
                             ship={ship}
                             systems={systemsByLocation[location]}
                         />
@@ -881,6 +1022,10 @@ const isLeftWindow = (ship) => {
 };
 
 const hasHitChart = (ship) => Boolean(ship.hitChart) && Object.keys(ship.hitChart).length > 0;
+
+//the Ship Art toggle (item 4) needs hull art to display and is meaningless for flight
+//windows (they show their fighters, not a single hull)
+const artAvailable = (ship) => Boolean(ship && ship.imagePath) && !ship.flight;
 
 const hasNotes = (ship) => Boolean(ship.notes)
     || Boolean(ship.enhancementTooltip)
@@ -1039,8 +1184,13 @@ const sortIntoLocations = (ship) => {
 
   withEnhArea (lobby, ship has purchased enhancements): an `enh` area is carved out
   of the BOTTOM-RIGHT cell (feedback round 3: keeping Enhancements out of the `ew`
-  stack stops it lengthening row 1 further); the ew span stops above it.*/
-const buildTemplateAreas = (locations, withEnhArea) => {
+  stack stops it lengthening row 1 further); the ew span stops above it.
+
+  withArtBtn (lobby, item 2 2026-07-22): an `artbtn` area is carved out of the
+  BOTTOM-LEFT cell for the Ship Art toggle, mirroring `enh` on the right; the ctrl span
+  (Hit Chart + manoeuvre stats) stops above it. game.php passes false - its Ship Art
+  toggle stays in the top-left ctrl block.*/
+const buildTemplateAreas = (locations, withEnhArea, withArtBtn) => {
     //rows as [col1, col2, col3]; null = free cell (becomes "." unless a chrome span claims it)
     const rows = [['ctrl', 'fwd', 'ew']];
     let middleRows = 0;
@@ -1059,6 +1209,18 @@ const buildTemplateAreas = (locations, withEnhArea) => {
             last[2] = 'enh'; //usually the Aft row's free right cell
         } else {
             rows.push([null, null, 'enh']); //last row's right cell occupied (e.g. quarter sections with no Aft)
+        }
+    }
+
+    //bottom-left Ship Art toggle, mirroring `enh` above. Carved AFTER enh so a ship with
+    //both shares the same bottom row (artbtn . enh); carved BEFORE the ctrl span below so
+    //the Hit Chart + manoeuvre-stats column stops above it.
+    if (withArtBtn) {
+        const last = rows[rows.length - 1];
+        if (rows.length > 1 && last[0] === null) {
+            last[0] = 'artbtn'; //usually the Aft row's (or the enh row's) free left cell
+        } else {
+            rows.push(['artbtn', null, null]); //last row's left cell occupied (e.g. six-sided quarters)
         }
     }
 
