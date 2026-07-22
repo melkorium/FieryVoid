@@ -2401,7 +2401,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     ${s=>s.$area?`grid-area: ${s.$area};`:""}
     ${s=>s.$valign?`align-self: ${s.$valign};`:""}
     ${s=>s.$justify?`justify-self: ${s.$justify};`:""}
-    width: ${s=>s.$isTerrain?"125px":s.$wide?"156px":"120px"};
+    width: ${s=>s.$isTerrain?"125px":s.$wide?"156px":"128px"};
     ${s=>s.$minHeight?`min-height: ${s.$minHeight}px;`:""}
     margin: ${s=>s.$area?"0":"2px"};
 
@@ -2465,7 +2465,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     align-self: start;
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
-    width: 130px; /*matches the Hit Chart / Notes / Enhancements chrome in game (user 2026-07-19)*/
+    width: 150px; /*matches the Hit Chart / Notes / Enhancements chrome in game (user 2026-07-19)*/
     box-sizing: border-box;
     background-color: ${ze.colors.panelBgGlass};
     border: 1px solid ${ze.colors.line};
@@ -2495,11 +2495,11 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     text-transform: uppercase;
     color: ${ze.colors.textAccent};
     white-space: nowrap;
-    margin-left: 2px;     
+    margin-left: 1px;     
 `,Mu=O.span`
     font-family: ${ze.fonts.mono};
     font-size: 10px;
-    margin-right: 6px;    
+    margin-right: 2px;    
 `,U_=O.span`
     flex: 1 1 auto;
     min-width: 0;

@@ -266,7 +266,7 @@ const PopupHolder = styled.div`
   width (the wider of the two) - this keeps the centre column, and therefore the
   sections, aligned with the window's midline and the watermark even when the chrome
   row is asymmetric (small button stack left, 120px EW panel right). Section widths
-  (120/156px, set in ShipSection) keep icon rows at the 3-wide / 4-wide lengths the
+  (128/156px, set in ShipSection) keep icon rows at the 3-wide / 4-wide lengths the
   symmetric ordering expects.*/
 const SectionGrid = styled.div`
     position: relative;

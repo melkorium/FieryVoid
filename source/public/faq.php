@@ -275,7 +275,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
 
             <li><b>Setting it up (a one-off, takes a minute):</b>
                 <ul class="circle-list">
-                    <li><b>1. Find your Discord user ID.</b> In Discord go to <b>User Settings &rarr; Advanced</b> and turn on <b>Developer Mode</b>.  Then right-click your own name (in a chat or the member list) and choose <b>Copy User ID</b>.  This is a long number of 17&ndash;20 digits — it is <em>not</em> your username.</li>
+                    <li><b>1. Find your Discord user ID.</b> In Discord go to <b>User Settings &rarr; Developer</b> and turn on <b>Developer Mode</b>.  Then right-click your own name (in a chat or the member list) and choose <b>Copy User ID</b>.  This is a long number of 17&ndash;20 digits — it is <em>not</em> your username.</li>
                     <li><b>2. Paste it into Fiery Void.</b> From the FV Main Page click, <b>Set-Up Discord Notifications</b> in the top-right corner, paste your Discord User ID into the box, and click <b>Send verification code</b>.</li>
                     <li><b>3. Check your Discord DMs.</b> The Fiery Void bot will message you a <b>6-digit code</b>, valid for <b>10 minutes</b>.</li>
                     <li><b>4. Enter that code</b> back on the notifications page and click <b>Verify</b>.  You're linked.</li>
