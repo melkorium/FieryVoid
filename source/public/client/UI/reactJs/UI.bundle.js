@@ -3070,8 +3070,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: ${s=>s.$art?"none":"grayscale(1) brightness(2.1)"};
-    opacity: ${s=>s.$art?1:.7};
+    filter: ${s=>s.$art?"none":"grayscale(1) brightness(2.2)"};
+    opacity: ${s=>s.$art?1:.75};
     pointer-events: none;
     z-index: 0;
 `,Hx=O.div`

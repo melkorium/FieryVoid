@@ -377,8 +377,8 @@ const WatermarkLayer = styled.div`
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    filter: ${props => props.$art ? 'none' : 'grayscale(1) brightness(2.1)'};
-    opacity: ${props => props.$art ? 1 : 0.7};
+    filter: ${props => props.$art ? 'none' : 'grayscale(1) brightness(2.2)'};
+    opacity: ${props => props.$art ? 1 : 0.75};
     pointer-events: none;
     z-index: 0;
 `;
