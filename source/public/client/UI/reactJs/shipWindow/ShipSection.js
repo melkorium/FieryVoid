@@ -40,8 +40,12 @@ const ShipSectionContainer = styled.div`
     width: ${props => {
         if (props.$isTerrain) return '125px';
         //fixed widths keep the icon rows at 4-wide (centre column) and 3-wide (side
-        //columns) - the pick/pickOuter symmetric grouping assumes those row lengths
-        return props.$wide ? '156px' : '120px';
+        //columns) - the pick/pickOuter symmetric grouping assumes those row lengths.
+        //Side columns are 128px, not the bare 120px the three 32px icons need: the extra
+        //room lets the header line fit 3-figure structure text ("STARBOARD 540/600 A8")
+        //without clipping. 128 is the ceiling that still holds 3-wide rows - at 130px a
+        //4th 32px icon (zero horizontal margin) would fit and break the symmetric layout.
+        return props.$wide ? '156px' : '128px';
     }};
     ${props => props.$minHeight ? `min-height: ${props.$minHeight}px;` : ''}
     margin: ${props => props.$area ? '0' : '2px'};

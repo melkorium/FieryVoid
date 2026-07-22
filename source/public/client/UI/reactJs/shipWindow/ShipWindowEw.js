@@ -27,7 +27,7 @@ const EwPanel = styled.div`
     align-self: start;
     position: relative; /*above the watermark + ship-click underlay*/
     z-index: 1;
-    width: 130px; /*matches the Hit Chart / Notes / Enhancements chrome in game (user 2026-07-19)*/
+    width: 150px; /*matches the Hit Chart / Notes / Enhancements chrome in game (user 2026-07-19)*/
     box-sizing: border-box;
     background-color: ${theme.colors.panelBgGlass};
     border: 1px solid ${theme.colors.line};
@@ -68,13 +68,13 @@ const RowLabel = styled.span`
     text-transform: uppercase;
     color: ${theme.colors.textAccent};
     white-space: nowrap;
-    margin-left: 2px;     
+    margin-left: 1px;     
 `;
 
 const RowValue = styled.span`
     font-family: ${theme.fonts.mono};
     font-size: 10px;
-    margin-right: 6px;    
+    margin-right: 2px;    
 `;
 
 const RowTarget = styled.span`
