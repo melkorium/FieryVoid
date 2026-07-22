@@ -341,7 +341,7 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
         opacity: 2;
         color: #deebff;
     }
-`,ze={colors:{windowBg:"#152029de",panelBg:"#04161c",panelBgGlass:"rgba(4, 22, 28, 0.22)",line:"#496791",text:"#ffffff",textAccent:"#C6E2FF",healthOk:"#427231",healthCrit:"#ed6738",warning:"#e1b000",statusOk:"limegreen",statusAlert:"#e1b000",enhText:"#d8be86"},fonts:{body:"arial",mono:'Consolas, "Lucida Console", monospace'}};class Ci extends yt.Component{render(){return x.jsxs(ED,{children:[x.jsx(TD,{children:this.props.label}),x.jsx(kD,{type:this.props.type||"text",value:this.props.value,placeholder:this.props.placeholder,onKeyDown:this.props.onKeydown,onChange:this.props.onChange,tabIndex:"0"})]})}}const ED=O.div`
+`,ze={colors:{windowBg:"#152029de",panelBg:"#04161c",panelBgGlass:"rgba(4, 22, 28, 0.22)",line:"#496791",text:"#ffffff",textAccent:"#C6E2FF",healthOk:"#427231",healthCrit:"#ed6738",warning:"#e1b000",statusOk:"limegreen",statusAlert:"#e1b000",enhText:"#d8be86",custom:"#cccc00"},fonts:{body:"arial",mono:'Consolas, "Lucida Console", monospace'}};class Ci extends yt.Component{render(){return x.jsxs(ED,{children:[x.jsx(TD,{children:this.props.label}),x.jsx(kD,{type:this.props.type||"text",value:this.props.value,placeholder:this.props.placeholder,onKeyDown:this.props.onKeydown,onChange:this.props.onChange,tabIndex:"0"})]})}}const ED=O.div`
     width: 100%;
     box-sizing: border-box; /* keep the 14px side padding inside 100% so the row
                                never exceeds the Body width (no h-scrollbar) */
@@ -2695,8 +2695,8 @@ See https://styled-components.com/docs/faqs#why-am-i-getting-a-warning-about-sev
 `,gA=O.div`
     padding: 1px 0;
     font-weight: bold;
-    font-style: italic;
-    color: ${ze.colors.warning};
+    /*font-style: italic;*/
+    color: ${ze.colors.custom};
 `,qi=O.div`
     display: flex;
     align-items: baseline;

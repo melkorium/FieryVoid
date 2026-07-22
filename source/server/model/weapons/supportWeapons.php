@@ -1436,8 +1436,8 @@ class GraviticAugmenter extends Weapon  implements SpecialAbility{
     public function setSystemDataWindow($turn){
         parent::setSystemDataWindow($turn);
 		$this->data["Special"] = "May use one of the three Firing modes listed below per turn:";
-		$this->data["Special"] .= "<br> - Matter Weapon Enhancement (Initial Orders): Boosts fire control of friendly matter weapons in arc/range by +3, and of ALL friendly ballistic weapons by +6; degrades enemy matter/ballistic weapons by the same amount. Cumulative.";
-		$this->data["Special"] .= "<br> - Warrior Enhancement (Initial Orders): Grants a Warrior flight +3 free thrust, +3 offensive bonus, -4 dropout, and 3 free jink levels. Not cumulative.";
+		$this->data["Special"] .= "<br> - Matter Weapon Enhancement (Initial Orders): Boosts fire control of friendly matter weapons in arc/range by +15%, and of ALL friendly ballistic weapons by +30%; degrades enemy matter/ballistic weapons by the same amount. Cumulative.";
+		$this->data["Special"] .= "<br> - Warrior Enhancement (Initial Orders): Grants a Warrior flight +3 free thrust, +15 offensive bonus, -4 dropout, and 3 free jink levels. Not cumulative.";
 		$this->data["Special"] .= "<br> - Gravity Shifting (Pre-Firing): Rotates a target ship's facing up to 120 degrees (60 degrees max against Gravtiic targets). Only ONE Augmenter may shift a given ship per turn. No effect on Enormous units or Mines.";
 		if ($this->linkedOrbital !== null){
 			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";

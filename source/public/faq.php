@@ -268,18 +268,18 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <ul class="circle-list">
                     <li>You must be a member of the <a href="https://discord.gg/4jXarWusp4" target="_blank" rel="noopener noreferrer">Fiery Void Discord server</a>.  Discord only lets a bot message people who share a server with it.</li>
                     <li>You must allow DMs from that server: right-click the Fiery Void server icon &rarr; <b>Privacy Settings</b> &rarr; turn on <b>Allow direct messages from server members</b>.</li>
-                    <li>Don't be alarmed that the bot always shows as <i>offline</i> in the member list — that is normal.  It only sends messages; it never logs in or reads your chat.</li>
+                    <li>Don't worry that the bot always shows as <i>offline</i> in the member list — that is normal.  It only sends messages; it never logs in or reads your chat.</li>
                 </ul>
             </li>
             <br>
 
             <li><b>Setting it up (a one-off, takes a minute):</b>
                 <ul class="circle-list">
-                    <li><b>1. Find your Discord user ID.</b> In Discord go to <b>Settings &rarr; Advanced</b> and turn on <b>Developer Mode</b>.  Then click your own name (in a chat or the member list) and choose <b>Copy User ID</b>.  This is a long number of 17&ndash;20 digits — it is <em>not</em> your username.</li>
-                    <li><b>2. Paste it into Fiery Void.</b> From the Game Lobby click <b>Set-Up Turn Notifications</b>, paste the number into the box, and click <b>Send verification code</b>.</li>
+                    <li><b>1. Find your Discord user ID.</b> In Discord go to <b>User Settings &rarr; Advanced</b> and turn on <b>Developer Mode</b>.  Then right-click your own name (in a chat or the member list) and choose <b>Copy User ID</b>.  This is a long number of 17&ndash;20 digits — it is <em>not</em> your username.</li>
+                    <li><b>2. Paste it into Fiery Void.</b> From the FV Main Page click, <b>Set-Up Discord Notifications</b> in the top-right corner, paste your Discord User ID into the box, and click <b>Send verification code</b>.</li>
                     <li><b>3. Check your Discord DMs.</b> The Fiery Void bot will message you a <b>6-digit code</b>, valid for <b>10 minutes</b>.</li>
                     <li><b>4. Enter that code</b> back on the notifications page and click <b>Verify</b>.  You're linked.</li>
-                    <li><b>5. Optionally click Send test ping</b> to prove a DM reaches you.</li>
+                    <li><b>5. Optionally you can then click 'Send test ping'</b> to prove a DM reaches you.</li>
                 </ul>
             </li>
             <br>
