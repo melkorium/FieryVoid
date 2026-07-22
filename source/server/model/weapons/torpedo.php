@@ -397,6 +397,7 @@
 			//parent (BallisticTorpedo) already appends the Saturation-Mode + fighter-targeting lines;
 			//only add the paired-Orbital specifics here.
 			parent::setSystemDataWindow($turn);
+				$this->data["Special"] .= "<br>Ignores damage reduction effects of non-Ancient shields, and each torpedo hit reduces any shields damage reduction by 1d10.";			
 			if ($this->linkedOrbital !== null){
 				$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital.";
 				if ($this->stowedArcStart !== null){
