@@ -90,8 +90,8 @@ const Row = styled.div`
 const CustomFlag = styled.div`
     padding: 1px 0;
     font-weight: bold;
-    font-style: italic;
-    color: ${theme.colors.warning};
+    /*font-style: italic;*/
+    color: ${theme.colors.custom};
 `;
 
 /*stat rows read like the Notes lines (feedback round 3): 10px, sentence-case
