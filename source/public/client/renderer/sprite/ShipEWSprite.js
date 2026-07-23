@@ -41,7 +41,7 @@ window.ShipEWSprite = function () {
         var a = 0.55;
 
         if (DEW < 3) {
-            a = 0.65;
+            a = 0.6;
         }
 
         context.strokeStyle = "rgba(20,80,128,0)";
@@ -70,7 +70,7 @@ window.ShipEWSprite = function () {
         var a = 0.50;
 
         if (CCEW < 3) {
-            a = 0.70;
+            a = 0.60;
         }
         context.strokeStyle = "rgba(144,185,208,0)";
         context.fillStyle = "rgba(144,185,208," + a + ")";
