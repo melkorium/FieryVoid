@@ -21,8 +21,8 @@ const SHOW_EW_TARGET_TOOLTIP = false;
     - "SOEW" -> orange (pairs with DIST).
   Any label not in the map keeps the default accent colour.*/
 const EW_LABEL_COLORS = {
-    'DEW': theme.colors.text,       //white
-    'CCEW': '#9dc3e6',              //soft blue
+    'DEW': '#9dc3e6',       //soft blue
+    'CCEW': theme.colors.text,         //white     
     'SDEW': '#9dc3e6',              //soft blue
     'OEW': '#9ccf97',               //soft green
     'BDEW': '#9ccf97',              //soft green
