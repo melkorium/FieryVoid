@@ -30,9 +30,24 @@ const EW_LABEL_COLORS = {
     'Detect Stealth': '#c2a7dd',    //soft purple
     'DIST': '#e6b98f',              //soft orange
     'SOEW': theme.colors.text,              //soft orange
+    'OEW_HOSTILE': '#e49b9b',       //soft red - pseudo-label, see ewLabelColor
 };
 
-const ewLabelColor = (label) => EW_LABEL_COLORS[label] || theme.colors.textAccent;
+/*OEW is the one CONTEXTUAL label (user request 2026-07-23): it keeps the green while the
+  window's ship is yours or a teammate's, and takes the OEW_HOSTILE red on anyone else's
+  ship - i.e. that OEW is being pointed at your side. Guarded by isPlayerInGame() because
+  an observer has no "side" (isMyorMyTeamShip is false for EVERY ship there, which would
+  paint every window's OEW red); observers keep the neutral green.
+
+  "OEW_HOSTILE" is a pseudo-label and can never collide with a real one: labels come from
+  ewEntry.type (OEW/DIST/SOEW/SDEW) or the literals in getShipRows.*/
+const ewLabelColor = (label, ship) => {
+    if (label === 'OEW' && ship && gamedata.isPlayerInGame() && !gamedata.isMyorMyTeamShip(ship)) {
+        return EW_LABEL_COLORS['OEW_HOSTILE'];
+    }
+
+    return EW_LABEL_COLORS[label] || theme.colors.textAccent;
+};
 
 /*EW panel (SHIPWINDOW_REDESIGN_PLAN.md Stages 1c/1e, vertical top-right layout after
   the 2026-07-16 feedback round): occupies the `ew` grid area - the top-right corner
@@ -226,7 +241,7 @@ const getTargetRows = (ship, component) => {
 
             return (
                 <Row key={`${ewEntry.type}-scs-${ship.id}-${ewEntry.targetid}`}>
-                    <RowLabel $color={ewLabelColor(ewEntry.type)}>{ewEntry.type}</RowLabel>
+                    <RowLabel $color={ewLabelColor(ewEntry.type, ship)}>{ewEntry.type}</RowLabel>
                     <RowTarget
                         $interactive={interactive}
                         title={SHOW_EW_TARGET_TOOLTIP ? target.name : undefined}
