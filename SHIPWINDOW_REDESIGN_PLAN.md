@@ -387,6 +387,89 @@ EW tooltip):** two user requests.
    existing "Defence (F/S)" line is unchanged — it shows the range/EW-modified chance on top
    of these base numbers. Verified: esbuild JSX parse + bundle-resolve ×3. UI.bundle only.
 
+**Post-Stage-4 improvements round 11 (2026-07-23) — BUILT, awaiting user test
+(UI.bundle only; the small-screen size pass, user report "still taking up too much of
+the screen to be practical"):**
+1. **Per-page screen-fit budget** (`ShipWindow.js`, `>>> TOUCH-SCREEN FIT <<<`). Round 10
+   scaled the window to fill **0.96 of BOTH axes** and allowed a scale of up to **1.75** —
+   so on a phone every window covered essentially the whole screen, and a *small* window
+   (flight / mine) was actively **magnified** to get there. The single `SCREEN_FIT_*`
+   triple is replaced by two budget objects picked by page (`screenFitBudget()` →
+   `isLobby()`):
+   - **`MAP_FIT = { fillW: 0.60, fillH: 0.85, min: 0.40, max: 1 }`** — game.php. The window
+     floats over the tactical map, so it may cover ~60% of the width / 85% of the height
+     and is **never scaled above its natural size**. Docked to a screen edge that leaves a
+     usable strip of map beside it, which was the whole request.
+   - **`LOBBY_FIT = { fillW: 0.96, fillH: 0.96, min: 0.50, max: 1.75 }`** — unchanged
+     round-10 behaviour. The lobby has nothing behind the window, so filling the screen is
+     simply the most legible thing there; the user's complaint is map-specific ("in game
+     screen").
+   `fillW` is the knob to retune (lower = more map, smaller text); `min` is the legibility
+   floor — once the fit bottoms out on it the window stops shrinking and scrolls
+   internally instead, and `max-height` is now written from the BUDGET height (not
+   `innerHeight`), so a floored window still respects the budget.
+2. **Drag strip counter-scaled** (`Header` / `HeaderName` / `CloseButton` + `applyScreenFit`).
+   Round 10 gave touch screens a flat 44px header because a scaled-down window turned the
+   26px bar into ~15 visual px; the new budget shrinks windows much further, which would
+   have reproduced exactly that bug. The height is now the CSS variable
+   `--fv-touch-header` (44px fallback), written as `44 / scale` (capped at
+   `TOUCH_HEADER_MAX_PX` 120) so the grab target stays **~44 VISUAL px at any scale** — it
+   also fixes the lobby's 1.75× case, where the bar was a fat 77 visual px.
+   **No feedback loop**: the measuring pass forces the variable back to the base 44px
+   (same trick as lifting the `max-height` clamp), and the height ratio is solved WITH the
+   compensation folded in — the strip costs a constant `TOUCH_HEADER_PX` of the budget, so
+   `fit = min(availW/naturalW, (availH − 44)/(naturalH − 44))` and the fitted visual height
+   is exactly `scale·(natural − 44) + 44`.
+3. **Hit Chart / Notes popup anchoring fixed for scaled windows** (`getAnchorBelow`,
+   `getButtonLeft`): both measure with `getBoundingClientRect` (**screen** px, so a
+   transformed window reports `scale ×` the real offset) and assign the result to the
+   popup's `top`/`left` (**layout** px). The delta is now divided by `this.screenFit`.
+   Harmless at round 10's near-1 scales, but at 0.4–0.6 the popup was landing well above
+   its button, over the header.
+   Verified: esbuild JSX parse + bundle-resolve of ShipWindow.js. UI.bundle only — needs
+   `yarn build`. (Parse trap re-hit: a backtick in a comment INSIDE a styled-components
+   template literal ends the literal — CSS-comment prose must not quote identifiers in
+   backticks.)
+
+**Post-Stage-4 improvements round 12 (2026-07-23) — BUILT, awaiting user test
+(two user regression reports after round 11):**
+1. **Two windows on desktop restored + one-per-side split fixed for teamless viewers**
+   (`renderer/shipWindowManager.js` `isLeftSide`). User: "all windows now open on the
+   right-hand side, and only one window can be open at once" — the pre-React two-window
+   (own team left / enemy right) behaviour was gone. **Root cause**: `isLeftSide` docks a
+   window by `ship.team === gamedata.getPlayerTeam()`, and `getPlayerTeam()` returns
+   **undefined** whenever the viewer holds no slot — the common case being a **replay**,
+   where `gamedata.replay` makes [gamedata.js:1987] skip the `thisplayer = forPlayer`
+   assignment so `thisplayer` stays -1 (also a spectator / not-logged-in local session).
+   Every ship then failed the strict `===`, so all docked RIGHT, and the manager's
+   one-window-per-side filter (`isLeftSide(other) !== isLeftSide(new)`) collapsed to a
+   single window. The retired legacy window never showed this because it split by
+   `ship.userid == thisplayer` with a team-1 flip, not by team. **Fix**: mirror the
+   codebase's canonical `gamedata.isMyOrTeamOneShip` (gamedata.js) — in game, own team is
+   left; with no viewer team, **team 1 is the left side**; all comparisons loose `==`
+   (matching `getPlayerTeam`'s own slot test) so a JSON string/int drift can never
+   re-split the windows. Verified server-side that a real player's `ship.team`/`slot.team`
+   are clean ints (game 4252 via getTacGamedata) — so a logged-in player was never broken;
+   only the teamless-viewer path was. Desktop still docks own-team left / enemy right and
+   keeps both windows; the CSS placement (`$isMyTeam` → left/right 50px) is unchanged and
+   reads the same fixed `isLeftSide`.
+2. **Mobile header height reverted to hug its text** (`ShipWindow.js` Header /
+   HeaderName / CloseButton + `applyScreenFit`). User: the small-screen header was "much
+   taller than desktop, it should still just fit the height of the text". Round 10 had
+   made it a flat 44px touch strip and round 11 counter-scaled that to a constant ~44
+   VISUAL px — both read as a fat bar once the window shrank. All three `@media
+   (max-width:1024px)` height overrides and the `--fv-touch-header` variable are gone; the
+   header is a plain 26px bar on every screen and scales with the rest of the window
+   (~13–16 visual px on a phone). `applyScreenFit` dropped the header measure/write and its
+   folded-in height term (`TOUCH_HEADER_PX`/`TOUCH_HEADER_MAX_PX`/`screenFitHeader` all
+   removed); the fit is back to the plain `min(availW/naturalW, availH/naturalH)` against
+   the per-page budget. Cost noted in the Header comment: the grab target shrank with the
+   bar — if touch-drag turns fiddly, grow the hit-AREA (a transparent overlay) without
+   growing the visible bar, rather than restoring a taller header.
+   Verified: esbuild JSX parse + bundle-resolve (ShipWindow.js), `node --check`
+   (shipWindowManager.js). UI.bundle + game.legacy.bundle (shipWindowManager.js is in the
+   legacy bundle) — needs `yarn build`.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)

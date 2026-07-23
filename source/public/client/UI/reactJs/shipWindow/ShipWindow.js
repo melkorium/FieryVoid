@@ -151,22 +151,18 @@ const Header = styled.div`
       without this a finger-drag on the header just scrolls the lobby)*/
     touch-action: none;
 
-    /*Touch screens get a finger-sized grab strip: the whole window is scaled DOWN to fit
-      the screen, so a big lobby window at scale 0.6 turned this bar into ~15 visual px -
-      a target you miss more often than you hit (2026-07-23 drag report). 44px is the
-      usual minimum touch target and survives the scaling.*/
-    @media (max-width: 1024px) {
-        height: 44px;
-    }
+    /*NO small-screen height override (user request 2026-07-23, round 12): the header
+      hugs its text on every screen, exactly like desktop, and shrinks with the rest of
+      the window. Round 10 had made it a flat 44px finger strip and round 11 counter-scaled
+      that to a constant ~44 VISUAL px - both read as a disproportionately fat bar once the
+      window was scaled down. Cost: the grab target is now 26px * scale (~13-16px on a
+      phone). If dragging turns fiddly again, grow the TARGET without growing the BAR (a
+      transparent hit-area) rather than restoring a taller header.*/
 `;
 
 const HeaderName = styled.span`
     font-size: 11px;
     line-height: 26px; /*centres the shared baseline within the 26px header bar*/
-
-    @media (max-width: 1024px) {
-        line-height: 44px; /*follows the taller touch grab strip above*/
-    }
     text-transform: uppercase;
     letter-spacing: 0.5px;
     white-space: nowrap;
@@ -203,13 +199,6 @@ const CloseButton = styled.div`
     margin-top: -2px;
     color: ${theme.colors.line};
     ${Clickable}
-
-    /*matches the taller touch header - keeps the ✕ centred in the bar and gives it a
-      finger-sized target of its own*/
-    @media (max-width: 1024px) {
-        height: 44px;
-        width: 30px;
-    }
 `;
 
 /*Hit Chart / Notes button stack, top-left of the window body (the empty corner cell
@@ -545,9 +534,14 @@ class ShipWindow extends React.Component {
       the height clamp lifted (inline max-height: none beats the media query's 100vh, and
       absolutely-positioned children like the Hit Chart popup never count toward
       offsetHeight, so an open popup can't shrink the window). max-height is then written
-      back as innerHeight / scale because it is a LAYOUT value - a shrunk window would
-      otherwise keep an inner scrollbar for space it no longer needs, and a window that
-      bottoms out on SCREEN_FIT_MIN still scrolls rather than being cut off.*/
+      back as a LAYOUT value (budget height / scale) - a shrunk window would otherwise keep
+      an inner scrollbar for space it no longer needs, and a window that bottoms out on the
+      floor still scrolls rather than being cut off.
+
+      The BUDGET is per page (round 11, >>> TOUCH-SCREEN FIT <<<): game.php only spends a
+      fraction of the screen so the tactical map underneath stays playable, the lobby fills
+      it. The header hugs its text and scales with everything else (round 12) - no special
+      handling.*/
     applyScreenFit() {
         const element = this.elementRef.current;
         if (!element) return;
@@ -563,23 +557,25 @@ class ShipWindow extends React.Component {
             return;
         }
 
+        const budget = screenFitBudget();
+
         //measure unclamped: a transform never affects layout, so offsetWidth/Height stay
         //honest, but the height clamp from the last fit has to come off first
-        const applied = element.style.maxHeight;
+        const appliedHeight = element.style.maxHeight;
         element.style.maxHeight = 'none';
         const naturalWidth = element.offsetWidth;
         const naturalHeight = element.offsetHeight;
-        element.style.maxHeight = applied;
+        element.style.maxHeight = appliedHeight;
         if (!naturalWidth || !naturalHeight) return;
 
-        const availableWidth = (document.documentElement.clientWidth || window.innerWidth) * SCREEN_FIT_FILL;
-        const availableHeight = (window.innerHeight || document.documentElement.clientHeight) * SCREEN_FIT_FILL;
+        const availableWidth = (document.documentElement.clientWidth || window.innerWidth) * budget.fillW;
+        const availableHeight = (window.innerHeight || document.documentElement.clientHeight) * budget.fillH;
         const fit = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
 
-        let scale = Math.min(SCREEN_FIT_MAX, Math.max(SCREEN_FIT_MIN, fit));
+        let scale = Math.min(budget.max, Math.max(budget.min, fit));
         scale = Math.round(scale * 100) / 100; //2dp: stops poll re-renders jittering the scale
 
-        const maxHeight = Math.round(window.innerHeight / scale);
+        const maxHeight = Math.round(availableHeight / scale);
         if (scale === this.screenFit && maxHeight === this.screenFitHeight) return; //nothing to write
 
         this.screenFit = scale;
@@ -1063,10 +1059,12 @@ class ShipWindow extends React.Component {
         if (!controls || !container) return null;
         //subtract the container's left border: the popup's `left` is measured from the
         //container's padding edge (inside the 1px border), but getBoundingClientRect
-        //reports outer-border coords - without this the popup sits 1px right of the buttons
+        //reports outer-border coords - without this the popup sits 1px right of the buttons.
+        //Divide by the touch-screen scale FIRST: rects are screen px on a transformed
+        //window but `left` is a layout value (see getAnchorBelow).
         return Math.round(
-            controls.getBoundingClientRect().left
-            - container.getBoundingClientRect().left
+            (controls.getBoundingClientRect().left - container.getBoundingClientRect().left)
+            / (this.screenFit || 1)
             - container.clientLeft
         );
     }
@@ -1081,9 +1079,15 @@ class ShipWindow extends React.Component {
         if (!el || !container) return { top: fallbackTop, left: this.getButtonLeft() };
         const eRect = el.getBoundingClientRect();
         const cRect = container.getBoundingClientRect();
+        /*getBoundingClientRect reports SCREEN px, and on a touch screen the window carries
+          a scale() transform - so a raw rect delta is `scale` times the layout offset the
+          popup's top/left actually want. Undo it (2026-07-23 round 11: harmless at the
+          near-1 scales round 10 produced, but the map-visibility budget shrinks windows far
+          enough that the popup was landing well above its button).*/
+        const scale = this.screenFit || 1;
         return {
-            left: Math.round(eRect.left - cRect.left - container.clientLeft),
-            top: Math.round(eRect.bottom - cRect.top - container.clientTop) + 4,
+            left: Math.round((eRect.left - cRect.left) / scale - container.clientLeft),
+            top: Math.round((eRect.bottom - cRect.top) / scale - container.clientTop) + 4,
         };
     }
 
@@ -1305,20 +1309,32 @@ const shipWindowClicked = () => window.uiEvents.relay('CloseSystemInfo');
 const savedWindowPositions = { left: null, right: null };
 
 /*>>> TOUCH-SCREEN FIT <<< (user request 2026-07-23, ShipWindow.applyScreenFit). Below
-  this breakpoint the window is CSS-scaled to SCREEN_FIT_FILL of the screen in BOTH
-  dimensions (whichever binds - height is what binds in landscape); the min/max keep that
-  honest: never shrink past legibility, never blow a small window up into a poster. Raise
-  SCREEN_FIT_MIN if scaled-down text gets unreadable - the window then scrolls internally
-  instead of shrinking further. Same breakpoint as the ShipWindowContainer media query
-  that docks windows to the screen edge.*/
+  this breakpoint the window is CSS-scaled to fit a BUDGET - a fraction of the screen it
+  may cover - with the min/max keeping that honest: never shrink past legibility, never
+  blow a small window up into a poster.
+
+  Round 11 (2026-07-23) split the budget per page, because the two screens want opposite
+  things from a phone. game.php's window floats over the TACTICAL MAP, and a window that
+  fills the screen (round 10's flat 0.96 both ways, plus a 1.75 cap that MAGNIFIED small
+  windows up to the screen) leaves nothing of the map to play on - so it gets a genuine
+  budget: ~60% of the width, ~85% of the height, and it is never scaled ABOVE its natural
+  size. Docked to a screen edge, that keeps a usable strip of map beside the window. The
+  lobby has nothing behind it, so it keeps the round-10 fill-the-screen behaviour, which
+  is simply the most legible thing there.
+
+  Retuning: MAP_FIT is the pair of knobs to touch - lower fillW for more visible map,
+  raise it for bigger text. The min is the legibility floor: once the fit bottoms out on
+  it the window stops shrinking and scrolls internally instead. Same breakpoint as the
+  ShipWindowContainer media query that docks windows to the screen edge.*/
 const SMALL_SCREEN_QUERY = '(max-width: 1024px)';
-const SCREEN_FIT_MIN = 0.5;
-const SCREEN_FIT_MAX = 1.75;
-//how much of the screen a fitted window may cover - the slack leaves the docking inset
-//(4px/8px in the media query) visible on the opposite edge too
-const SCREEN_FIT_FILL = 0.96;
+//fillW/fillH: the share of screen width/height a fitted window may cover (the slack also
+//leaves the docking inset - 4px/8px in the media query - visible on the opposite edge)
+const MAP_FIT = { fillW: 0.60, fillH: 0.85, min: 0.40, max: 1 };    //game.php: map stays visible
+const LOBBY_FIT = { fillW: 0.96, fillH: 0.96, min: 0.50, max: 1.75 }; //lobby: nothing behind it
 
 const isSmallScreen = () => Boolean(window.matchMedia) && window.matchMedia(SMALL_SCREEN_QUERY).matches;
+
+const screenFitBudget = () => isLobby() ? LOBBY_FIT : MAP_FIT;
 
 //the still-down touch that started a drag (TouchList has no .find)
 const findTouch = (touches, identifier) => {
