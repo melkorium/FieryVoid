@@ -205,7 +205,9 @@ const getShipRows = ship => {
 
     list.push(<Row key={`dew-scs-${ship.id}`}><RowLabel $color={ewLabelColor('DEW')}>DEW</RowLabel><RowValue>{formatEW(ew.getDefensiveEW(ship))}</RowValue></Row>);
     var CCEWamount = Math.max(0, ew.getCCEW(ship) - ew.getDistruptionEW(ship));
-    list.push(<Row key={`ccew-scs-${ship.id}`}><RowLabel $color={ewLabelColor('CCEW')}>CCEW</RowLabel><RowValue>{formatEW(CCEWamount)}</RowValue></Row>);
+    if (CCEWamount > 0) {
+        list.push(<Row key={`ccew-scs-${ship.id}`}><RowLabel $color={ewLabelColor('CCEW')}>CCEW</RowLabel><RowValue>{formatEW(CCEWamount)}</RowValue></Row>);
+    }
 
     let bdew = ew.getBDEW(ship) * 0.25;
     let detectSEW = ew.getDetectSEW(ship); //Detect stealth
