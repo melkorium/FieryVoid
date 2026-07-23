@@ -185,6 +185,15 @@ recommended.**
    `this.structureArcs` array. Skips loc 0, flights, and non-numeric arcs. Wedge radius is
    `max(size * 0.5, hexDistance * 0.75)` (no `range` to derive one from); colour is health-bar
    green `rgb(66,114,49)` at 0.5 opacity; roll flip comes free from `shipManager.systems.getArcs`.
+   **Outline (refinement, 2026-07-23):** `buildArcOutline()` traces the wedge perimeter (apex →
+   along the arc → back to apex, 32 segments to match the fill) as a `THREE.Line` at 0.9 opacity,
+   added as a CHILD of the wedge so it inherits rotation/position/removal. Deliberately a line,
+   not the BDEW hexagon's inset-hole ring: `LineBasicMaterial` is 1px in SCREEN space at every
+   zoom, whereas a world-unit ring would vanish when zoomed out on a wedge this small. A
+   full-circle wedge skips the apex points so no spurious radius line is drawn. `THREE.Line`,
+   `LineBasicMaterial`, `BufferGeometry` and `Vector3` are all already in the tree-shaken THREE
+   shim (`LineLoop` is NOT — hence the explicitly closed point list); verified by loading
+   `three.shim.bundle.js` in node.
 3. **`ShipSection.js`** — `SectionHeader` gains mouse + touch handlers relaying
    `StructureMouseOver` / `StructureMouseOut` (400ms hold, 10px cancel, `lastTouchActiveTime`
    ghost guard). An `arcShown` flag means only a section that actually raised a wedge asks for

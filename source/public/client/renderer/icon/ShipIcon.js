@@ -784,17 +784,53 @@ window.ShipIcon = function () {
         var arcStart = mathlib.addToDirection(0, arcLength * -0.5);
         var arcFacing = mathlib.addToDirection(arcs.end, arcLength * -0.5);
 
-        var geometry = new THREE.CircleGeometry(dis, 32, mathlib.degreeToRadian(arcStart), mathlib.degreeToRadian(arcLength));
+        var thetaStart = mathlib.degreeToRadian(arcStart);
+        var thetaLength = mathlib.degreeToRadian(arcLength);
+
+        var geometry = new THREE.CircleGeometry(dis, 32, thetaStart, thetaLength);
         //health-bar green (theme.colors.healthOk), so the wedge reads as "this bar's section"
-        var material = new THREE.MeshBasicMaterial({ color: new THREE.Color("rgb(66,114,49)"), opacity: 0.5, transparent: true });
+        var color = new THREE.Color("rgb(66,114,49)");
+        var material = new THREE.MeshBasicMaterial({ color: color, opacity: 0.5, transparent: true });
         var circle = new THREE.Mesh(geometry, material);
         circle.rotation.z = mathlib.degreeToRadian(-mathlib.addToDirection(arcFacing, -this.getFacing()));
         circle.position.z = -1;
+        //outline, same idea as the BDEW hexagon's border: the fill alone bleeds into the map at
+        //low zoom, a crisper edge defines where the section's coverage actually stops. Drawn as a
+        //LINE rather than the BDEW's inset-hole ring so it stays 1px on screen at every zoom -
+        //a world-unit border would vanish when zoomed out on a wedge this small. Added as a CHILD
+        //so it inherits the wedge's rotation/position (and its removal).
+        circle.add(buildArcOutline(dis, thetaStart, thetaLength, color));
         this.mesh.add(circle);
         this.structureArcs.push(circle);
 
         return null;
     };
+
+    /* Perimeter of the pie wedge in the CircleGeometry's own local frame: apex, out along the
+       arc, back to the apex. A full-circle wedge skips the apex so no spurious radius line is
+       drawn across it. Segment count matches the fill's 32 so the two edges sit flush. */
+    function buildArcOutline(radius, thetaStart, thetaLength, color) {
+        var segments = 32;
+        var points = [];
+        var fullCircle = thetaLength >= Math.PI * 2 - 0.0001;
+
+        if (!fullCircle) points.push(new THREE.Vector3(0, 0, 0));
+
+        for (var i = 0; i <= segments; i++) {
+            var theta = thetaStart + (i / segments) * thetaLength;
+            points.push(new THREE.Vector3(radius * Math.cos(theta), radius * Math.sin(theta), 0));
+        }
+
+        if (!fullCircle) points.push(new THREE.Vector3(0, 0, 0));
+
+        var outline = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(points),
+            new THREE.LineBasicMaterial({ color: color, opacity: 0.9, transparent: true })
+        );
+        outline.position.z = 0.01; //clear of the coplanar fill, still behind the ship sprite
+
+        return outline;
+    }
 
     ShipIcon.prototype.hideStructureArcs = function () {
         this.structureArcs.forEach(function (arc) {
