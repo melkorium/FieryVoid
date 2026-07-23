@@ -79,20 +79,42 @@ const ShipWindowContainer = styled.div`
     user-select: none;
 
     @media (max-width: 1024px) {
+        /*docked a few px in from the screen edge, not flush against it: at top: 0 the drag
+          handle sits under the browser's own top-edge gesture area and is awkward to grab
+          (user report 2026-07-23)*/
         ${props => {
         if (props.$isMyTeam) {
-            return "left: 0; \n top: 0; \n right: unset;"
+            return "left: 4px; \n top: 8px; \n right: unset;"
         } else {
-            return "right: 0; \n top: 0; \n left: unset;"
+            return "right: 4px; \n top: 8px; \n left: unset;"
         }
     }}
-        max-width: 100vw;
+        /*Touch screens size the window from its CONTENT ONLY, never from the viewport, so
+          it lays out identically in portrait and landscape and applyScreenFit() just scales
+          that one fixed layout to whatever screen it lands on (user request 2026-07-23).
+          fit-content / auto are available-width dependent: in landscape the extra room
+          let a flight window stretch its FighterList into one long row and a single-Primary
+          ship spread out, while portrait wrapped them. max-content + the same variant caps
+          the desktop rule uses (the caps are what make FighterList wrap at all) removes the
+          viewport from the equation. The old 100vw clamp is gone with them - clamping the
+          LAYOUT width just squeezed the fixed-width sections into an internally-scrolling
+          box (the "too wide in game, too narrow in the lobby" report).*/
+        width: ${props => props.$variant === 'terrain' ? '250px' : 'max-content'};
+        max-width: ${props => {
+        if (props.$variant === 'flight') return '400px';
+        if (props.$variant === 'flightLobby') return '620px';
+        return 'none';
+    }};
         max-height: 100vh;
         /*auto, not scroll: scroll pins a permanent (usually inert) scrollbar to
           the window on classic-scrollbar platforms even when nothing overflows.
           When it does engage, it wears the site-standard scrollbar (same as
           PopupHolder / #gameinfo / the log panel).*/
         overflow-y: auto;
+        /*scrolling the window's own overflow must not chain into the page underneath -
+          on the lobby that hands the gesture to the page (and to pull-to-refresh at the
+          top), which is exactly what steals a drag mid-flight*/
+        overscroll-behavior: contain;
 
         scrollbar-width: thin;
         scrollbar-color: #3c5574 #0d1620;
@@ -125,11 +147,26 @@ const Header = styled.div`
     box-sizing: border-box;
     flex-shrink: 0;
     cursor: move;
+    /*hand the touch gesture to our drag instead of scrolling the page (2026-07-23 -
+      without this a finger-drag on the header just scrolls the lobby)*/
+    touch-action: none;
+
+    /*Touch screens get a finger-sized grab strip: the whole window is scaled DOWN to fit
+      the screen, so a big lobby window at scale 0.6 turned this bar into ~15 visual px -
+      a target you miss more often than you hit (2026-07-23 drag report). 44px is the
+      usual minimum touch target and survives the scaling.*/
+    @media (max-width: 1024px) {
+        height: 44px;
+    }
 `;
 
 const HeaderName = styled.span`
     font-size: 11px;
     line-height: 26px; /*centres the shared baseline within the 26px header bar*/
+
+    @media (max-width: 1024px) {
+        line-height: 44px; /*follows the taller touch grab strip above*/
+    }
     text-transform: uppercase;
     letter-spacing: 0.5px;
     white-space: nowrap;
@@ -166,6 +203,13 @@ const CloseButton = styled.div`
     margin-top: -2px;
     color: ${theme.colors.line};
     ${Clickable}
+
+    /*matches the taller touch header - keeps the ✕ centred in the bar and gives it a
+      finger-sized target of its own*/
+    @media (max-width: 1024px) {
+        height: 44px;
+        width: 30px;
+    }
 `;
 
 /*Hit Chart / Notes button stack, top-left of the window body (the empty corner cell
@@ -252,22 +296,6 @@ const ArtIcon = styled.span`
         border-right: 7px solid transparent;
         border-bottom: 5px solid currentColor;
     }
-`;
-
-/*Lobby only: the Ship Art toggle sits in the bottom-left `artbtn` grid area -
-  underneath the lowest Port section - mirroring the Enhancements block bottom-right.
-  align-self:end pins it to the BOTTOM of its cell (item 2, 2026-07-22: flush with the
-  bottom of the adjacent section). The Hit Chart button lives in the top-left control
-  block on every page (item 1 revert); in game.php the Ship Art toggle stays there too.*/
-const ArtButtonArea = styled.div`
-    grid-area: artbtn;
-    justify-self: center;
-    align-self: end;
-    position: relative; /*above the watermark + ship-click underlay*/
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
 `;
 
 /*Shared popup box for the Hit Chart / Notes panels: anchored below the control
@@ -362,7 +390,13 @@ const FlightArea = styled.div`
   $art (Ship Art toggle, item 3/4): the SAME layer turns full colour in place - no
   grayscale, full opacity - while the sections are hidden around it. Because it is the
   very same element at the very same size, toggling never resizes or shifts the image
-  (the earlier separate-overlay approach nudged the art, which read as jarring).*/
+  (the earlier separate-overlay approach nudged the art, which read as jarring).
+
+  $offsetY: pushes the art DOWN by n px (lobby, 2026-07-23). The layer is centred on the
+  whole grid, but the lobby's chrome row is far taller than game.php's (Ship Stats +
+  datasheet + Enhancements), which pushes the section cluster below the grid's midline -
+  the art then sits high of the sections it is meant to sit behind. Applied before the
+  rotation so it is a screen-space nudge, not a nose-ward one.*/
 const WatermarkLayer = styled.div`
     position: absolute;
     top: 50%;
@@ -372,7 +406,7 @@ const WatermarkLayer = styled.div`
     aspect-ratio: 1 / 1;
     max-width: 80%;
     max-height: 380px;
-    transform: translate(-50%, -50%) rotate(-90deg);
+    transform: translate(-50%, calc(-50% + ${props => props.$offsetY || 0}px)) rotate(-90deg);
     background-image: ${props => `url(${props.$img})`};
     background-size: contain;
     background-repeat: no-repeat;
@@ -488,6 +522,259 @@ class ShipWindow extends React.Component {
         this.state = { openPanel: null, hoverNotes: false, showArt: false }; //openPanel: null | 'hitchart' | 'notes'
         this.notesHoverTimer = null;
         this.onDocumentPointerDown = this.onDocumentPointerDown.bind(this);
+        this.onDragStart = this.onDragStart.bind(this);
+        this.onDragMove = this.onDragMove.bind(this);
+        this.onDragEnd = this.onDragEnd.bind(this);
+        this.onTouchDragStart = this.onTouchDragStart.bind(this);
+        this.onTouchDragMove = this.onTouchDragMove.bind(this);
+        this.onTouchDragEnd = this.onTouchDragEnd.bind(this);
+        this.onScreenResize = this.onScreenResize.bind(this);
+        this.screenFit = 1; //applied scale factor (touch screens; 1 = untransformed)
+        this.screenFitHeight = null; //applied max-height (layout px) that goes with it
+    }
+
+    /*Touch-screen fit (user request 2026-07-23). The window's size is dictated by fixed
+      section/chrome widths, so on a phone it is simply the wrong size: game.php's window
+      overflows the screen while the lobby's - whose layout viewport the browser widens to
+      fit the page - looks lost in the middle of it. Rather than fight the layout, the whole
+      window is CSS-scaled to fit the screen, origin at the edge it is docked to.
+
+      The scale is the SMALLER of the width and height ratios (2026-07-23 follow-up): a
+      width-only fit blew the window up to full width in landscape, where height is the
+      scarce dimension, and cut the bottom off. Both natural dimensions are measured with
+      the height clamp lifted (inline max-height: none beats the media query's 100vh, and
+      absolutely-positioned children like the Hit Chart popup never count toward
+      offsetHeight, so an open popup can't shrink the window). max-height is then written
+      back as innerHeight / scale because it is a LAYOUT value - a shrunk window would
+      otherwise keep an inner scrollbar for space it no longer needs, and a window that
+      bottoms out on SCREEN_FIT_MIN still scrolls rather than being cut off.*/
+    applyScreenFit() {
+        const element = this.elementRef.current;
+        if (!element) return;
+
+        if (!isSmallScreen()) {
+            if (this.screenFit !== 1 || this.screenFitHeight) {
+                element.style.transform = '';
+                element.style.transformOrigin = '';
+                element.style.maxHeight = '';
+                this.screenFit = 1;
+                this.screenFitHeight = null;
+            }
+            return;
+        }
+
+        //measure unclamped: a transform never affects layout, so offsetWidth/Height stay
+        //honest, but the height clamp from the last fit has to come off first
+        const applied = element.style.maxHeight;
+        element.style.maxHeight = 'none';
+        const naturalWidth = element.offsetWidth;
+        const naturalHeight = element.offsetHeight;
+        element.style.maxHeight = applied;
+        if (!naturalWidth || !naturalHeight) return;
+
+        const availableWidth = (document.documentElement.clientWidth || window.innerWidth) * SCREEN_FIT_FILL;
+        const availableHeight = (window.innerHeight || document.documentElement.clientHeight) * SCREEN_FIT_FILL;
+        const fit = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
+
+        let scale = Math.min(SCREEN_FIT_MAX, Math.max(SCREEN_FIT_MIN, fit));
+        scale = Math.round(scale * 100) / 100; //2dp: stops poll re-renders jittering the scale
+
+        const maxHeight = Math.round(window.innerHeight / scale);
+        if (scale === this.screenFit && maxHeight === this.screenFitHeight) return; //nothing to write
+
+        this.screenFit = scale;
+        this.screenFitHeight = maxHeight;
+        element.style.transformOrigin = isLeftWindow(this.props.ship) ? 'top left' : 'top right';
+        element.style.transform = scale === 1 ? '' : 'scale(' + scale + ')';
+        element.style.maxHeight = maxHeight + 'px';
+    }
+
+    onScreenResize() {
+        this.applyScreenFit();
+    }
+
+    /*Header drag (2026-07-23, replaces jQuery UI `draggable`, whose mouse widget binds
+      mousedown/mousemove only - a touchscreen never produced those, so windows could not
+      be moved by finger at all).
+
+      TWO engines, deliberately: a MOUSE/PEN one on pointer events, and a separate TOUCH
+      one on touch events. A single pointer-events path looked cleaner but is fragile on
+      touch - the browser cancels the whole pointer stream (pointercancel, no further
+      pointermove) the moment anything claims the gesture: a long-press context menu, a
+      scroll container taking over, a stale captured node. Touch events keep firing
+      regardless, and `preventDefault()` on touchstart/touchmove stops the page scrolling
+      and the long-press menu at the source. Pointer events with `pointerType === 'touch'`
+      are therefore ignored here.
+
+      Both engines DELEGATE from the window container and re-resolve the handle from the
+      event target, so a header node React has since replaced can never leave the drag
+      wired to a detached element.
+
+      Contract unchanged: drag by `.shipwindow-drag-handle`, never from inside
+      `.shipwindow-nodrag` (the ✕), position remembered per side on release.*/
+    isDragHandle(target) {
+        if (!target || !target.closest) return false;
+        if (target.closest('.shipwindow-nodrag')) return false;
+        return Boolean(target.closest('.shipwindow-drag-handle'));
+    }
+
+    beginDrag(clientX, clientY) {
+        const element = this.elementRef.current;
+        if (!element) return false;
+
+        //freeze the current geometry into left/top: right-side windows are positioned
+        //with `right`, so a drag has to switch them to one coordinate system first.
+        //Computed left/top are used values (px) even when the rule says auto; offsetLeft
+        //is the fallback for anything that reports auto anyway.
+        const style = window.getComputedStyle(element);
+        let left = parseFloat(style.left);
+        let top = parseFloat(style.top);
+        if (!isFinite(left)) left = element.offsetLeft;
+        if (!isFinite(top)) top = element.offsetTop;
+
+        //a screen-fitted window is CSS-scaled, so a 100px finger move is only 100/scale
+        //px of layout movement
+        this.dragStart = { x: clientX, y: clientY, left: left, top: top, scale: this.screenFit || 1 };
+        element.style.left = left + 'px';
+        element.style.top = top + 'px';
+        element.style.right = 'auto';
+        return true;
+    }
+
+    moveDrag(clientX, clientY) {
+        const element = this.elementRef.current;
+        if (!this.dragStart || !element) return;
+
+        const scale = this.dragStart.scale || 1;
+        element.style.left = (this.dragStart.left + (clientX - this.dragStart.x) / scale) + 'px';
+        element.style.top = (this.dragStart.top + (clientY - this.dragStart.y) / scale) + 'px';
+    }
+
+    finishDrag() {
+        const element = this.elementRef.current;
+        this.dragStart = null;
+
+        //remember where the player left this side's window (feedback 2026-07-17)
+        if (element) {
+            savedWindowPositions[isLeftWindow(this.props.ship) ? 'left' : 'right'] = {
+                top: parseFloat(element.style.top) || 0,
+                left: parseFloat(element.style.left) || 0
+            };
+        }
+    }
+
+    //--- mouse / pen (pointer events) ---
+    onDragStart(event) {
+        //set window.FV_DRAG_DEBUG = true in the console to see which engine fires and
+        //whether the press landed on the handle (remote-debugging a touch device)
+        if (window.FV_DRAG_DEBUG) console.log('[shipwindow] pointerdown', event.pointerType, 'handle:', this.isDragHandle(event.target));
+        if (event.pointerType === 'touch') return; //touch is handled by the touch engine below
+        if (event.button != null && event.button > 0) return; //primary button only
+        if (!this.isDragHandle(event.target)) return;
+        if (!this.beginDrag(event.clientX, event.clientY)) return;
+
+        //capture on the container (not the header): the pointer routinely leaves the small
+        //header bar mid-drag. Falls back to document listeners if capture is unavailable.
+        const element = this.elementRef.current;
+        let captured = false;
+        try {
+            element.setPointerCapture(event.pointerId);
+            captured = true;
+        } catch (e) { /*fall through to the document listeners*/ }
+
+        this.dragTarget = captured ? element : document;
+        this.dragTarget.addEventListener('pointermove', this.onDragMove);
+        this.dragTarget.addEventListener('pointerup', this.onDragEnd);
+        this.dragTarget.addEventListener('pointercancel', this.onDragEnd);
+        this.dragPointerId = event.pointerId;
+
+        event.preventDefault(); //no text selection / native drag while moving the window
+    }
+
+    onDragMove(event) {
+        if (!this.dragStart || event.pointerId !== this.dragPointerId) return;
+        this.moveDrag(event.clientX, event.clientY);
+    }
+
+    onDragEnd(event) {
+        if (!this.dragStart || (event && event.pointerId !== this.dragPointerId)) return;
+        this.stopDragListening();
+        this.finishDrag();
+    }
+
+    //--- touch ---
+    onTouchDragStart(event) {
+        if (window.FV_DRAG_DEBUG) console.log('[shipwindow] touchstart', event.touches && event.touches.length, 'handle:', this.isDragHandle(event.target));
+        if (this.dragStart) return; //already dragging
+        if (!event.touches || event.touches.length !== 1) return; //ignore pinches
+        if (!this.isDragHandle(event.target)) return;
+
+        const touch = event.touches[0];
+        if (!this.beginDrag(touch.clientX, touch.clientY)) return;
+
+        this.touchDragId = touch.identifier;
+        //Where the page sat when the drag began. preventDefault alone can't stop a scroll
+        //that has ALREADY started - the browser reports the touch as non-cancelable
+        //("Ignored attempt to cancel a touchstart event with cancelable=false", seen in the
+        //lobby, the one page that scrolls, where a fling or pull-to-refresh is often still
+        //running when the finger lands on the window). Re-pinning the scroll on every move
+        //holds the page still anyway, and kills the fling in the process.
+        this.dragScroll = { x: window.scrollX || window.pageXOffset || 0, y: window.scrollY || window.pageYOffset || 0 };
+
+        //document-level so the finger can leave the header; non-passive because the moves
+        //must preventDefault to stop the page scrolling underneath
+        document.addEventListener('touchmove', this.onTouchDragMove, { passive: false });
+        document.addEventListener('touchend', this.onTouchDragEnd);
+        document.addEventListener('touchcancel', this.onTouchDragEnd);
+
+        //also suppresses the long-press context menu, which would otherwise abort the drag.
+        //Guarded: calling it on a non-cancelable event does nothing but log an Intervention.
+        if (event.cancelable) event.preventDefault();
+    }
+
+    onTouchDragMove(event) {
+        const touch = findTouch(event.touches, this.touchDragId);
+        if (!this.dragStart || !touch) return;
+
+        this.moveDrag(touch.clientX, touch.clientY);
+
+        //hold the page where it was - see the note in onTouchDragStart
+        const scroll = this.dragScroll;
+        if (scroll && ((window.scrollX || window.pageXOffset || 0) !== scroll.x || (window.scrollY || window.pageYOffset || 0) !== scroll.y)) {
+            window.scrollTo(scroll.x, scroll.y);
+        }
+
+        if (event.cancelable) event.preventDefault();
+    }
+
+    onTouchDragEnd(event) {
+        //another finger may still be down - only end when OUR touch has lifted
+        if (event && event.touches && findTouch(event.touches, this.touchDragId)) return;
+
+        this.stopTouchDragListening();
+        if (this.dragStart) this.finishDrag();
+    }
+
+    stopTouchDragListening() {
+        document.removeEventListener('touchmove', this.onTouchDragMove, { passive: false });
+        document.removeEventListener('touchend', this.onTouchDragEnd);
+        document.removeEventListener('touchcancel', this.onTouchDragEnd);
+        this.touchDragId = null;
+        this.dragScroll = null;
+    }
+
+    stopDragListening() {
+        const target = this.dragTarget;
+        if (target) {
+            target.removeEventListener('pointermove', this.onDragMove);
+            target.removeEventListener('pointerup', this.onDragEnd);
+            target.removeEventListener('pointercancel', this.onDragEnd);
+            if (this.dragPointerId != null && target.hasPointerCapture && target.hasPointerCapture(this.dragPointerId)) {
+                target.releasePointerCapture(this.dragPointerId);
+            }
+        }
+        this.dragTarget = null;
+        this.dragPointerId = null;
     }
 
     onShipClick(event) {
@@ -599,7 +886,7 @@ class ShipWindow extends React.Component {
 
 
     componentDidMount() {
-        const element = jQuery(this.elementRef.current);
+        const element = this.elementRef.current;
         const side = isLeftWindow(this.props.ship) ? 'left' : 'right';
 
         //drag by the header bar only (plan §6) - body drags would fight the ship-click
@@ -607,31 +894,52 @@ class ShipWindow extends React.Component {
         //Drag end records the position per SIDE so the next window opened on that side
         //(reopen or a different ship) appears where the player left it (feedback
         //2026-07-17) instead of snapping back to the default corner.
-        element.draggable({
-            handle: ".shipwindow-drag-handle",
-            cancel: ".shipwindow-nodrag",
-            stop: (event, ui) => {
-                savedWindowPositions[side] = { top: ui.position.top, left: ui.position.left };
-            }
-        });
+        //Both listeners sit on the CONTAINER and re-resolve the handle per event (see the
+        //drag block above) - nothing here can go stale when React re-renders the header.
+        element.addEventListener('pointerdown', this.onDragStart);
+        element.addEventListener('touchstart', this.onTouchDragStart, { passive: false });
 
         //restore the side's remembered position (desktop only - the ≤1024px layout
-        //pins windows full-screen via the media query). Clamped so a stale position
+        //pins windows to a screen edge via the media query). Clamped so a stale position
         //can't strand the window off-screen after a resize.
         const saved = savedWindowPositions[side];
-        const smallScreen = window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
-        if (saved && !smallScreen) {
+        if (saved && !isSmallScreen()) {
             const top = Math.max(0, Math.min(saved.top, window.innerHeight - 60));
-            const left = Math.max(60 - element.outerWidth(), Math.min(saved.left, window.innerWidth - 60));
-            element.css({ top: top + 'px', left: left + 'px', right: 'auto' });
+            const left = Math.max(60 - element.offsetWidth, Math.min(saved.left, window.innerWidth - 60));
+            element.style.top = top + 'px';
+            element.style.left = left + 'px';
+            element.style.right = 'auto';
         }
 
         //close the Hit Chart / Notes popup on any press outside it (2026-07-16 feedback)
         document.addEventListener('pointerdown', this.onDocumentPointerDown);
+
+        //touch screens: scale the window to the screen width (and keep it right through
+        //rotation / browser-chrome resizes)
+        this.applyScreenFit();
+        window.addEventListener('resize', this.onScreenResize);
+        window.addEventListener('orientationchange', this.onScreenResize);
+    }
+
+    //the window's natural width changes with its content (EW targets appearing, sections
+    //being destroyed, the lobby re-applying enhancements), so the fit is re-checked after
+    //every render; applyScreenFit only writes when the rounded scale actually moves.
+    componentDidUpdate() {
+        this.applyScreenFit();
     }
 
     componentWillUnmount() {
         document.removeEventListener('pointerdown', this.onDocumentPointerDown);
+        window.removeEventListener('resize', this.onScreenResize);
+        window.removeEventListener('orientationchange', this.onScreenResize);
+        const element = this.elementRef.current;
+        if (element) {
+            element.removeEventListener('pointerdown', this.onDragStart);
+            element.removeEventListener('touchstart', this.onTouchDragStart, { passive: false });
+        }
+        this.stopDragListening();
+        this.stopTouchDragListening();
+        this.dragStart = null;
         if (this.notesHoverTimer) clearTimeout(this.notesHoverTimer);
     }
 
@@ -722,15 +1030,13 @@ class ShipWindow extends React.Component {
         );
     }
 
-    /*Top-left control block. game.php: Hit Chart / Ship Art / Notes. In the lobby the Hit
-      Chart button is here too (item 1 revert 2026-07-22 - back to its original lobby spot)
-      with the manoeuvre stats beneath it; only the Ship Art toggle moves to the bottom-left
-      artbtn area (renderLobbyArt). Compact windows (mines/terrain) keep every button here.*/
+    /*Top-left control block, identical in structure on both pages (2026-07-23): Hit Chart,
+      then Ship Art, then game.php's Notes button / the lobby's manoeuvre stats. The lobby's
+      round-8/9 bottom-left `artbtn` grid cell is gone - the two toggles now always read as
+      one stack. Compact windows (mines/terrain) render the same block as a centred row.*/
     renderControls(withHitChart, withNotes, compact, withStats) {
         const lobby = isLobby();
-        const showArtBtn = artAvailable(this.props.ship);
-        //lobby grid routes the Ship Art toggle to the bottom-left artbtn area instead
-        const artHere = showArtBtn && (compact || !lobby);
+        const artHere = artAvailable(this.props.ship);
 
         if (!withHitChart && !withNotes && !withStats && !artHere) return null;
 
@@ -741,21 +1047,10 @@ class ShipWindow extends React.Component {
                 {withHitChart && this.renderHitChartButton(wide)}
                 {artHere && this.renderArtButton(wide)}
                 {withNotes && this.renderNotesButton(wide)}
-                {/*lobby: manoeuvre stats live under the Hit Chart button (user layout
+                {/*lobby: manoeuvre stats live under the buttons (user layout
                    decision 2026-07-17)*/}
                 {withStats && <ManoeuvreStats ship={this.props.ship} />}
             </ControlsArea>
-        );
-    }
-
-    //Lobby grid only (item 2, 2026-07-22): the Ship Art toggle in the bottom-left artbtn
-    //grid area, bottom-aligned (underneath the lowest Port section).
-    renderLobbyArt() {
-        if (!artAvailable(this.props.ship)) return null;
-        return (
-            <ArtButtonArea>
-                {this.renderArtButton(true)}
-            </ArtButtonArea>
         );
     }
 
@@ -932,10 +1227,7 @@ class ShipWindow extends React.Component {
         //excluded server-side (Enhancements::isAmmoEnhancement) so ship.enhancementTooltip
         //carries only the enhancements worth surfacing here.
         const withEnhPanel = Boolean(ship.enhancementTooltip);
-        //lobby (item 2): the Ship Art toggle gets its own bottom-left grid area, mirroring
-        //the Enhancements block bottom-right (Hit Chart is back in the top-left ctrl block)
-        const withArtBtn = lobby && artAvailable(ship);
-        const areas = buildTemplateAreas(systemsByLocation, withEnhPanel, withArtBtn);
+        const areas = buildTemplateAreas(systemsByLocation, withEnhPanel);
         const isBigBase = ship.base && !ship.smallBase;
 
         //lobby: manoeuvre stats under the ctrl buttons, and the always-visible
@@ -945,10 +1237,15 @@ class ShipWindow extends React.Component {
             <SectionGrid $areas={areas}>
                 <ShipHitArea onClick={this.onShipClick.bind(this)} />
                 {/*Ship Art (item 3): the SAME watermark turns full colour in place while the
-                   sections hide - keeps the window/image at the exact same size (no resize)*/}
-                <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} $art={this.state.showArt} />
+                   sections hide - keeps the window/image at the exact same size (no resize).
+                   $offsetY: the lobby's taller chrome pushes the sections below the grid
+                   midline, so the art follows them down (2026-07-23).*/}
+                <WatermarkLayer
+                    $img={window.AssetManager.getSmartImagePath(ship.imagePath)}
+                    $art={this.state.showArt}
+                    $offsetY={lobby ? LOBBY_WATERMARK_OFFSET_Y : 0}
+                />
                 {this.renderControls(withHitChart, withNotes, false, lobby && !ship.mine)}
-                {lobby && this.renderLobbyArt()}
                 {lobby ? <ShipNotesPanel ship={ship} grid hideEnhancements={withEnhPanel} /> : <ShipWindowEw ship={ship} />}
                 {withEnhPanel && <EnhancementsPanel ship={ship} />}
                 {GRID_LOCATIONS.map(location => {
@@ -1007,8 +1304,40 @@ const shipWindowClicked = () => window.uiEvents.relay('CloseSystemInfo');
 //reopened windows should appear where the player previously moved them)
 const savedWindowPositions = { left: null, right: null };
 
+/*>>> TOUCH-SCREEN FIT <<< (user request 2026-07-23, ShipWindow.applyScreenFit). Below
+  this breakpoint the window is CSS-scaled to SCREEN_FIT_FILL of the screen in BOTH
+  dimensions (whichever binds - height is what binds in landscape); the min/max keep that
+  honest: never shrink past legibility, never blow a small window up into a poster. Raise
+  SCREEN_FIT_MIN if scaled-down text gets unreadable - the window then scrolls internally
+  instead of shrinking further. Same breakpoint as the ShipWindowContainer media query
+  that docks windows to the screen edge.*/
+const SMALL_SCREEN_QUERY = '(max-width: 1024px)';
+const SCREEN_FIT_MIN = 0.5;
+const SCREEN_FIT_MAX = 1.75;
+//how much of the screen a fitted window may cover - the slack leaves the docking inset
+//(4px/8px in the media query) visible on the opposite edge too
+const SCREEN_FIT_FILL = 0.96;
+
+const isSmallScreen = () => Boolean(window.matchMedia) && window.matchMedia(SMALL_SCREEN_QUERY).matches;
+
+//the still-down touch that started a drag (TouchList has no .find)
+const findTouch = (touches, identifier) => {
+    if (!touches || identifier == null) return null;
+    for (let i = 0; i < touches.length; i++) {
+        if (touches[i].identifier === identifier) return touches[i];
+    }
+    return null;
+};
+
 //gamelobby.php is the only page whose gamedata reports gamephase -2 (buy phase)
 const isLobby = () => Boolean(window.gamedata) && window.gamedata.gamephase === -2;
+
+/*>>> LOBBY WATERMARK NUDGE <<< how far DOWN (px) the hull art sits in the lobby grid
+  window, where the tall Ship Stats / datasheet / Enhancements chrome pushes the section
+  cluster below the grid's vertical midline (user request 2026-07-23). game.php's chrome
+  is short enough that its art already lines up, so it stays at 0. One knob - retune to
+  taste.*/
+const LOBBY_WATERMARK_OFFSET_Y = 20;
 
 /*Which side of the screen the window docks to. Single source of truth is
   ShipWindowManager.isLeftSide (renderer/shipWindowManager.js) so the manager's
@@ -1182,15 +1511,10 @@ const sortIntoLocations = (ship) => {
   sections). Side-section rows always name BOTH side areas (left+right etc. as a
   pair) so a rolled ship's mirrored displayLocation always finds its area.
 
-  withEnhArea (lobby, ship has purchased enhancements): an `enh` area is carved out
+  withEnhArea (ship has purchased enhancements): an `enh` area is carved out
   of the BOTTOM-RIGHT cell (feedback round 3: keeping Enhancements out of the `ew`
-  stack stops it lengthening row 1 further); the ew span stops above it.
-
-  withArtBtn (lobby, item 2 2026-07-22): an `artbtn` area is carved out of the
-  BOTTOM-LEFT cell for the Ship Art toggle, mirroring `enh` on the right; the ctrl span
-  (Hit Chart + manoeuvre stats) stops above it. game.php passes false - its Ship Art
-  toggle stays in the top-left ctrl block.*/
-const buildTemplateAreas = (locations, withEnhArea, withArtBtn) => {
+  stack stops it lengthening row 1 further); the ew span stops above it.*/
+const buildTemplateAreas = (locations, withEnhArea) => {
     //rows as [col1, col2, col3]; null = free cell (becomes "." unless a chrome span claims it)
     const rows = [['ctrl', 'fwd', 'ew']];
     let middleRows = 0;
@@ -1209,18 +1533,6 @@ const buildTemplateAreas = (locations, withEnhArea, withArtBtn) => {
             last[2] = 'enh'; //usually the Aft row's free right cell
         } else {
             rows.push([null, null, 'enh']); //last row's right cell occupied (e.g. quarter sections with no Aft)
-        }
-    }
-
-    //bottom-left Ship Art toggle, mirroring `enh` above. Carved AFTER enh so a ship with
-    //both shares the same bottom row (artbtn . enh); carved BEFORE the ctrl span below so
-    //the Hit Chart + manoeuvre-stats column stops above it.
-    if (withArtBtn) {
-        const last = rows[rows.length - 1];
-        if (rows.length > 1 && last[0] === null) {
-            last[0] = 'artbtn'; //usually the Aft row's (or the enh row's) free left cell
-        } else {
-            rows.push(['artbtn', null, null]); //last row's left cell occupied (e.g. six-sided quarters)
         }
     }
 

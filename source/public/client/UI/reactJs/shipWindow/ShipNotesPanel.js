@@ -247,7 +247,7 @@ export const ManoeuvreStats = ({ ship }) => {
             {mobile && <StatRow><StatLabel>Accel/decel</StatLabel><StatValue>{ship.accelcost}</StatValue></StatRow>}
             {mobile && <StatRow><StatLabel>Pivot</StatLabel><StatValue>{ship.pivotcost}</StatValue></StatRow>}
             {mobile && <StatRow><StatLabel>Roll</StatLabel><StatValue>{ship.rollcost}</StatValue></StatRow>}
-            <StatRow><StatLabel>Profile F/S</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
+            <StatRow><StatLabel>Profile - Front / Side</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
             {mobile && <StatRow><StatLabel>Initiative</StatLabel><StatValue>{ship.iniativebonus}</StatValue></StatRow>}
 
         </StatsPanel>
@@ -311,6 +311,11 @@ class ShipNotesPanel extends React.Component {
                         <BlockTitle>Flight Stats</BlockTitle>
                         <StatRow><StatLabel>Armor F/S/A</StatLabel><StatValue>{shipManager.systems.getFlightArmour(ship)}</StatValue></StatRow>
                         <StatRow><StatLabel>Off. bonus</StatLabel><StatValue>{ship.offensivebonus * 5}</StatValue></StatRow>
+                        {/*flights carry forwardDefense/sideDefense exactly like ships (the
+                           lobby resets them from the blueprint on edit, and FtrPetals-style
+                           systems mutate them live), so the profile reads the same way as
+                           ManoeuvreStats' - user request 2026-07-23*/}
+                        <StatRow><StatLabel>Profile - Front  /Side</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
                         <StatRow><StatLabel>Thrust</StatLabel><StatValue>{ship.freethrust}</StatValue></StatRow>
                         <StatRow><StatLabel>Initiative</StatLabel><StatValue>{ship.iniativebonus}</StatValue></StatRow>
                     </Block>
