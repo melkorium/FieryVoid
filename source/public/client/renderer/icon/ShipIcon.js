@@ -35,6 +35,7 @@ window.ShipIcon = function () {
         this.shipDirectionOfMovementSprite = null;
         this.shipDirectionOfProwSprite = null;
         this.weaponArcs = [];
+        this.structureArcs = []; //structure facing wedges (own array so they never fight the weapon arcs)
         this.hidden = false;
         this.BDEWSprite = null;
         this.MDEWSprite = null;
@@ -757,6 +758,49 @@ window.ShipIcon = function () {
         this.weaponArcs.forEach(function (arc) {
             this.mesh.remove(arc);
         }, this);
+    };
+
+
+    /* Structure arc indicator (STRUCTURE_ARCS_PLAN.md). Hovering / long-pressing a section's
+       structure health bar in the ship window draws that section's facing coverage on the icon,
+       the sibling of showWeaponArc. The arcs are the ones getLocations() uses to allocate
+       incoming hits, filled onto the Structure by BaseShip::addSystem and carried in the STATIC
+       ship bundle, so nothing extra travels in gamedata.
+
+       Unlike a weapon, a structure has no range to size the wedge from - it uses a fixed radius
+       that clears the icon silhouette (the selection circle sits at size * 0.375) with a floor
+       for the smallest hulls. Own array + own hide, so weapon and structure arcs are independent. */
+    ShipIcon.prototype.showStructureArc = function (ship, structure) {
+        if (!structure || structure.name !== 'structure') return null;
+        if (structure.location == 0) return null; //PRIMARY is hit from every facing - no wedge to draw
+        if (ship.flight) return null; //fighter flights have no sections
+        if (typeof structure.startArc !== 'number' || typeof structure.endArc !== 'number') return null;
+
+        var hexDistance = window.coordinateConverter.getHexDistance();
+        var dis = Math.max(this.size * 0.5, hexDistance * 0.75);
+
+        var arcs = shipManager.systems.getArcs(ship, structure); //applies the rolled-ship flip
+        var arcLength = arcs.start === arcs.end ? 360 : mathlib.getArcLength(arcs.start, arcs.end);
+        var arcStart = mathlib.addToDirection(0, arcLength * -0.5);
+        var arcFacing = mathlib.addToDirection(arcs.end, arcLength * -0.5);
+
+        var geometry = new THREE.CircleGeometry(dis, 32, mathlib.degreeToRadian(arcStart), mathlib.degreeToRadian(arcLength));
+        //health-bar green (theme.colors.healthOk), so the wedge reads as "this bar's section"
+        var material = new THREE.MeshBasicMaterial({ color: new THREE.Color("rgb(66,114,49)"), opacity: 0.5, transparent: true });
+        var circle = new THREE.Mesh(geometry, material);
+        circle.rotation.z = mathlib.degreeToRadian(-mathlib.addToDirection(arcFacing, -this.getFacing()));
+        circle.position.z = -1;
+        this.mesh.add(circle);
+        this.structureArcs.push(circle);
+
+        return null;
+    };
+
+    ShipIcon.prototype.hideStructureArcs = function () {
+        this.structureArcs.forEach(function (arc) {
+            this.mesh.remove(arc);
+        }, this);
+        this.structureArcs = [];
     };
 
     ShipIcon.prototype.showBDEW = function () {

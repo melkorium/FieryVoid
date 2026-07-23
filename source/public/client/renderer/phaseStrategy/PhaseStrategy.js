@@ -41,6 +41,9 @@ window.PhaseStrategy = function () {
 
     PhaseStrategy.prototype.onCloseShipWindow = function (payload) {
         this.shipWindowManager.close(payload.ship);
+        //a window closed under the cursor never fires mouse-out on its health bar - sweep any
+        //structure wedge it left behind
+        this.onStructureMouseOut();
     }
 
     PhaseStrategy.prototype.onCloseSystemInfo = function () {
@@ -722,6 +725,27 @@ window.PhaseStrategy = function () {
         });
 
         this.hideSystemInfo();
+    };
+
+    /* Structure arc indicator (STRUCTURE_ARCS_PLAN.md): the ship window's section health bars
+       raise their OWN event rather than SystemMouseOver, so hovering a bar draws the section's
+       facing wedge without also opening the system info tooltip (a structure has nothing useful
+       to say there) and without disturbing the weapon-arc show/hide. */
+    PhaseStrategy.prototype.onStructureMouseOver = function (payload) {
+        this.shipIconContainer.getArray().forEach(function (icon) {
+            icon.hideStructureArcs();
+        });
+
+        var icon = this.shipIconContainer.getByShip(payload.ship);
+        if (!icon) return;
+
+        icon.showStructureArc(payload.ship, payload.structure);
+    };
+
+    PhaseStrategy.prototype.onStructureMouseOut = function () {
+        this.shipIconContainer.getArray().forEach(function (icon) {
+            icon.hideStructureArcs();
+        });
     };
 
     PhaseStrategy.prototype.createReplayUI = function (gamedata) {
