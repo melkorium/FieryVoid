@@ -1083,6 +1083,9 @@ window.shipManager = {
         }
 
         if (ship.faction == "Torvalus Speculators") {
+            //getSystemByName descends into fighters, so it resolves a flight's Shading Field too.
+            //Which copy it returns doesn't matter: isDetectedTorvalus re-resolves a flight to the
+            //canonical (first-fighter) field internally before reading detection state.
             var shadingField = shipManager.systems.getSystemByName(ship, "ShadingField");
             if (shadingField) {
                 return shadingField.isDetectedTorvalus(ship, 15);
