@@ -280,8 +280,8 @@ window.combatLog = {
                 var destroyedFighters = [];
                 var damagehtml = "";
                 // Capacity spent soaking this fire order by shield projections (Thirdspace /
-                // Thought) and by Shadow diffuser tendrils. Each reported on its own line - see
-                // the exclusion below.
+                // Thought / Trek) and by Shadow diffuser tendrils. Each reported on its own line -
+                // see the exclusion below.
                 var shieldAbsorbed = 0;
                 var tendrilAbsorbed = 0;
                 for (var a in damages[i].damages) {
@@ -289,13 +289,15 @@ window.combatLog = {
                     var d = damages[i].damages[a];
 
                     // A shield projection or a diffuser tendril records what it absorbed as a damage
-                    // entry on ITSELF, tagged with its own class (ThirdspaceShield::absorbDamage /
-                    // ThoughtShield::absorbDamage / DiffuserTendril::absorbDamage). That is absorber
-                    // capacity spent, not damage to the ship, so it must stay out of the ship's
-                    // damage total - and out of the criticals and destroyed-systems lists, which
-                    // these systems never join. Each gets its own line below, so a fully absorbed
-                    // shot no longer reads as if nothing happened.
-                    if (d.damageclass === "ThirdspaceShield" || d.damageclass === "ThoughtShield") {
+                    // entry on ITSELF, tagged with its own class (the absorbDamage() of
+                    // ThirdspaceShield / ThoughtShield / TrekShieldProjection / DiffuserTendril).
+                    // That is absorber capacity spent, not damage to the ship, so it must stay out
+                    // of the ship's damage total - and out of the criticals and destroyed-systems
+                    // lists, which these systems never join. Each gets its own line below, so a
+                    // fully absorbed shot no longer reads as if nothing happened.
+                    if (d.damageclass === "ThirdspaceShield"
+                        || d.damageclass === "ThoughtShield"
+                        || d.damageclass === "TrekShieldProjection") {
                         shieldAbsorbed += Number(d.damage); // never string-concatenate a JSON value
                         continue;
                     }
