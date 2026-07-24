@@ -279,9 +279,32 @@ window.combatLog = {
                 var disengagedFighters = [];
                 var destroyedFighters = [];
                 var damagehtml = "";
+                // Capacity spent soaking this fire order by shield projections (Thirdspace /
+                // Thought) and by Shadow diffuser tendrils. Each reported on its own line - see
+                // the exclusion below.
+                var shieldAbsorbed = 0;
+                var tendrilAbsorbed = 0;
                 for (var a in damages[i].damages) {
 
                     var d = damages[i].damages[a];
+
+                    // A shield projection or a diffuser tendril records what it absorbed as a damage
+                    // entry on ITSELF, tagged with its own class (ThirdspaceShield::absorbDamage /
+                    // ThoughtShield::absorbDamage / DiffuserTendril::absorbDamage). That is absorber
+                    // capacity spent, not damage to the ship, so it must stay out of the ship's
+                    // damage total - and out of the criticals and destroyed-systems lists, which
+                    // these systems never join. Each gets its own line below, so a fully absorbed
+                    // shot no longer reads as if nothing happened.
+                    if (d.damageclass === "ThirdspaceShield" || d.damageclass === "ThoughtShield") {
+                        shieldAbsorbed += Number(d.damage); // never string-concatenate a JSON value
+                        continue;
+                    }
+                    if (d.damageclass === "Tendril") {
+                        tendrilAbsorbed += Number(d.damage);
+                        continue;
+                    }
+
+                    var system = shipManager.systems.getSystem(gamedata.getShip(d.shipid), d.systemid);
                     var damageDone = d.damage - d.armour;
                     var damageStopped = d.armour;
                     /*healing is up, so negative values are just fine
@@ -294,7 +317,6 @@ window.combatLog = {
 
                     totaldam += damageDone; //d.damage-d.armour;
                     armour += damageStopped; //d.armour;
-                    var system = shipManager.systems.getSystem(gamedata.getShip(d.shipid), d.systemid);
                     var comma = ",";
 
                     //New section to create critical entries when damage is done but system no destroyed.
@@ -368,6 +390,14 @@ window.combatLog = {
                 if (fire.damageclass == "HyperspaceJump") continue; //Do not show damage to Primary Structure when jumping to Hyperspace. 
 
                 html += '<li><span class="shiplink victim" data-id="' + ship.id + '" >' + victim.name + '</span> damaged for ' + totaldam + ' (total armour mitigation: ' + armour + ').</li>';
+
+                if (shieldAbsorbed > 0) {
+                    html += '<li><span class="shieldabsorb">Shields absorbed ' + shieldAbsorbed + ' damage.</span></li>';
+                }
+
+                if (tendrilAbsorbed > 0) {
+                    html += '<li><span class="shieldabsorb">Tendrils absorbed ' + tendrilAbsorbed + ' damage.</span></li>';
+                }
 
                 if (criticalshtml.length > 1) {
                     html += '<li>' + criticalshtml + '</li>';
