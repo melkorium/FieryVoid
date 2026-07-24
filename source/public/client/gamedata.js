@@ -391,6 +391,28 @@ window.gamedata = {
         return "rgb(" + Math.round(rgb[0]) + "," + Math.round(rgb[1]) + "," + Math.round(rgb[2]) + ")";
     },
 
+    // Colour for a SHIP NAME / header in the combat log, keyed on the ship itself.
+    // Implements the same observer / 2-team / 3+-team rule as everything else:
+    // terrain is neutral white; observers and 3+-team participants get the absolute
+    // per-team palette (a single "ally" colour can't tell several teams apart);
+    // 2-team participants get relative mine=green / ally=blue / enemy=red, so your
+    // own fleet reads green even if you're team 2. Used for BOTH the "FIRE:" header
+    // (shooter) and the attacked ship's name (target) so one log line stays
+    // self-consistent. NOTE: unlike getFleetHeaderColorRGB this returns a COMPLETE
+    // declaration ("color:rgb(...);") ready to drop into a style attribute.
+    getShipLogColorCss: function getShipLogColorCss(ship) {
+        if (gamedata.isTerrain(ship.shipSizeClass, ship.userid)) {
+            return "color:#ffffff;";
+        }
+        if (!gamedata.isPlayerInGame() || gamedata.getDistinctTeamCount() !== 2) {
+            var rgb = gamedata.getTeamColorRGB(ship.team); // guards bad team values
+            return "color:rgb(" + Math.round(rgb[0]) + "," + Math.round(rgb[1]) + "," + Math.round(rgb[2]) + ");";
+        }
+        if (gamedata.isMyShip(ship)) return "color:rgb(50,205,50);";        // green (mine)
+        if (gamedata.isMyorMyTeamShip(ship)) return "color:rgb(51,173,255);"; // blue (ally)
+        return "color:rgb(255,80,80);";                                     // red (enemy)
+    },
+
     isPlayerInGame: function isPlayerInGame() {
         if (gamedata.thisplayer === null || gamedata.thisplayer === -1) {
             return false;
