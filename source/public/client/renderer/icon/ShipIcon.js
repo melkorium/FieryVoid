@@ -772,7 +772,7 @@ window.ShipIcon = function () {
        for the smallest hulls. Own array + own hide, so weapon and structure arcs are independent. */
     ShipIcon.prototype.showStructureArc = function (ship, structure) {
         if (!structure || structure.name !== 'structure') return null;
-        if (structure.location == 0) return null; //PRIMARY is hit from every facing - no wedge to draw
+        if (structure.location == 0 && ship.shipSizeClass > 1) return null; //PRIMARY is hit from every facing - no wedge to draw
         if (ship.flight) return null; //fighter flights have no sections
         if (typeof structure.startArc !== 'number' || typeof structure.endArc !== 'number') return null;
 
