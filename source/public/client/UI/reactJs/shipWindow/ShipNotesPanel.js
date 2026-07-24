@@ -315,7 +315,7 @@ class ShipNotesPanel extends React.Component {
                            lobby resets them from the blueprint on edit, and FtrPetals-style
                            systems mutate them live), so the profile reads the same way as
                            ManoeuvreStats' - user request 2026-07-23*/}
-                        <StatRow><StatLabel>Profile - Front  /Side</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
+                        <StatRow><StatLabel>Profile - Front / Side</StatLabel><StatValue>{ship.forwardDefense * 5}/{ship.sideDefense * 5}</StatValue></StatRow>
                         <StatRow><StatLabel>Thrust</StatLabel><StatValue>{ship.freethrust}</StatValue></StatRow>
                         <StatRow><StatLabel>Initiative</StatLabel><StatValue>{ship.iniativebonus}</StatValue></StatRow>
                     </Block>

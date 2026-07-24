@@ -494,6 +494,9 @@ const GRID_JUSTIFY = { left: 'end', lfwd: 'end', laft: 'end', right: 'start', rf
 const GRID_LOCATIONS = [1, 3, 31, 32, 0, 4, 41, 42, 2];
 const COMPACT_LOCATIONS = [1, 3, 31, 0, 4, 41, 32, 2, 42];
 const QUARTER_LOCATIONS = [31, 32, 41, 42];
+//mid + quarter Port/Starboard: the locations that make buildTemplateAreas emit a
+//middle row, which is what blocks the ctrl/ew chrome spans (see LOBBY_WATERMARK_OFFSET_Y)
+const SIDE_LOCATIONS = [3, 4, 31, 41, 32, 42];
 
 class ShipWindow extends React.Component {
     constructor(props) {
@@ -1243,11 +1246,12 @@ class ShipWindow extends React.Component {
                 {/*Ship Art (item 3): the SAME watermark turns full colour in place while the
                    sections hide - keeps the window/image at the exact same size (no resize).
                    $offsetY: the lobby's taller chrome pushes the sections below the grid
-                   midline, so the art follows them down (2026-07-23).*/}
+                   midline, so the art follows them down (2026-07-23) - but only on hulls
+                   whose side sections block the chrome spans (2026-07-24).*/}
                 <WatermarkLayer
                     $img={window.AssetManager.getSmartImagePath(ship.imagePath)}
                     $art={this.state.showArt}
-                    $offsetY={lobby ? LOBBY_WATERMARK_OFFSET_Y : 0}
+                    $offsetY={lobby && hasSideSections(systemsByLocation) ? LOBBY_WATERMARK_OFFSET_Y : 0}
                 />
                 {this.renderControls(withHitChart, withNotes, false, lobby && !ship.mine)}
                 {lobby ? <ShipNotesPanel ship={ship} grid hideEnhancements={withEnhPanel} /> : <ShipWindowEw ship={ship} />}
@@ -1352,8 +1356,18 @@ const isLobby = () => Boolean(window.gamedata) && window.gamedata.gamephase === 
   window, where the tall Ship Stats / datasheet / Enhancements chrome pushes the section
   cluster below the grid's vertical midline (user request 2026-07-23). game.php's chrome
   is short enough that its art already lines up, so it stays at 0. One knob - retune to
-  taste.*/
+  taste.
+
+  Only ships WITH side sections are pushed down (correction 2026-07-24): a middle row
+  makes buildTemplateAreas' ctrl/ew spans stop at row 1, so the tall lobby chrome inflates
+  that row alone and the sections sink. On a side-less hull (Heavy Combat Vessels, most
+  small craft) the same spans run the full height of the grid, the chrome shares the
+  window's height with the fwd/prim/aft column instead of stacking on top of it, and the
+  sections stay centred - nudging the art there only pulls it off them.*/
 const LOBBY_WATERMARK_OFFSET_Y = 20;
+
+//side sections present = buildTemplateAreas will emit at least one middle row
+const hasSideSections = (locations) => SIDE_LOCATIONS.some(location => locations[location].length > 0);
 
 /*Which side of the screen the window docks to. Single source of truth is
   ShipWindowManager.isLeftSide (renderer/shipWindowManager.js) so the manager's

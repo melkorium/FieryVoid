@@ -470,6 +470,27 @@ the screen to be practical"):**
    (shipWindowManager.js). UI.bundle + game.legacy.bundle (shipWindowManager.js is in the
    legacy bundle) — needs `yarn build`.
 
+**Post-Stage-4 improvements round 13 (2026-07-24) — BUILT, awaiting user test
+(UI.bundle only; one user report):**
+1. **Lobby watermark nudge now conditional on side sections** (`ShipWindow.js`). Round
+   10 item 2 pushed the lobby hull art down by `LOBBY_WATERMARK_OFFSET_Y` on **every**
+   lobby grid window; the user: on hulls without side sections (Heavy Combat Vessels) the
+   sections are not pushed down, so the offset only pulls the art off them. **Why the two
+   cases differ** — `buildTemplateAreas` extends the `ctrl` and `ew` chrome spans downward
+   only through rows whose side cell is free ([ShipWindow.js] `rows[i][0]/[2] === null`
+   loops). A hull WITH side sections names both side areas in its middle rows, blocking
+   those spans, so the tall lobby chrome (Ship Stats + datasheet + Enhancements) inflates
+   row 1 alone and the fwd/prim/aft cluster sinks below the grid's midline — the case the
+   nudge was written for. A hull WITHOUT them leaves every side cell free, the chrome
+   spans the full grid height and sits BESIDE the section column instead of stacking on
+   top of it, and the sections stay centred. **Fix**: new `SIDE_LOCATIONS = [3, 4, 31, 41,
+   32, 42]` (exactly the locations that make `buildTemplateAreas` emit a middle row) and
+   `hasSideSections(locations)`; the `WatermarkLayer` now gets
+   `lobby && hasSideSections(systemsByLocation) ? LOBBY_WATERMARK_OFFSET_Y : 0`. All keys
+   are pre-seeded by `sortIntoLocations`, so the `.length` reads are safe. game.php,
+   compact/mine and flight windows are untouched (still 0). Verified: esbuild JSX parse.
+   UI.bundle only — needs `yarn build`.
+
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
 game.php with the manoeuvre stats (TC/TD, Acc/Pivot/Roll, Profile, Ini, Agile)
