@@ -1206,13 +1206,28 @@ class ShipWindow extends React.Component {
         //terrain + revealed mines keep the compact thumbnail variant; in the lobby
         //(purchased mines) the datasheet renders as a full-width block underneath
         if (isTerrain) {
+            /*Compact windows stack their action buttons ACROSS THE TOP of the very box the
+              art is centred in (ControlsArea $compact is full-width, z-index 2), so on a
+              mine - which has barely any systems, making the art most of the window - the
+              buttons sit squarely over the image (user report 2026-07-24). Nudge the art
+              down clear of them, the same screen-space trick as the lobby grid nudge.
+              Gated on the buttons EXISTING: renderControls returns null when the ship has
+              no hit chart, notes or art, and an offset with nothing on top of it would just
+              push the image off centre (the same mistake the lobby nudge made for
+              side-less hulls). Terrain proper is left alone - it wasn't reported, and its
+              windows carry enough system icons that the art is incidental.*/
+            const compactHasControls = withHitChart || withNotes || artAvailable(ship);
             return (<ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="terrain">
                 {this.renderHeader(shipName, unitName, null)}
                 <CompactBody>
                     <ShipHitArea onClick={this.onShipClick.bind(this)} />
                     {/*Ship Art (item 3): the SAME watermark turns full colour in place while
                        the sections hide - no resize*/}
-                    <WatermarkLayer $img={window.AssetManager.getSmartImagePath(ship.imagePath)} $art={this.state.showArt} />
+                    <WatermarkLayer
+                        $img={window.AssetManager.getSmartImagePath(ship.imagePath)}
+                        $art={this.state.showArt}
+                        $offsetY={ship.mine && compactHasControls ? MINE_WATERMARK_OFFSET_Y : 0}
+                    />
                     {/*compact windows: vertical button list above the sections*/}
                     {this.renderControls(withHitChart, withNotes, true)}
                     {COMPACT_LOCATIONS.map(location => systemsByLocation[location].length > 0 && (
@@ -1368,6 +1383,15 @@ const LOBBY_WATERMARK_OFFSET_Y = 20;
 
 //side sections present = buildTemplateAreas will emit at least one middle row
 const hasSideSections = (locations) => SIDE_LOCATIONS.some(location => locations[location].length > 0);
+
+/*>>> MINE WATERMARK NUDGE <<< the compact-window twin of the knob above (user request
+  2026-07-24): how far DOWN (px) a mine's art sits so the compact action-button stack,
+  which runs full-width across the TOP of the same box the art is centred in, stops
+  covering it. Its own constant rather than a shared one because the two windows are
+  different shapes and will retune independently. Applies on both pages - the compact
+  mine window and its button stack are identical in game and lobby - and only when
+  buttons actually render.*/
+const MINE_WATERMARK_OFFSET_Y = 20;
 
 /*Which side of the screen the window docks to. Single source of truth is
   ShipWindowManager.isLeftSide (renderer/shipWindowManager.js) so the manager's

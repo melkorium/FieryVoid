@@ -488,8 +488,24 @@ the screen to be practical"):**
    `hasSideSections(locations)`; the `WatermarkLayer` now gets
    `lobby && hasSideSections(systemsByLocation) ? LOBBY_WATERMARK_OFFSET_Y : 0`. All keys
    are pre-seeded by `sortIntoLocations`, so the `.length` reads are safe. game.php,
-   compact/mine and flight windows are untouched (still 0). Verified: esbuild JSX parse.
-   UI.bundle only — needs `yarn build`.
+   compact/mine and flight windows are untouched (still 0).
+2. **Mine art nudged down in the compact window** (`ShipWindow.js`, second user request
+   the same day). The compact variant's `ControlsArea $compact` is a **full-width stack
+   across the TOP** of `CompactBody` — the very box `WatermarkLayer` centres itself in —
+   so on a mine, which has few enough systems that the art is most of the window, the
+   Hit Chart / Ship Art / Notes buttons sit squarely over the image. New
+   **`MINE_WATERMARK_OFFSET_Y` (20px, `>>> MINE WATERMARK NUDGE <<<`)**, a knob of its
+   own rather than a share of the lobby one since the two windows are different shapes.
+   Applied as `ship.mine && compactHasControls`:
+   - **`ship.mine`** — the `isTerrain` branch serves terrain AND revealed mines; terrain
+     proper wasn't reported and carries enough icons that its art is incidental.
+   - **`compactHasControls` (`withHitChart || withNotes || artAvailable(ship)`)** —
+     mirrors `renderControls`' own null guard, so a mine with no buttons doesn't get its
+     art shoved off centre for chrome that isn't there. Same class of bug as item 1.
+   Both pages, deliberately: the compact mine window and its button stack are identical
+   in game and lobby, so a page split there would be arbitrary. Unrevealed mines
+   (`isUnrevealedMine`, its own earlier branch) render no controls and stay at 0.
+   Verified: esbuild JSX parse ×2. UI.bundle only — needs `yarn build`.
 
 **Stage 3 (2026-07-17) — COMPLETE (user-accepted after feedback rounds 1–5).** Two user riders (2026-07-17)
 refine §3.2: (1) the Hit Chart button sits in the same top-left position as
