@@ -660,8 +660,8 @@ window.combatLog = {
         }
     },
 
-    /* Whether the Mine chip can mean anything for this viewer. Split out of the control
-       bar's syncControls because it is the one control whose answer depends on GAMEDATA
+    /* Whether the Mine and Enemy chips can mean anything for this viewer. Split out of the
+       control bar's syncControls because they are the one control whose answer depends on GAMEDATA
        rather than on view state - and gamedata is not populated when syncControls first
        runs.
 
@@ -682,12 +682,19 @@ window.combatLog = {
         if (typeof gamedata.isPlayerInGame !== 'function') return;
 
         var isPlayer = gamedata.isPlayerInGame();
-        var el = document.getElementById('combatLogMineOnly');
-        if (el) el.style.display = isPlayer ? '' : 'none';
 
-        /* An OBSERVER is on nobody's side, so "mine" would filter EVERY group away - there
-           is no unit in the game isMyorMyTeamShip will say yes to. Same two-arm reasoning as
-           every other allegiance surface here (arch_team_colour_logic). */
+        /* BOTH ENDS TOGETHER. Mine and Enemy are one filter drawn as two chips (see the note
+           in combatLog.php), so an observer gets both or neither - hiding one and leaving the
+           other up would offer half a control that cannot mean anything either way. */
+        ['combatLogMineOnly', 'combatLogEnemyOnly'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = isPlayer ? '' : 'none';
+        });
+
+        /* An OBSERVER is on nobody's side, so "mine" would filter EVERY group away - there is
+           no unit in the game isMyorMyTeamShip will say yes to - and "enemy" would filter none
+           of them away, which is a switch that does nothing. Same two-arm reasoning as every
+           other allegiance surface here (arch_team_colour_logic). */
         if (!isPlayer) combatLog.sideFilter = 'all';
     },
 
@@ -894,9 +901,11 @@ window.combatLog = {
        through gamedata.getShip on both paths, so the object this tests is the same one
        the entry is drawn from.
 
-       "Mine" is MY SIDE, allies included - the same isMyorMyTeamShip the rest of this
-       panel gates on, not isMyShip. Two states survive, all and mine; the enemy-only third
-       went with the segment it was a chip of - see the note in combatLog.php. */
+       "Mine" is MY SIDE, allies included - the same isMyorMyTeamShip the rest of this panel
+       gates on, not isMyShip - and "Enemy" is its exact complement, so between them and "all"
+       the three states partition the turn with nothing able to fall down the middle. `enemy`
+       was dropped on 2026-08-31 with the segment it was a chip of and came back as a toggle of
+       its own on 2026-09-02 - see the note in combatLog.php. */
     filterGroups: function filterGroups(groups) {
         var side = combatLog.sideFilter;
         var find = (combatLog.findText || '').trim().toLowerCase();
@@ -909,10 +918,12 @@ window.combatLog = {
 
             if (side !== 'all') {
                 //An observer is on nobody's side, so isMyorMyTeamShip is false for every
-                //unit and "mine" would empty the log. The control is hidden for observers
+                //unit and "mine" would empty the log. The controls are hidden for observers
                 //(see the init block below), but guard the state anyway.
                 if (!shooter) return false;
-                if (!gamedata.isMyorMyTeamShip(shooter)) return false;
+                var friendly = gamedata.isMyorMyTeamShip(shooter);
+                if (side === 'mine' && !friendly) return false;
+                if (side === 'enemy' && friendly) return false;
             }
 
             if (hitsOnly) {
@@ -1003,10 +1014,10 @@ window.combatLog = {
             if (!raw) return;
             var p = JSON.parse(raw);
             if (p.sortMode) combatLog.sortMode = p.sortMode;
-            //Validated, not trusted: `enemy` was a real stored value until 2026-08-31, and
-            //nothing filters on it any more - a browser still holding one would have shown an
-            //empty log with no control up to explain why.
-            if (p.sideFilter === 'mine' || p.sideFilter === 'all') combatLog.sideFilter = p.sideFilter;
+            //Validated, not trusted: a value nothing filters on is a filter with no chip lit to
+            //explain it. `enemy` is legal again as of 2026-09-02, so a browser still holding one
+            //from before it was dropped on 2026-08-31 simply gets it honoured.
+            if (p.sideFilter === 'mine' || p.sideFilter === 'enemy' || p.sideFilter === 'all') combatLog.sideFilter = p.sideFilter;
             combatLog.hitsOnly = !!p.hitsOnly;
         } catch (e) { /* defaults stand */ }
     },
@@ -1041,6 +1052,7 @@ $(function () {
         });
         combatLog.syncSideControl();
         $("#combatLogMineOnly").attr("aria-pressed", combatLog.sideFilter === 'mine' ? "true" : "false");
+        $("#combatLogEnemyOnly").attr("aria-pressed", combatLog.sideFilter === 'enemy' ? "true" : "false");
         $("#combatLogHitsOnly").attr("aria-pressed", combatLog.hitsOnly ? "true" : "false");
 
         if (window.gamedata && gamedata.turn) combatLog.updateTurnControls();
@@ -1058,13 +1070,20 @@ $(function () {
         applySort(String($(this).data("sort")));
     });
 
-    //A TOGGLE, not one chip of a segment: on = my side only, off = the whole turn.
-    $("#combatLogMineOnly").on("click", function () {
-        combatLog.sideFilter = (combatLog.sideFilter === 'mine') ? 'all' : 'mine';
-        $(this).attr("aria-pressed", combatLog.sideFilter === 'mine' ? "true" : "false");
+    /* TWO CHIPS, ONE STATE. Pressing an unlit chip takes the state off the other one;
+       pressing the lit one drops back to 'all'. It repaints through syncControls rather
+       than setting aria-pressed on `this` the way the old lone Mine toggle could, because
+       the chip that LOSES the state is not the chip that was clicked - painting only the
+       clicked one would leave Mine lit while Enemy filtered. */
+    var applySide = function applySide(want) {
+        combatLog.sideFilter = (combatLog.sideFilter === want) ? 'all' : want;
+        syncControls();
         combatLog.savePrefs();
         combatLog.rerender();
-    });
+    };
+
+    $("#combatLogMineOnly").on("click", function () { applySide('mine'); });
+    $("#combatLogEnemyOnly").on("click", function () { applySide('enemy'); });
 
     $("#combatLogHitsOnly").on("click", function () {
         combatLog.hitsOnly = !combatLog.hitsOnly;

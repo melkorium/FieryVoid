@@ -86,6 +86,22 @@ window.ShipIcon = function () {
        make it vanish on exactly the small units that are hardest to pick out. */
     ShipIcon.INI_BADGE_SCALE = 0.55;
 
+    /* AND IT SITS ABOVE THE PILE, NOT JUST ABOVE ITS OWN HULL (user, 2026-09-02). The badge is a
+       child of its icon's mesh, so the local z of 3 it used to be given only ever cleared the
+       sprites of the unit CARRYING it - and in a stacked hex that is the wrong contest. Every ship
+       of the initiative group that is moving right now is lifted a whole 100 units by setSelected
+       (MovementPhaseStrategy.highlightUnmovedShips lifts them, and the player's own selected ship
+       is lifted by the same call), so a mover standing in the hex of the un-moved unit the badge
+       belongs to painted its hull straight over the number - and the hex a player most wants to
+       read "and this pile goes at 5" off was the one hex that could not show it.
+
+       120 clears that +100 plane and deliberately nothing else: a HOVERED unit still wins
+       (baseZ + 499, which is a bring-to-front the player asked for), and weapon effects still draw
+       over it (LaserEffect, 201). Safe to move a label this far forward because the board camera
+       is ORTHOGRAPHIC (webglScene, near/far +/-1000) - z here buys draw order only, with no
+       parallax shift and no change of size. */
+    ShipIcon.INI_BADGE_Z = 120;
+
     /* Is this unit a jump vortex? Delegates to the ONE place that holds the class names
        (shipManager.movement) rather than repeating them here - the same discipline
        gamedata.isJumpGate follows. Guarded because this runs from the icon constructor:
@@ -468,7 +484,7 @@ window.ShipIcon = function () {
            asteroid fields don't each carry an unused mesh. */
         if (!this.terrain) {
             var badgeSize = window.HexagonMath.getHexHeight() * ShipIcon.INI_BADGE_SCALE;
-            this.iniOrderSprite = new window.ShipIniOrderSprite({ width: badgeSize, height: badgeSize }, 3);
+            this.iniOrderSprite = new window.ShipIniOrderSprite({ width: badgeSize, height: badgeSize }, ShipIcon.INI_BADGE_Z);
             this.mesh.add(this.iniOrderSprite.mesh);
         }
 
