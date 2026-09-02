@@ -97,12 +97,19 @@ var Ship = function Ship(json) {
 Ship.prototype = {
     constructor: Ship,
 
-    getHitChangeMod: function getHitChangeMod(shooter, weapon) {
-        if (this.flight) return this.getHitChangeModFlight(shooter, weapon); //separate function for fighter flight - same approach, different loop
+    /* launchPos (optional): the ballistic's launch hex for THIS ORDER, which is what
+       checkIsValidAffectingSystem tests arc-limited defensive systems against. The default below is
+       the shooter's start-of-turn hex, and that is wrong for anything whose launch hex is not its
+       launcher's - a homing missile on its second or later pass comes in from its target's previous
+       hex (HOMING_MISSILE_PLAN.md). The server passes the same value as $posmod.
+       Mirrors weaponManager.getFiringHex(shooter, weapon, fireOrder); callers with no order in hand
+       pass nothing and get exactly the old answer. */
+    getHitChangeMod: function getHitChangeMod(shooter, weapon, launchPos) {
+        if (this.flight) return this.getHitChangeModFlight(shooter, weapon, launchPos); //separate function for fighter flight - same approach, different loop
 
         var firingPos = null;
         if (weapon.ballistic) { //ballistic weapon uses position fron start of turn; direct fire weapons use ship itself rather than any position - important at range 0!
-            firingPos = shipManager.movement.getPositionAtStartOfTurn(shooter, gamedata.turn);
+            firingPos = launchPos || shipManager.movement.getPositionAtStartOfTurn(shooter, gamedata.turn);
         }
 
         var affectingSystems = Array();
@@ -144,10 +151,11 @@ Ship.prototype = {
     }, //getHitChangeMod
 
     //loop through ALL fighters - sample fighter should be enough, but let's loop through all in case of eg. criticals
-    getHitChangeModFlight: function getHitChangeModFlight(shooter, weapon) {
+    //launchPos: as getHitChangeMod above - the per-ORDER launch hex, optional.
+    getHitChangeModFlight: function getHitChangeModFlight(shooter, weapon, launchPos) {
         var firingPos = null;
         if (weapon.ballistic) { //ballistic weapon uses position fron start of turn; direct fire weapons use ship itself rather than any position - important at range 0!
-            firingPos = shipManager.movement.getPositionAtStartOfTurn(shooter, gamedata.turn);
+            firingPos = launchPos || shipManager.movement.getPositionAtStartOfTurn(shooter, gamedata.turn);
         }
 
         var affectingSystems = Array();

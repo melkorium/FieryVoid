@@ -42,8 +42,23 @@ window.ShipTooltipBallisticsMenu = function () {
             targetid: ball.fireOrder.targetid,
             shooterid: ball.shooter.id,
             fireOrderId: ball.fireOrder.id,
-            position: this.shipIconContainer.getByShip(ball.shooter).getFirstMovementOnTurn(this.turn).position
+            //the ORDER itself, so calculataBallisticHitChange can resolve a per-order launch hex
+            //(a homing re-attack's) rather than assuming the launcher's - see getFiringHex.
+            fireOrder: ball.fireOrder,
+            position: getLaunchHex.call(this, ball)
         };
+    }
+
+    /* Where this shot is coming FROM. Almost always the shooter's hex at the start of the turn -
+       except for a homing missile on its second or later pass, which runs in from the hex its TARGET
+       was standing on when the previous pass missed. That hex is per-ORDER (it rides on x/y), so two
+       missiles from one rack chasing two different ships genuinely approach from two different
+       directions, and the arc tests in canInterceptBallistic have to be given each one's own.
+       See HOMING_MISSILE_PLAN.md and weaponManager.getIncomingSourcePos. */
+    function getLaunchHex(ball) {
+        var homingHex = weaponManager.getHomingLaunchHex(ball.fireOrder);
+        if (homingHex) return homingHex;
+        return this.shipIconContainer.getByShip(ball.shooter).getFirstMovementOnTurn(this.turn).position;
     }
 
     // Groups collapse identical shots into one row. They now KEEP their members: the group key
@@ -56,7 +71,16 @@ window.ShipTooltipBallisticsMenu = function () {
         ballistics.forEach(ballistic => {
             //const key = ballistic.shooter.id + '-' +  ballistic.weapon.displayName + '-' + weaponManager.calculataBallisticHitChange(getBallisticEntry.call(this, ballistic));
 			//let's differentiate by mode as well!
-			const key = ballistic.shooter.id + '-' +  ballistic.weapon.displayName + '-' +  ballistic.fireOrder.firingMode +'-' + weaponManager.calculataBallisticHitChange(getBallisticEntry.call(this, ballistic));
+			//...and by LAUNCH HEX. Grouped shots are treated as interchangeable - one eligibility
+			//test is run against members[0] and reused for the whole row - which is only true while
+			//they share their geometry. A homing missile on a later pass comes in from its target's
+			//previous hex rather than from the launcher, so two of them from one rack can approach
+			//from opposite sides and must not collapse into one row (HOMING_MISSILE_PLAN.md).
+			//A no-op for every other ballistic: their launch hex is the shooter's, already in the key.
+			//⚠️ q/r, NOT x/y - hexagon.Offset carries only q and r, and a movement row's .position
+			//is one too. Reading .x here would key every shot in the game on "undefined,undefined".
+			const launchHex = getLaunchHex.call(this, ballistic);
+			const key = ballistic.shooter.id + '-' +  ballistic.weapon.displayName + '-' +  ballistic.fireOrder.firingMode +'-' + weaponManager.calculataBallisticHitChange(getBallisticEntry.call(this, ballistic)) + '-' + (launchHex ? launchHex.q + ',' + launchHex.r : '');
 
             if (listObject[key]) {
                 listObject[key].members.push(ballistic);
@@ -156,8 +180,12 @@ window.ShipTooltipBallisticsMenu = function () {
                 var ballisticEntry = getBallisticEntry.call(this, ball);
 
                 // The launch hex, which every interception predicate needs (arc, freeintercept
-                // geometry). getBallisticEntry already resolved it from the shooter's icon.
-                members.forEach(function (member) { member.position = ballisticEntry.position; });
+                // geometry). Resolved PER MEMBER, not copied from the group's representative: a
+                // homing missile's launch hex is its target's previous hex and rides on its own
+                // order, so members of one row can differ (HOMING_MISSILE_PLAN.md). The group key
+                // already includes it, so in practice they agree - but nothing downstream should
+                // depend on that.
+                members.forEach(function (member) { member.position = getLaunchHex.call(this, member); }, this);
 
                 // Set correct firing mode
                 var modeIteration = ball.fireOrder.firingMode;
@@ -182,8 +210,12 @@ window.ShipTooltipBallisticsMenu = function () {
                 // Live re-derived breakdown for the hover tooltip (geometry is locked
                 // at start of turn via getFiringHex, so the breakdown remains representative
                 // of how the chance was derived at launch).
+                // ⭐ THE ORDER IS PASSED: a homing missile on its second or later pass launches from
+                // its target's PREVIOUS hex, and without it the target's defence profile - the
+                // biggest single term in the goal - is resolved against the wrong bearing, so the
+                // tooltip disagrees with what the server rolls against (HOMING_MISSILE_PLAN.md).
                 var ballTarget = gamedata.getShip(ball.fireOrder.targetid);
-                var hitChanceResult = weaponManager.calculateHitChange(ball.shooter, ballTarget, ball.weapon, undefined);
+                var hitChanceResult = weaponManager.calculateHitChange(ball.shooter, ballTarget, ball.weapon, undefined, ball.fireOrder);
 
                 // Build hitchance list manually, based on number of ballistics.
                 /*let hitchanceList = [];

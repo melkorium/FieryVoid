@@ -1475,10 +1475,25 @@ class TacGamedata {
                 Gravitic Augmenter Modes 1/2), and the client draws launch/target hexes straight from
                 fire orders - so those leaked the moment the owner committed. Load-generated plasma
                 cloud markers (damageclass 'PersistentEffectPlasma') represent LAST turn's already
-                public cloud and must keep flowing.*/
+                public cloud and must keep flowing.
+
+                ⭐ AND SO DOES A HOMING MISSILE STILL IN THE AIR (HOMING_MISSILE_PLAN.md, user
+                ruling 2026-09-03). The secrecy this rule protects is "what am I launching THIS
+                turn"; a re-attack order (damageclass 'HomingMissile') is not a launch at all - the
+                missile left the rails on an earlier turn and told both players it was still there
+                by surviving its last pass. Stripped here it only reappeared once BOTH sides had
+                committed their Initial Orders, which is the one moment the information is no longer
+                any use: both players should be looking at it while they decide.
+
+                ⚠️ THIS ORDER MUST NOT COME BACK IN ON THE POST. Phase 1 is the one phase where
+                DBManager::submitFireorders inserts a ballistic order regardless of ->addToDB, so
+                anything visible here is re-inserted verbatim when its owner commits.
+                Firing::validateFireOrders rejects a posted 'HomingMissile' order for exactly that
+                reason - the server writes these and nobody else does.*/
                 if ($fire->turn == $this->turn && $this->phase == 1
                     && ($weapon->ballistic || $fire->type == 'ballistic')
-                    && $fire->damageclass != 'PersistentEffectPlasma'){
+                    && $fire->damageclass != 'PersistentEffectPlasma'
+                    && $fire->damageclass !== AmmoMissileHM::REATTACK_CLASS){
                     unset($system->fireOrders[$i]);
                 }
 
@@ -1503,6 +1518,43 @@ class TacGamedata {
                     unset($system->fireOrders[$i]);
                 }
                
+                /* ⭐ HOMING MISSILE (HOMING_MISSILE_PLAN.md section 5) - "the defending player does
+                   not know if a missile being used against him is a homing missile until it misses
+                   once and sticks around".
+
+                   FV normally shows an incoming ballistic's firing mode to everyone, so a Homing
+                   launch would announce itself on the way out. This reports it to non-allies as
+                   BASIC until its first miss - and a re-attack order (damageclass 'HomingMissile')
+                   is deliberately NOT masked, which is exactly the reveal the rules describe: the
+                   propulsion did not shut down, so it is obvious.
+
+                   ⭐ THE DECEPTION IS FREE BECAUSE THE TWO ARE STATISTICALLY IDENTICAL - both are
+                   damage 20, FC +3/+3/+3, range 20/60. So the deceived client's hit-chance preview,
+                   ballistic icon, tooltip and interception maths all read Basic and all produce
+                   numbers that are correct anyway. No second threshold, none of the machinery the
+                   Chameleon Sensor Suite needed for the same shape of problem.
+
+                   ⚠️ CURRENT TURN ONLY, per the standing convention on this method. Once the turn
+                   is history the missile has hit, been shot down, or come back and revealed itself,
+                   so the replay and combat log can tell the truth - and a permanent mask would make
+                   the log state something FALSE about a resolved shot.
+
+                   A no-op in Initial Orders: every current-turn ballistic order is already gone by
+                   then, for everyone. */
+                if ($fire->turn == $this->turn && !$isAlly
+                    && $weapon instanceof AmmoMissileRackS
+                    && $fire->damageclass !== AmmoMissileHM::REATTACK_CLASS
+                    && isset($weapon->firingModes[$fire->firingMode])
+                    && $weapon->firingModes[$fire->firingMode] === 'Homing'){
+
+                    $basicMode = array_search('Basic', $weapon->firingModes, true);
+                    if ($basicMode === false){ //no Basic rounds aboard: hide behind whatever is first
+                        $modes = array_keys($weapon->firingModes);
+                        $basicMode = empty($modes) ? $fire->firingMode : min($modes);
+                    }
+                    $fire->firingMode = $basicMode;
+                }
+
 				$weapon->changeFiringMode($fire->firingMode); //Select the current mode so the correct variables are considered, important for Stealth missile.
 
                 /* ⭐⭐ JUMP GATES (PHASE 2) - THE ONLY FIELD THAT NAMES A GATE'S SIGNALLER, AND THE

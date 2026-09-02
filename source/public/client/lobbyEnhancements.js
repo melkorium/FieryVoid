@@ -797,6 +797,14 @@ window.lobbyEnhancements = {
 							ship.ammoSEnh = true;
 							break;
 
+						case 'AMMO_HM': //Homing Missile
+							if (!ship.ammoHMEnh) {
+								ammoMagazine.data["Special"] += "<br>- Homing Missile: " + enhCount;
+								totalRounds += enhCount;
+							}
+							ship.ammoHMEnh = true;
+							break;
+
 						case 'AMMO_X': //HARM Missile						
 							if (!ship.ammoXEnh) {
 								ammoMagazine.data["Special"] += "<br>- HARM Missile: " + enhCount;
@@ -1662,6 +1670,10 @@ window.lobbyEnhancements = {
 
 					case 'AMMO_S': //Stealth Missile						
 						ship.ammoSEnh = false;
+						break;
+
+					case 'AMMO_HM': //Homing Missile
+						ship.ammoHMEnh = false;
 						break;
 
 					case 'AMMO_X': //HARM Missile						

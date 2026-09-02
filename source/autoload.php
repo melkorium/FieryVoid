@@ -90,6 +90,7 @@ spl_autoload_register(
                 'ammomissilefl' => '/server/model/systems/baseSystems.php',
                 'ammomissilefy' => '/server/model/systems/baseSystems.php',
                 'ammomissileh' => '/server/model/systems/baseSystems.php',
+                'ammomissilehm' => '/server/model/systems/baseSystems.php',
                 'ammomissilei' => '/server/model/systems/baseSystems.php',
                 'ammomissilej' => '/server/model/systems/baseSystems.php',
                 'ammomissilek' => '/server/model/systems/baseSystems.php',

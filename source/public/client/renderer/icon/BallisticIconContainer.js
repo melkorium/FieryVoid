@@ -714,7 +714,14 @@ if (ballistic.damageclass === 'Sweeping' || ballistic.damageclass === 'HPC-subor
 				: shooterIcon.getFirstMovementOnTurn(turn).position
 		);
 		*/
-		if (ballistic.type === 'normal' || ballistic.type === 'prefiring') {
+		if (ballistic.damageclass === 'HomingMissile') {
+			/* HOMING MISSILE (HOMING_MISSILE_PLAN.md): a re-attack launches from the hex its TARGET
+			   was standing on when the previous pass missed, not from the shooter. That hex rides on
+			   the ORDER (x/y), which is why this cannot go through weapon.hasSpecialLaunchHexCalculation
+			   - that flag is per-WEAPON, and it also switches off the launcher's line-of-sight
+			   fire-control penalty, which must keep applying. */
+			launchPosition = this.coordinateConverter.fromHexToGame(new hexagon.Offset(Number(ballistic.x), Number(ballistic.y)));
+		} else if (ballistic.type === 'normal' || ballistic.type === 'prefiring') {
 			launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getLastMovement().position);
 		} else {
 			launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getFirstMovementOnTurn(turn).position);
@@ -1039,7 +1046,16 @@ if (ballistic.damageclass === 'Sweeping' || ballistic.damageclass === 'HPC-subor
 			shooterId: ballistic.shooterid,
 			targetId: iconTargetId,   //see the note above - a vortex declaration is hex-keyed, never unit-keyed
 			launchPosition,
-			position: new hexagon.Offset(ballistic.x, ballistic.y),
+			/* `position` means THE HEX THIS SHOT IS AIMED AT - it is only ever read by
+			   getByTargetIdOrTargetPosition, to stop two orders drawing two markers on one hex. On an
+			   ordinary unit-targeted ballistic x/y are the string "null" and it is harmless nonsense.
+			   A HOMING re-attack is the exception: its x/y hold a REAL hex, but it is the LAUNCH hex
+			   (its target's previous position), not a target - so left as-is it would suppress an
+			   unrelated hex-targeted marker that happened to land where the missile came from.
+			   HOMING_MISSILE_PLAN.md. */
+			position: (ballistic.damageclass === 'HomingMissile' && iconTargetId !== -1)
+				? null
+				: new hexagon.Offset(ballistic.x, ballistic.y),
 			launchSprite,
 			targetSprite,
 			used: true,
@@ -1139,6 +1155,11 @@ if (ballistic.damageclass === 'Sweeping' || ballistic.damageclass === 'HPC-subor
 		}
 		// Get launch position (may be overwritten later)
 		let launchPosition = this.coordinateConverter.fromHexToGame(shooterIcon.getFirstMovementOnTurn(turn)?.position);
+		// HOMING MISSILE: a re-attack's launch hex is its target's PREVIOUS hex, carried on the
+		// order itself - see the matching branch in createBallisticIcon.
+		if (ballistic.damageclass === 'HomingMissile') {
+			launchPosition = this.coordinateConverter.fromHexToGame(new hexagon.Offset(Number(ballistic.x), Number(ballistic.y)));
+		}
 		let targetPosition;
 
 		// Determine target position

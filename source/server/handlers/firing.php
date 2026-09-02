@@ -36,6 +36,27 @@ class Firing
 
             $shooter = $gamedata->getShipById($fire->shooterid);
 
+            /* ⭐ A HOMING MISSILE RE-ATTACK IS NEVER THE CLIENT'S TO SUBMIT
+               (HOMING_MISSILE_PLAN.md). The server creates one at the end of the pass that missed
+               (AmmoMissileRackS::persistNextPassOrder), so a row already exists for it before any
+               player sees it - and since 2026-09-03 the order is VISIBLE during Initial Orders,
+               which is the one phase where DBManager::submitFireorders inserts a ballistic order
+               whatever its ->addToDB says. Without this, every commit would insert a second copy of
+               every missile in the air, and a hand-edited POST could conjure 20 points of damage
+               out of nothing.
+
+               Same reject + detach convention as the corrupt-order path below: the order is dropped
+               silently and the rest of the ship's submission goes through. Dropping it costs the
+               player nothing - the authoritative copy is already in the database. */
+            if ($fire->damageclass === AmmoMissileHM::REATTACK_CLASS) {
+                $fire->rejected = true;
+                Debug::log("validateFireOrders: rejecting POSTED homing-missile re-attack order "
+                    . "(game {$gamedata->id}, shooter {$fire->shooterid}, weaponid {$fire->weaponid}, "
+                    . "id {$fire->id}) - these are server-generated only.");
+                if ($shooter) self::detachFireOrder($shooter, $fire);
+                continue;
+            }
+
             //Uncontrolled-flight guard. A remote-controlled Hunter-Killer flight whose
             //command link is severed (node shortfall or ELINT jamming) is driven entirely
             //by the server: AutomatedMovement moves it (drift/seek) and, if it ends co-located
@@ -835,6 +856,12 @@ class Firing
         //"no such order" apart from "found it", which the old scan silently conflated.
         $ordersById = array();
         foreach ($allIncomingShots as $anyOrder) {
+            /*⚠️ ONLY ORDERS THAT HAVE A REAL ROW. A server-generated order that has not been
+            inserted yet carries id -1, and several can carry it at once - so indexing on it would
+            let one arbitrary shot answer to "-1" and let a stale client's intercept order be
+            credited against a missile nobody aimed at. An order with no id has no identity a client
+            could legitimately have named, so it simply cannot be manually intercepted.*/
+            if ((int)$anyOrder->id <= 0) continue;
             $ordersById[$anyOrder->id] = $anyOrder;
         }
         //Per-weapon tally of manual intercept orders ACCEPTED so far, keyed shipid_weaponid, so the

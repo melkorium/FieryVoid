@@ -1220,7 +1220,18 @@ class Enhancements{
 				$actualCapacity = floor($magazineCapacity/$ammoSize);
 			  $enhName = $ammoClass->enhancementDescription;
 			  $enhLimit = $actualCapacity / 10;		//10% limit
-			  $enhPrice = $ammoClass->getPrice($ship); 
+			  $enhPrice = $ammoClass->getPrice($ship);
+			  $enhPriceStep = 0; //flat rate
+			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		  }
+		  $enhID = 'AMMO_HM'; //Homing Missiles - stays in play after a miss
+		  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option is enabled
+				$ammoClass = new AmmoMissileHM();
+				$ammoSize = $ammoClass->size;
+				$actualCapacity = floor($magazineCapacity/$ammoSize);
+			  $enhName = $ammoClass->enhancementDescription;
+			  $enhLimit = $actualCapacity / 10;		//10% limit - same availability restriction as the Stealth Missile
+			  $enhPrice = $ammoClass->getPrice($ship);
 			  $enhPriceStep = 0; //flat rate
 			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
@@ -2797,9 +2808,12 @@ class Enhancements{
 					case 'AMMO_KK': //Kinetic Missile						
 						if($ammoMagazine) $ammoMagazine->addAmmoEntry(new AmmoMissileKK(), $enhCount, true); //do notify dependent weapons, too!
 						break;
-					case 'AMMO_S': //Stealth Missile						
+					case 'AMMO_S': //Stealth Missile
 						if($ammoMagazine) $ammoMagazine->addAmmoEntry(new AmmoMissileS(), $enhCount, true); //do notify dependent weapons, too!
-						break;						
+						break;
+					case 'AMMO_HM': //Homing Missile
+						if($ammoMagazine) $ammoMagazine->addAmmoEntry(new AmmoMissileHM(), $enhCount, true); //do notify dependent weapons, too!
+						break;
 					case 'AMMO_X': //HARM Missile						
 						if($ammoMagazine) $ammoMagazine->addAmmoEntry(new AmmoMissileX(), $enhCount, true); //do notify dependent weapons, too!
 						break;

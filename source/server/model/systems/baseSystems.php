@@ -15023,6 +15023,264 @@ class AmmoMissileS extends AmmoMissileTemplate{
 } //endof class AmmoMissileS
 
 
+/*ammunition for AmmoMagazine - Class HM Homing Missile (for official Missile Racks, Kor-Lyan only)
+  HOMING_MISSILE_PLAN.md - same combat statistics as the Basic missile, but a clean miss does NOT
+  end it: the missile stays in play and comes around for another pass next turn, launching from
+  its target's PREVIOUS hex. Defensive fire that would have turned the miss into a hit destroys it
+  instead. It is lost when its CUMULATIVE travel exceeds the distance range.
+
+  ⭐ ALL of the homing behaviour lives on this class. AmmoMissileRackS only delegates to it (six
+  thin overrides), and nothing in Weapon::fire, Firing:: or the phase classes knows homing exists.
+
+  ⭐ THE THREE-WAY OUTCOME IS ALREADY IN THE ENGINE. Weapon::fire subtracts $totalIntercept from
+  $needed and counts a roll landing in the band above the reduced threshold as $intercepted - and
+  $totalIntercept is ACTIVE defensive fire only, never shields or energy webs. So "hit /
+  shot down / clean miss" is read straight off the resolved order, exactly as the rules define it.*/
+class AmmoMissileHM extends AmmoMissileTemplate{
+	public $name = 'ammoMissileHM';
+	public $displayName = 'Homing Missile';
+	public $modeName = 'Homing';
+	public $size = 1; //how many store slots are required for a single round
+	public $enhancementName = 'AMMO_HM'; //enhancement name to be enabled
+	public $enhancementDescription = '(AMMO) Homing Missile'; //enhancement description
+	public $enhancementPrice = 12; //PV per missile; book value
+
+	public $rangeMod = 0; //MODIFIER for launch range
+	public $distanceRangeMod = 0; //MODIFIER for distance range
+	public $fireControlMod = array(3, 3, 3); //MODIFIER for weapon fire control!
+	public $minDamage = 20;
+	public $maxDamage = 20;
+	public $damageType = 'Standard';//mode of dealing damage
+	public $weaponClass = 'Ballistic';//weapon class
+	public $priority = 6;
+	public $priorityAF = 5;
+	public $noOverkill = false;
+	public $useOEW = false;
+	public $hidetarget = false;
+
+	/*The one flag the launcher keys off. Deliberately NOT a check on class name or modeName:
+	  a future homing variant only has to set this.*/
+	public $isHoming = true;
+
+	//damageclass stamped on every RE-ATTACK order. Three separate things read it: the launch-hex
+	//override, the firedOnTurn exclusion (so a missile in flight does not freeze the rack's
+	//reload), and the client's ballistic-icon launch position.
+	const REATTACK_CLASS = 'HomingMissile';
+
+    public function getDamage($fireOrder) //actual function to be called, as with weapon!
+    {
+        return 20;
+    }
+
+	/* ======================================================================================
+	   STATE CARRIED BETWEEN TURNS
+	   Packed into an IndividualNote's notevalue (varchar 4096). THE NOTE IS THE ONLY PERSISTED
+	   COPY - see the ⚠️ below.
+
+	     key       - the ORIGINAL launch order's DB id. The missile's identity for its whole life,
+	                 which is what keeps two simultaneous homing missiles from one rack apart.
+	     targetid  - it chases the same target for ever (rules).
+	     travelled - CUMULATIVE hexes flown, for the fuel test.
+	     q, r      - the launch hex for the NEXT pass = where the target was when this pass missed.
+	     mode      - the launcher's firing-mode INDEX.
+	     pass      - how many attack runs it has made.
+	     budget    - THE DISTANCE RANGE AS IT WAS AT LAUNCH. See getFuelBudget.
+
+	   ⚠️⚠️ NOTHING MAY BE CARRIED ON THE FIRE ORDER'S $notes. Weapon::calculateHitBase ASSIGNS
+	   (weapon.php ~1927: `$fireOrder->notes = $notes;`), it does not append - so anything written
+	   there is destroyed the moment the shot's hit chance is computed. The first cut of this
+	   feature put a 'HOM:key:travelled:pass' tag there and it was silently wiped on every pass:
+	   the missile kept its identity for exactly as long as it took to resolve, then came back as a
+	   brand-new pass-1 missile with 0 hexes flown, and would therefore have flown FOREVER
+	   (observed in game 4328, fixed 2026-09-02). The runtime carrier is now
+	   AmmoMissileRackS::$homingStates, an in-memory map keyed off the order object.
+
+	   ⚠️ THE MODE INDEX IS STORED, NOT LOOKED UP BY NAME. onIndividualNotesLoaded runs BEFORE
+	   BaseShip::onConstructed, and onConstructed is what runs Enhancements::setEnhancements - so at
+	   rebuild time the magazine has not yet been given its Homing rounds and $firingModes does not
+	   contain 'Homing' at all. A name lookup there silently finds nothing, every time.
+	   The index is stable for the life of a game: recompileFiringModes walks $ammoClassesArray in
+	   fixed order and keys on getAmmoPresence(), which stays true even at zero rounds remaining.
+	   ====================================================================================== */
+	public function packState($state)
+	{
+		return implode('|', array(
+			(int)$state['key'],
+			(int)$state['targetid'],
+			(int)$state['travelled'],
+			(int)$state['q'],
+			(int)$state['r'],
+			(int)$state['mode'],
+			(int)$state['pass'],
+			(int)$state['budget'],
+			(int)(isset($state['orderid']) ? $state['orderid'] : 0)
+		));
+	}
+
+	public function unpackState($noteValue)
+	{
+		$parts = explode('|', (string)$noteValue);
+		if (count($parts) < 7) return null; //malformed - drop the missile rather than guess
+		return array(
+			'key'       => (int)$parts[0],
+			'targetid'  => (int)$parts[1],
+			'travelled' => (int)$parts[2],
+			'q'         => (int)$parts[3],
+			'r'         => (int)$parts[4],
+			'mode'      => (int)$parts[5],
+			'pass'      => (int)$parts[6],
+			//8th field added 2026-09-02. A 7-field note is a missile that was already in flight
+			//when the fix landed: 0 means "not captured", and the fuel test falls back to the
+			//launcher's live figure for it, exactly as it did before.
+			'budget'    => isset($parts[7]) ? (int)$parts[7] : 0,
+			/*⭐ 9th field, added 2026-09-03 - THE DATABASE ROW OF THE NEXT PASS'S FIRE ORDER, and it
+			  is what gives a missile still in flight a STABLE IDENTITY THE CLIENT CAN NAME.
+
+			  The row is inserted the moment this note is written (turn N phase 4, carrying turn
+			  N+1), so a re-attack now reaches the next turn with a real tac_fireorder id already on
+			  it instead of the -1 it used to carry until that turn's own Firing phase resolved.
+			  EVERYTHING the client does with a shot is keyed on that id - the ballistic icon's
+			  duplicate test, and a manual intercept order, whose targetid IS the id of the order it
+			  intercepts - so with -1 on two missiles at once both silently collapsed the pair into
+			  one: only one launch hex was drawn, and interception declared on either was credited
+			  to both and then thrown away by the server, which could not resolve targetid -1
+			  (game 4328, turn 3: two missiles chasing the same ship from the same hex).
+
+			  0 means "not persisted" - a note written before this landed, or an insert that failed.
+			  Those fall back to the old behaviour exactly: rebuilt in memory at load and given an id
+			  by persistHomingOrders at phase 4.*/
+			'orderid'   => isset($parts[8]) ? (int)$parts[8] : 0
+		);
+	}
+
+	/*⭐ THE FUEL BUDGET IS CAPTURED AT LAUNCH AND NEVER RECOMPUTED (user report, game 4328).
+
+	  A Class-F rack REWRITES its own $rangeArray/$distanceRangeArray as its loading state changes -
+	  AmmoMissileRackF::recalculateFireControl subtracts 20/30 whenever it is short-loaded or fired
+	  in Rapid mode. That is correct for a LAUNCH, and wrong for a missile that is already in the
+	  air: its fuel tank was filled when it left the rails and cannot shrink because the launcher
+	  that fired it has since been reloaded differently. So this is called ONCE, on the pass that
+	  creates the missile, and the answer is carried in the state from then on.
+
+	  Read off the mode ARRAYS rather than $weapon->distanceRange so the answer never depends on
+	  which mode the rack happens to be switched to at the moment of asking. max() mirrors
+	  Weapon::isInDistanceRange: a 0 distanceRange means "same as launch range", and 0 for both
+	  means unlimited.*/
+	public function getFuelBudget($weapon, $mode)
+	{
+		$launch   = isset($weapon->rangeArray[$mode]) ? $weapon->rangeArray[$mode] : $weapon->range;
+		$distance = isset($weapon->distanceRangeArray[$mode]) ? $weapon->distanceRangeArray[$mode] : $weapon->distanceRange;
+		return (int)max($launch, $distance);
+	}
+
+	/* ======================================================================================
+	   THE OUTCOME OF ONE PASS. Called from AmmoMissileRackS::generateIndividualNotes at phase 4,
+	   which runs AFTER fireWeapons on the SAME objects - so the order still carries rolled,
+	   needed, shotshit, intercepted and totalIntercept.
+
+	   Returns the state for the NEXT pass, or null when the missile is gone. Writes the
+	   player-visible line either way.
+	   ====================================================================================== */
+	public function resolveHomingOutcome($gamedata, $weapon, $fireOrder, $priorState = null)
+	{
+		if ($fireOrder->rolled <= 0) return null; //never actually resolved (no target, withdrawn, ...)
+		if ($fireOrder->shotshit > 0) return null; //it hit - it is gone
+		if ($fireOrder->intercepted > 0){          //defensive fire turned a hit into a miss: destroyed
+			$fireOrder->pubnotes .= "<br>Homing Missile destroyed by defensive fire.";
+			$fireOrder->updated = true;
+			return null;
+		}
+
+		$shooter = $gamedata->getShipById($fireOrder->shooterid);
+		$target  = $gamedata->getShipById($fireOrder->targetid);
+		if (!$shooter || !$target) return null;
+		if ($target->isDestroyed()) return null; //nothing left to chase
+
+		/*$priorState is the state THIS pass flew under, handed in by the launcher off its
+		  $homingStates map; null means this is a fresh launch and the missile starts its life here.
+		  It is never re-read off the order - see the ⚠️⚠️ on packState.*/
+		$key    = ($priorState !== null) ? (int)$priorState['key']       : (int)$fireOrder->id;
+		$before = ($priorState !== null) ? (int)$priorState['travelled'] : 0;
+		$pass   = (($priorState !== null) ? (int)$priorState['pass'] : 0) + 1;
+
+		/*⭐ CAPTURED ON PASS 1 AND CARRIED UNCHANGED THEREAFTER. A prior budget of 0 is either a
+		  fresh launch or a missile that predates this field (see unpackState), and both want the
+		  launcher's figure as it stands right now - which for a fresh launch IS the launch value.*/
+		$budget = ($priorState !== null) ? (int)$priorState['budget'] : 0;
+		if ($budget <= 0) $budget = $this->getFuelBudget($weapon, (int)$fireOrder->firingMode);
+
+		if ($key <= 0) return null; //no stable identity (order never reached the DB) - do not persist
+
+		//How far it actually flew this pass: from its launch hex to where the target ended up.
+		$launchPos = $weapon->getFiringHex($gamedata, $fireOrder);
+		$targetPos = $target->getHexPos();
+		if ($launchPos === null) return null;
+
+		/*⚠️ mathlib::getDistanceHex returns a FLOAT (CubeCoordinate stores its axes as floats), and
+		  this figure is round-tripped through a note, a notes tag and a player-visible message on
+		  every pass. Round it to a whole number of hexes here, once, so all three always agree and
+		  a plain (int) cast downstream can never shave a hex off a 3.9999999.*/
+		$travelled = (int)round($before + mathlib::getDistanceHex($launchPos, $targetPos));
+
+		if ($budget > 0 && $travelled > $budget){
+			$fireOrder->pubnotes .= "<br>Homing Missile missed and ran out of fuel (travelled "
+				. $travelled . " of " . $budget . " hexes).";
+			$fireOrder->updated = true;
+			return null;
+		}
+
+		$fireOrder->pubnotes .= "<br>Homing Missile missed and remains in play (travelled "
+			. $travelled . ($budget > 0 ? " of " . $budget : "") . " hexes); it will attack again next turn.";
+		$fireOrder->updated = true;
+
+		/*The target's CURRENT hex becomes the next pass's launch hex - "treating its target's
+		  previous location as its new launch hex for directional purposes".*/
+		return array(
+			'key'       => $key,
+			'targetid'  => (int)$fireOrder->targetid,
+			'travelled' => $travelled,
+			'q'         => $targetPos->q,
+			'r'         => $targetPos->r,
+			'mode'      => (int)$fireOrder->firingMode,
+			'pass'      => $pass,
+			'budget'    => $budget,
+			//Filled in by AmmoMissileRackS::persistNextPassOrder, which inserts the row for the pass
+			//this state describes before the note is written. 0 until then - see unpackState.
+			'orderid'   => 0
+		);
+	}
+
+	/*The next pass, as an ordinary ballistic fire order. Everything that makes it homing rides in
+	  damageclass - the launch-hex override, the firedOnTurn exclusion and the client icon all key
+	  off it - plus x/y, which carry the launch hex. Identity and fuel are NOT on the order; they
+	  live in AmmoMissileRackS::$homingStates for this request and in the IndividualNote between
+	  turns (see the ⚠️⚠️ on packState).
+
+	  ⚠️ addToDB stays FALSE. The only inserts are AmmoMissileRackS::persistNextPassOrder (at the
+	  end of the pass that creates the missile, which is the normal path) and
+	  AmmoMissileRackS::persistHomingOrders (the fallback, at resolution). Left true,
+	  PreFiringGamePhase::advance and the movement-phase jump-out sweep both submit
+	  getNewFireOrders() and would write the order to the DB a phase early - after which every later
+	  load of the same turn would find a persisted order the notes would rebuild a duplicate of.
+
+	  $turn is the turn the order BELONGS TO, which is not always the turn being played:
+	  persistNextPassOrder builds next turn's order at the end of this one, so the row is waiting
+	  with a real id before the client ever sees the missile. Defaults to the current turn for the
+	  in-memory rebuild path.*/
+	public function buildReattackOrder($gamedata, $weapon, $state, $turn = null)
+	{
+		$fireOrder = new FireOrder(
+			-1, "ballistic", $weapon->getUnit()->id, $state['targetid'],
+			$weapon->id, -1, ($turn === null ? $gamedata->turn : $turn), $state['mode'],
+			0, 0, 1, 0, 0,                              //needed, rolled, shots, shotshit, intercepted
+			$state['q'], $state['r'], self::REATTACK_CLASS, -1 //X, Y, damageclass, resolutionOrder
+		);
+		$fireOrder->addToDB = false;
+		return $fireOrder;
+	}
+} //endof class AmmoMissileHM
+
+
 //ammunition for AmmoMagazine - Class I Missile (for official Missile Racks)
 class AmmoMissileI extends AmmoMissileTemplate{	
 	public $name = 'ammoMissileI';
