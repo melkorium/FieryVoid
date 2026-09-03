@@ -3343,6 +3343,7 @@ spl_autoload_register(
                 'tratharti' => '/server/model/ships/dilgar/tratharti.php',
                 'trathartig' => '/server/model/ships/dilgar/trathartiG.php',
                 'trathor' => '/server/model/ships/llort/trathor.php',
+                'traveler' => '/server/model/ships/walkers/Traveler.php',
                 'trekdisruptorbase' => '/server/model/weapons/customTrek.php',
                 'trekdisruptorcannon' => '/server/model/weapons/customTrek.php',
                 'trekearlydisruptor' => '/server/model/weapons/customTrek.php',
