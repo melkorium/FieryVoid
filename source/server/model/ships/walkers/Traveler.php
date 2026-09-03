@@ -13,6 +13,7 @@ class Traveler extends BaseShip{
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
+		$this->variantOf = "NONE";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  
