@@ -3,7 +3,7 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: Stages 0, 1 and 2 BUILT (2026-09-03). Stages 3–10 planned.** Written 2026-09-02 after a
+**Status: Stages 0–3 BUILT (2026-09-03). Stages 4–10 planned.** Written 2026-09-02 after a
 full survey of the existing seams.
 
 **Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
@@ -25,6 +25,8 @@ silent everywhere.
 | D6 | Wide-Beam declaration timing | **Firing mode, chosen in the Fire phase.** The Prepare-Weapons timing deviation is accepted. |
 | D7 | CPD adaptation scope | **The raw `$ship->faction` string.** No faction families. |
 | D8 | EDN corridor choice | **Deterministic, no UI** — but tie-broken toward the corridor a player would pick: prefer a hex containing an enemy unit. |
+| D9 | CPD adaptation vs Shading Field (2026-09-03) | Adaptation **may eat into the shaded bonus** — the Shading Field's whole defensive contribution, doubling included, is fair game. It has **no effect on the field's stealth/detection mechanics**. §3.4. |
+| D10 | CPD runtime cost (2026-09-03) | *"A rare weapon in the overall game"* — every process that makes it work sits **behind cheap gates**. One static boolean, `TacGamedata::$cpdAdaptationPresent`, and no autoload in a game without it. §3.4. |
 
 Everything below assumes these.
 
@@ -612,7 +614,7 @@ real decision rather than a free upgrade. The faithful alternative — a phase-1
 menu, precedent `GraviticAugmenterMenu` / `MinorThoughtPulsarMenu` — was considered and rejected as
 not worth a menu plus an IndividualNote round trip.
 
-### 3.4 Chromatic Pulse Driver
+### 3.4 Chromatic Pulse Driver — **BUILT 2026-09-03 (Stage 3)**
 
 Accelerator (as §3.2) with a second firing mode, `'Scanning'`.
 
@@ -631,17 +633,185 @@ which is the whole reason `getFactionDirMap()` exists.
 ⚠️ **`notekey` and `notekey_human` are `varchar(40)` and overflow is a fatal that aborts the whole
 player submission** — a 41-character value killed a movement submit once. `substr($x, 0, 40)`.
 
-**Publication:** `onIndividualNotesLoaded` populates a static
-`CpdScanRegistry::$adaptation[teamId][faction] = n`, read by `Shield::getDefensiveHitChangeMod` /
-`getDefensiveDamageMod` ([baseSystems.php:937](source/server/model/systems/baseSystems.php#L937))
-and their `EMShield` / `GraviticShield` siblings.
 ⚠️ Reset the registry in `DBManager::getSystemDataForShips` — §2.1's double-load trap.
 ⚠️ *"starting in the next Adjust Ship Systems segment"* — only count notes whose turn is **strictly
 less than** the current turn.
 
-**ShadingField** gets its own hook: adaptation is spent on its shield-type properties first, and
-only then on profile reduction. Read `CHAMELEON_SENSORS_PLAN.md` and
-`arch_stealth_toggle_forecast` before touching it — the stealth forecast must stay own-team-only.
+---
+
+**As built (Stage 3, 2026-09-03).** Stats for firing mode 1 are the control sheet, supplied per D4
+as two rows keyed by turns charged: 1 turn = D3 pulses, max 4, 14 damage; 2 turns = D5 pulses,
+max 8, 18 damage. Grouping 15, range penalty 0.5, FC 4/4/4 and intercept 1 are **identical on both
+rows**, so they are plain properties rather than table columns. Still unconfirmed and marked so
+in-file: `$priority` (5, the inherited Pulse default), the health/power defaults (24/12), the point
+cost and the icon (`PulseAccelerator.png` as a placeholder — the class comment says which one line
+to change). `$chargeProfile` is the sheet and nothing hard-codes a game number, so a re-stat is a
+table edit.
+
+⭐ **IT LIVES IN `pulse.php` / `pulse.js`, NOT in the Walker files.** Every other Walker weapon is in
+`specialWeapons.php` / `special.js`; this one is not, and the reason is a hard constraint rather
+than taste. It must extend `Pulse`, and **`game.php` and `gamelobby.php` both load `special.js`
+BEFORE `pulse.js`** ([game.php:393](source/public/game.php#L393) vs
+[:396](source/public/game.php#L396)), so `Object.create(Pulse.prototype)` evaluated inside
+`special.js` would read `undefined` at load time and every Traveler would blow up in
+`SystemFactory`'s `new window[name]`. The server half followed the client half so the pairing stays
+symmetric; a pointer comment sits at the top of each class.
+
+**The accelerator half.** `loadingtime 1 / normalload 2`. `getChargeRow()` is the single authority
+and `getPulses`, `rollPulses`, `getDamage` and the tooltip all read it — but `$this->maxpulses` and
+`$this->useDie` are ALSO kept in step by `applyChargeProfile()`, because **`Weapon::fire` reads
+`$this->maxpulses` directly, twice** ([weapon.php:2125](source/server/model/weapons/weapon.php#L2125)),
+for `->shots` and for the interception tally. `getStartLoading()` seeds **1**, not 0, exactly as
+`MediumLightningArray` does and for the same reason (game 4329).
+
+⭐ **The Scanning mode swap is `$damageTypeArray`, and it needs `changeFiringMode` inside `fire()`.**
+`'Pulse'` → `'Standard'` is what stops `Weapon::fire` collapsing the volley and rewriting `->shots`
+with `maxpulses`. But **`Firing::fireWeapons` does NOT re-apply an order's firing mode before
+calling `fire()`** — only `prepareFiring` does, and it does so for ALL orders before ANY of them
+resolve, leaving the weapon in whichever mode the LAST prepared order used. A driver that prepared
+a Pulse order after a Scanning one would have resolved the scan as a pulse volley. `fire()` calls
+`changeFiringMode($fireOrder->firingMode)` itself, the same idiom `AoE::fire` uses. This is the
+Lightning Array's `$order->firingMode` trap in its second form: **`prepareFiring` sets the mode per
+order and `fireWeapons` does not.**
+
+**A scan is one shot, server-authoritatively.** `defaultShotsArray` gives the client `1` in Scanning
+mode (rebuilt per instance in `setSystemDataWindow` and republished in `stripForJson`, because the
+Pulse-mode entry tracks the charge), and `fire()` clamps `$fireOrder->shots = 1` regardless — a
+forged 9-shot scan order banks exactly one point.
+
+**Where a scan is recorded.** `beforeDamage()` — the per-hit hook — which **never calls the parent**
+in Scanning mode, so nothing rolls a hit location, nothing touches armour and no `DamageEntry` is
+created. It banks into `$pendingScans`, which `generateIndividualNotes` drains into notes;
+`FireGamePhase::advance` calls that for every ship immediately after firing resolves. ⚠️ It branches
+on *"do I have pending scans"*, **never on `$gamedata->phase`** — trap 3. Everywhere else the method
+is reached (Movement, `generateAdditionalNotes`) the list is empty and it is a no-op.
+
+⭐⭐ **PUBLICATION CHANGED FROM THE PLAN: the reduction is applied to the AGGREGATED BUCKET, not
+inside each shield class.** The plan said `Shield::getDefensiveHitChangeMod` /
+`getDefensiveDamageMod` "and their `EMShield` / `GraviticShield` siblings". That would have been
+seven classes and seven client mirrors, and it would still have missed some: the tree has **nine**
+systems answering `getDefensiveType() === "Shield"`, four of which are `Weapon` subclasses with
+their own near-duplicate implementations (`AbbaiShieldProjector`, `FlareGenerator`,
+`PakmaraPlasmaWeb`, `NexusWaterCaster`) plus `ShadingField` and `FlareShielding`.
+
+`BaseShip::getHitChanceMod` / `getDamageMod` ([ShipClasses.php:2824](source/server/model/ships/ShipClasses.php#L2824))
+and `FighterFlight`'s two redefinitions already collect every defensive system into
+`$affectingSystems[<defensive type>]`, **keeping only the strongest single source per type**. One
+line before each `array_sum` therefore:
+
+- lands the reduction **exactly once** however many shields the target mounts — which is the rules'
+  own "overlapping shields are not cumulative", for free;
+- covers **every** shield-type system in the game with four edits instead of eighteen;
+- is a **guaranteed no-op** for every game with no CPD in it (`CpdScanRegistry::$adaptation` is
+  empty, and that is the first test).
+
+`CpdScanRegistry::applyToShieldBucket()` holds the whole rule: only the `"Shield"` bucket, only when
+it is positive, clamped at 0. The client mirrors it in exactly the same place —
+`cpdApplyShieldAdaptation()` in [model/ship.js](source/public/client/model/ship.js), called from
+`getHitChangeMod` and `getHitChangeModFlight` — off `gamedata.cpdAdaptation`, a
+`{ teamId: { faction: points } }` map published from `TacGamedata::onConstructed`.
+
+⚠️ **`cpdAdaptation` is NULL, never `array()`, when empty** — trap 9, an empty PHP array encodes as
+JSON `[]` and the client indexes it as an object. `publishAll()` returns `stdClass` or null.
+
+**Adaptation is published for EVERY team, not just the viewer's.** It is earned by a scanning shot
+that resolves and is logged like any other, so it is public knowledge — and a defender needs to see
+why their shields are reading low. A chameleon-disguised ship publishes its DISGUISED faction, so a
+fleet that adapted to the disguise reads no benefit against the real hull: the deception working,
+not a bug.
+
+**A destroyed scanner keeps its knowledge.** The notes stay in the database and the team keeps the
+adaptation — it was learned by the fleet, not stored in the hull.
+
+**ShadingField — RULED 2026-09-03 (D9), and it is what the bucket already does.** The line falls
+between the Shading Field's two jobs, not inside its shield maths:
+
+- **Its defensive contribution is fair game, shading bonus included.** When the field is shaded its
+  hit-chance mod is `output × 2`, and adaptation eats into that doubled figure point for point. The
+  user's ruling: *"the CPD's scan reduction can eat into the Shading Field's bonus hit chance
+  reduction when it's shaded"*. The alternative reading — cap the reduction at the base `output` so
+  the shading bonus is untouchable — was considered and rejected.
+- **Its stealth and detection mechanics are untouched, permanently.** *"it has no effect on the
+  stealth/detection mechanics of the Shading Field"*. Nothing here may reach the Pre-Turn detection
+  forecast, which `arch_stealth_toggle_forecast` requires to stay own-team-only.
+
+That is exactly what falling out of the `"Shield"` bucket gives for free — the field's
+`getDefensiveHitChangeMod` has already applied its own doubling by the time the bucket sees it, and
+its detection function is not in the bucket at all. **No ShadingField-specific code exists or is
+needed.** Read `CHAMELEON_SENSORS_PLAN.md` before touching it anyway.
+
+**The magnitude is one class constant.** `SCAN_POINTS_PER_HIT = 1`, and one point is one point of
+shield — which is 1 off damage absorption and 5 off the d100 profile, because `getDefensiveHitChangeMod`
+returns d20 units and the ×5 happens downstream. There is no explicit cap: the clamp at 0 is the cap.
+
+⭐⭐ **COST: the whole feature hangs off ONE static boolean** (user's requirement, 2026-09-03 — *"this
+is a rare weapon in the overall game, so as far as we can the processes to make it work should be
+gated behind cheap checks"*). `TacGamedata::$cpdAdaptationPresent`, following the
+`$chameleonPresent` precedent exactly. Set **only** by `CpdScanRegistry::record()` — i.e. once a
+scan note has actually been replayed, not by the presence of a CPD on a hull, because an unfired
+driver changes nothing:
+
+| where | what an ordinary game pays |
+|---|---|
+| the four defensive-mod aggregators | one static-property read each. No call, no arguments. |
+| `TacGamedata::onConstructed` | one property read (it tests the boolean, **not** `class_exists`). |
+| `DBManager::getSystemDataForShips` | one assignment plus `class_exists('CpdScanRegistry', **false**)` — ⚠️ **autoloading OFF**, so the registry file is never read at all. If the class is not loaded its table is empty by definition, so there is nothing to reset. |
+| client, both aggregators | one `window.gamedata && gamedata.cpdAdaptation` property read. The helper self-guards as a second line of defence, but it is never *reached*. |
+
+⚠️ **Do not "simplify" any of these into an unconditional call.** `getHitChanceMod` /`getDamageMod`
+run for every shot in every game of every faction. And do not restore autoloading on that
+`class_exists` — that single character is what keeps the file out of every gamedata load in the
+database. The test proves the gate is load-bearing by forcing it **false while the registry is still
+full** and asserting the shields read un-adapted.
+
+**Hull.** `Traveler` mounts three — front (270..90), left (180..360) and right (0..180) — and all
+three of its `//STAGE 3` hit-chart rows are restored. ⚠️ That shifts every system id after the front
+mount, which is the positional-id trap (trap 7): **a game in progress with a Traveler in it will
+desync.** Same cost Stage 2 paid; `Firing::validateFireOrders` drops the stale orders rather than
+crashing.
+
+**How it was proven.** Two throwaway tests, kept in `c:\tmp\`: **161 server checks and 28 client
+checks**, all green.
+
+- **Server (`c:\tmp\cpd_stage3_test.php`, 161 checks):** the control sheet compared row by row with
+  a non-vacuity assertion that the two rows really differ; over- and under-charge clamping;
+  `getStartLoading` seeding 1 asserted three ways (at/above `getLoadingTime()`, below
+  `getNormalLoad()`, and yielding the 1-turn profile); `$this->maxpulses` / `$this->useDie` tracking
+  the charge, because `Weapon::fire` reads them; **800 rolls of `rollPulses` per charge level**
+  proving the ceiling holds, the row's die is really used, and the two levels differ, plus the
+  grouping bonus clamping at `maxpulses`; the mode swap in both directions with the ORDER's mode
+  beating the weapon's own; `min/maxDamageArray` per mode; `unitHasShieldSystem` on plain, EM and
+  unshielded targets; ⭐ **`beforeDamage` banking a point and creating NO damage entry, with a PULSE
+  order on the same weapon still damaging as the non-vacuity control**; note round-trip including
+  the varchar(40) truncation; ⭐ **the double-load trap demonstrated BOTH ways** — a second replay
+  without a reset really does double the adaptation, and with the reset it does not; and ⭐ **the
+  whole effect end to end through the REAL `BaseShip::getHitChanceMod` / `getDamageMod`** on a
+  shielded hull, moving from −3/3 to −1/1 with 2 points and flooring at 0, with a same-team
+  different-race bystander unaffected as the control. Plus the hull mounts, the three arcs, the
+  restored chart rows, `stripForJson`, and a `ShipCompactor` audit that the blueprint keeps
+  `damageTypeArray` / `min`+`maxDamageArray` / `firingModes`. ⭐ **And the D10 gate proved
+  load-bearing rather than decorative** — forced FALSE while the registry is still full, the
+  aggregators must read the shields un-adapted (−3, not −1), and re-arming must bring it back; plus
+  a source audit that `class_exists` really has autoloading off, that both aggregator files carry
+  two gates and exactly two `applyToShieldBucket` calls, and that a zero-point or teamless `record()`
+  does not arm anything.
+- **Client (`c:\tmp\cpd_client_test.js`, 24 checks):** `pulse.js` **evaluated**, not merely parsed,
+  against stubbed globals — a parse would not catch a broken prototype chain
+  (`howto_verify_react_bundle`) — with the instance checked to be a `ChromaticPulseDriver`, a
+  `Pulse` and a `Weapon`, reachable as a `window` global (which is what `SystemFactory` needs) and
+  with `VolleyLaser` / `EnergyPulsar` still building, since the file was appended to; the two mode
+  constants compared against the PHP ones; and the adaptation mirror driven across the same nine
+  cases the server test used, ending with ⭐ **the server's end-to-end number reproduced exactly**
+  (bucket 3 − 2 points = 1). Plus the D10 gate: both call sites carry it, **no ungated call to the
+  helper exists**, and the helper still self-guards for anything that calls it directly.
+
+Regression gate: `checkShipData.php` PASS (0 new findings, 235 accepted baseline), replay harness
+**130 passed / 1 failed** — game 4325, the known pre-existing clean-tree failure, verified
+byte-identical with the tree stashed.
+
+**Left for the user:** a real `ChromaticPulseDriver.png` icon, and confirmation of `$priority`, the
+health/power defaults and the point cost. Nothing else is open — D9 settled the Shading Field and
+D10 settled the runtime cost.
 
 ### 3.5 Energy Draining Field / Variable EDF
 
@@ -800,7 +970,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **0** ✅ | `HexZone` extraction (§2.3) — **DONE 2026-09-03** | Replay harness identical before/after; 13,504-case differential test against the pre-move bodies, zero mismatches. |
 | **1** ✅ | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) — **DONE 2026-09-03** | `Traveler` generates into `Walkers of Sigma-957.json`; `checkShipData.php` clean (0 new findings, down from 5). |
 | **2** ✅ | Lightning Array + Medium Lightning Array — **DONE 2026-09-03; targeting REVISED twice the same day after play testing** | 157 checks green on the first build, +138 across the revisions, incl. a JS-vs-PHP comparison of all six tables and both mode constants, and the intercept gun accounting verified against the REAL `Firing::isValidInterceptor` over ten scenarios. Two firing modes (Combined / Single), now `multiModeSplit` so both are usable in one turn; both weapons intercept. Revisions: **no allocation dialog** — one click = one discharge, repeat clicks on one target fuse; count rides in `->shots`; `'Sweeping'` + `"Split"` so the shot shows in the shooter's INCOMING list, which counts DISCHARGES not orders; withdrawing PEELS one discharge off a combined shot; Medium starts 1/2, not 0/2. |
-| **3** | Chromatic Pulse Driver | Scanning hit reduces the target race's shields fleet-wide from the **next** turn; survives a reload; does not leak across the double gamedata load. |
+| **3** | Chromatic Pulse Driver — **DONE 2026-09-03** | 145 server checks + 24 client checks green. Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. |
 | **4** | EDF + Variable EDF (§2.1 + §2.2) | Field map published and drawn; drain lands as crits; targeting penalty matches server↔client to the point; Enormous clamp, own-fleet immunity and multi-field non-stacking all hold. |
 | **5** | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) | Ancient hulls see **only** the new IDs; the five existing enhancements are unchanged for every young/middleborn hull in the corpus. |
 | **6** | Energy Draining Mine | Stores 3, launches any number, scatters on its own table, spawns a 7-hex field, cleans up one turn later. |
@@ -815,7 +985,10 @@ blind-re-record**. The method that works: capture the check output, `git stash p
 re-run, `git stash pop`, diff with timings normalised.
 
 Stages 4, 5 and 10 each change a serialised property or a shared payload, so the harness `check`
-is mandatory rather than advisory on those.
+is mandatory rather than advisory on those. ⚠️ **Stage 3 turned out to be one of them too** — it
+added `TacGamedata->cpdAdaptation` and put a line into the four defensive-mod aggregators every
+faction in the game runs through. It came out clean (130/1, the known 4325 failure), but the rule
+should be read as "any stage that touches a shared path", not as a fixed list.
 
 **Each stage opens on a control sheet (D4)** — the user lands a Walker hull carrying a basic version
 of that stage's system, and the stats are read out of the hull file. Stages **0 and 1 need nothing**:
@@ -860,9 +1033,9 @@ Collected from the survey; each one has bitten this codebase before.
 
 ---
 
-## 6. Open questions — ALL RESOLVED 2026-09-02
+## 6. Open questions — ALL RESOLVED
 
-Kept as the record of what was asked and why; the rulings are D5–D8 in §0 and are folded into the
+Kept as the record of what was asked and why; the rulings are D5–D10 in §0 and are folded into the
 sections they affect.
 
 **Q1 — EDF and concealment. → D5, out of scope.** The Walkers have no stealth function, so the
@@ -878,9 +1051,18 @@ for stability. §3.7.
 
 **Q5 — Control sheets. → D4, supplied as a Walker test ship per system.** Each stage opens when the
 user lands a hull carrying a basic version of that stage's system; the stats are then read out of
-the hull file rather than transcribed. Still needed across the whole plan:
-damage / range / fire-control / power / RoF for the four weapons, radii and power for the three
+the hull file rather than transcribed. Stage 3 varied it — the sheet arrived as a per-firing-mode
+stat table rather than a hull, which worked just as well. Still needed across the whole plan:
+damage / range / fire-control / power / RoF for the remaining weapons, radii and power for the three
 field systems, EW-Detector range, and point costs throughout.
+
+**Q6 — CPD adaptation vs the Torvalus Shading Field (asked 2026-09-03). → D9.** Adaptation eats into
+the field's whole defensive contribution, shaded doubling included, and never touches its
+stealth/detection mechanics. §3.4 — the bucket already does exactly this, so no code was needed.
+
+**Q7 — What does this cost every other game? (raised 2026-09-03). → D10.** One static boolean and no
+autoload. §3.4 carries the table of what an ordinary game actually pays, and the gate has its own
+load-bearing test.
 
 ---
 
