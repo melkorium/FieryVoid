@@ -12093,14 +12093,13 @@ class LightningArray extends Weapon {
             $this->data["Special"] .= '<br>';
         }
         $this->data["Special"] .= "Fires up to " . $this->getDischargePool()
-                               . " separate discharges per turn, at the same or different targets.";
-        $this->data["Special"] .= "<br><b>Combined Fire</b> mode: every click on the same target adds"
-                               . " another discharge to that shot, fusing them into one heavier hit.";
-        $this->data["Special"] .= "<br><b>Single Shots</b> mode: every click is a separate one-discharge"
-                               . " shot - better against fighters, where several small shots beat one large one.";
+                               . " separate shots per turn, at the same or different targets.";
+        $this->data["Special"] .= "<br>Combined Fire mode: Every shot on the same target adds"
+                               . " fuses together into one heavier hit.";
+        $this->data["Special"] .= "<br>Single Shots mode: Every shot is a separate one-discharge"
+                               . " shot.";
         $this->data["Special"] .= $this->getCombinedFireTooltip();
-        $this->data["Special"] .= "<br>Susceptible to interception.";
-        $this->data["Special"] .= "<br>Each discharge not fired may instead intercept one incoming shot.";
+        $this->data["Special"] .= "<br>Each shot not fired will instead intercept one incoming shot.";
     }
 
     /* The combined-fire table as tooltip rows, generated from the tables themselves so a re-stat
