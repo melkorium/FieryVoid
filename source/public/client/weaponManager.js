@@ -1095,11 +1095,16 @@ window.weaponManager = {
         return false;
     },
 
-    calculateRangePenalty: function calculateRangePenalty(distance, weapon) {
+    /* `target`, `calledid` and `fireOrder` are OPTIONAL and only reach the weapon-specific branch: every
+       calculateSpecialRangePenalty implementation but one ignores them. The Lightning Array needs
+       them because its per-hex penalty depends on how many discharges the shot against THAT target
+       fuses, and the hook is otherwise handed nothing but a distance - which would leave the range
+       half of a prediction describing a different shot from the fire-control half. */
+    calculateRangePenalty: function calculateRangePenalty(distance, weapon, target, calledid, fireOrder) {
         var rangePenalty = 0;
 
         if (weapon.specialRangeCalculation) {
-            rangePenalty = weapon.calculateSpecialRangePenalty(distance);
+            rangePenalty = weapon.calculateSpecialRangePenalty(distance, target, calledid, fireOrder);
         } else { //standard calculation
             rangePenalty = weapon.rangePenalty * distance;
         }
@@ -1942,7 +1947,7 @@ window.weaponManager = {
     // Computes jammer + no-lock penalties as a combined pair.
     // Returns { jammermod, noLockMod, soewSuppressed, oewSuppressed }.
     // Caller applies suppression to the OEW result it already holds.
-    computeJammerNoLock: function computeJammerNoLock(shooter, target, weapon, oew, distance, rangePenalty) {
+    computeJammerNoLock: function computeJammerNoLock(shooter, target, weapon, oew, distance, rangePenalty, calledid, fireOrder) {
         var noLockPenalty = 0;
         var noLockMod = 0;
         var jammermod = 0;
@@ -1978,9 +1983,9 @@ window.weaponManager = {
         if ((jammermod > 0) || (noLockPenalty > 0)) {
             if (weapon.doubleRangeIfNoLock) { //e.g. Antimatter
                 var modifiedDistance = distance * (1 + noLockPenalty);
-                noLockMod = weaponManager.calculateRangePenalty(modifiedDistance, weapon) - rangePenalty;
+                noLockMod = weaponManager.calculateRangePenalty(modifiedDistance, weapon, target, calledid, fireOrder) - rangePenalty;
                 modifiedDistance = distance * (1 + jammermod);
-                jammermod = weaponManager.calculateRangePenalty(modifiedDistance, weapon) - rangePenalty;
+                jammermod = weaponManager.calculateRangePenalty(modifiedDistance, weapon, target, calledid, fireOrder) - rangePenalty;
             } else {
                 noLockMod = rangePenalty * noLockPenalty;
                 jammermod = jammermod * rangePenalty;
@@ -2052,7 +2057,7 @@ window.weaponManager = {
     //   launchPos (optional): the ballistic's launch hex, per ORDER. Mirrors the server's $posmod
     //                         argument to getHitChanceMod - it is the bearing the target's
     //                         arc-limited defensive systems are tested against.
-    computeShotModifiers: function computeShotModifiers(shooter, target, weapon, calledid, distance, launchPos) {
+    computeShotModifiers: function computeShotModifiers(shooter, target, weapon, calledid, distance, launchPos, fireOrder) {
         var defensiveSystems = target.getHitChangeMod(shooter, weapon, launchPos);
         var calledShot = 0;
         var otherDetail = [];
@@ -2064,7 +2069,7 @@ window.weaponManager = {
         }
 
         if (weapon.specialHitChanceCalculation) {
-            var specialMod = weapon.calculateSpecialHitChanceMod(shooter, target, calledid);
+            var specialMod = weapon.calculateSpecialHitChanceMod(shooter, target, calledid, fireOrder);
             if (specialMod !== 0) otherDetail.push({ label: 'Weapon Special', value: specialMod });
         }
 
@@ -2219,15 +2224,15 @@ window.weaponManager = {
         //Compute components via helpers
         var baseBreakdown = weaponManager.computeBaseDefenceBreakdown(shooter, target, weapon, defence);
         var ewLock = weaponManager.computeOEW(shooter, target, weapon, sPosTarget);
-        var rangePenalty = weaponManager.calculateRangePenalty(distance, weapon);
-        var jammer = weaponManager.computeJammerNoLock(shooter, target, weapon, ewLock.oew, distance, rangePenalty);
+        var rangePenalty = weaponManager.calculateRangePenalty(distance, weapon, target, calledid, fireOrder);
+        var jammer = weaponManager.computeJammerNoLock(shooter, target, weapon, ewLock.oew, distance, rangePenalty, calledid, fireOrder);
         if (jammer.oewSuppressed) { ewLock.oew = 0; ewLock.soew = 0; }
         else if (jammer.soewSuppressed) ewLock.soew = 0;
         var fireControl = weaponManager.computeFireControl(shooter, target, weapon, sPosTarget, calledid);
         //sPosLaunch threaded in for the same reason as above: the server passes $launchPos to
         //getHitChanceMod as $posmod, and it is what decides which ARC-LIMITED defensive systems
         //(shields, webs) actually cover the incoming shot.
-        var shotMods = weaponManager.computeShotModifiers(shooter, target, weapon, calledid, distance, sPosLaunch);
+        var shotMods = weaponManager.computeShotModifiers(shooter, target, weapon, calledid, distance, sPosLaunch, fireOrder);
 
         //Goal: identical to old formula (baseDef - jammermod - noLockMod - rangePenalty + oew + soew + firecontrol + mod)
         //where mod = -defensiveSystems + calledShot + otherTotal

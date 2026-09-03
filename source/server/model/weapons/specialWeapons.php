@@ -11733,4 +11733,527 @@ class HyperplasmaStream extends Plasma{
 
 
 
+
+/* ================================================================================================
+ * WALKERS OF SIGMA-957 - Lightning Array family        WALKERS_OF_SIGMA_PLAN.md sections 3.1 / 3.2
+ * ================================================================================================
+ *
+ * STATS ARE FROM THE CONTROL SHEET (user, 2026-09-03). Damage, fire control, range penalty, power,
+ * health, pool sizes and intercept ratings are real. Still carrying a value nobody has confirmed:
+ * $damageType ("Standard" - switch to Raking if the sheet says so), $priority and $loadingtime.
+ * Every number lives in a table or a property at the top of its class and no method below hard-codes
+ * one, so re-statting stays a table edit.
+ *
+ * WHAT A LIGHTNING ARRAY IS
+ * Four independent discharges per turn. The player may spend them as up to four separate shots at
+ * up to four different targets, or FUSE any number of them into one heavier shot - "combined
+ * fire" - which hits harder but is harder to aim AND carries a different range penalty. All THREE
+ * of those move together, off three tables keyed by the fused count: $combinedDamageArray,
+ * $combinedFireControlArray and $combinedRangePenaltyArray. The rules' "the decision to use combined fire is
+ * announced before any shots are taken" needs no machinery: in FV every fire order is declared
+ * before beforeFiringOrderResolution runs.
+ *
+ * DECLARING A COMBINED SHOT - AND HOW THE COUNT REACHES THE SERVER
+ * There is NO allocation dialog. These are ordinary split-shot weapons, exactly like the Vorlon
+ * Discharge Gun: one gun IS one discharge, and one click declares one. In Combined Fire mode a
+ * SECOND click on the same target does not declare a second shot - it fuses another discharge into
+ * the shot already standing against that target, and the fire control, range penalty and damage all
+ * move to that row of the tables. Four clicks on one ship therefore produce ONE 4-discharge shot;
+ * four clicks on four ships produce four single ones.
+ *
+ * The count rides in FireOrder->shots and nowhere else - the same field every other split-shot
+ * weapon uses for its shot count. It is a whitelisted FireOrder constructor argument (Manager.php),
+ * so it survives the POST rebuild on both the ship and the fighter branch, and it needs no token in
+ * ->notes: ->notes stays the plain "Split" that the ballistic-icon and INCOMING-list machinery
+ * expects to see on a split-shot order (BallisticIconContainer keys re-creation on it).
+ *
+ * beforeFiringOrderResolution RE-CLAMPS the total against the real pool - client input is never
+ * trusted - stashes the per-order count and sets ->shots back to 1.
+ *
+ * TWO FIRING MODES
+ *   1 "Combined Fire" (default) - repeat clicks on one target fuse into a single heavier shot.
+ *   2 "Single Shots"            - every click is a separate one-discharge shot, never fused. Useful
+ *     against fighters, where four small shots beat one big one. A mode-2 order is EXCLUDED from
+ *     combining entirely: beforeFiringOrderResolution forces its count to 1 and ignores ->shots, so
+ *     a stale or hand-edited client cannot smuggle a fused shot through the cheap mode.
+ * ⚠️ Read $order->firingMode, never $this->firingMode, inside beforeFiringOrderResolution:
+ * prepareFiring only calls changeFiringMode AFTER it, so the weapon's own mode is not yet the
+ * order's mode at that point (the Slicer's class comment records the same trap).
+ *
+ * INTERCEPTION - AND WHY $guns IS REWRITTEN EVERY TURN
+ * These arrays DO intercept, and that makes the engine's gun accounting wrong unless it is
+ * corrected, because the engine counts ORDERS while a Lightning Array spends DISCHARGES. One
+ * combined shot of four is a single fire order that empties the whole pool; left alone,
+ * Firing::isValidInterceptor and Firing::automateIntercept would both read three discharges as
+ * still available.
+ *
+ * Both of those sites do their arithmetic against $this->guns, so beforeFiringOrderResolution sets
+ *     guns = pool - dischargesSpentOffensively + numberOfOffensiveOrders
+ * which makes BOTH come out right (derivation in the method). The client mirrors the identical
+ * formula in initializationUpdate, so its manual-intercept cap agrees with the server's.
+ *
+ * A 'selfIntercept' order is a PERMISSION MARKER, not a shot: it cancels out of the formula and
+ * costs no discharge. It is only needed at all when max(loadingtime, normalload) > 1, which is true
+ * of the Medium (normalload 2) and not of the full Array - see Firing::isValidInterceptor.
+ * A manual 'intercept' order DOES cost one discharge, and the formula charges it.
+ *
+ * WHAT THESE WEAPONS DELIBERATELY DO NOT DO
+ * - They are NOT uninterceptable: the rules make the Lightning Array explicitly susceptible to
+ *   interception, so $uninterceptable stays false (the Weapon default).
+ * - Wide-Beam is Stage 8 and is NOT here. It arrives as a THIRD firing mode plus a per-array
+ *   enhancement; $firingModes is spelled out below so that addition is a one-line change.
+ */
+class LightningArray extends Weapon {
+
+    public $name        = "LightningArray";
+    public $displayName = "Lightning Array";
+    public $iconPath    = "LightningArray.png";
+
+    public $animation      = "bolt";
+    public $animationColor = array(140, 210, 255); //pale electric blue
+
+    public $damageType  = "Standard";        //UNCONFIRMED - switch to "Raking" (and extend Raking) if the control sheet says so
+    public $weaponClass = "Electromagnetic"; //all Walker weaponry is Electromagnetic
+    public $factionAge  = 3;                 //Ancient - matters to several to-hit and EDF rules
+
+    /* Mode ids are referenced from the client (special.js) too - keep the two in step. Stage 8 adds
+       3 => "Wide Beam" here. */
+    const MODE_COMBINED = 1;
+    const MODE_SINGLE   = 2;
+    public $firingModes = array(1 => "Combined", 2 => "Single");
+
+    public $loadingtime  = 1;                //unconfirmed
+    public $priority     = 6;                //unconfirmed
+    /* ⚠️ THESE TWO MUST EQUAL ROW 1 of the combined tables below. They are the weapon's profile for
+       a SINGLE discharge, and they are what the "Fire control" and "Range penalty" tooltip lines
+       report. The combined tables override them per shot, so a mismatch does not change what gets
+       rolled - it just makes the ship window quote numbers the weapon never uses, which is worse
+       than a visible bug. $rangePenalty is also the fallback whenever no fused count is live. */
+    public $rangePenalty = 0.33;             // -1 per 3 hexes = combinedRangePenaltyArray[1]
+    public $fireControl  = array(8, 6, 4);   // fighters, <=mediums, <=capitals = combinedFireControlArray[1]
+    public $intercept    = 5;                //one discharge per engagement; see the class comment
+
+    /* Split-shot plumbing. $canSplitShots stays true in BOTH firing modes and at every pool size:
+       it is what routes a click through doMultipleFireOrders (client) so one click declares one
+       discharge, and it is also what the manual-interception UI reads. $maxVariableShots is the
+       client's own ceiling on separate shots; the authoritative one is getDischargePool() below,
+       which the server re-clamps against.
+       ⚠️ $guns here is only the UNFIRED value, used before anything is declared and by the fleet
+       builder. beforeFiringOrderResolution REWRITES it every turn for the intercept accounting -
+       see the class comment - so do not read this literal anywhere that matters. */
+    public $canSplitShots     = true;
+    public $guns              = 4;           //one per discharge, before anything is spent
+    public $maxVariableShots  = 4;
+    /* Shots may be declared in BOTH modes in the same turn: fuse a couple of combined shots, switch
+       to Single Shots and pepper a flight with the rest, switch back. Without this the firing-mode
+       selector locks the moment the first order is declared (weaponManager.onModeClicked and
+       SystemInfoButtons.canChangeFiringMode both gate on it), which would make the two modes an
+       either/or choice for the whole turn rather than a per-shot one.
+       ⚠️ It is protected on Weapon and NOT published by the base stripForJson - the override below
+       has to pass it, or the client never sees it and the lock stays on. Nothing on the server reads
+       it: Firing::prepareFiring already switches the weapon per ORDER before resolving each shot,
+       which is why beforeFiringOrderResolution must read $order->firingMode (see the class comment). */
+    protected $multiModeSplit = true;
+    /* Both of these tell the CLIENT to ask this weapon for its own numbers instead of using the
+       generic formulae - the server always calls its own overrides regardless. Combined fire moves
+       BOTH the fire control and the range penalty, so both hooks are needed or the player's
+       predicted hit chance disagrees with the dice. */
+    public $specialHitChanceCalculation = true;
+    public $specialRangeCalculation     = true;
+
+    /* Discharges available per turn. LightningArray's is flat; MediumLightningArray
+       overrides getDischargePool() to grow it with charge time. */
+    protected $dischargePool = 4;
+
+    /* DAMAGE TABLE, keyed by the number of discharges fused into one shot.
+       'dice' d10s plus a flat 'add'. Row n MUST exist for every n from 1 to the pool size. */
+    protected $combinedDamageArray = array(
+        1 => array('dice' => 5, 'add' => 20),   
+        2 => array('dice' => 10, 'add' => 20),   
+        3 => array('dice' => 15, 'add' => 20),  
+        4 => array('dice' => 20, 'add' => 20),  
+    );
+
+    /* FIRE CONTROL TABLE, same shape as $fireControl (fighters, <=mediums, <=capitals), keyed by
+       fused discharge count. The two ends pull in OPPOSITE directions: fusing makes the shot much
+       harder to land on a fighter (8 -> 2) and easier on a capital (4 -> 6), which is what makes the
+       Single Shots mode worth having. Row 1 IS $fireControl - it is applied as a delta against it,
+       so keep the two in step or the tooltip lies about the single-discharge profile. */
+    protected $combinedFireControlArray = array(
+        1 => array( 8, 6, 4),
+        2 => array( 6, 6, 5),
+        3 => array( 4, 6, 6),
+        4 => array( 2, 6, 6),
+    );
+
+    /* RANGE PENALTY TABLE, keyed by fused discharge count - per-hex penalties, the same units as
+       $rangePenalty. Fusing IMPROVES the reach (a tighter bolt carries further), which is the
+       opposite of what the fighter column of the fire-control table does. Row 1 IS $rangePenalty. */
+    protected $combinedRangePenaltyArray = array(
+        1 => 0.33,  // -1 per 3 hexes
+        2 => 0.25,  // -1 per 4 hexes
+        3 => 0.25,  // -1 per 4 hexes
+        4 => 0.2,   // -1 per 5 hexes
+    );
+
+    /* fire order id => discharges fused into it. Rebuilt from scratch every
+       beforeFiringOrderResolution; never persisted. */
+    protected $combinedCount = array();
+
+    /* The order currently being resolved, published for the duration of ONE calculateHitBase call.
+       calculateRangePenalty() is handed nothing but a distance - and the parent calls it up to three
+       times per shot (the base penalty, then the no-lock and jammer variants) - so the fused count
+       has to reach it out of band. Always cleared in a finally; never persisted, never serialised. */
+    protected $activeCombinedCount = null;
+
+    function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        if ($maxhealth == 0) $maxhealth = 40;
+        if ($powerReq  == 0) $powerReq  = 16;
+        parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+    }
+
+    /* Total discharges this weapon may spend this turn. The single authority - the client's $guns /
+       $maxVariableShots are only hints, and beforeFiringOrderResolution clamps against THIS. */
+    public function getDischargePool(){
+        return $this->dischargePool;
+    }
+
+    /* Highest fused count the damage/FC tables actually describe. Guards against a control sheet
+       whose pool is raised without the tables being extended: a shot is never resolved against a
+       row that does not exist. */
+    protected function getMaxTabledCount(){
+        $keys = array_keys($this->combinedDamageArray);
+        return empty($keys) ? 1 : max($keys);
+    }
+
+    public function beforeFiringOrderResolution($gamedata){
+        $this->combinedCount = array();
+
+        $pool   = $this->getDischargePool();
+        $left   = $pool;
+        $maxRow = $this->getMaxTabledCount();
+
+        $offensiveOrders     = 0; //O - number of "normal" orders
+        $dischargesSpent     = 0; //D - discharges those orders consumed between them
+
+        foreach ($this->fireOrders as $order){
+            if ($order->type != "normal") continue;
+            $offensiveOrders++;
+
+            /* SINGLE SHOTS mode is exactly one discharge, whatever the order claims. Reading
+               $order->firingMode and not $this->firingMode is load-bearing: prepareFiring calls
+               changeFiringMode only AFTER this method, so the weapon's own mode is still last
+               turn's here. Ignoring ->shots rather than clamping it is deliberate - it means a
+               stale or hand-edited client cannot declare a fused shot in the cheap mode. */
+            if ((int)$order->firingMode === self::MODE_SINGLE) {
+                $count = 1;
+            } else {
+                //->shots IS the fused count, exactly as it is the shot count on every other
+                //split-shot weapon. It is a whitelisted FireOrder constructor argument
+                //(Manager.php), so it survives the POST rebuild on both the ship and the fighter
+                //branch. An order that carried nothing (a hand-built payload, or a client that
+                //predates this weapon) is treated as a single discharge, the smallest thing it
+                //could have meant.
+                $count = (int)$order->shots;
+                if ($count < 1) $count = 1;
+            }
+
+            //Re-clamp: against the rows the tables describe, then against what is actually left in
+            //the pool. A shot the pool cannot pay for gets 0 and does nothing - the same thing the
+            //Slicer does with an over-allocated volley. It stays visible in the combat log at 0
+            //damage rather than vanishing, which is the loud failure mode.
+            if ($count > $maxRow) $count = $maxRow;
+            if ($count > $left)   $count = $left;
+            if ($count < 0)       $count = 0;
+            $left -= $count;
+            $dischargesSpent += $count;
+
+            $this->combinedCount[$order->id] = $count;
+            $order->shots = 1; //one shot; the fused count now lives in $this->combinedCount
+        }
+
+        $this->guns = $this->getGunsForInterceptAccounting($pool, $dischargesSpent, $offensiveOrders);
+    }
+
+    /* What $this->guns has to be for the engine's ORDER-counting intercept arithmetic to land on
+       this weapon's real DISCHARGE count. Both consumers are in firing.php:
+     *
+     *   Firing::isValidInterceptor   refuses when  (allOrders - selfIntercepts) >= guns
+     *                                          i.e. when  O + M >= guns
+     *   Firing::automateIntercept    grants        guns - allOrders + selfIntercepts
+     *                                          i.e.       guns - O - M
+     *
+     * with O = offensive orders, M = manual 'intercept' orders, S = selfIntercept markers.
+     * We want both to key off the discharges actually left, R = pool - D - M (a manual intercept
+     * costs one discharge; a marker is consent and costs nothing). Setting
+     *
+     *     guns = pool - D + O
+     *
+     * gives  automateIntercept:  pool - D + O - O - M  =  pool - D - M  =  R          ✔
+     * and    isValidInterceptor: O + M >= pool - D + O  ⟺  M >= pool - D  ⟺  R <= 0   ✔
+     *
+     * S cancels out of both, which is why a marker is free. Nothing declared gives guns = pool, so
+     * an idle array can intercept with every discharge it has.
+     *
+     * ⚠️ This is the Slicer's $guns-padding problem in a different currency, and it has the same
+     * sharp edge: a manual 'intercept' order appears in BOTH terms of automateIntercept's
+     * expression. Here it is charged exactly once, via M in the derivation above - the Slicer's
+     * game-4306 bug was letting it cancel itself out and spending the same allowance twice. */
+    protected function getGunsForInterceptAccounting($pool, $dischargesSpent, $offensiveOrders){
+        return max(0, $pool - $dischargesSpent) + $offensiveOrders;
+    }
+
+    /* Discharges fused into this order. 0 when beforeFiringOrderResolution clamped it away, or when
+       it never ran for this order - deliberately NOT 1, so a plumbing failure shows up as a
+       0-damage shot in the log instead of quietly granting a free discharge. */
+    protected function getCombinedCount($fireOrder){
+        return isset($this->combinedCount[$fireOrder->id]) ? $this->combinedCount[$fireOrder->id] : 0;
+    }
+
+    public function getDamage($fireOrder){
+        $n = $this->getCombinedCount($fireOrder);
+        if ($n < 1 || !isset($this->combinedDamageArray[$n])) return 0;
+        $row = $this->combinedDamageArray[$n];
+        return Dice::d(10, $row['dice']) + $row['add'];
+    }
+
+    /* Combined fire is harder to aim. Applied as a DELTA on top of whatever the parent worked out,
+       rather than by swapping $this->fireControl around the parent call: fireControl is read in
+       several places during that call, and a temporarily-mutated copy is a per-instance mutation of
+       a property the blueprint shares. The delta is in d100 units because $fireOrder->needed is;
+       the client mirrors it in d20 units in calculateSpecialHitChanceMod. */
+    public function calculateHitBase(TacGamedata $gamedata, FireOrder $fireOrder){
+        /* Publish this shot's fused count for the duration of the parent call so
+           calculateRangePenalty() below can see it. try/finally rather than a plain clear: if the
+           parent throws, a count left standing would silently apply to the NEXT shot this weapon
+           resolves, which is the kind of bug that only shows up as a wrong hit chance months later. */
+        $this->activeCombinedCount = $this->getCombinedCount($fireOrder);
+        try {
+            parent::calculateHitBase($gamedata, $fireOrder);
+        } finally {
+            $this->activeCombinedCount = null;
+        }
+
+        //needed <= 0 is the parent's auto-miss marker (out of range, null target, ...). Adding a
+        //delta to it would silently un-miss the shot.
+        if ($fireOrder->needed <= 0) return;
+
+        $delta = $this->getCombinedFireControlMod($gamedata, $fireOrder);
+        if ($delta !== 0) {
+            $fireOrder->needed += $delta * 5; //d20 table -> d100 roll
+            $fireOrder->notes  .= " Combined fire x" . $this->getCombinedCount($fireOrder)
+                               . ": " . ($delta > 0 ? "+" : "") . $delta . " FC.";
+        }
+    }
+
+    /* The combined-fire fire-control change for this order, in d20 units, as a delta against the
+       weapon's normal fire control for that target class. Shared with the client, which computes
+       the identical number from an identical table. */
+    protected function getCombinedFireControlMod(TacGamedata $gamedata, FireOrder $fireOrder){
+        $n = $this->getCombinedCount($fireOrder);
+        if ($n < 1 || !isset($this->combinedFireControlArray[$n])) return 0;
+
+        $target = $gamedata->getShipById($fireOrder->targetid);
+        if ($target === null) return 0;
+
+        $fcIndex = $target->getFireControlIndex();
+        if (!isset($this->combinedFireControlArray[$n][$fcIndex])) return 0;
+        if (!isset($this->fireControl[$fcIndex])) return 0;
+
+        return $this->combinedFireControlArray[$n][$fcIndex] - $this->fireControl[$fcIndex];
+    }
+
+    /* Combined fire also changes the RANGE penalty, so this is a real override of the parent's
+       formula rather than another delta on ->needed. That matters: the parent derives the no-lock
+       and jammer modifiers from the range penalty - and in the doubleRangeIfNoLock branch calls this
+       method a second and third time at modified distances - so overriding here keeps all three
+       consistent, where a flat delta on ->needed would have moved the base penalty and left its two
+       derivatives computing off the single-discharge value.
+
+       Falls back to the plain $rangePenalty whenever there is no active count: that covers a shot
+       resolved outside calculateHitBase and any future caller that has no fire order to hand. */
+    public function calculateRangePenalty($distance){
+        return $this->getCombinedRangePenalty() * $distance;
+    }
+
+    /* Per-hex range penalty for the shot currently being resolved. */
+    protected function getCombinedRangePenalty(){
+        $n = $this->activeCombinedCount;
+        if ($n !== null && isset($this->combinedRangePenaltyArray[$n])) {
+            return $this->combinedRangePenaltyArray[$n];
+        }
+        return $this->rangePenalty;
+    }
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+        if (!isset($this->data["Special"])) {
+            $this->data["Special"] = '';
+        } else {
+            $this->data["Special"] .= '<br>';
+        }
+        $this->data["Special"] .= "Fires up to " . $this->getDischargePool()
+                               . " separate discharges per turn, at the same or different targets.";
+        $this->data["Special"] .= "<br><b>Combined Fire</b> mode: every click on the same target adds"
+                               . " another discharge to that shot, fusing them into one heavier hit.";
+        $this->data["Special"] .= "<br><b>Single Shots</b> mode: every click is a separate one-discharge"
+                               . " shot - better against fighters, where several small shots beat one large one.";
+        $this->data["Special"] .= $this->getCombinedFireTooltip();
+        $this->data["Special"] .= "<br>Susceptible to interception.";
+        $this->data["Special"] .= "<br>Each discharge not fired may instead intercept one incoming shot.";
+    }
+
+    /* The combined-fire table as tooltip rows, generated from the tables themselves so a re-stat
+       can never leave the tooltip describing the old numbers. */
+    protected function getCombinedFireTooltip(){
+        $out  = "";
+        $pool = min($this->getDischargePool(), $this->getMaxTabledCount());
+        for ($n = 1; $n <= $pool; $n++){
+            if (!isset($this->combinedDamageArray[$n])) continue;
+            $row  = $this->combinedDamageArray[$n];
+            $out .= "<br> - " . $n . " discharge" . ($n > 1 ? "s" : "") . ": "
+                 . $row['dice'] . "d10+" . $row['add'];
+            if (isset($this->combinedFireControlArray[$n])) {
+                $out .= " (FC " . implode("/", $this->combinedFireControlArray[$n]) . ")";
+            }
+            if (isset($this->combinedRangePenaltyArray[$n]) && $this->combinedRangePenaltyArray[$n] > 0) {
+                //Same units the generic "Range penalty" tooltip line uses: penalty x5 per hex.
+                $out .= " (range -" . number_format($this->combinedRangePenaltyArray[$n] * 5, 2) . "/hex)";
+            }
+        }
+        return $out;
+    }
+
+    /* Tooltip damage spans one discharge at its worst to the whole pool at its best, which is what
+       the weapon can actually produce in a turn. */
+    public function setMinDamage(){
+        $row = isset($this->combinedDamageArray[1]) ? $this->combinedDamageArray[1] : array('dice' => 0, 'add' => 0);
+        $this->minDamage = $row['dice'] + $row['add'];
+    }
+
+    public function setMaxDamage(){
+        $n   = min($this->getDischargePool(), $this->getMaxTabledCount());
+        $row = isset($this->combinedDamageArray[$n]) ? $this->combinedDamageArray[$n] : array('dice' => 0, 'add' => 0);
+        $this->maxDamage = ($row['dice'] * 10) + $row['add'];
+    }
+
+    /* The pool, the damage span and the tooltip all move with charge time on the Medium variant, so
+       they have to be re-published per instance or the client keeps showing the blueprint values -
+       the same reason LaserAccelerator overrides this. Everything named here is a value the client
+       re-reads from the live system, so ShipCompactor stripping it at its default is harmless. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        $strippedSystem->data           = $this->data;
+        $strippedSystem->minDamage      = $this->minDamage;
+        $strippedSystem->minDamageArray = $this->minDamageArray;
+        $strippedSystem->maxDamage      = $this->maxDamage;
+        $strippedSystem->maxDamageArray = $this->maxDamageArray;
+        //$multiModeSplit is protected on Weapon and the base stripForJson does not publish it -
+        //see the property comment. Without this line the client locks the firing-mode selector as
+        //soon as one shot is declared.
+        $strippedSystem->multiModeSplit = $this->multiModeSplit;
+        return $strippedSystem;
+    }
+
+}//endof class LightningArray
+
+
+/* Accelerator variant: it charges over several turns and its discharge pool GROWS with the charge.
+ * One turn of charge is one discharge, so "may only split its shots once it has charged for two or
+ * more turns" falls out of the pool rather than needing a rule of its own - at one turn there is
+ * simply nothing to split.
+ *
+ * It does NOT begin the game charged (getStartLoading below). That is the whole of that rule:
+ * onConstructed writes whatever getStartLoading returns straight into tac_systemdata.
+ */
+class MediumLightningArray extends LightningArray {
+
+    public $name        = "MediumLightningArray";
+    public $displayName = "Medium Lightning Array";
+    public $iconPath    = "LightningArrayMed.png"; //case-sensitive on live - see LightningArray
+
+    public $loadingtime  = 1;               //one turn per discharge
+    public $normalload   = 2;               
+    public $priority     = 6;               
+    //As on the parent, these two are row 1 of the tables below - the single-discharge profile.
+    public $rangePenalty = 0.33;            // = combinedRangePenaltyArray[1]
+    public $fireControl  = array(6, 4, 2);  // = combinedFireControlArray[1]
+
+    /* ⚠️ One gun per TURN LOADED, not per $normalload: getDischargePool() below is the authority and
+       both halves recompute $guns from it (server in beforeFiringOrderResolution, client in
+       initializationUpdate). This literal is only what an unloaded array reports before either has
+       run - the fleet builder shows the full pool, because getDischargePool() returns $normalload
+       in the lobby phase. */
+    public $guns             = 1;
+    public $maxVariableShots = 2;
+	public $intercept = 4;
+
+    /* Lighter than the full Array at every charge level. Only TWO rows - its pool never exceeds 2. */
+    protected $combinedDamageArray = array(
+        1 => array('dice' => 4, 'add' => 12),   //  3 - 21
+        2 => array('dice' => 8, 'add' => 12),   //  7 - 34
+    );
+
+    //Row 1 IS $fireControl, as on the parent.
+    protected $combinedFireControlArray = array(
+        1 => array( 6, 4, 2),
+        2 => array( 4, 5, 5),
+    );
+
+    /* Per-hex, matching $rangePenalty's units. Row 1 IS $rangePenalty. */
+    protected $combinedRangePenaltyArray = array(
+        1 => 0.33,  // -1 per 3 hexes
+        2 => 0.25,  // -1 per 4 hexes
+    );
+
+    function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        if ($maxhealth == 0) $maxhealth = 24;
+        if ($powerReq  == 0) $powerReq  = 12;
+        parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+    }
+
+    /* One discharge per turn charged, capped at the charge ceiling. Everything else - the split-shot
+       ceiling, the combined-fire ceiling, the tooltip - is derived from this one number. */
+    public function getDischargePool(){
+        $pool = (int)$this->turnsloaded;
+        if ($pool > $this->normalload) $pool = $this->normalload;
+        if ($pool < 1) $pool = 1; //a weapon ready to fire at all has at least one discharge
+        return $pool;
+    }
+
+    /* "Does not begin the scenario fully charged" - it begins it with ONE turn of charge, i.e. one
+       discharge, which is what the control sheet's 1/2 means. Weapon::getStartLoading seeds the
+       first slot with getNormalLoad() (2 here, fully charged); seeding 1 instead is the entire
+       change, and onConstructed writes it straight into tac_systemdata.
+       ⚠️ NOT 0: turnsloaded 0 is below getLoadingTime(), so the array would be UNABLE TO FIRE AT ALL
+       on turn 1 and would read "0/2" in the ship window (user report, game 4329). Everything else is
+       copied from the parent so overloading and firing-mode seeding keep behaving identically. */
+    public function getStartLoading(){
+        $overloadTurns = $this->overloadturns;
+        if ($overloadTurns === 0 && $this->overloadable) $overloadTurns = 1;
+
+        return new WeaponLoading(
+            1,                       //<- one turn charged (1/2), rather than getNormalLoad()'s full 2
+            $this->overloadshots,
+            0,
+            $overloadTurns,
+            $this->getLoadingTime(),
+            $this->firingMode
+        );
+    }
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+        $this->data["Special"] .= "<br>Accelerator: gains one discharge per turn charged, up to "
+                               . $this->normalload . ". Cannot combine its discharges until it has"
+                               . " charged for at least two turns.";
+        $this->data["Special"] .= "<br>Begins the scenario part-charged, with one discharge ready.";
+        //Its effective loading time is max(loadingtime, normalload) = normalload > 1, so unlike the
+        //full Array it will NOT be auto-assigned to interception without the player's consent -
+        //Firing::isValidInterceptor demands a selfIntercept marker first.
+        $this->data["Special"] .= "<br>Must be explicitly committed to interception to defend.";
+    }
+
+}//endof class MediumLightningArray
+
 ?>

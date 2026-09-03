@@ -199,7 +199,13 @@ window.ShipTooltipBallisticsMenu = function () {
                 // the shot: how many, of what, in which mode, and - for a Shadow split weapon - what
                 // the shot is made of. The count is always written - including "1x" - so the weapon
                 // names line up down the column.
-                var textToDisplay = amount + 'x ' + ball.weapon.displayName
+                //
+                // shotsInGroup, not `amount`: one fire order is not always one shot. A Lightning
+                // Array fuses several discharges into a single combined order and answers for it in
+                // getIncomingShotCount, so the row reads "2x Lightning Array (Combined Fire)".
+                // `amount` stays the MEMBER count, because that is what the disclosure caret opens
+                // into and what the per-shot interception sub-rows are.
+                var textToDisplay = shotsInGroup(ball.weapon, members) + 'x ' + ball.weapon.displayName
                     + ' (' + ball.weapon.firingModes[ball.fireOrder.firingMode] + ')'
                     + diceSuffix(ball.weapon, members);
                 jQuery(".weapon", ballElement).html(textToDisplay).attr('title', textToDisplay);
@@ -490,6 +496,19 @@ window.ShipTooltipBallisticsMenu = function () {
     function joinRange(lo, hi) {
         if (lo === null || lo === undefined || lo === hi) return hi + '%';
         return (lo < 0) ? lo + '%-' + hi + '%' : lo + '-' + hi + '%';
+    }
+
+    /* How many SHOTS a grouped row represents. One fire order is normally one shot, so this is the
+       member count — but a weapon that fuses several shots into ONE order (the Lightning Array's
+       combined fire) may say so by implementing getIncomingShotCount(fireOrder). Everything else is
+       untouched: a bare `|| 1` fallback would be wrong for the Molecular Slicer, whose orders carry
+       DICE in ->shots, which is why this is opt-in rather than a sum of ->shots. */
+    function shotsInGroup(weapon, members) {
+        if (!weapon || typeof weapon.getIncomingShotCount !== "function") return members.length;
+        return members.reduce(function (total, member) {
+            var n = parseInt(weapon.getIncomingShotCount(member.fireOrder), 10);
+            return total + ((isNaN(n) || n < 1) ? 1 : n);
+        }, 0);
     }
 
     /* "(3d + 12)" - the dice and set damage a Shadow split weapon has committed to a row's shots.

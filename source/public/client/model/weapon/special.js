@@ -1307,3 +1307,596 @@ SpatialCutter.prototype.onFireOrderCreated = function (fire) {
         }, 0);
     }
 };
+/* ================================================================================================
+ * WALKERS OF SIGMA-957 - Lightning Array family        WALKERS_OF_SIGMA_PLAN.md sections 3.1 / 3.2
+ * ================================================================================================
+ *
+ * Client half of LightningArray / MediumLightningArray (specialWeapons.php). ⚠️ Every number here
+ * MUST be kept in step with the PHP property of the same name - the two are read independently (the
+ * server resolves the shot, the client predicts its hit chance, damage and remaining discharges), so
+ * a table that drifts shows the player one number and rolls another, with nothing to warn either of
+ * them. There is a test that dumps the PHP side by reflection and compares field for field; run it
+ * after ANY re-stat.
+ *
+ * TWO FIRING MODES, matching the PHP constants:
+ *   1 Combined Fire - one click declares one discharge; a further click on the SAME target fuses
+ *     another discharge into that shot instead of declaring a new one, so its fire control, range
+ *     penalty and damage all move to that row of the tables. No dialog. The count rides to the
+ *     server in the order's ->shots, which the server re-clamps against the real pool.
+ *   2 Single Shots  - every click is a separate one-discharge order, never fused. The server forces
+ *     the count to 1 for a mode-2 order regardless of what ->shots says.
+ *
+ * ⭐ multiModeSplit - the two modes are a PER-SHOT choice, not a per-turn one. Declare a couple of
+ * combined shots, switch to Single Shots, pepper a flight with the rest, switch back. The flag is
+ * published from the PHP stripForJson (it is protected on Weapon and the base does not pass it) and
+ * it is what keeps the firing-mode selector unlocked after the first declaration. It also hands
+ * withdrawal to this weapon: weaponManager.removeFiringOrderMulti / removeFiringOrder do nothing but
+ * call removeMultiModeSplit / removeAllMultiModeSplit below.
+ *
+ * ⚠️ A declared order carries damageclass 'Sweeping' and notes "Split", exactly as the Discharge Gun
+ * and the Psionic Concentrator do. Those two values are what put the shot in the INCOMING list
+ * (weaponManager.getAllBallisticsAgainst) and drive its ballistic line - not decoration.
+ *
+ * ⭐ WHO ACTUALLY READS THAT LIST for a weapon like this one: the FIRING player, and only them. A
+ * direct-fire weapon declares in the Firing phase, and an opponent's gamedata does not carry those
+ * orders until the phase resolves - so the INCOMING list on an enemy ship's tooltip is a tally of
+ * the shots YOU have committed to it, not a warning to the defender. Manual interception is a
+ * BALLISTIC affair (declared in Initial Orders, resolved a phase later, visible in between). Do not
+ * build defender-facing explanation into a Firing-phase weapon's row; it just has to count honestly.
+ *
+ * ->guns is NOT the blueprint value here. weaponManager's manual-intercept cap counts ORDERS while
+ * this weapon spends DISCHARGES, so updateGunAccounting() rewrites it with the same formula the
+ * server uses. See getGunsForInterceptAccounting in specialWeapons.php for the derivation.
+ * ------------------------------------------------------------------------------------------------ */
+
+var LightningArray = function LightningArray(json, ship) {
+	Weapon.call(this, json, ship);
+};
+LightningArray.prototype = Object.create(Weapon.prototype);
+LightningArray.prototype.constructor = LightningArray;
+
+//Firing modes - MUST match the MODE_COMBINED / MODE_SINGLE constants in specialWeapons.php.
+//1 fuses discharges through the allocation dialog; 2 declares one discharge per click, no dialog.
+LightningArray.MODE_COMBINED = 1;
+LightningArray.MODE_SINGLE   = 2;
+
+/* ⚠️ THE SIX TABLES BELOW MUST MATCH THE PHP ONES EXACTLY. The server rolls the shot from its copy
+   and the client predicts it from this one, so drift shows the player one number and rolls another,
+   silently. There is a test for it: dump the PHP tables by reflection and compare field for field.
+   Mirrors $combinedDamageArray in specialWeapons.php. */
+LightningArray.prototype.combinedDamage = {
+	1: { dice: 5,  add: 20 },
+	2: { dice: 10, add: 20 },
+	3: { dice: 15, add: 20 },
+	4: { dice: 20, add: 20 }
+};
+
+/* Mirrors $combinedFireControlArray. Rows are [fighters, <=mediums, <=capitals], the same shape as
+   fireControl. Note the two columns pull in OPPOSITE directions: fusing makes the shot much harder
+   to land on a fighter (8 -> 2) and easier on a capital (4 -> 6). */
+LightningArray.prototype.combinedFireControl = {
+	1: [8, 6, 4],
+	2: [6, 6, 5],
+	3: [4, 6, 6],
+	4: [2, 6, 6]
+};
+
+/* Mirrors $combinedRangePenaltyArray. Per-hex, the same units as weapon.rangePenalty - and fusing
+   IMPROVES the reach here (-1/3 hexes down to -1/5), which is the opposite of what the fighter
+   column above does. */
+LightningArray.prototype.combinedRangePenalty = {
+	1: 0.33,
+	2: 0.25,
+	3: 0.25,
+	4: 0.2
+};
+
+//Mirrors $dischargePool. Flat here; the Medium variant derives it from charge time.
+LightningArray.prototype.baseDischargePool = 4;
+
+/* Discharges this array may spend this turn. Mirrors PHP getDischargePool(). */
+LightningArray.prototype.getDischargePool = function () {
+	return this.baseDischargePool;
+};
+
+/* Discharges committed to one fire order. The count lives in ->shots and nowhere else - the same
+   field every other split-shot weapon carries its shot count in - and it survives both the POST
+   rebuild and a mid-phase page reload. parseInt, not a typeof check: an order that has round-tripped
+   through the database comes back with a string there. */
+LightningArray.prototype.getOrderDischarges = function (fireOrder) {
+	var n = parseInt(fireOrder && fireOrder.shots, 10);
+	return (isNaN(n) || n < 1) ? 1 : n;
+};
+
+/* Discharges spent on OFFENSIVE shots. A manual 'intercept' order also costs a discharge and is
+   counted by getDischargesUsed below; a 'selfIntercept' marker is consent only and costs nothing.
+   Kept separate because the gun-accounting formula needs the offensive half on its own. */
+LightningArray.prototype.getOffensiveDischarges = function () {
+	var used = 0;
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		var fire = this.fireOrders[i];
+		if (fire.type === 'selfIntercept' || fire.type === 'intercept') continue;
+		//Single Shots mode is always one discharge, whatever the order says - the server forces the
+		//same thing in beforeFiringOrderResolution and would ignore a bigger number here.
+		used += (fire.firingMode === LightningArray.MODE_SINGLE) ? 1 : this.getOrderDischarges(fire);
+	}
+	return used;
+};
+
+LightningArray.prototype.getOffensiveOrderCount = function () {
+	var n = 0;
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		var t = this.fireOrders[i].type;
+		if (t !== 'selfIntercept' && t !== 'intercept') n++;
+	}
+	return n;
+};
+
+LightningArray.prototype.getManualInterceptCount = function () {
+	var n = 0;
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		if (this.fireOrders[i].type === 'intercept') n++;
+	}
+	return n;
+};
+
+LightningArray.prototype.getDischargesUsed = function () {
+	//One discharge per manual interception, exactly as the server charges it.
+	return this.getOffensiveDischarges() + this.getManualInterceptCount();
+};
+
+LightningArray.prototype.getRemainingDischarges = function () {
+	return Math.max(0, this.getDischargePool() - this.getDischargesUsed());
+};
+
+/* Drives the "this ship still has shots left" warning at commit.
+   Refreshes the gun accounting on the way past for the same reason checkFinished does. */
+LightningArray.prototype.checkForWastedShots = function () {
+	this.updateGunAccounting();
+	return this.getRemainingDischarges() > 0;
+};
+
+/* ⚠️ Also the seam that keeps ->guns fresh after a declaration. weaponManager.targetShip pushes the
+   order this weapon returned and then asks checkFinished() - that is the first moment the new order
+   is visible to us, and updateGunAccounting has to run before anything reads the manual-intercept
+   cap. It cannot wait for initializationUpdate, which only runs when a system icon renders
+   (arch_lazy_window_side_effects), and the player can reach the INCOMING list without re-rendering
+   anything. */
+LightningArray.prototype.checkFinished = function () {
+	this.updateGunAccounting();
+	return this.getRemainingDischarges() <= 0;
+};
+
+/* THE SAME FORMULA THE SERVER USES - see getGunsForInterceptAccounting in specialWeapons.php for
+   the derivation. weaponManager caps manual interception at
+   `counts.offensive + counts.intercept >= weapon.guns`, i.e. it counts ORDERS, while this weapon
+   spends DISCHARGES; one combined shot of four is a single order that empties the pool. Setting
+   guns = pool - offensiveDischarges + offensiveOrders makes that cap land on the discharges
+   actually left, and matches Firing::isValidInterceptor exactly.
+
+   Called from initializationUpdate, from checkFinished/checkForWastedShots (the declaration seam)
+   and from doMultipleSelfIntercept. */
+LightningArray.prototype.updateGunAccounting = function () {
+	var pool = this.getDischargePool();
+	this.guns = Math.max(0, pool - this.getOffensiveDischarges()) + this.getOffensiveOrderCount();
+	return this.guns;
+};
+
+LightningArray.prototype.isSingleShotMode = function () {
+	return parseInt(this.firingMode, 10) === LightningArray.MODE_SINGLE;
+};
+
+/* Keeps the split-shot ceiling, the gun count and the tooltip in step with the pool. On the Medium
+   variant the pool moves with charge time, so all three have to be re-derived every update. */
+LightningArray.prototype.initializationUpdate = function () {
+	var pool = this.getDischargePool();
+
+	this.maxVariableShots = pool;
+	//⚠️ ALWAYS true, in both modes and at a pool of one. canSplitShots is what routes a click through
+	//doMultipleFireOrders; turning it off sends targetShip down the ordinary path instead, which
+	//declares `guns` orders of `defaultShots` each and stamps neither the 'Sweeping' damageclass nor
+	//the "Split" note - so the shot would silently vanish from the target's INCOMING list.
+	this.canSplitShots    = true;
+	this.updateGunAccounting();
+
+	this.data["Discharges"] = pool;
+	if (gamedata.gamephase == 3) {
+		this.data["Discharges Remaining"] = this.getRemainingDischarges();
+	} else {
+		delete this.data["Discharges Remaining"];
+	}
+
+	//In Single Shots mode the weapon can only ever produce the 1-discharge row, so quoting the
+	//whole combined span would overstate it.
+	var lo = this.combinedDamage[1];
+	var hi = this.isSingleShotMode() ? lo
+	                                 : this.combinedDamage[Math.min(pool, this.getMaxTabledCount())];
+	if (lo && hi) this.data["Damage"] = "" + (lo.dice + lo.add) + "-" + (hi.dice * 10 + hi.add);
+
+	return this;
+};
+
+LightningArray.prototype.getMaxTabledCount = function () {
+	var max = 1;
+	for (var k in this.combinedDamage) {
+		var n = parseInt(k, 10);
+		if (n > max) max = n;
+	}
+	return max;
+};
+
+/* WHICH SHOT THESE TWO MIRRORS ARE DESCRIBING, in priority order:
+     1. pendingCombinedCount - set only while a click is being turned into a fire order, so the
+        chance stored on that order is priced at the count it carries.
+     2. the fire order handed in - the INCOMING list and the ballistic hit chance both pass one
+        (weaponManager.calculateHitChange's 5th argument, threaded down to here). A shot already
+        declared must read at ITS OWN count, never at a look-ahead, or the shooter's own tally of
+        what it has committed to that ship disagrees with what it will roll.
+     3. otherwise a look-ahead - getPreviewCombinedCount reports what the NEXT click on that ship
+        would fire, so the targeting list and the hover tooltips quote the chance the click gives.
+   Both mirrors resolve it the same way, so the fire-control half and the range half always
+   describe the same shot. */
+
+/* Mirror of the server's combined-fire fire-control delta, in d20 units (weaponManager works in d20
+   and multiplies by 5 at the end; the server adds delta*5 to ->needed, which is d100). */
+LightningArray.prototype.calculateSpecialHitChanceMod = function (shooter, target, calledid, fireOrder) {
+	var n = this.resolveCombinedCount(target, calledid, fireOrder);
+	var row = this.combinedFireControl[n];
+	if (!row) return 0;
+
+	//weaponManager.getFireControlIndex is the client's canonical mirror of the server's
+	//getFireControlIndex(). Use it rather than re-deriving from target.flight: a shuttle flight has
+	//shipSizeClass 1 and FighterFlight overrides the index to 1, not 0, so a hand-rolled "is it a
+	//flight" test would disagree with the server for exactly those units.
+	var fcIndex = weaponManager.getFireControlIndex(target);
+	if (fcIndex === null || fcIndex === undefined) return 0;
+	if (row[fcIndex] === undefined || !this.fireControl || this.fireControl[fcIndex] === undefined) return 0;
+
+	return row[fcIndex] - this.fireControl[fcIndex];
+};
+
+/* Combined fire also moves the RANGE penalty. Mirrors the server's calculateRangePenalty() override,
+   and is reached because the blueprint carries specialRangeCalculation = true - weaponManager then
+   asks the weapon instead of using rangePenalty * distance.
+
+   ⚠️ `target`, `calledid` and `fireOrder` reach this hook only because weaponManager.calculateRangePenalty
+   threads them through (every other weapon ignores the extra arguments). Without them this half of
+   the prediction would be stuck on the single-discharge row while the fire-control half moved with
+   the shot, and the two would describe different shots - worse than both being wrong the same way. */
+LightningArray.prototype.calculateSpecialRangePenalty = function (distance, target, calledid, fireOrder) {
+	var n = this.resolveCombinedCount(target, calledid, fireOrder);
+	var perHex = this.combinedRangePenalty[n];
+	//No row for this count (a table that was not extended with the pool): fall back to the weapon's
+	//own rangePenalty, exactly as the server does.
+	if (perHex === undefined) perHex = this.rangePenalty;
+	return perHex * distance;
+};
+
+/* The three-way choice both mirrors make - see the block comment above. */
+LightningArray.prototype.resolveCombinedCount = function (target, calledid, fireOrder) {
+	if (this.pendingCombinedCount) return this.pendingCombinedCount;
+	var declared = this.getCountForOrder(fireOrder);
+	if (declared !== null) return declared;
+	return this.getPreviewCombinedCount(target, calledid);
+};
+
+/* Discharges an ALREADY DECLARED order carries, or null when there is no such order to read. Null
+   rather than 1 on purpose: 1 is a legitimate answer and would shadow the look-ahead. */
+LightningArray.prototype.getCountForOrder = function (fireOrder) {
+	if (!fireOrder) return null;
+	if (fireOrder.weaponid !== undefined && fireOrder.weaponid != this.id) return null;
+	//A Single Shots order is one discharge whatever ->shots claims - the server forces it.
+	if (parseInt(fireOrder.firingMode, 10) === LightningArray.MODE_SINGLE) return 1;
+	return this.getOrderDischarges(fireOrder);
+};
+
+/* One click declares ONE discharge - these are ordinary split-shot weapons, exactly like the Vorlon
+   Discharge Gun, and a "gun" here IS a discharge. There is no allocation dialog.
+
+   COMBINED FIRE mode: a second click on the SAME target does not add a second shot, it fuses
+   another discharge into the shot already standing against that target - so the order that goes to
+   the server carries 2, then 3, then 4, and its fire control, range penalty and damage all move to
+   that row of the tables. Four clicks on one ship = one 4-discharge shot; four clicks on four ships
+   = four single ones.
+   SINGLE SHOTS mode: every click is a separate one-discharge order, never fused.
+
+   The order is RETURNED rather than pushed: weaponManager.targetShip pushes it, then asks
+   checkFinished() and unselects the weapon when the pool is spent. Pushing here and unselecting
+   from inside this call would splice gamedata.selectedSystems while targetShip is iterating it. */
+LightningArray.prototype.doMultipleFireOrders = function (shooter, target, system) {
+	if (this.getRemainingDischarges() <= 0) {
+		confirm.error(this.displayName + " has no discharges left this turn.");
+		return [];
+	}
+
+	var calledid = -1;
+	if (system && weaponManager.canWeaponCall(this)) {
+		var calledSystem = system;
+		while (calledSystem.parentId > 0) {
+			calledSystem = shipManager.systems.getSystem(target, calledSystem.parentId);
+		}
+		calledid = calledSystem.id;
+	}
+
+	//The shot this click lands on, and what it grows to. getCombinableOrder is null in Single Shots
+	//mode and whenever the standing shot is already at the largest tabled count, so both cases fall
+	//through to a fresh 1-discharge order.
+	var existing = this.getCombinableOrder(target, calledid);
+	var count    = existing ? this.getOrderDischarges(existing) + 1 : 1;
+
+	//Show - and store - the hit chance for THIS fused count, not for a single discharge. Both
+	//mirrors read pendingCombinedCount, so the fire control and the range penalty describe the same
+	//shot. Cleared immediately: everything outside a declaration derives its own preview count.
+	this.pendingCombinedCount = count;
+	var chance = window.weaponManager.calculateHitChange(shooter, target, this, calledid).hitChance;
+	this.pendingCombinedCount = null;
+	if (chance < 1) return [];
+
+	//Growing a shot = replacing its order with one carrying the extra discharge. Dropping the old
+	//one here (rather than mutating it in place) puts the declaration back on targetShip's ordinary
+	//push/checkFinished/unselect path, and the regenerated id is identical because the array is the
+	//same length again.
+	var fireid;
+	if (existing) {
+		fireid = existing.id;
+		var idx = this.fireOrders.indexOf(existing);
+		if (idx >= 0) this.fireOrders.splice(idx, 1);
+	} else {
+		fireid = shooter.id + "_" + this.id + "_" + (this.fireOrders.length + 1);
+	}
+
+	return [{
+		id: fireid,
+		type: 'normal',
+		shooterid: shooter.id,
+		targetid: target.id,
+		weaponid: this.id,
+		calledid: calledid,
+		turn: gamedata.turn,
+		firingMode: this.firingMode,
+		//THE fused count. ->shots is what every other split-shot weapon carries its shot count in,
+		//and it is a whitelisted FireOrder constructor argument, so it survives the POST rebuild.
+		shots: count,
+		x: "null",
+		y: "null",
+		//⚠️ 'Sweeping' and "Split" are not decoration: getAllBallisticsAgainst admits a type "normal"
+		//order to the INCOMING list only when its damageclass is 'Sweeping', and BallisticIconContainer
+		//keys line re-creation on notes === "Split". Without both, a Lightning Array shot cannot be
+		//seen - or manually intercepted - by the ship it is aimed at, which is the same pair of
+		//values the Discharge Gun and the Psionic Concentrator carry.
+		damageclass: 'Sweeping',
+		chance: chance,
+		hitmod: 0,
+		notes: "Split"
+	}];
+};
+
+/* The Combined Fire shot this weapon already has standing against that target, or null when the
+   next click should start a new one. Matched on target AND called system, so a called shot and a
+   hull shot at the same ship stay separate shots. Never matches in Single Shots mode, never matches
+   a Single Shots order (mode is stamped per order, and the player may switch mid-turn), never
+   matches an earlier turn's order, and never matches a shot already at the largest tabled count. */
+LightningArray.prototype.getCombinableOrder = function (target, calledid) {
+	if (this.isSingleShotMode()) return null;
+	if (!target) return null;
+
+	var targetid = (target.id !== undefined) ? target.id : target;
+	var called   = (calledid > 0) ? calledid : -1;
+	var maxRow   = this.getMaxTabledCount();
+
+	for (var i = this.fireOrders.length - 1; i >= 0; i--) {
+		var fire = this.fireOrders[i];
+		if (fire.type !== 'normal') continue;
+		if (fire.turn != gamedata.turn) continue;
+		if (fire.targetid != targetid) continue;
+		if (((fire.calledid > 0) ? fire.calledid : -1) !== called) continue;
+		if (parseInt(fire.firingMode, 10) === LightningArray.MODE_SINGLE) continue;
+		if (this.getOrderDischarges(fire) >= maxRow) continue;
+		return fire;
+	}
+	return null;
+};
+
+/* How many discharges the NEXT click on that target would fire. This is what the hover previews
+   quote - the targeting list, the ship tooltip - so the hit chance the player reads before clicking
+   is the hit chance the click produces, rather than a single-discharge number that stops being true
+   the moment the shot starts growing. With nothing left in the pool it reports the standing shot,
+   because that is what the tables will actually be read at. */
+LightningArray.prototype.getPreviewCombinedCount = function (target, calledid) {
+	var existing = this.getCombinableOrder(target, calledid);
+	var current  = existing ? this.getOrderDischarges(existing) : 0;
+	if (this.getRemainingDischarges() <= 0) return Math.max(1, current);
+	return Math.min(current + 1, this.getMaxTabledCount());
+};
+
+/* How many SHOTS one of this weapon's orders represents in the INCOMING list. A combined order is
+   one fire order carrying several discharges, so the row reads "2x Lightning Array (Combined Fire)"
+   rather than "1x". ⚠️ That list is a targeting aid for the FIRING player here, not a defence
+   control: a direct-fire weapon declares in the Firing phase and the defender never sees the order
+   before it resolves, so nothing about it needs to explain the shot to an opponent - it just has to
+   count honestly. Read off ->shots, where the fused count lives until the server resolves the order
+   and resets it. */
+LightningArray.prototype.getIncomingShotCount = function (fireOrder) {
+	if (!fireOrder) return 1;
+	//A Single Shots order is one discharge whatever ->shots claims - the server forces it.
+	if (parseInt(fireOrder.firingMode, 10) === LightningArray.MODE_SINGLE) return 1;
+	return this.getOrderDischarges(fireOrder);
+};
+
+/* ── Withdrawing a shot ───────────────────────────────────────────────────────────────────────
+   These are `multiModeSplit` weapons, so `weaponManager.removeFiringOrderMulti` and
+   `removeFiringOrder` both hand the job straight to the weapon and do nothing else - the events are
+   ours to fire.
+
+   ⭐ Withdrawing ONE shot from a combined order PEELS ONE DISCHARGE off it: a 4-discharge shot
+   becomes a 3-discharge shot, not nothing. Removing the whole order would hand back four discharges
+   for one click on a button that says "remove a firing order", and the player has no way to put
+   three of them back except by re-declaring. The stored hit chance is recomputed at the new count,
+   because fusing moves it. A Single Shots order is one discharge already, so it just goes. */
+LightningArray.prototype.removeMultiModeSplit = function (ship, target) {
+	var fire = this.findWithdrawableOrder(target);
+	if (!fire) return;
+
+	var n = this.getOrderDischarges(fire);
+	if (parseInt(fire.firingMode, 10) !== LightningArray.MODE_SINGLE && n > 1) {
+		this.setOrderDischarges(fire, n - 1);
+	} else {
+		var idx = this.fireOrders.indexOf(fire);
+		if (idx >= 0) this.fireOrders.splice(idx, 1);
+	}
+
+	this.updateGunAccounting();
+	webglScene.customEvent('SystemDataChanged', { ship: ship, system: this });
+	webglScene.customEvent('SplitOrderRemoved', {
+		shooter: ship,
+		target: target || gamedata.getShip(fire.targetid)
+	});
+};
+
+/* The shot a withdrawal should come out of: the most recent one in the mode the weapon is sitting
+   in, and failing that the most recent one in ANY mode.
+
+   ⚠️ The two callers gate themselves differently, which is why the fallback exists. The ship
+   window only offers the button when weaponManager.hasOrderForMode says this mode HAS a shot, so
+   pass 1 always finds it there. The enemy ship tooltip asks only hasTargetedThisShip - no mode test
+   at all - so with a combined shot standing and the weapon switched to Single Shots, a mode-only
+   search would leave that button doing nothing at all, silently. Preferring the current mode keeps
+   "each mode owns its own shots" true wherever it can be. */
+LightningArray.prototype.findWithdrawableOrder = function (target) {
+	var mode = parseInt(this.firingMode, 10);
+	var fallback = null;
+
+	for (var i = this.fireOrders.length - 1; i >= 0; i--) {
+		var fire = this.fireOrders[i];
+		//Offensive orders only: a selfIntercept marker is withdrawn by its own button
+		//(weaponManager.removeSelfInterceptSingle) and must not be eaten by this one.
+		if (fire.type !== 'normal') continue;
+		if (fire.weaponid != this.id) continue;
+		if (fire.turn != gamedata.turn) continue;
+		//Called from the enemy ship tooltip, `target` names the ship to take the shot back from.
+		if (target && fire.targetid != target.id) continue;
+
+		if (parseInt(fire.firingMode, 10) === mode) return fire;
+		if (fallback === null) fallback = fire;
+	}
+	return fallback;
+};
+
+/* Everything this weapon has declared this turn, in every mode - what
+   `weaponManager.removeFiringOrder` would have done itself for a non-multiModeSplit weapon, so it
+   takes the selfIntercept markers too. */
+LightningArray.prototype.removeAllMultiModeSplit = function (ship) {
+	for (var i = this.fireOrders.length - 1; i >= 0; i--) {
+		if (this.fireOrders[i].weaponid == this.id) this.fireOrders.splice(i, 1);
+	}
+	this.updateGunAccounting();
+	webglScene.customEvent('SystemDataChanged', { ship: ship, system: this });
+};
+
+/* Rewrite an order to carry `n` discharges, re-pricing its stored hit chance at that count - the
+   fire control and the range penalty both move with it, so a peeled shot that kept the 4-discharge
+   number would show the player a chance the server will not roll. Leaves the chance alone if the
+   target has gone (destroyed, withdrawn): a stale number beats a crash. */
+LightningArray.prototype.setOrderDischarges = function (fireOrder, n) {
+	fireOrder.shots = n;
+
+	var target = gamedata.getShip(fireOrder.targetid);
+	if (!target || !this.ship) return;
+
+	this.pendingCombinedCount = n;
+	var chance = window.weaponManager.calculateHitChange(this.ship, target, this, fireOrder.calledid).hitChance;
+	this.pendingCombinedCount = null;
+	fireOrder.chance = chance;
+};
+
+/* ── Interception ─────────────────────────────────────────────────────────────────────────────
+   The full Array's effective loading time is 1, so Firing::isValidInterceptor never asks for a
+   marker and weaponManager.canSelfInterceptSingle never offers one: it is simply auto-assigned with
+   whatever discharges it did not fire. The MEDIUM's effective loading time is max(loadingtime,
+   normalload) = 2, so it IS asked - and because canSplitShots is true, weaponManager routes that
+   question through checkSelfInterceptSystem(), which is false on ShipSystem.prototype. Without the
+   two overrides below the Medium could never consent, and therefore could never defend at all. */
+LightningArray.prototype.checkSelfInterceptSystem = function () {
+	//A single marker is consent for the whole weapon - the server's arithmetic cancels markers out
+	//(see getGunsForInterceptAccounting), so a second one would buy nothing and only confuse the
+	//"shots remaining" readout.
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		if (this.fireOrders[i].type === 'selfIntercept') return false;
+	}
+	return this.getRemainingDischarges() > 0;
+};
+
+LightningArray.prototype.doMultipleSelfIntercept = function (ship) {
+	if (!this.checkSelfInterceptSystem()) return;
+
+	this.fireOrders.push({
+		id: ship.id + "_" + this.id + "_" + (this.fireOrders.length + 1),
+		type: "selfIntercept",
+		shooterid: ship.id,
+		//A selfIntercept order's targetid is the SHIP's own id, not a fire order's - every client
+		//creation site does this and Firing::automateIntercept relies on it.
+		targetid: ship.id,
+		weaponid: this.id,
+		calledid: -1,
+		turn: gamedata.turn,
+		firingMode: this.getInterceptOrderMode(),
+		shots: 1,
+		x: "null",
+		y: "null",
+		addToDB: true,
+		damageclass: this.data["Weapon type"] ? this.data["Weapon type"].toLowerCase() : 'standard'
+	});
+
+	//The marker costs no discharge, but ->guns still has to be re-derived: the formula counts
+	//offensive orders, and a stale value would misprice the manual-intercept cap.
+	this.updateGunAccounting();
+	webglScene.customEvent('SystemDataChanged', { ship: ship, system: this });
+};
+
+/* A defensive discharge is by definition a single one, so defensive orders are stamped Single Shots
+   whatever mode the weapon is sitting in. Nothing per-mode changes on this weapon today, so this is
+   about the order reading honestly in the log rather than about arithmetic - but it also means that
+   if a per-mode array is ever added, a defensive shot cannot accidentally be priced as a fused one. */
+LightningArray.prototype.getInterceptOrderMode = function () {
+	return LightningArray.MODE_SINGLE;
+};
+
+
+/* Accelerator variant. The pool grows by one discharge per turn charged, so at one turn of charge
+   there is exactly one discharge and nothing to combine - the pool, not a rule of its own, is what
+   enforces "may not split until charged two turns". It starts the scenario at 1/2, part-charged. */
+var MediumLightningArray = function MediumLightningArray(json, ship) {
+	LightningArray.call(this, json, ship);
+};
+MediumLightningArray.prototype = Object.create(LightningArray.prototype);
+MediumLightningArray.prototype.constructor = MediumLightningArray;
+
+//Mirrors MediumLightningArray::$combinedDamageArray. Only TWO rows - its pool never exceeds 2.
+MediumLightningArray.prototype.combinedDamage = {
+	1: { dice: 4, add: 12 },
+	2: { dice: 8, add: 12 }
+};
+
+//Mirrors MediumLightningArray::$combinedFireControlArray.
+MediumLightningArray.prototype.combinedFireControl = {
+	1: [6, 4, 2],
+	2: [4, 5, 5]
+};
+
+//Mirrors MediumLightningArray::$combinedRangePenaltyArray.
+MediumLightningArray.prototype.combinedRangePenalty = {
+	1: 0.33,
+	2: 0.25
+};
+
+MediumLightningArray.prototype.getDischargePool = function () {
+	//Always show the full pool in the fleet builder, where nothing has charged yet - the same thing
+	//the Slicer does with its own charge-keyed pools.
+	if (gamedata.gamephase == -2) return this.normalload;
+
+	var pool = parseInt(this.turnsloaded, 10);
+	if (isNaN(pool)) pool = 0;
+	if (pool > this.normalload) pool = this.normalload;
+	if (pool < 1) pool = 1;
+	return pool;
+};

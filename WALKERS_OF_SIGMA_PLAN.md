@@ -3,7 +3,7 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: Stages 0 and 1 BUILT (2026-09-03). Stages 2–10 planned.** Written 2026-09-02 after a
+**Status: Stages 0, 1 and 2 BUILT (2026-09-03). Stages 3–10 planned.** Written 2026-09-02 after a
 full survey of the existing seams.
 
 **Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
@@ -283,34 +283,300 @@ clean-tree failure; the known-failure game recorded in memory has drifted from 4
 
 ## 3. Per-system design
 
-### 3.1 Lightning Array
+### 3.1 / 3.2 Lightning Array + Medium Lightning Array — **BUILT 2026-09-03 (Stage 2)**
 
-`class LightningArray extends Weapon` (or `Raking` — depends on the control sheet's damage type).
+`class LightningArray extends Weapon` and `class MediumLightningArray extends LightningArray`, both
+in `specialWeapons.php` (server) and `special.js` (client) — that is where Walker weaponry goes,
+because it is all `weaponClass = "Electromagnetic"` and there is no `electromagnetic.php`.
 
-- `canSplitShots = true`, `maxVariableShots = 4`, `uninterceptable = false` (it is explicitly
-  susceptible to interception), `factionAge = 3`, long `range`.
-- **Combined fire** reuses the Slicer's allocation-token channel: each fire order's `notes` carries
-  `LA|n:<count>` = how many of the four discharges are fused into that shot.
-  `beforeFiringOrderResolution` re-clamps the total against 4, sets `$order->shots = 1`, stashes the
-  fused count per order id, strips the token. `getDamage()` and `calculateHitBase()` index a
-  `$combinedDamageArray[n]` / `$combinedFireControlArray[n]` table from the control sheet.
-- *"The decision to use combined fire is announced before any shots are taken"* is satisfied for
-  free: every fire order is declared before `beforeFiringOrderResolution` runs.
-- Client: `doMultipleFireOrders` + a small allocation dialog. Model it on the Slicer's dialog in
-  `client/model/weapon/molecular.js` rather than inventing one.
+**Stats are the real control-sheet numbers** (user, 2026-09-03). Still unconfirmed and marked so
+in-file: `$damageType` ("Standard" — switch to Raking if the sheet says otherwise), `$priority` and
+`$loadingtime`. Re-statting stays a table edit: no method hard-codes a game number, the tooltip rows
+are generated from the tables, and `setMinDamage`/`setMaxDamage` are derived from them too.
 
-### 3.2 Medium Lightning Array
+⚠️ **`$fireControl` and `$rangePenalty` must equal ROW 1 of their combined tables.** They are the
+single-discharge profile and they are what the "Fire control" and "Range penalty" tooltip lines
+report. Because the combined tables override them per shot, a mismatch does **not** change what gets
+rolled — it just makes the ship window quote numbers the weapon never uses, which is worse than a
+visible bug. They were out of step when the control sheet first landed and are now aligned.
 
-`class MediumLightningArray extends LightningArray` — accelerator variant.
+**Combined fire, as built — REVISED 2026-09-03 after play testing.** ⚠️ **The allocation dialog is
+gone.** These are ordinary split-shot weapons now, exactly like the Vorlon Discharge Gun: a gun IS a
+discharge, one click declares one, and in Combined Fire mode a further click on the **same target**
+fuses another discharge into the shot already standing there rather than declaring a second one.
+Four clicks on one ship produce ONE 4-discharge shot; four clicks on four ships produce four single
+ones. Single Shots mode never fuses. (The first build asked with a `confirm.askForMultipleValues`
+dialog borrowed from `MolecularSlicerBeamL`; the user's verdict was that the guns/discharges
+distinction it implied was confusion, not a feature.)
 
-- `loadingtime = 1`, `normalload` per control sheet, `getDamage()` switching on `turnsloaded`.
-- `getStartLoading()` override returning loading `0` (§1.2).
-- **Split shots only at 2+ turns loaded.** Client `initializationUpdate()` sets
-  `this.canSplitShots = (this.turnsloaded >= 2)` and `maxVariableShots` accordingly — the
-  `BallisticTorpedo.initializationUpdate` shape. Server re-clamps in
-  `beforeFiringOrderResolution`; **never trust the client's count.**
-- `stripForJson()` must re-publish `minDamage`/`maxDamage` + arrays, as `LaserAccelerator` does, or
-  the tooltip freezes at the blueprint value.
+The count rides to the server in `->shots` **and nowhere else** — the same field every other
+split-shot weapon carries its shot count in, and a whitelisted `FireOrder` constructor argument, so
+it survives the POST rebuild on both the ship and the fighter branch. ⭐ The old `LA|n:<count>` token
+in `->notes` is **removed on both sides**, because `->notes` has a job already: `notes` must read
+exactly `"Split"` and `damageclass` exactly `'Sweeping'`, or the shot never appears in the target's
+INCOMING list (`weaponManager.getAllBallisticsAgainst` admits a type-`normal` order **only** on
+`damageclass === 'Sweeping'`) and its ballistic line is updated rather than re-created
+(`BallisticIconContainer` keys that on `notes === 'Split'`). Those two literals are the split-shot
+contract, not decoration — a weapon that invents its own values silently vanishes from the list the
+shooter uses to see what it has committed (see "AND THAT ROW IS FOR THE SHOOTER" below).
+`beforeFiringOrderResolution` re-clamps `n` against the tabled rows and then against what is
+left in the pool, stashes it per order id, and sets `->shots = 1`. An order the pool cannot pay for
+gets **0 discharges and does 0 damage** — the Slicer's behaviour, chosen because a 0-damage line in
+the combat log is a loud failure and a silently-dropped order is not.
+
+⚠️ **Growing a shot works by REPLACING its order, not by mutating it.** `doMultipleFireOrders` splices
+the standing order out and returns a replacement carrying one more discharge, so the declaration stays
+on `targetShip`'s ordinary push → `checkFinished()` → unselect path. Pushing from inside the hook and
+unselecting there — which the dialog version did — splices `gamedata.selectedSystems` while
+`targetShip` is still iterating it. The regenerated id is identical, because the array is the same
+length again. ⚠️ `checkFinished()` therefore also has to call `updateGunAccounting()`: it is the first
+moment the pushed order is visible to the weapon, and `->guns` must be fresh before anything reads the
+manual-intercept cap.
+
+**Fusing moves THREE things, off three tables keyed by the fused count:** `$combinedDamageArray`,
+`$combinedFireControlArray` and `$combinedRangePenaltyArray`. They are applied by two different
+mechanisms, and the difference matters:
+
+- **Fire control — a DELTA on `$fireOrder->needed`, not a swap of `$this->fireControl`.**
+  `fireControl` is read in several places inside `parent::calculateHitBase()`, and a
+  temporarily-mutated copy would be a per-instance mutation of a property the blueprint shares. So
+  the parent runs untouched and `needed` is then adjusted by
+  `(combinedFC[n][fcIndex] - fireControl[fcIndex]) * 5` (the ×5 is d20 table → d100 roll), guarded
+  by `needed <= 0` so the parent's auto-miss marker is never accidentally un-missed.
+- **Range penalty — a real override of `calculateRangePenalty($distance)`, NOT a delta.** ⭐ This one
+  cannot be a delta: the parent derives the **no-lock and jammer** modifiers from the range penalty,
+  and in the `doubleRangeIfNoLock` branch calls `calculateRangePenalty` a second and third time at
+  modified distances ([weapon.php:1787](source/server/model/weapons/weapon.php#L1787)). A flat delta
+  on `needed` would have moved the base penalty and left both derivatives computing off the
+  single-discharge value. Overriding the method keeps all three consistent for free.
+
+  `calculateRangePenalty` is handed **nothing but a distance** on the server, so the fused count
+  reaches it out of band: `calculateHitBase` publishes `$activeCombinedCount` for the duration of the
+  parent call and clears it in a **`finally`** — without that, a parent that threw would leave a stale
+  count standing and silently apply it to the *next* shot the weapon resolved.
+
+  ⭐ **The client mirror needed the argument threaded instead.** `calculateSpecialRangePenalty` used to
+  get only a distance too, which was survivable while the dialog set `pendingCombinedCount` around the
+  one call that mattered — but with the dialog gone, the number the player reads *before* clicking has
+  to describe the shot the click will produce, and that is only knowable from the target. So
+  `weaponManager.calculateRangePenalty(distance, weapon, target, calledid, fireOrder)` now threads all
+  three down (`computeJammerNoLock` and `computeShotModifiers` too), and every other weapon simply
+  ignores the extra arguments. Both mirrors then resolve the count the SAME way, via
+  `resolveCombinedCount`, so the fire-control half and the range half always describe one shot:
+  1. `pendingCombinedCount` — set only while a click is being turned into an order;
+  2. the fire order passed in — the INCOMING list and `calculataBallisticHitChange` both supply one,
+     and a **declared** shot must read at its own count, never at a look-ahead, because the ship being
+     shot at is deciding what to spend on interception;
+  3. otherwise `getPreviewCombinedCount(target)` — what the NEXT click on that ship would fire.
+
+**The Medium's accelerator rule falls out of the pool.** Its pool is `turnsloaded` capped at
+`normalload`, so at one turn of charge there is exactly one discharge and *"may not combine until
+charged two turns"* needs no rule of its own. ⚠️ **`getStartLoading()` returns loading `1`, not `0`**
+(fixed 2026-09-03, game 4329): "does not begin the scenario **fully** charged" means 1/2, and 0 is
+below `getLoadingTime()`, so the array could not fire at all on turn 1 and read "0/2" in the ship
+window. The full Array is untouched and still starts ready (`getNormalLoad()` falls back to
+`getLoadingTime()` = 1 when `normalload` is 0).
+
+**Two firing modes.** `1 Combined Fire` (default) fuses repeat clicks on one target; `2 Single Shots`
+makes every click a separate one-discharge order, which is what you want against a fighter flight
+where four small shots beat one large one — and the fire-control table makes that concrete, since
+fusing costs 6 points against fighters (8 → 2) while *gaining* 2 against capitals (4 → 6).
+`beforeFiringOrderResolution` forces a mode-2 order's count to 1 and **ignores** `->shots` on it
+rather than clamping it, so a stale or hand-edited client cannot smuggle a fused shot through the
+cheap mode. ⚠️ It reads `$order->firingMode`, never `$this->firingMode`: `prepareFiring` calls
+`changeFiringMode` only *after* this method, so the weapon's own mode is still last turn's here —
+the same trap the Slicer's class comment records. Wide-Beam therefore becomes mode **3** at Stage 8.
+
+⚠️ **`canSplitShots` is now ALWAYS true** — both modes, every pool size, including a pool of 1. It is
+what routes a click through `doMultipleFireOrders` at all; the moment it goes false,
+`weaponManager.targetShip` falls through to the ordinary path, which declares `weapon.guns` orders of
+`defaultShots` each and stamps neither `'Sweeping'` nor `"Split"` — so a one-discharge Medium Array
+declared four shots *and* they were invisible to the target's INCOMING list. The first build turned it
+off at a pool of 1 to mean "nothing to divide"; with the dialog gone there is nothing to divide
+anyway, and the flag only ever meant "this weapon declares its own orders".
+
+**The INCOMING row COUNTS the discharges.** A combined shot is one fire order carrying several
+discharges, so the row would read "1x Lightning Array (Combined Fire)" for a 4-discharge bolt.
+`ShipTooltipBallisticsMenu` gained `shotsInGroup()` beside the existing Slicer `diceSuffix()`: a
+weapon may implement `getIncomingShotCount(fireOrder)` and everything else keeps counting members. It
+now reads "**4x** Lightning Array (Combined Fire)". ⚠️ Opt-in rather than a sum of `->shots`, because
+a Molecular Slicer order carries DICE there and must stay one shot; and the group's `amount` stays the
+MEMBER count, since that is what the disclosure caret opens into.
+
+⭐⭐ **AND THAT ROW IS FOR THE SHOOTER, NOT THE DEFENDER** (user's ruling, 2026-09-03). A direct-fire
+weapon declares and resolves in the same phase, so the opponent's gamedata never carries the order in
+time: **they cannot see it and cannot manually intercept it.** Manual interception is a BALLISTIC
+affair — declared in Initial Orders, resolved a phase later, visible in between — and that gap is the
+whole mechanism. The INCOMING list on an enemy tooltip during Firing is a tally of what YOU have
+committed to that ship. **Do not over-build defender-facing explanation into a Firing-phase weapon's
+row.** The first pass gave the array a `getIncomingLabelSuffix` hook that wrote " (3 discharges)" so
+"the defender could price interception"; that audience does not exist, and it was replaced by the
+counting hook above. The `'Sweeping'` damageclass is still required — it is what puts the row there
+for the shooter at all.
+
+**Withdrawing a shot PEELS one discharge.** ⭐ "Remove a firing order" on a 4-discharge combined shot
+makes it a 3-discharge shot; it does not delete the order. Deleting it would hand four discharges back
+for one click on a button that says "remove **a** firing order", and there is no way to put three of
+them back except by re-declaring. The order's stored `chance` is re-priced at the new count, because
+fusing moves the fire control and the range penalty — a peeled shot still quoting the 4-discharge
+number would show a hit chance the server will not roll. A Single Shots order is one discharge
+already, so it just goes.
+
+### multiModeSplit — the mode is a per-SHOT choice
+
+`protected $multiModeSplit = true`. Fuse a couple of combined shots, switch to Single Shots, pepper a
+flight with the rest, switch back. Without it `weaponManager.onModeClicked` / `onSetModeClicked` and
+`SystemInfoButtons.canChangeFiringMode` all lock the firing-mode selector the moment the first order
+is declared, which would make the two modes an either/or choice for the whole turn.
+
+⚠️ **It is `protected` on `Weapon` and the base `stripForJson` does NOT publish it** — the override
+has to pass `$strippedSystem->multiModeSplit`, or the client never sees the flag and the lock stays
+on. Nothing on the server reads it: `Firing::prepareFiring` already calls `changeFiringMode` per ORDER
+before resolving each shot, which is exactly why `beforeFiringOrderResolution` must read
+`$order->firingMode` and never `$this->firingMode`.
+
+⚠️ **It also hands WITHDRAWAL to the weapon.** `weaponManager.removeFiringOrderMulti` and
+`removeFiringOrder` divert to `removeMultiModeSplit(ship, target)` / `removeAllMultiModeSplit(ship)`
+and **return immediately** — no `SystemDataChanged`, no `SplitOrderRemoved`, no flight-movement
+redraw, so the weapon fires those itself. `Weapon.prototype`'s versions are **no-ops**, so setting the
+flag without overriding both silently kills every remove button.
+
+Withdrawal takes the shot from the mode the weapon is sitting in, matching
+`weaponManager.hasOrderForMode`, which is what gates the ship-window button. ⚠️ But the ENEMY-TOOLTIP
+button is gated on `hasTargetedThisShip` with **no mode test**, so a mode-only search would leave it
+doing nothing at all when the shot at that ship was declared in the other mode — hence
+`findWithdrawableOrder` prefers the current mode and falls back to any. It filters to `type ===
+'normal'`: a `selfIntercept` marker has its own button and must not be eaten by this one.
+
+### ⭐ Interception: the engine counts ORDERS, this weapon spends DISCHARGES
+
+Both arrays have an intercept rating, and that makes the engine's gun accounting wrong unless it is
+corrected — because one combined shot of four is a **single fire order** that empties the whole pool.
+Left alone, `Firing::isValidInterceptor` and `Firing::automateIntercept` would both read three
+discharges as still available. This is the Slicer's `$guns`-padding problem in a different currency.
+
+Both sites do their arithmetic against `$this->guns`, so `beforeFiringOrderResolution` rewrites it
+every turn:
+
+```
+guns = pool − dischargesSpentOffensively + numberOfOffensiveOrders
+```
+
+With `O` offensive orders, `M` manual `intercept` orders, `S` `selfIntercept` markers and
+`D` discharges spent offensively, and taking a manual intercept as costing one discharge and a marker
+as costing nothing:
+
+| site | expression | with the rewrite |
+|---|---|---|
+| `isValidInterceptor` refuses when | `O + M >= guns` | ⟺ `M >= pool − D` ⟺ nothing left ✔ |
+| `automateIntercept` grants | `guns − O − M` | `= pool − D − M` = discharges left ✔ |
+
+`S` cancels out of both, which is *why* a marker is free. The client mirrors the identical formula in
+`updateGunAccounting()`, because `weaponManager`'s manual-intercept cap
+(`counts.offensive + counts.intercept >= weapon.guns`) counts orders the same way.
+
+⚠️ **The client cannot wait for `initializationUpdate`** to do that — it only runs when a system icon
+renders ([[arch_lazy_window_side_effects]]), and the player reaches the INCOMING list without
+necessarily re-rendering anything. So `resolveFireOrder` and `doMultipleSelfIntercept` call it
+directly too.
+
+**Consent differs between the two, and only one of them needed hooks.** `isValidInterceptor` demands
+a `selfIntercept` marker when `max(loadingtime, normalload) > 1`. That is 1 for the full Array — it is
+simply auto-assigned with whatever it did not fire — and **2 for the Medium**, which therefore must
+consent. Because `canSplitShots` is true, `weaponManager.canSelfInterceptSingle` routes that question
+through `checkSelfInterceptSystem()`, which is **`false` on `ShipSystem.prototype`**: without the
+override the Medium could never consent and so could never defend at all. One marker is consent for
+the whole weapon (a second buys nothing, since `S` cancels), and defensive orders are stamped Single
+Shots mode.
+
+
+**How it was proven — FIRST BUILD.** Four throwaway functional tests. The two that survive
+re-statting are the range-penalty spy test and the client mirror; the other two were re-run after
+every change.
+
+- **Server, mechanics (33 checks):** the hull mounts it and `getSystemsByNameLoc("Lightning Array", 1)`
+  — the lookup the hit chart itself uses — finds it and does *not* find it in another section; the
+  allocation parsed and stripped; `->shots` reset; over-allocation clamped mid-volley; a spent pool
+  yields 0; `n=99` clamps to the largest tabled row; an order that never went through
+  `beforeFiringOrderResolution` does 0 rather than firing free; the Medium starts uncharged while the
+  full Array does not.
+- **Server, range penalty (18 checks):** ⭐ **the structural check a table test cannot make** — a spy
+  subclass recorded every `calculateRangePenalty` call the *parent* made during a real
+  `calculateHitBase` on a two-ship gamedata, and confirmed the parent **does** reach the override,
+  **with the order's fused count live**. The test reports INCONCLUSIVE rather than PASS if the parent
+  short-circuits before getting there, because a spy that was never called proves nothing. Plus: the
+  transient is cleared on return, and cleared again when the parent path aborts.
+- **Server, refinements (44 checks):** Single Shots forced to one discharge even when the order claims
+  four; mixed-mode turns; and ⭐ **the gun accounting checked against the REAL engine** —
+  `Firing::isValidInterceptor` invoked by reflection across ten scenarios (idle, 1–4 single shots,
+  combined 2 and 4, manual intercepts, marker-only, marker + combined) with `automateIntercept`'s
+  budget expression reproduced verbatim beside it. Both must agree with the discharges actually left.
+  A control case proves the rewrite is what fixes it: without it, a combined-4 shot leaves **3 phantom
+  intercepts**; with it, 0.
+- **Client (62 checks):** `special.js` **evaluated**, not merely parsed, against stubbed globals
+  (a parse would not catch a broken prototype chain — `howto_verify_react_bundle`); both classes
+  exist as `window` globals, which is what `SystemFactory`'s `new window[name]` needs; **all six JS
+  tables and both mode constants compared field-for-field against the PHP side dumped by
+  reflection**; the gun accounting replayed across the same eleven server scenarios with the manual-
+  intercept cap agreeing every time; the Medium's guns tracking `turnsloaded`; and the consent hooks.
+
+**How the 2026-09-03 REVISIONS were proven.** Two more throwaway tests, same method, grown as the
+refinements landed: **39 server checks and 99 client checks**.
+
+- **Server (39 checks):** the count read off `->shots` alone and `->notes` left as the plain `"Split"`;
+  clamping against tables then pool; a spent pool giving 0 damage; ⭐ **a MIXED-MODE turn** — two
+  combined and two single orders resolved together, each priced by ITS OWN `$order->firingMode`, with
+  the mode-2 order claiming four discharges still firing one and the `guns` arithmetic landing on the
+  right answer across the lot; `guns` landing on the discharges left for `isValidInterceptor` **and**
+  `automateIntercept` at combined-4 and combined-2; the damage bands (⭐ still compared against the
+  1-discharge **ceiling**, because rows 1 and 4 overlap); `getStartLoading()` seeding 1 — asserted
+  three ways: below `getNormalLoad()`, at or above `getLoadingTime()`, and producing a pool of 1 —
+  while the full Array still starts ready; row 1 of each table still equalling the weapon's own
+  `fireControl` / `rangePenalty`; and ⭐ **`multiModeSplit` proven to REACH the client** by calling
+  `stripForJson()` on the Lightning Array of a real `Traveler` (it needs a hull behind it — the base
+  method asks the ship about Hyach Specialists), with an ordinary weapon on the same hull as the
+  control that must NOT publish it.
+- **Client (99 checks):** `special.js` evaluated again, then **the declaration flow driven exactly the
+  way `weaponManager.targetShip` drives it** (call the hook, push what it returns, ask
+  `checkFinished()`): three clicks on one ship producing ONE order carrying 3 with `damageclass
+  'Sweeping'` and `notes "Split"`; a fourth fusing to 4; a fifth refused with a message; two targets
+  staying two orders; Single Shots producing three separate one-discharge orders; ⭐ **both prediction
+  mirrors moving together** — the fire-control delta and the range penalty both stepping from row 1 to
+  row 2 as the shot grows, with an assertion that they really differ; ⭐ **a declared order reading at
+  its OWN count while the look-ahead reads one higher**; another weapon's order ignored; the Medium
+  refusing to combine at one turn of charge and fusing at two; the PHP tables re-compared
+  field-for-field; and `confirm.askForMultipleValues` stubbed to **throw**, so reaching the end of the
+  run is itself the proof that no dialog is opened any more.
+
+  The refinements added: ⭐ **peeling** — 4 → 3 → 2 → 1 → gone, the order keeping its id throughout,
+  one discharge handed back each time (not four), `guns` re-derived, and the stored `chance`
+  **re-priced at the new count** and compared against what the mirrors give for that count; a Single
+  Shots withdrawal removing a whole order; ⭐ **mixed modes coexisting** — a combined shot and a single
+  shot standing together, withdrawal preferring the mode the weapon is in and leaving the other alone,
+  and fusing resuming when the mode is switched back; the enemy-tooltip fallback firing when the
+  current mode has nothing at that target (with a non-vacuity assertion that it really had nothing);
+  a `selfIntercept` marker surviving "remove a firing order"; `removeAll` clearing everything; and the
+  INCOMING row counting **discharges, not orders**, with `shotsInGroup` reproduced verbatim and a
+  hookless weapon as the control so the Slicer's dice-in-`->shots` cannot start counting as shots.
+
+⭐ **Every test asserts it is not vacuous** — that the two classes really carry different tables, that
+the scenarios really produce different gun counts, that the mode constants differ, that the fighter
+and capital columns differ, that the two prediction mirrors really move. This earned its keep twice in
+one sitting:
+
+1. The damage-band check quietly stopped discriminating once the real stats landed, because row 1
+   (25–70) and row 4 (40–220) **overlap**. The non-vacuity assertion caught it; the fix was to sample
+   400 rolls of each and compare against the 1-discharge ceiling instead.
+2. The table comparison caught the JS mirror still holding the old placeholder numbers after the
+   control sheet was applied to the PHP only — exactly the silent client/server drift it exists for.
+
+Regression gate after the revisions: `checkShipData.php` PASS (0 new findings), replay harness
+131 passed / 1 failed — game 4325, the known pre-existing clean-tree failure, and its diff is
+movement/`waiting` fields, nothing to do with weapons.
+
+**Left for the user:** a hull mount for the Medium Array — the Traveler's hit chart never named one,
+so it is built and unplaced. `Traveler` carries one `LightningArray` in the front section and its
+chart row is restored. Icons landed 2026-09-03 (`LightningArray.png`, `LightningArrayMed.png`).
 
 ### 3.3 Wide-Beam Lightning Array (system enhancement)
 
@@ -327,6 +593,10 @@ allow-list of the Ancient-eligible IDs, and add a `factionAge` test to each exis
 `eligible` so the five current ones stay young/middleborn-only. **Do not simply delete the gate** —
 that opens Gunsights, Hardened Armour and the rest to every Shadow, Vorlon and Kirishiac hull in
 the game, which is a balance change nobody asked for.
+
+⚠️ **Wide Beam is mode 3, not mode 2** — Stage 2 took mode 2 for `Single Shots`. Add
+`MODE_WIDEBEAM = 3` alongside the existing constants in both `specialWeapons.php` and `special.js`,
+and remember `beforeFiringOrderResolution` already branches on `$order->firingMode`.
 
 **Per-turn declaration** is a **firing mode** (`'Wide Beam'`), not a purchase-time flag: the
 enhancement buys the capability, the mode is chosen when firing. Effects:
@@ -529,7 +799,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 |---|---|---|
 | **0** ✅ | `HexZone` extraction (§2.3) — **DONE 2026-09-03** | Replay harness identical before/after; 13,504-case differential test against the pre-move bodies, zero mismatches. |
 | **1** ✅ | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) — **DONE 2026-09-03** | `Traveler` generates into `Walkers of Sigma-957.json`; `checkShipData.php` clean (0 new findings, down from 5). |
-| **2** | Lightning Array + Medium Lightning Array | Four split shots; combined fire resolves at the combined table; MLA gains split at 2 turns; neither starts charged. Interception works. |
+| **2** ✅ | Lightning Array + Medium Lightning Array — **DONE 2026-09-03; targeting REVISED twice the same day after play testing** | 157 checks green on the first build, +138 across the revisions, incl. a JS-vs-PHP comparison of all six tables and both mode constants, and the intercept gun accounting verified against the REAL `Firing::isValidInterceptor` over ten scenarios. Two firing modes (Combined / Single), now `multiModeSplit` so both are usable in one turn; both weapons intercept. Revisions: **no allocation dialog** — one click = one discharge, repeat clicks on one target fuse; count rides in `->shots`; `'Sweeping'` + `"Split"` so the shot shows in the shooter's INCOMING list, which counts DISCHARGES not orders; withdrawing PEELS one discharge off a combined shot; Medium starts 1/2, not 0/2. |
 | **3** | Chromatic Pulse Driver | Scanning hit reduces the target race's shields fleet-wide from the **next** turn; survives a reload; does not leak across the double gamedata load. |
 | **4** | EDF + Variable EDF (§2.1 + §2.2) | Field map published and drawn; drain lands as crits; targeting penalty matches server↔client to the point; Enormous clamp, own-fleet immunity and multi-field non-stacking all hold. |
 | **5** | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) | Ancient hulls see **only** the new IDs; the five existing enhancements are unchanged for every young/middleborn hull in the corpus. |
