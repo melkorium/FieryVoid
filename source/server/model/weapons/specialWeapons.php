@@ -11098,8 +11098,12 @@ class SpatialCutter extends Weapon {
         unset($gamedata->ships[$shipid]);
     }
 
+    /* Moved to HexZone::line() - the Walkers' EDF targeting corridor and Sensor Charge
+       Transceiver need the same tracer and neither is a spatial cutter. Kept as a
+       delegating alias because getHexLine() reads better at the call site below. */
     public static function getHexLine(OffsetCoordinate $start, OffsetCoordinate $end) {
-        $startCube = self::offsetToCube($start);
+        /*
+		$startCube = self::offsetToCube($start);
         $endCube   = self::offsetToCube($end);
 
         $dx = $endCube[0] - $startCube[0];
@@ -11149,7 +11153,9 @@ class SpatialCutter extends Weapon {
 		$q = $cube[0] + ($cube[2] + ($cube[2] & 1)) / 2;
 		$r = $cube[2];
 		return new OffsetCoordinate($q, $r);
-	}
+	*/        
+		return HexZone::line($start, $end);
+    }
 
     public static function getWaveformDamage($ship) {
         $move  = $ship->getLastMovement();

@@ -1427,6 +1427,7 @@ spl_autoload_register(
                 'hermesoldfastbeta' => '/server/model/ships/EA_old/hermesOldFastBeta.php',
                 'heron' => '/server/model/ships/drazi_old/heron.php',
                 'heron1940' => '/server/model/ships/drazi_old/heron1940.php',
+                'hexzone' => '/server/lib/HexZone.php',
                 'highguarda2003am' => '/server/model/ships/orieni/HighguardA2003AM.php',
                 'highguarda2007am' => '/server/model/ships/orieni/HighguardA2007AM.php',
                 'highguardaam' => '/server/model/ships/orieni/HighguardAAM.php',

@@ -3,7 +3,13 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: PLANNED, nothing built.** Written 2026-09-02 after a full survey of the existing seams.
+**Status: Stages 0 and 1 BUILT (2026-09-03). Stages 2–10 planned.** Written 2026-09-02 after a
+full survey of the existing seams.
+
+**Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
+the switch key in `gamelobby.js`, the directory-map key in `ShipLoader::getFactionDirMap()`, the
+filename of the lobby's per-faction JSON, and (D7) the CPD adaptation key. Getting it wrong is
+silent everywhere.
 
 ---
 
@@ -79,8 +85,8 @@ free, exact mirror of the to-hit penalty with no new sync mechanism.
 ### 1.5 Hex-line tracing — already written
 `getHexLine(OffsetCoordinate $start, OffsetCoordinate $end)`, a cube-interpolating static on the
 Spatial Cutter, [specialWeapons.php:11101](source/server/model/weapons/specialWeapons.php#L11101).
-Used by both the EDF targeting penalty and every SCT path segment. It is `private static` on the
-wrong class — **Stage 0 moves it** (see §2.3).
+Used by both the EDF targeting penalty and every SCT path segment. **DONE (Stage 0):** it now
+lives on `HexZone` (`HexZone::line`), with `SpatialCutter::getHexLine` kept as a delegating alias.
 
 ### 1.6 The critical machinery already does everything the three crit tables ask for
 `ShipSystem::testCritical` ([ShipSystem.php:1370](source/server/model/systems/ShipSystem.php#L1370))
@@ -126,6 +132,23 @@ on each hull (`ShipLoader::getFactionDirMap` derives the mapping at runtime), on
 `ammo-options-enhancements.php`. `$factionAge = 3` (Ancient).
 
 ⚠️ Filename must equal class name or the ship **silently does not exist**.
+
+**As built (Stage 1, 2026-09-03).** It was that cheap: `Traveler.php` already existed, so the whole
+stage was the faction string (`Walker of` → `Walkers of Sigma-957`), the `gamelobby.js` tier case,
+and a statics regen. Three things worth knowing next time:
+
+- **The lobby reads `source/public/static/json/<faction>.json`**, written by
+  `generateStaticShipFile.php` and keyed on the faction string. A faction **rename leaves the old
+  file behind**, and the lobby then lists both spellings as separate factions with the same hull in
+  each. `source/public/static/` is gitignored, so nothing warns you. Delete the stale file by hand.
+- **`fvbuild.ps1 -Statics` is not optional** for a new hull — without it the ship exists on the
+  server and is invisible in the lobby.
+- **`Traveler`'s hit chart already names Lightning Array, Chromatic Pulse Driver and Energy
+  Draining Field**, which do not exist yet, and the ship-data validator fails on all five entries
+  ("every hit here is silently rerouted to Structure"). They are **commented out in the hull with
+  `//STAGE n` markers**; each of Stages 2, 3 and 4 uncomments its own row when it adds the system.
+  Restoring a row is a two-character edit — do not forget it, a system with no hit-chart entry can
+  never be hit.
 
 ---
 
@@ -222,21 +245,39 @@ resolver — `critRollMod` is already summed into that roll and is described in-
 `FireGamePhase::advance`, which is safe (it re-loads gamedata), but pass an explicit checkpoint if
 this ever needs to run from a second site.
 
-### 2.3 `HexZone` — extracting what already works
+### 2.3 `HexZone` — extracting what already works — **BUILT 2026-09-03 (Stage 0)**
 
-Two pure moves into a new `source/server/lib/HexZone.php`, with the originals delegating:
+Two pure moves into `source/server/lib/HexZone.php`, with the originals delegating:
 
-- `HexZone::line($start, $end)` ← `SpatialCutter::getHexLine`
-- `HexZone::hull()`, `::pointInPolygon()`, `::touchTolerance()`, `::containsUnit()`
-  ← the four `GraviticMine` privates
+- `HexZone::line($start, $end)` ← `SpatialCutter::getHexLine` (plus its three private cube
+  helpers, which had no other caller)
+- `HexZone::containsUnit()`, `::hull()`, `::pointInPolygon()`, `::touchTolerance()`,
+  `::pointToSegmentDistance()` ← the five `GraviticMine` privates
 
 ⚠️ **This is the only place in the plan that touches existing, working, subtle code**, and the
 Gravitic Mine geometry is subtle in ways that cost real investigation time — the per-angle
 tolerance (0.866→1.000, not the constant `sqrt(3)/2` it started as) and a `1e-9` epsilon that is
-load-bearing on its own (game 7027 T1 sheared on a `+1.1e-15` margin). Treat it as a **byte-for-byte
-move with zero logic edits**, and prove it with a full replay-harness `check` before and after.
-Do this as Stage 0, in isolation, so that if the harness disagrees there is nothing else in the
-diff to hunt through.
+load-bearing on its own (game 7027 T1 sheared on a `+1.1e-15` margin). It was moved **byte-for-byte
+with zero logic edits**: only the method names, the `static`/visibility keywords and the `$this->`
+→ `self::` calls changed. The comments and local names inside `containsUnit()` still speak of
+"mines" for exactly that reason — read "mine" as "any hex position defining the zone".
+
+**How it was proven, and why the harness alone was not enough.** The local replay corpus does
+exercise the shearing path, but barely: exactly **one** game touches it — game 4299, with two
+`graviticShear` fire orders (`grep -rl graviticShear tests/replay/baseline/`). One mine layout is
+one sample of a geometry whose whole difficulty is the awkward cases — collinear mines, a unit
+sitting exactly on the tolerance, a corner-clipping line — so a green `check` was necessary and
+nowhere near sufficient. The real proof was a throwaway differential test: the pre-move bodies were
+pulled out of `git show HEAD:` into a `HexZoneRef` class and run side by side with the moved ones
+over 13,504 randomised cases — 4,000 multi-hex lines, 7,504 zone tests and 2,000 direct hull /
+point-in-polygon / tolerance / segment-distance comparisons — with **zero** mismatches. The test
+asserted its own branch coverage (2-point in *and* out, 3+-point in *and* out, collinear in *and*
+out, plus the same-hex and 0/1-point degenerate inputs) and exited `INCONCLUSIVE` if any bucket
+stayed empty, because a differential test that only ever takes one path passes while testing
+nothing. **Repeat that method for any future move of this code.**
+
+Replay harness before and after: identical — 133 passed, 1 failed (game 4325, a pre-existing
+clean-tree failure; the known-failure game recorded in memory has drifted from 4318 to 4325).
 
 ---
 
@@ -486,8 +527,8 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 
 | # | Stage | Exit criterion |
 |---|---|---|
-| **0** | `HexZone` extraction (§2.3) | Replay harness `check` **byte-identical** before/after. No other change in the diff. |
-| **1** | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) | Hull appears in the lobby, buys, deploys. `checkShipData.php` clean (no new baseline findings). |
+| **0** ✅ | `HexZone` extraction (§2.3) — **DONE 2026-09-03** | Replay harness identical before/after; 13,504-case differential test against the pre-move bodies, zero mismatches. |
+| **1** ✅ | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) — **DONE 2026-09-03** | `Traveler` generates into `Walkers of Sigma-957.json`; `checkShipData.php` clean (0 new findings, down from 5). |
 | **2** | Lightning Array + Medium Lightning Array | Four split shots; combined fire resolves at the combined table; MLA gains split at 2 turns; neither starts charged. Interception works. |
 | **3** | Chromatic Pulse Driver | Scanning hit reduces the target race's shields fleet-wide from the **next** turn; survives a reload; does not leak across the double gamedata load. |
 | **4** | EDF + Variable EDF (§2.1 + §2.2) | Field map published and drawn; drain lands as crits; targeting penalty matches server↔client to the point; Enormous clamp, own-fleet immunity and multi-field non-stacking all hold. |
