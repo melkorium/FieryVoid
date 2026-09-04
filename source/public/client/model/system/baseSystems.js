@@ -4278,3 +4278,9 @@ EnergyDrainingField.prototype.constructor = EnergyDrainingField;
 EnergyDrainingField.prototype.hasMaxBoost = function () {
 	return (this.variable ? this.maxBoostLevel > 0 : false);
 };
+
+EnergyDrainingField.prototype.initializationUpdate = function () {
+	if(this.variable && shipManager.power.getBoost(this) > 0) this.outputDisplay = this.output +3;
+
+    return this;
+};
