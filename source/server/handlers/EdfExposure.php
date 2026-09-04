@@ -529,7 +529,7 @@ class EdfExposure
         );
         //The bare shiplink span is deliberate - combatLog.colourShipLinksInNotes paints it in the
         //READER's team colour and makes it clickable. See the note above.
-        $fireOrder->pubnotes = "<br>ENERGY DRAINING FIELD: "
+        $fireOrder->pubnotes = "<br>ENERGY DRAINING FIELD affects "
             . '<span class="shiplink" data-id="' . (int)$unit->id . '">' . $unit->name . '</span>'
             . " - Turn $consecutive in the field. Penalties next turn: " . implode(", ", $parts) . ".";
         $fireOrder->addToDB = true;
