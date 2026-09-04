@@ -13367,6 +13367,12 @@ class MindriderHangar extends ShipSystem{
 		}
 
 		public function setSystemDataWindow($turn){
+				/* Every other system calls this and the Shading Field did not, so its window carried no
+				   ID, no Arc, no "Power Used" and - the reason it was noticed - no $critData, which is
+				   what turns a critical's phpclass into readable text. A CPD scan marker landed here
+				   and rendered as "ScannedByWalkers" (WALKERS_OF_SIGMA_PLAN.md 3.4). Called FIRST so
+				   the Special text below still overwrites the parent's. */
+				parent::setSystemDataWindow($turn);
 				$unit = $this->getUnit();
 				if($unit instanceof FighterFlight){
 					//$this->data["Special"] = "Jammer ability, even against Ancients.";

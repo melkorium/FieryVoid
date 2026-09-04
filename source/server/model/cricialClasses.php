@@ -619,6 +619,24 @@ class MayOverheat extends Critical {
     }
 }
 
+/* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4) - the marker a Chromatic Pulse Driver
+   scan leaves on the RACE it analysed. Purely a label: the actual reduction lives in
+   CpdScanRegistry and is applied to the aggregated defensive bucket, never to this system.
+   ⚠⚠ NEVER PERSISTED. CpdScanRegistry::applyScanMarkers() rebuilds these from the registry
+   on every payload-building load and leaves $updated / $newCrit false, so
+   TacGamedata::getUpdatedCriticals() cannot pick them up and nothing reaches tac_critical.
+   The source of truth stays the CPDSCAN IndividualNotes. forInfo = true also keeps it out of
+   pre-battle damage (PreBattleDamage::isValidCriticalType refuses forInfo classes) and out of
+   Save Fleet (battleDamage.summariseCriticals refuses them client-side for the same reason).
+   The instance overwrites $description with the magnitude - see applyScanMarkers(). */
+class ScannedByWalkers extends Critical{
+    public $description = "Scanned by Walkers";
+    public $repairPriority = 0; //not a real crit - nothing can repair being understood
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend, true); //forInfo: display only
+    }
+}
+
 class Sabotage extends Critical{
 	//Used by Breaching Pods to mark when Marines are trying to sabotage a system / wreck havoc.
     public $description = "Marine are sabotaging this system"; 

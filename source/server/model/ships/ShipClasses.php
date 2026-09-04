@@ -2840,6 +2840,19 @@ class BaseShip {
                 $affectingSystems[$system->getDefensiveType()] = $mod;
             }
         }
+        /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4): a Chromatic Pulse Driver scan
+           teaches the SHOOTER's team about this ship's RACE, and from the next turn its shields
+           read weaker for everything that team fires. Applied to the aggregated bucket, not inside
+           each shield class: the bucket already holds only the strongest single "Shield" source, so
+           the reduction lands exactly once however many shields are mounted, and one edit covers
+           every shield-type system in the game.
+           ⚠️ This method runs for every shot in every game, so the feature hangs off ONE static
+           boolean - see TacGamedata::$cpdAdaptationPresent. False until a scan note has actually
+           been replayed, which means no method call, no argument passing and not even an autoload
+           of CpdScanRegistry in an ordinary game. Do not turn this into an unconditional call. */
+        if (TacGamedata::$cpdAdaptationPresent) {
+            $affectingSystems = CpdScanRegistry::applyToShieldBucket($affectingSystems, $this, $shooter);
+        }
         return (-array_sum($affectingSystems));
     }
 
@@ -2857,6 +2870,12 @@ class BaseShip {
                 || $affectingSystems[$system->getDefensiveType()] < $mod){
                 $affectingSystems[$system->getDefensiveType()] = $mod;
             }
+        }
+        //Chromatic Pulse Driver adaptation - see the gated block in getHitChanceMod above for why
+        //the boolean is there. The same points reduce BOTH halves of a shield, which is what "the
+        //shields are weaker" means: damage absorption here, profile reduction there.
+        if (TacGamedata::$cpdAdaptationPresent) {
+            $affectingSystems = CpdScanRegistry::applyToShieldBucket($affectingSystems, $this, $shooter);
         }
         return array_sum($affectingSystems);
     }

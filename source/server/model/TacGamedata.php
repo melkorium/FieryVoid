@@ -26,6 +26,17 @@ class TacGamedata {
     /*Every team id in this game. Needed because ChameleonSensors::isDisguisedFrom() has to answer
       "has EVERY team seen through this?" for an observer, and a system has no route to $gamedata.*/
     public static $chameleonAllTeams = array();
+    /*Chromatic Pulse Driver gate (WALKERS_OF_SIGMA_PLAN.md 3.4), same idea as $chameleonPresent
+      above and for the same reason: the CPD is one weapon on one Ancient faction, but its shield
+      adaptation has to be consulted by the FOUR defensive-mod aggregators that every shot in every
+      game runs through. So the whole feature hangs off this one boolean and an ordinary game pays
+      for four false checks and nothing else - not even the autoload of CpdScanRegistry.
+      ⚠️ Set by CpdScanRegistry::record(), i.e. only once a scan note has actually been replayed -
+      NOT by the presence of a CPD on a hull, because an unfired driver changes nothing. Cleared in
+      DBManager::getSystemDataForShips, immediately before the note sweep that would set it: it
+      cannot be cleared in markUnavailableSetMarkers() with the other markers, because that runs
+      from onConstructed() - long after the sweep - and would wipe the answer.*/
+    public static $cpdAdaptationPresent = false;
     /*D15, second half: a FINISHED game drops every deception so the post-mortem shows what actually
       happened. Set from $this->status, read by applyChameleonDisguise() and maskChameleonArming().
       Deliberately NOT implemented by forcing the two gates above to false: maskChameleonFireOrders()
@@ -53,6 +64,16 @@ class TacGamedata {
     public $waitingForThisPlayer = false;
     public $rules;
     public $blockedHexes;
+    /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4). Chromatic Pulse Driver shield
+       adaptation, as { <teamId>: { <faction>: <points> } }, so the client's hit-chance preview
+       agrees with the dice. Built in onConstructed() from CpdScanRegistry - which the ship load
+       has already filled by then - and consumed by Ship.prototype.getHitChangeMod in
+       model/ship.js. Adaptation is public knowledge: it is earned by a scanning shot that
+       resolves and is logged like any other, and a defender needs to see why their shields read
+       low, so every team's entry is published rather than only the viewer's.
+       ⚠️ NULL, never array(), when there is nothing - an empty PHP array encodes as JSON `[]` and
+       the client indexes this like an object. */
+    public $cpdAdaptation = null;
     public $isStealthPresent = false;
     public $areMinesPresent = false; //Marks that ENEMY mines are present.
     
@@ -179,6 +200,7 @@ class TacGamedata {
         $strippedGamedata->rules = $this->rules;
         $strippedGamedata->forPlayer = $this->forPlayer;
         $strippedGamedata->blockedHexes = $this->blockedHexes;
+        if ($this->cpdAdaptation !== null) $strippedGamedata->cpdAdaptation = $this->cpdAdaptation;
         $strippedGamedata->isStealthPresent = $this->isStealthPresent;
         $strippedGamedata->areMinesPresent = $this->areMinesPresent;        
 
@@ -190,6 +212,13 @@ class TacGamedata {
         self::$currentGameFinished = $this->isGameOver(); //post-mortem discloses private logistics (ammo loads, hangar contents)
         $this->setChameleonTeamList();
         $this->setBlockedHexes();
+        /* Chromatic Pulse Driver adaptation, for the client's hit-chance mirror. Safe here and
+           only here: getTacShips() -> getSystemDataForShips() has already reset the registry and
+           replayed every CPDSCAN note into it, and this runs before stripForJson().
+           Gated on the boolean rather than on class_exists(), so a game that has never seen a CPD
+           scan does not even autoload the registry - see $cpdAdaptationPresent. If the flag is set
+           the class is loaded by definition, because record() is what set it. */
+        if (self::$cpdAdaptationPresent) $this->cpdAdaptation = CpdScanRegistry::publishAll();
         $this->waitingForThisPlayer = $this->getIsWaitingForThisPlayer();
         $this->doSortShips();
 
@@ -837,6 +866,15 @@ class TacGamedata {
             $this->deleteHiddenData();
         }
         $this->markJumpedDockedFlights(); //after deleteHiddenData: it reads the MASKED movement (see the method)
+        /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4) - the "Scanned by Walkers"
+           markers on the shield systems of every race a Chromatic Pulse Driver has analysed.
+           Display only and never saved; the method comment carries the ordering constraints,
+           of which the two that pin it HERE are: before setPreTurnTasks(), whose beforeTurn()
+           sweep rebuilds critData out of the criticals, and before applyChameleonDisguise(),
+           so a marker can never land on a phantom sheet.
+           Gated on the boolean rather than class_exists(), like the publication in
+           onConstructed() - an ordinary game pays one static-property read (D10). */
+        if (self::$cpdAdaptationPresent) CpdScanRegistry::applyScanMarkers($this);
         $this->setPreTurnTasks();
         $this->applyChameleonDisguise(); //after setPreTurnTasks: it reads live system state
         $this->maskChameleonFireOrders(); //after applyChameleonDisguise: it reads the flag it sets

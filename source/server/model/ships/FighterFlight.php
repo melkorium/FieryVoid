@@ -300,6 +300,13 @@ class FighterFlight extends BaseShip
                 $affectingSystems[$system->getDefensiveType()] = $mod;
             }
         }
+        //Chromatic Pulse Driver adaptation (WALKERS_OF_SIGMA_PLAN.md 3.4) - the flight mirror of
+        //BaseShip::getDamageMod. A flight carries its shields on the individual fighters, but the
+        //bucket it aggregates them into is the same shape. Gated on the one static boolean, for the
+        //reason spelled out at BaseShip::getHitChanceMod.
+        if (TacGamedata::$cpdAdaptationPresent) {
+            $affectingSystems = CpdScanRegistry::applyToShieldBucket($affectingSystems, $this, $shooter);
+        }
         return array_sum($affectingSystems);
     }
 
@@ -321,6 +328,11 @@ class FighterFlight extends BaseShip
                 || $affectingSystems[$system->getDefensiveType()] < $mod) {
                 $affectingSystems[$system->getDefensiveType()] = $mod;
             }
+        }
+        //Chromatic Pulse Driver adaptation - the flight mirror of BaseShip::getHitChanceMod, gated
+        //the same way.
+        if (TacGamedata::$cpdAdaptationPresent) {
+            $affectingSystems = CpdScanRegistry::applyToShieldBucket($affectingSystems, $this, $shooter);
         }
         return (-array_sum($affectingSystems));
     }

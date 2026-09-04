@@ -2058,7 +2058,18 @@ window.weaponManager = {
     //                         argument to getHitChanceMod - it is the bearing the target's
     //                         arc-limited defensive systems are tested against.
     computeShotModifiers: function computeShotModifiers(shooter, target, weapon, calledid, distance, launchPos, fireOrder) {
-        var defensiveSystems = target.getHitChangeMod(shooter, weapon, launchPos);
+        /* Chromatic Pulse Driver shield adaptation (WALKERS_OF_SIGMA_PLAN.md 3.4). getHitChangeMod
+           returns the ADAPTED total - that is what the server rolls and it must not change. But a
+           breakdown that silently shows the target's shields one point weaker than their sheet says
+           is unreadable, so the reduction is asked for separately and split back out: the
+           'Defensive Systems' row shows the REAL shielding and 'Shield Adaptation' shows what the
+           scan bought. calculateHitChange adds it straight back, so the goal is bit-identical.
+           ⚠️ Gated on the same property the server's TacGamedata::$cpdAdaptationPresent publishes,
+           so an ordinary game does one property read and does not even allocate the out-object. */
+        var cpdDetail = (window.gamedata && gamedata.cpdAdaptation) ? {} : null;
+        var defensiveSystems = target.getHitChangeMod(shooter, weapon, launchPos, cpdDetail);
+        var shieldAdaptation = (cpdDetail && cpdDetail.shieldAdaptation) || 0;
+        if (shieldAdaptation) defensiveSystems += shieldAdaptation; //un-reduce, FOR DISPLAY ONLY
         var calledShot = 0;
         var otherDetail = [];
 
@@ -2127,6 +2138,7 @@ window.weaponManager = {
         var otherTotal = otherDetail.reduce(function (s, d) { return s + d.value; }, 0);
         return {
             defensiveSystems: defensiveSystems,
+            shieldAdaptation: shieldAdaptation,
             calledShot: calledShot,
             otherTotal: otherTotal,
             otherDetail: otherDetail
@@ -2236,11 +2248,16 @@ window.weaponManager = {
 
         //Goal: identical to old formula (baseDef - jammermod - noLockMod - rangePenalty + oew + soew + firecontrol + mod)
         //where mod = -defensiveSystems + calledShot + otherTotal
+        //⭐ shieldAdaptation is a pure REGROUPING, not a new term: computeShotModifiers handed back
+        //the target's FULL shielding plus the points a CPD scan removed from it, so subtracting the
+        //full value and adding the reduction back reproduces the adapted total exactly. It is here
+        //only so the breakdown can show the two separately; it is 0 in every game with no scan.
         var goal = baseBreakdown.total
                  - jammer.jammermod - jammer.noLockMod
                  - rangePenalty
                  + ewLock.oew + ewLock.soew + fireControl
                  - shotMods.defensiveSystems
+                 + shotMods.shieldAdaptation
                  + shotMods.calledShot
                  + shotMods.otherTotal;
         var hitChance = Math.round(goal * 5);
@@ -2262,6 +2279,9 @@ window.weaponManager = {
         pushIfNonZero('range',            'Range',             -rangePenalty);
         pushIfNonZero('jammerNoLock',     'No Lock',            -(jammer.jammermod + jammer.noLockMod));
         pushIfNonZero('defensiveSystems', 'Defensive Systems', -shotMods.defensiveSystems);
+        //Immediately under the shielding it is discounting, so the two read as one statement:
+        //"Defensive Systems -20%, Shield Adaptation +5%".
+        pushIfNonZero('shieldAdaptation', 'Shield Adaptation',  shotMods.shieldAdaptation);
         if (calledid > 0) pushIfNonZero('calledShot', 'Called Shot', shotMods.calledShot);
         pushIfNonZero('other',            'Other',             shotMods.otherTotal);
 

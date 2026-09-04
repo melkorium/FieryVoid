@@ -740,6 +740,98 @@ That is exactly what falling out of the `"Shield"` bucket gives for free — the
 its detection function is not in the bucket at all. **No ShadingField-specific code exists or is
 needed.** Read `CHAMELEON_SENSORS_PLAN.md` before touching it anyway.
 
+⭐⭐ **ADVANCED SENSORS ALREADY EAT THE TO-HIT HALF, so half the scan is redundant for the Traveler**
+(found investigating game 4332, 2026-09-03 — a user report that the "Defensive Systems" row was
+missing from the CPD's hit-chance tooltip). `BaseShip::getHitChanceMod` zeroes any **positive**
+defensive mod when the target's `factionAge < 3` and the shooter has `AdvancedSensors`
+([ShipClasses.php:2836](source/server/model/ships/ShipClasses.php#L2836)) — the scanner's own
+tooltip says it: *"Ignores any defensive systems lowering enemy profile (shields, EWeb…). All of the
+above work as usual if operated by advanced races."* The `Traveler` calls `$scanner->markAdvanced()`,
+so **against every young or middleborn race its shields contribute 0 to the goal already** — for the
+Lightning Array, the Medium Array and all three CPDs alike. Verified on game 4332: all five weapons
+read 0 against the Abbai and the Brakiri, all five read −4 against the Torvalus (Ancient), and
+knocking `AdvancedSensors` out of `$trav->enabledSpecialAbilities` in memory brings all five to −2
+(shield 3 − 1 adaptation) together.
+
+Consequences worth knowing before re-statting:
+- **The row's absence is not a CPD bug and not a regression.** Nothing in the hit-chance path is
+  weapon-specific here; `pushIfNonZero` simply omits a zero.
+- **Against young/middleborn races the scan buys DAMAGE ABSORPTION ONLY** (3 → 2 on the Lakara and
+  the Tashkat in 4332). The to-hit half lands against **Ancient and Primordial** races, against any
+  Walker hull whose scanner is not advanced, and for any ally the Walkers are shooting alongside.
+**The hit-chance tooltip spells the discount out — BUILT 2026-09-04.** The first pass folded the
+reduction into "Defensive Systems", which just read one point lower than the target's sheet says
+with nothing to explain it. It is now two lines:
+
+```
+• Defensive Systems: -20%      <- the target's REAL shielding
+• Shield Adaptation:  +5%      <- what the scan bought
+```
+
+⭐ **It is a REGROUPING, not a new term, and that is what keeps it honest.**
+`Ship.prototype.getHitChangeMod` still returns the ADAPTED total — the number the server rolls,
+untouched, for every one of its callers — and gained an optional `outDetail` out-parameter that the
+helper fills with the reduction. `computeShotModifiers` adds that back onto `defensiveSystems` for
+display and returns it separately; `calculateHitChange` then subtracts the full value and adds the
+reduction back, so the goal is bit-identical and the sum-equals-`hitChance` invariant still holds
+with both rows in the list. Nothing on the server changed: it builds no tooltips.
+
+⚠️⚠️ **The helper reports what it ACTUALLY removed, never the points held.** The clamp at 0 means
+3 points of adaptation against a 1-point shield removes 1 — reporting 3 would put a `+15%` line in a
+tooltip whose total only moved 5% and would trip the invariant warning. Hence
+`cpdApplyShieldAdaptation` now mutates the bucket in place and returns `before - after`, which is
+also why it is shaped differently from its PHP twin (a PHP array is a value, a JS array is not).
+
+Still gated (D10): the out-object is allocated only when `gamedata.cpdAdaptation` is present, so an
+ordinary game pays one extra property read per hit-chance preview.
+
+⭐⭐ **AND IT REACHED NOTHING UNTIL 2026-09-04, BECAUSE `gamedata` IS A HAND-MAINTAINED
+SINGLETON.** The whole client half - the mirror, the gate, the tooltip split, its 35 green
+checks - sat behind `gamedata.cpdAdaptation`, and `gamedata.js` never copied that key off the
+payload. `parseServerData()` assigns the payload one NAMED key at a time
+([gamedata.js:2703](source/public/client/gamedata.js#L2703), beside `blockedHexes` /
+`isStealthPresent` / `areMinesPresent`); a new field on `stripForJson` reaches the page only
+when a line is added there. So the server rolled adapted shields and the client previewed
+un-adapted ones - the user report was exactly *"the server % seems correct, but the hit chance
+tooltip is wrong"*, with no Shield Adaptation row, because the helper returned 0 every time.
+
+The fix is one declaration and one assignment, `serverdata.cpdAdaptation || null`, assigned
+**unconditionally** so a replay stepping back to a turn before the first scan clears it again.
+
+⚠️ **Neither test suite could have caught it, and now both do.** Both drove the helper with a
+hand-built `gamedata` stub - which is precisely the object the bug was that nothing built.
+Three source-audit checks were added to `cpd_stage3_test.php`. **Any future field published
+through `TacGamedata::stripForJson` needs the same line in `parseServerData` - check first.**
+
+**"Scanned by Walkers" markers on the shield systems - BUILT 2026-09-04.** A hit-chance
+tooltip only tells you about a shot you are already setting up; the defender wanted to see it
+on the sheet. `ScannedByWalkers` (a `forInfo` `Critical`, `repairPriority` 0) is hung on every
+shield-type system of every unit whose RACE any fleet has analysed, reading *"Scanned by
+Walkers (-N shield effectiveness)"*. Public, like the adaptation itself.
+
+⚠️⚠️ **NEVER PERSISTED.** `CpdScanRegistry::applyScanMarkers()` rebuilds them from the
+registry on each load and leaves `updated` / `newCrit` false, so `getUpdatedCriticals()` cannot
+list them and nothing reaches `tac_critical`; the CPDSCAN notes stay the single source of
+truth. `forInfo` also keeps them out of pre-battle damage and Save Fleet, both of which refuse
+`forInfo` classes generically. `markSystem()` is idempotent - a duplicate would render as
+"(2 x) Scanned by Walkers".
+
+⭐ **The call site is pinned by TWO orderings**, both inside `prepareForPlayer()`: before
+`setPreTurnTasks()`, whose `beforeTurn()` sweep is what rebuilds `critData` out of `criticals`
+(without it the marker rides the payload with no readable text), and before
+`applyChameleonDisguise()`, so a marker can never land on a phantom sheet. `prepareForPlayer`
+is also the right method rather than `onConstructed`: it runs only on the two READ paths, so
+nothing in turn processing ever sees these objects. Gated on `$cpdAdaptationPresent` (D10).
+
+⭐ **It exposed a real bug in `ShadingField::setSystemDataWindow`** - the one system in the
+tree that never called its parent, so it had no `$critData` (and no ID, Arc or Power Used
+either). ANY critical on a Torvalus Shading Field rendered as its raw phpclass. It now calls
+the parent first.
+
+⚠️ **Against a young or middleborn target neither line appears**, because Advanced Sensors zeroed
+the shield before the bucket existed — see above. That is correct: nothing was discounted, because
+there was nothing left to discount.
+
 **The magnitude is one class constant.** `SCAN_POINTS_PER_HIT = 1`, and one point is one point of
 shield — which is 1 off damage absorption and 5 off the d100 profile, because `getDefensiveHitChangeMod`
 returns d20 units and the ×5 happens downstream. There is no explicit cap: the clamp at 0 is the cap.
@@ -770,10 +862,10 @@ mount, which is the positional-id trap (trap 7): **a game in progress with a Tra
 desync.** Same cost Stage 2 paid; `Firing::validateFireOrders` drops the stale orders rather than
 crashing.
 
-**How it was proven.** Two throwaway tests, kept in `c:\tmp\`: **161 server checks and 28 client
+**How it was proven.** Two throwaway tests, kept in `c:\tmp\`: **165 server checks and 35 client
 checks**, all green.
 
-- **Server (`c:\tmp\cpd_stage3_test.php`, 161 checks):** the control sheet compared row by row with
+- **Server (`c:\tmp\cpd_stage3_test.php`, 165 checks):** the control sheet compared row by row with
   a non-vacuity assertion that the two rows really differ; over- and under-charge clamping;
   `getStartLoading` seeding 1 asserted three ways (at/above `getLoadingTime()`, below
   `getNormalLoad()`, and yielding the 1-turn profile); `$this->maxpulses` / `$this->useDie` tracking
@@ -795,7 +887,7 @@ checks**, all green.
   a source audit that `class_exists` really has autoloading off, that both aggregator files carry
   two gates and exactly two `applyToShieldBucket` calls, and that a zero-point or teamless `record()`
   does not arm anything.
-- **Client (`c:\tmp\cpd_client_test.js`, 24 checks):** `pulse.js` **evaluated**, not merely parsed,
+- **Client (`c:\tmp\cpd_client_test.js`, 35 checks):** `pulse.js` **evaluated**, not merely parsed,
   against stubbed globals — a parse would not catch a broken prototype chain
   (`howto_verify_react_bundle`) — with the instance checked to be a `ChromaticPulseDriver`, a
   `Pulse` and a `Weapon`, reachable as a `window` global (which is what `SystemFactory` needs) and
@@ -803,10 +895,17 @@ checks**, all green.
   constants compared against the PHP ones; and the adaptation mirror driven across the same nine
   cases the server test used, ending with ⭐ **the server's end-to-end number reproduced exactly**
   (bucket 3 − 2 points = 1). Plus the D10 gate: both call sites carry it, **no ungated call to the
-  helper exists**, and the helper still self-guards for anything that calls it directly.
+  helper exists**, and the helper still self-guards for anything that calls it directly. And for
+  the tooltip split: ⭐⭐ **the regrouping proven exact across 42 (shield, adaptation) combinations**
+  — including negative and zero buckets and adaptation larger than the shield — asserting
+  `−full + removed ≡ −adapted` every time, with a non-vacuity check that at least one case really
+  produced two rows; plus the clamp trap asserted directly (3 points against a 1-point shield
+  reports **1** removed, not 3).
 
-Regression gate: `checkShipData.php` PASS (0 new findings, 235 accepted baseline), replay harness
-**130 passed / 1 failed** — game 4325, the known pre-existing clean-tree failure, verified
+Regression gate (re-run 2026-09-04 after the two fixes above): `checkShipData.php` PASS (0 new
+findings, 235 accepted baseline), the throwaway suites now at **186 server checks + 35 client
+checks**, all green, and the replay harness
+**130 passed / 1 failed** - game 4325, the known pre-existing clean-tree failure, verified
 byte-identical with the tree stashed.
 
 **Left for the user:** a real `ChromaticPulseDriver.png` icon, and confirmation of `$priority`, the
@@ -970,7 +1069,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **0** ✅ | `HexZone` extraction (§2.3) — **DONE 2026-09-03** | Replay harness identical before/after; 13,504-case differential test against the pre-move bodies, zero mismatches. |
 | **1** ✅ | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) — **DONE 2026-09-03** | `Traveler` generates into `Walkers of Sigma-957.json`; `checkShipData.php` clean (0 new findings, down from 5). |
 | **2** ✅ | Lightning Array + Medium Lightning Array — **DONE 2026-09-03; targeting REVISED twice the same day after play testing** | 157 checks green on the first build, +138 across the revisions, incl. a JS-vs-PHP comparison of all six tables and both mode constants, and the intercept gun accounting verified against the REAL `Firing::isValidInterceptor` over ten scenarios. Two firing modes (Combined / Single), now `multiModeSplit` so both are usable in one turn; both weapons intercept. Revisions: **no allocation dialog** — one click = one discharge, repeat clicks on one target fuse; count rides in `->shots`; `'Sweeping'` + `"Split"` so the shot shows in the shooter's INCOMING list, which counts DISCHARGES not orders; withdrawing PEELS one discharge off a combined shot; Medium starts 1/2, not 0/2. |
-| **3** | Chromatic Pulse Driver — **DONE 2026-09-03** | 145 server checks + 24 client checks green. Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. |
+| **3** | Chromatic Pulse Driver — **DONE 2026-09-03** | 186 server checks + 35 client checks green (2026-09-04: the client half was DEAD until gamedata.js was taught to copy `cpdAdaptation` off the payload). Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. |
 | **4** | EDF + Variable EDF (§2.1 + §2.2) | Field map published and drawn; drain lands as crits; targeting penalty matches server↔client to the point; Enormous clamp, own-fleet immunity and multi-field non-stacking all hold. |
 | **5** | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) | Ancient hulls see **only** the new IDs; the five existing enhancements are unchanged for every young/middleborn hull in the corpus. |
 | **6** | Energy Draining Mine | Stores 3, launches any number, scatters on its own table, spawns a 7-hex field, cleans up one turn later. |

@@ -1266,10 +1266,10 @@ shipManager.systems = {
             }
         }
 
-        // Check CnC critical effects (most important first)
-        if (system instanceof Shield) {
+        // Shield highlights
+        if (system instanceof Shield || system.defensiveType == "Shield") {
             const shieldCrits = shipManager.criticals.countCriticalOnTurn(system, "DamageReductionReduced", gamedata.turn);
-           if(shieldCrits > 0){
+            if(shieldCrits > 0){
                 let paramTotal = 0; //sum of `param` across in-effect crits of this type (param-sum crits)
                 for(var i in system.criticals){ 
                     paramTotal += parseInt(system.criticals[i].param, 10) || 0; 
@@ -1280,7 +1280,13 @@ shipManager.systems = {
                 }else{
                     return 'Orange';
                 }              
-           } 
+           }
+            if (window.gamedata && gamedata.cpdAdaptation){           
+                const ShieldScans = shipManager.criticals.countCriticalOnTurn(system, "ScannedByWalkers", gamedata.turn);
+                    if(ShieldScans > 0){
+                        return 'Yellow';        
+                    }  
+            }    
         }        
 
         // Check critical effects for the current system

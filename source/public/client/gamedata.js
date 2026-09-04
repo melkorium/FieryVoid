@@ -28,6 +28,12 @@ window.gamedata = {
     blockedHexes: Array(),
     isStealthPresent: false,
     areMinesPresent: false, //Marks that ENEMY mines are present.
+    /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4) - the Chromatic Pulse Driver's
+       fleet-wide shield adaptation, { teamId: { faction: points } }. NULL until a scan has
+       actually landed: it is the client half of the gate the four server-side defensive-mod
+       aggregators test, so an ordinary game costs one property read per hit-chance preview.
+       Read by cpdApplyShieldAdaptation() in model/ship.js. */
+    cpdAdaptation: null,
     identityReloadPending: false, //Chameleon Sensor Suite (D14) - a reveal has forced a page reload
 
     mouseOverShipId: -1,
@@ -2695,6 +2701,16 @@ getActiveShipName: function getActiveShipName() {
         gamedata.blockedHexes = serverdata.blockedHexes;
         gamedata.isStealthPresent = serverdata.isStealthPresent;
         gamedata.areMinesPresent = serverdata.areMinesPresent;
+        /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.4). WITHOUT THIS LINE the server
+           adapts the shields and the client does not: the rolled hit chance is right while the
+           previewed one - and its "Shield Adaptation" tooltip row - are computed off the
+           target's un-adapted shielding. gamedata is a hand-maintained singleton, so a new key
+           on the payload reaches nothing at all until it is copied across here.
+           ⚠ ASSIGN UNCONDITIONALLY, and normalise the absent case to null. The server OMITS
+           the key when no scan has landed (trap 9 - an empty PHP array would encode as JSON [],
+           and this is indexed by team id), so leaving the previous poll's value in place would
+           keep a replay stepping back to a turn before the first scan reading adapted shields. */
+        gamedata.cpdAdaptation = serverdata.cpdAdaptation || null;
 
         shipManager.initiated = 0;
 
