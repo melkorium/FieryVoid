@@ -1430,6 +1430,13 @@ class Firing
         //Initial Orders or Movement would otherwise still get its pre-firing shots away here.
         self::withdrawSurrenderedFireOrders($gamedata);
 
+        //A flight that spent last turn inside an Energy Draining Field is disrupted and cannot
+        //fire this turn.
+        //⚠️ NOT gated on TacGamedata::$edfPresent: the field that grounded the flight may have
+        //been destroyed since, and the crit outlives it by a turn. The method self-gates on the
+        //flight having any criticals at all, which is free for every ordinary flight.
+        self::withdrawGroundedFighterFireOrders($gamedata);
+
         $ambiguousFireOrders  = array();
         foreach ($gamedata->ships as $ship){
             foreach($ship->getAllFireOrders($gamedata->turn) as $fire){
@@ -1666,6 +1673,13 @@ public static function firePreFiringWeapons($gamedata){
         //phase resolves - see the method for why nothing downstream would have stopped it.
         self::withdrawSurrenderedFireOrders($gamedata);
 
+        //A flight that spent last turn inside an Energy Draining Field is disrupted and cannot
+        //fire this turn (WALKERS_OF_SIGMA_PLAN.md 2.2).
+        //⚠️ NOT gated on TacGamedata::$edfPresent: the field that grounded the flight may have
+        //been destroyed since, and the crit outlives it by a turn. The method self-gates on the
+        //flight having any criticals at all, which is free for every ordinary flight.
+        self::withdrawGroundedFighterFireOrders($gamedata);
+
         //Uncontrolled Hunter-Killers that ended movement co-located with an enemy ram it
         //(no player to submit the ram order). Done before ram orders are gathered below.
         //$dbManager is threaded through so each automated ram FireOrder is persisted
@@ -1839,6 +1853,36 @@ public static function firePreFiringWeapons($gamedata){
 
             //getAllFireOrders builds a fresh array, so detaching inside the loop is safe.
             foreach ($ship->getAllFireOrders($gamedata->turn) as $fire) {
+                $fire->rejected = true;
+                self::detachFireOrder($ship, $fire);
+            }
+        }
+    }
+
+    /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 2.2) - a flight caught in an Energy
+       Draining Field last turn cannot shoot this turn. Same withdraw-and-detach convention as
+       the surrender sweep above: the orders are rejected rather than failing the whole
+       submission.
+       ⚠️ IT HAS TO BE HERE, ON THE ADVANCE PATH, AND NOT IN validateFireOrders. A POST-side
+       ship is reconstructed without criticals (arch_post_side_ship_reconstruction), so the same
+       test there would read "no crit" for every flight in the game and silently do nothing,
+       for ever. This runs from prepareFiring, where gamedata has been loaded in full.
+       ⚠️ EdfFighterGrounded is a `oneturn` critical, so hasCritical() reports it exactly on the
+       turn AFTER it was rolled - which is the rules' "will not be able to shoot the next turn"
+       with no date arithmetic here. */
+    private static function withdrawGroundedFighterFireOrders($gamedata)
+    {
+        foreach ($gamedata->ships as $ship) {
+            if (!($ship instanceof FighterFlight)) continue;
+
+            $sample = $ship->getSampleFighter();
+            if (!$sample || empty($sample->criticals)) continue;
+            if (!$sample->hasCritical("EdfFighterGrounded", $gamedata->turn)) continue;
+
+            foreach ($ship->getAllFireOrders($gamedata->turn) as $fire) {
+                //A selfIntercept marker is consent, not a shot - leave it, as every other
+                //withdrawal path in this file does.
+                if ($fire->type === 'selfIntercept') continue;
                 $fire->rejected = true;
                 self::detachFireOrder($ship, $fire);
             }

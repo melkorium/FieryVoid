@@ -3,7 +3,7 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: Stages 0–3 BUILT (2026-09-03). Stages 4–10 planned.** Written 2026-09-02 after a
+**Status: Stages 0–4 COMPLETE (2026-09-04). Stages 5–10 planned.** Written 2026-09-02 after a
 full survey of the existing seams.
 
 **Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
@@ -908,6 +908,70 @@ checks**, all green, and the replay harness
 **130 passed / 1 failed** - game 4325, the known pre-existing clean-tree failure, verified
 byte-identical with the tree stashed.
 
+⭐⭐ **CAPACITY-POOL SHIELDS — BUILT 2026-09-04, and this is the second half of the rule.**
+The user's report: *"Thought Shields (and Thirdspace Shields and TrekShieldProjections) are able to
+be scanned, but because their protection works in a different way I don't think the scanning has
+any impact."* Correct, and the reason is exactly the bucket design above. Those four classes
+(`ThirdspaceShield`, `ThoughtShield`, `TrekShieldProjection`, `TrekShieldProjectionKelly`) all
+extend `Shield` and answer `getDefensiveType()` `"Shield"`, so a scanning hit banked a point off
+them and they carried the marker — but their `getDefensiveHitChangeMod` / `getDefensiveDamageMod`
+are **hard 0**. They do not reduce a shot's profile or its damage at all; they hold a **pool** and
+absorb out of it in `doProtect()`. `applyToShieldBucket()` therefore reduced a number that was
+already zero, and the whole thing was ceremony.
+
+The ruling: **against an adapted fleet the pool's last N points are unspendable** —
+`currentHealth − scannedAmount` is what the shield has to spend, per the user's wording.
+
+- `CpdScanRegistry::applyToCapacity($capacity, $target, $shooter)` — the same `max(0, x − points)`
+  clamp as the bucket twin, keyed the same `(shooter team, target faction)` way.
+- Reached through **`Shield::getCapacityAgainstShooter()`**, one protected helper on the shared
+  base class rather than four copies, carrying the `TacGamedata::$cpdAdaptationPresent` gate (D10).
+  An ordinary `Shield` never calls it.
+- Called from **both** hooks of each of the four classes: `doesProtectFromDamage()` (which ranks
+  candidate protectors) and `doProtect()` (which actually absorbs). Eight call sites, two per class.
+
+⭐ **`doesProtectFromDamage` GAINED A SIXTH PARAMETER, `$shooter = null`.** `doProtect` has always
+been handed the shooter; the ranking hook never was, and without it an adapted-to-nothing pool
+would still have won the "strongest protector" contest and then absorbed zero, silently shutting a
+Bulkhead or a Diffuser out of a shot it should have taken. The parameter is **last and optional**,
+so every existing caller and override stays valid; there are only **8 declarations and 4 call
+sites** in the whole tree (`getSystemProtectingFromDamage` plus the three fighter-flight damage
+estimators), all updated. ⚠️ A future override that copies the old five-argument signature is a
+PHP declaration-compatibility fatal, not a silent miss.
+
+⚠️ **COMPUTED PER SHOT, NEVER STORED.** It writes no `DamageEntry`, so the pool regenerates from
+its **real** remaining health as usual, the ship sheet keeps showing the real number (the
+`ScannedByWalkers` marker is what explains the gap), and the same shield reads at full strength
+against every fleet that has not analysed the race. Two fleets with different adaptation shooting
+it in the same turn each get their own figure.
+
+⚠️ **A reinforced Thought Shield is the one system that feels the scan twice.** Its `defenceMod`
+(the EM-Shield reinforcement layer) is a real, non-zero entry in the aggregated bucket, so the
+points come off *that* through `applyToShieldBucket` **and** off the pool through
+`applyToCapacity`. This is deliberate — they are two separate resources and the rule is "shields
+are weaker" — but it is the only place a single point of adaptation buys two reductions, and it is
+the thing to revisit first if the Mindriders read too soft in play.
+
+**Out of scope, and why.** `TrekShieldFtr` (the Trek fighter's shield) and `DiffuserTendril` also
+hold pools, but neither is a `DefensiveSystem` — `CpdScanRegistry::isShieldSystem()` rejects them,
+so they are not scannable, carry no marker and are untouched. Trek's per-hit `output − armour` cap
+is likewise untouched: the scan eats the **pool**, not the throughput.
+
+**How it was proven.** `c:\tmp\cpd_capacity_test.php`, **56 checks green**: the registry
+arithmetic including both clamps and the wrong-team / wrong-race / null controls; all four classes
+driven through both hooks against an adapted and an unadapted shooter; ⭐ **the assertion that only
+what was really absorbed reaches `$this->damage`** and that `getRemainingCapacity()` still reports
+the true pool; the D10 gate forced false with the registry still full; ⭐ **the ranking flip proven
+directly** — a 6-point pool with 6 points of adaptation loses `getSystemProtectingFromDamage` to a
+4-point rival it beats against everyone else; non-regression for `Bulkhead`, a plain `Shield` and
+both `applyToShieldBucket` clamps; and a source audit of the gate, the eight call sites and all
+eight declarations. `cpd_stage3_test.php` re-run at **186 green** (one stale expectation fixed —
+it still wanted the pre-ship marker wording `"Scanned by Walkers (-N shield effectiveness)"`; the
+code says `"Scanned (-N effectiveness)"`, which is the right text now that the marker covers a
+pool reduction as well as a modifier one). `checkShipData.php` PASS (0 new, 235 accepted) and the
+replay harness **130 passed / 1 failed**, game 4325 again verified byte-identical with the tree
+stashed.
+
 **Left for the user:** a real `ChromaticPulseDriver.png` icon, and confirmation of `$priority`, the
 health/power defaults and the point cost. Nothing else is open — D9 settled the Shading Field and
 D10 settled the runtime cost.
@@ -936,6 +1000,636 @@ Both escalate on the `hasCritical()` **count**, so no per-crit bookkeeping.
 
 **EDF Range enhancement** (`SYS_EDFR`): `price(level) = 50 * 6 * (currentRadius + level + 1)`,
 i.e. 50 × the hexes added. ⚠️ On a Variable EDF it raises the **normal-power** radius only.
+
+---
+
+**As built — Stage 4a, the FIELD (2026-09-04). The DRAIN (§2.2) and the map OVERLAY are not
+built yet; see "What is left" at the end of this block.**
+
+Everything below is the field itself: the system, the published hex map, and the targeting
+penalty on both sides. That is three of the stage's four exit criteria — *field map published*,
+*targeting penalty matches server↔client to the point*, *own-fleet immunity and multi-field
+non-stacking hold*. *Drawn*, *drain lands as crits* and *the Enormous clamp* belong to the
+unbuilt half.
+
+⚠️⚠️ **THE STATS ARE PLACEHOLDERS AND ARE MARKED SO IN-FILE.** D4 says the numbers arrive as a
+Walker hull carrying the system; none has landed for the EDF. Six class constants at the top of
+`EnergyDrainingField` carry every game number — `DEFAULT_RADIUS 2`, `BOOST_RADIUS_BONUS 1`,
+`MIN_RADIUS_FIXED 1`, `MIN_RADIUS_VARIABLE 0`, `DEFAULT_HEALTH 12`, `DEFAULT_POWER 8` — and
+nothing outside that block hard-codes one, so a re-stat is an edit to those six lines. Also
+outstanding: a real `EnergyDrainingField.png` (it borrows `SparkField.png`, one line, marked), a
+point cost, and the drain magnitudes §2.2 needs.
+
+⭐ **IT LIVES IN `baseSystems.php` / `baseSystems.js`, and that is the SAME load-order rule §3.4
+records for the CPD, applied in the other direction.** The EDF is a `ShipSystem`, not a `Weapon`,
+so its client twin belongs in `client/model/system/baseSystems.js` — the FIRST model file both
+`game.php` and `gamelobby.php` load, so nothing can be built before its prototype exists. A new
+pair of files would have meant two `<script>` tags, two bundle rebuilds and a fresh chance to get
+the ordering wrong. **Keep each server/client pair in matching files.**
+
+**The system.** `EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSource`,
+constructed `($armour, $maxhealth = 0, $powerReq = 0, $radius = null, $variable = false)` — 0/null
+take the class defaults, the same convention the Walker weapons use so a hull can mount "a basic
+version" without inventing numbers.
+
+- **`interface EdfSource`** (`getEdfRadius($turn)` / `isEdfActive($turn)`) is the *only* thing
+  `setEdfHexes()` consumes, so the Stage 6 mine terrain and the Stage 7 net plug in by
+  implementing it and changing nothing else.
+- **Variable fields are the existing BOOST mechanism** — `PowerManagementEntry` type 2, allocated
+  in the Ship Power segment, which is exactly where the rules put the choice. No new power
+  concept. Boost is per TURN, so a field boosted on turn 3 reads normal on turn 4.
+- **Deactivation is `canOffLine`**, because all-or-nothing is already what offlining means.
+- **Criticals escalate on the `hasCritical()` COUNT**, no per-crit bookkeeping: `EdfRadiusReduced`
+  costs a hex each on a fixed field; on a variable field the FIRST `EdfBoostLost` costs the boost
+  and every further one a hex. One crit class per field type, both ordinary persisted criticals
+  (contrast `ScannedByWalkers`, which is rebuilt every load and never saved).
+- ⭐ **ONE PHPCLASS, TWO CRIT TABLES.** The variable field swaps `$possibleCriticals` in the
+  constructor rather than being a second class: `SystemFactory` builds the client twin with
+  `new window[name]`, so a second phpclass would need a second client class and a second
+  blueprint entry for one changed array. Safe on the server because `$possibleCriticals` is
+  per-instance; on the CLIENT the same-phpclass reference sharing is real (trap 6), so the
+  ctor clones `data` and the server republishes `data`/`radius`/`variable` per instance.
+- ⚠️ **`startArc`/`endArc` are declared 0..360 on purpose.** A system whose arcs are both 0 has
+  its SECTION's arc stamped on by `addSystem()` (`arch_addsystem_section_arc_trap`), so an
+  aft-mounted EDF would advertise itself as aft-facing. The field is omnidirectional.
+- ⚠️ **The radius floor is a floor on the CRITICAL REDUCTION, not on the blueprint.** A plain
+  `max(1, …)` silently promotes a deliberately-designed radius-0 fixed field into a 7-hex one.
+  It is `max(min($this->radius, MIN_RADIUS_FIXED), $reduced)`. The test caught this.
+
+**The map.** `TacGamedata::$edfHexes`, `{ "q,r": { teams: { <teamId>: 1 } } }`, built by
+`setEdfHexes()` in `onConstructed()` **immediately after `setBlockedHexes()`** and published
+whole in `stripForJson()`. Same shape, same lifecycle, same call site, not per-viewer — because
+`blockedHexes` has already proved that map-once/publish-once stays in sync with the client, which
+is exactly what a penalty mirrored "to the point" needs.
+
+- Keying by HEX makes *"overlapping hexes are only counted once"* and *"additional fields do not
+  stack"* **structural** rather than special cases: two fields, one entry.
+- `teams` being a SET turns *"the rest of the fleet of the ship deploying the EDF is immune"*
+  into one array lookup instead of a per-shot sweep over every field in the game.
+- ⚠️ **Three exclusions, each a bug if dropped:** destroyed units, units still in HYPERSPACE
+  (`isReinforcement()` — worse here than in `setBlockedHexes` because this map goes to *every*
+  viewer and would announce an arrival box a turn early), and units with no position yet.
+- ⚠️ **NULL, never `array()`,** when nothing projects (trap 9).
+
+⭐ **THE GATE NEEDS NO `DBManager` RESET, and that is a deliberate difference from
+`CpdScanRegistry`.** `TacGamedata::$edfPresent` is cleared at the top of `setEdfHexes()`, which
+rebuilds the whole map from scratch on every load — so the double gamedata load in one request
+(trap 1) cannot double-count *by construction*. **Do not add an accumulating cache here without
+also adding the reset**, which is the trap the Gravitic Augmenter investigation paid for.
+
+**The penalty.** `-1` to hit per hex of somebody else's field the shot crosses, ×2 for Plasma and
+Antimatter of a young or middleborn race. In d20 units like every other term, so the single ×5 at
+the bottom of `calculateHitBase` converts it. `TacGamedata::getEdfPenaltyHexes()` is the server
+authority; `weaponManager.getEdfPenaltyHexes()` / `getEdfPenalty()` mirror it, and the doubling
+rule is duplicated in both — **change them together**. It uses `$launchPos`, so a ballistic is
+drained along the line it actually flew.
+
+⚠️ **`sPosLaunch`/`sPosTarget` are only filled in for BALLISTICS in `calculateHitChange`** —
+direct fire leaves both null, and passing them straight through would have made the penalty
+ballistic-only. Both ends are resolved locally instead, matching the server's `getFiringHex()`
+(which answers the shooter's own hex for a non-ballistic).
+
+⚠️ **It is gated on `TacGamedata::$edfPresent`, not on the map**, for the D10 reason: this runs
+for every shot in every game of every faction. Client side, on `gamedata.edfHexes` being non-null.
+
+⚠️ **`gamedata.js` had to be taught to copy `edfHexes` by name** — the same one-line requirement
+that left the whole CPD client half dead for a day (`arch_gamedata_named_key_copy`). Declared at
+the top of the singleton and assigned **unconditionally** in `parseServerData`, normalised to
+null so a replay stepping back before the field clears it.
+
+⭐⭐ **PHP's `round()` IS NOT JS's `Math.round()`, IN TWO WAYS, AND BOTH BIT.** The client needs
+the identical hex line, so `mathlib.hexLine()` is a port of `HexZone::line()` — and a port of
+`round()` with it, in `phpRound()`:
+
+1. **Half away from zero.** PHP `round(-2.5) === -3`, JS `Math.round(-2.5) === -2`. Cube
+   coordinates go negative all over a Fiery Void map. **843 of 4,000 corpus lines** disagree
+   without this.
+2. **PRE-ROUNDING.** PHP first rounds to `14 - floor(log10|v|)` decimal places, so a value
+   floating-point error left at `-20.49999999999999644` is treated as `-20.5` and lands on `-21`.
+   Fixing only (1) still left **13 of 4,000** lines wrong — the hardest kind of mismatch to
+   notice, because it only appears when a line passes almost exactly through a hex corner.
+
+Both halves have their own non-vacuity control in the test. ⚠️ Written against **PHP 8.2**; if FV
+moves to a version that changes `round()`'s edge cases, re-run the differential test before
+assuming the port still matches. **Any future JS port of a PHP geometry routine needs this.**
+
+⚠️ It deliberately does NOT reuse `mathlib.isLoSBlocked`'s geometry, which asks a different
+question (does the segment *clip* a hex, tested in pixels) and would count hexes the server's
+line never enters. Line of sight and field crossing are two different rules.
+
+**Hull.** The `Traveler` mounts one fixed field aft and its `//STAGE 4` chart row (Aft 9) is
+restored. ⚠️ Positional-id trap again (trap 7): the new system is id 14 and everything after it
+shifts, so **a game in progress with a Traveler in it will desync** — the same cost Stages 2 and
+3 paid.
+
+**How it was proven.** Two throwaway suites, kept in `c:\tmp\`: **71 server checks and 32 client
+checks**, all green.
+
+- **Server (`c:\tmp\edf_stage4_test.php`):** the system's shape, defaults and all-round arc; both
+  crit ladders including each floor and the blueprint-radius-0 case that caught the floor bug;
+  boost on and off and its per-turn scope; deactivation and the turn after; the hex map's disc
+  size at radius 1 and radius 0; all three exclusions; ⭐ **overlap collapsing with both teams
+  recorded once each, and two fields on ONE hull not stacking the map**; the penalty count,
+  own-fleet immunity, the team-less shooter, and ⭐ **a hex covered by BOTH sides still being
+  charged to each of them** (the exemption is "only my team covers it", not "my team covers
+  it"); plus a source audit of the gate, the `onConstructed` ordering, the null-not-array
+  publication, the `parseServerData` named-key line, the client mirror's three call sites, the
+  `phpRound` pre-rounding, and the restored hit-chart row.
+- **Client (`c:\tmp\edf_client_test.js`):** `mathlib.js` **evaluated**, not merely parsed, with
+  `hexLine` asserted to be *on the object* (a helper that lands outside an object literal still
+  parses) and `isLoSBlocked` asserted to have survived the insertion; then ⭐⭐ **the
+  differential run: 4,000 lines / 128,745 hexes generated by the real `HexZone::line`, zero
+  mismatches**, with non-vacuity assertions that the corpus really reached negative coordinates
+  and spanned 20+ line lengths; **both rounding controls**; 500 penalty cases against the real
+  `getEdfPenaltyHexes`, zero mismatches, with a check that they were not all trivially zero; the
+  own-fleet and empty-map gates; all six doubling cases; and the client class evaluated as a
+  `window` global with the trap-6 data clone and the compactor's `variable: undefined` case.
+
+Regression gate: `checkShipData.php` **PASS** (0 new findings, 235 accepted baseline — the one new
+warning it raised was the missing placeholder icon, which is why the class borrows an existing
+one), the replay harness **130 passed / 1 failed** (game 4325, the known pre-existing clean-tree
+failure, verified byte-identical with the tree stashed), autoload regenerated, statics
+regenerated and the EDF confirmed present in `Walkers of Sigma-957.json`.
+
+**What is left in Stage 4 (§2.2 and the overlay):**
+1. **The drain resolver** — the six `EdfExposure` criticals, the `GraviticMineHandler`-shaped
+   once-per-turn sweep owned by the EDF system, the four choke-point readers (§1.7), the
+   `EdfExposed` escalation counter, the Enormous clamp and the `critRollMod` fighter-dropout
+   branch. **Blocked on the control sheet:** the drain magnitudes, the dice and the per-turn
+   escalation are not in this plan and D4 says they arrive with the hull.
+2. **The renderer overlay** — a translucent field drawn from `gamedata.edfHexes`, reusing
+   `HexagonSprite`. ⚠️ `requestRender()` (trap 10) or it silently will not appear.
+
+---
+
+**As built — Stage 4b, the DRAIN and the OVERLAY (2026-09-04). Stage 4 is now complete.**
+
+The user supplied the field's own control-sheet numbers (radius 5, boost +3, 40 boxes, 16 power)
+and then, the same day, the **full EDF rules text** - so nothing in Stage 4 is inferred any more.
+Six constants at the top of `EdfExposure` still carry every game number, and nothing outside that
+block hard-codes one; they are now quotes rather than guesses.
+
+⭐⭐ **THE RESOLVER IS CALLED FROM THE TOP OF `Criticals::setCriticals`, NOT FROM
+`criticalPhaseEffects()` — and the plan's own reasoning for the latter turned out to be wrong.**
+§2.2 wanted the EDF system to own a sweep in `criticalPhaseEffects` (pass 2) and to feed the
+fighter dropout by setting `$fighter->critRollMod`, which `Fighter::testCritical` already sums into
+its roll. Two things kill that:
+
+- **`testCritical` only runs on a craft that was DAMAGED this turn** — criticals.php pass 1 gates
+  every call on `isDamagedOnTurn()`. A pristine flight parked in a field would never roll at all,
+  so a `critRollMod` nudge would reach nothing in exactly the case the rule is about.
+- `criticalPhaseEffects` is pass **2**, i.e. after the dropout rolls it was meant to influence.
+
+So `EdfExposure` is a handler class (`source/server/handlers/EdfExposure.php`) called before pass 1,
+in the shape `HkJamming` already uses from the tail of the same method, and it **rolls its own
+dropout** — mirroring `testCritical`'s comparison (roll vs remaining health, plus the flight's
+dropout bonus and any `critRollMod`) with `(consecutive turns + 1)` dice instead of one, which is
+the plan's "2d10, +1d10 per successive turn". Running before pass 1 keeps the two rolls from
+interleaving on one craft.
+
+⭐⭐ **REPLAY DETERMINISM WITHOUT A ROLL NOTE, and this is the part worth reusing.** `setCriticals`
+re-runs on replay and `Dice::d` is not deterministic, which is why `HkJamming` has to persist its
+d20 in an `IndividualNote`. This resolver needs no note: **the RESULT is the record.** Every roll it
+makes goes straight into a persisted critical's `param`, and the `EdfExposed` marker says "this unit
+has already been resolved for turn N". A reload finds the marker and skips.
+
+⚠️ The `$resolvedTurn` static only stops the sweep running twice inside ONE request. Idempotency
+across requests is the marker, and reading it needs a **direct scan of `$system->criticals`, not
+`hasCritical()`** — `EdfExposed` is `oneturn`, so `hasCritical` reports it on turn N+1 and asking
+"is there one for THIS turn" always answers no. Get that wrong and every reload re-rolls the whole
+drain.
+
+⭐ **`oneturn` IS the "starting next turn" mechanism, and it also does the cleanup.**
+`hasCritical`/`sumCriticalParam` report a `oneturn` critical only when `crit->turn + 1` equals the
+turn being asked about, so a drain rolled in turn N's Critical Hit step is invisible on turn N,
+lands on turn N+1, and expires by itself. Nothing sweeps them up.
+
+⚠️⚠️ **NONE OF THE SIX CRITS MAY CARRY AN `$outputMod`, however tempting it looks.** Routing the
+thrust and power drains through `outputMod` would have been free on both sides (the server's
+`getOutput()` and the client's `shipManager.systems.getOutput` both already read it). But
+`ShipSystem::effectCriticals()` sums `outputMod` across **every** critical with **no turn filter at
+all** — it is built for permanent `OutputReduced*` crits and is called once from `onConstructed` —
+so a one-turn crit with an `outputMod` would apply from the turn it was rolled and then for ever.
+`Engine::getOutput()` and `Reactor::getOutput()` read `sumCriticalParam()` instead, which IS
+turn-filtered, and publish the turn's figure as a separate `edfDrain` field for the client.
+
+⚠️ **The four param crits are SUMMED, never counted.** One crit is a whole Nd10 roll, the same
+convention `DamageReductionReduced` uses. `hasCritical()` would read every drain as 1.
+
+**The four choke-points** (§1.7), all as the plan predicted:
+
+| effect | where | note |
+|---|---|---|
+| thrust | `Engine::getOutput()` | flights have no Engine — see below |
+| energy | `Reactor::getOutput()` | |
+| initiative | `BaseShip::getCommonIniModifiers` | ⚠️ ×5 (plan trap 5) and the rules' −20 tabletop cap is applied to the EDF's own accumulated total, **not** to `$mod` — everything else in that method is a separate effect and must not be squeezed by it |
+| total EW | `EW::getScannerOutput` | beside the existing `RestrictedEW` / `SensorLoss` terms |
+
+⚠️⚠️ **THE READERS ARE GATED ON `!empty($this->criticals)`, NOT ON `TacGamedata::$edfPresent`** —
+and that is not an oversight. `$edfPresent` means "a field is on the board **right now**". A Walker
+destroyed on turn 5 leaves its turn-5 drain in effect through turn 6, when the gate is already
+false. The criticals array is the correct and equally cheap test: no criticals, no drain, and an
+undamaged system's array is empty anyway. The same reasoning ungates
+`Firing::withdrawGroundedFighterFireOrders`.
+
+**A FLIGHT is a different unit throughout, and every branch is deliberate:**
+- **no Engine**, so the thrust crit rides the **sample fighter** and comes off `freethrust` via a
+  new `FighterFlight::getEffectiveFreeThrust()` — which is also what `AutomatedMovement` now spends
+  from, so an HK cannot plot a pursuit on thrust it does not have;
+- **no Reactor and no EW-output system**, so those two drains are not rolled at all;
+- the initiative crit rides the sample fighter, which is already where `getCommonIniModifiers`
+  reads a flight's initiative criticals;
+- `EdfFighterGrounded` withdraws its fire orders next turn.
+
+⚠️ **`getEffectiveFreeThrust` had to resolve a null turn itself**, and the test is what found it:
+`sumCriticalParam($type, $turn = false)` defaults to the current turn on **`=== false`**, not on
+null. A null passed straight through makes every turn comparison fail and the drain silently reads
+0 — while the same getter called with an explicit turn is correct, which is the only way the two
+could disagree. **Check this on every `sumCriticalParam` caller with a nullable turn.**
+
+⚠️ **The grounded-fighter check has to be on the ADVANCE path.** It lives in
+`Firing::withdrawGroundedFireOrders`, called from both `prepareFiring` and the PreFiring path, in
+the same withdraw-and-detach shape as the surrender sweep. **Not `validateFireOrders`**: a POST-side
+ship is reconstructed with no criticals at all
+([arch_post_side_ship_reconstruction](source/server/model/ships/ShipClasses.php)), so the same test
+there would read "no crit" for every flight in the game and silently do nothing, for ever.
+
+**The overlay.** A translucent disc on the projecting unit's own icon —
+`ShipIcon.showEdfField(radius)` built from the existing `buildHexRegion` / `buildRegionOverlay` /
+`addGridLockedOverlay` trio, driven by `PhaseStrategy.syncAllEdfFields()` from the same two call
+sites as `syncAllDeclaredAreas` (a poll rebuilds every ship object, so a standing overlay has to be
+re-read).
+
+- ⚠️ **NOT drawn from `gamedata.edfHexes`.** That map is collapsed by hex and by team — it is built
+  for the penalty arithmetic and cannot say which source a hex came from — so drawing from it would
+  fuse two overlapping fields into one shapeless blob with no border between them. Each source
+  draws its own disc and the fills compound where they overlap.
+- ⚠️ **The radius is PUBLISHED, not mirrored.** `effectiveRadius` comes off `stripForJson` after
+  criticals and boost; reimplementing the crit ladder client-side would be a second copy of a rule
+  that changes. It reaches the client through the LIVE payload only — the static blueprint is
+  `json_encode($ship)` and never calls `stripForJson`, which is correct, because the effective
+  radius is per-turn state and a blueprint is not.
+- ⚠️ `requestRender()` (trap 10), and **only when something changed** — a redraw of nothing must
+  not wake the idle-gated loop on every poll of every game. `gamedata.edfHexes` being null is the
+  cheap gate that skips the whole sweep in an ordinary game.
+
+**How it was proven.** `c:\tmp\edf_drain_test.php`, **105 checks green**: all six crit classes
+including ⭐ **an assertion that not one of them carries an `outputMod`**, and the `oneturn`
+timing proved in all three turns (invisible, felt, gone); the resolver landing each drain on the
+right system; ⭐ **idempotency demonstrated by re-resolving the same turn and asserting nothing
+changed**; own-fleet immunity **and** the case that distinguishes it (a hex both sides cover still
+drains an own-fleet ship); the three exclusions; the escalation counter driven over four turns with
+⭐ **the Enormous clamp proved load-bearing** — 60 sampled runs showing an ordinary unit routinely
+beats one die's ceiling where an Enormous one never does; all four readers including the ×5, the
+−100 floor and the clamp at 0; the publication of `edfDrain` present-when-drained and absent-when-
+not; the whole flight branch, with ⭐ **dropouts proved to happen on an UNDAMAGED flight** (the
+whole reason the resolver rolls its own) and a tough-craft control proving the roll is a roll; and
+a source audit of the call site's position relative to pass 1, the reset being inside the gate, the
+two firing paths, the two ungated readers, and the client mirrors. Plus, for the corrections
+below: ⭐ **300 sampled first-turn exposures proving EW never exceeds 6 while the other three
+reach 10**; the blackout cascade reaching a powered system AND a powerReq-0 Weapon but NOT the
+C&C, landing on turn+1 and not on the turn it was rolled, with a hardy-reactor control; and
+`isHexInEdfField` asserted TEAM-BLIND.
+
+Regression gate: `checkShipData.php` **PASS** (0 new findings, 235 accepted), the replay harness
+**130 passed / 1 failed** (game 4325, the known clean-tree failure), autoload and statics
+regenerated, and every changed client file `node --check` clean.
+
+**THE REAL RULES ARRIVED THE SAME DAY (user, 2026-09-04) and corrected three things.** The build
+above had been made against the plan's inferences; the rules text settled all of it. What changed:
+
+⚠️⚠️ **THE EW DRAIN IS d6, NOT d10.** *"The ship's total EW is reduced by **1d6** for the next turn,
+increased by a further 1d6 for every additional turn"* — while Free Thrust, Energy and Initiative
+are all 1d10 escalating the same way. The first build used one die for all four and was wrong about
+EW alone. `EdfExposure::EW_DIE` now sits beside `DIE`, and `roll()` takes the die **explicitly with
+no safe default in practice** so the one exception cannot be forgotten again. The test samples 300
+first-turn exposures and asserts the observed ranges — a single roll cannot tell 1d6 from 1d10.
+
+✅ **Everything else the plan inferred was right:** d10 for the other three, dice = consecutive
+turns, `ENORMOUS_DICE = 1` (*"the modifiers are limited to the first die (1d10 or 1d6) and do not
+increase with every additional round"* — note it covers **both** dice), dropout at 2d10 +1d10 per
+turn, the −100 FV initiative cap, and the own-fleet exemption. The `GROUND_FIGHTERS` flag is gone:
+*"Even if the fighter/shuttle does not drop out, it will not be able to shoot the next turn, and
+loses initiative and free thrust in the same manner as a ship"* is a rule, not an assumption, so it
+is unconditional. That sentence also confirms a flight takes **initiative and thrust only** — no
+energy, no EW — which is what the data model was already doing for want of a Reactor or an EW system.
+
+⭐⭐ **THREE EFFECTS THE FIRST BUILD DID NOT HAVE, all now in:**
+
+1. **The reactor blackout.** *"If the ship's reactor is completely drained of power, this will force
+   the deactivation of everything on the ship that requires energy. This includes any weapon or
+   system with a power diamond, even if that icon contains a zero (such as missile racks)."*
+   ⭐ **That cascade already existed and did not need writing.** `Reactor::addCritical` propagates a
+   `ForcedOfflineOneTurn` to every system with `powerReq > 0` **or** `instanceof Weapon` — which is
+   precisely "a power diamond, even if that icon contains a zero", because a missile rack is a
+   Weapon with `powerReq` 0. It is the same mechanism a reactor knockout already uses and it handles
+   the StarBase per-section case for free. `EdfExposure::applyPowerBlackout()` is one call into it.
+   ⚠️ The trigger is measured against the reactor's output **next** turn — raw output minus the
+   whole `EdfPowerDrain` that will be in effect then, including the crit just added. `getOutput()`
+   cannot answer that: it reads the CURRENT turn, where a `oneturn` crit is invisible by design.
+   The timing needs nothing extra either — `ForcedOfflineOneTurn` is itself `oneturn`, so the
+   blackout lands on exactly the turn the drain does.
+
+2. **Flash weapons score no collateral inside a field.** *"If they strike a unit located within the
+   field, they will only affect the target (collateral damage will not be scored). The first unit
+   will still take full damage."* One early return in `Weapon::doCollateralDamage`.
+
+3. **Proximity weapons lose their radius inside a field.** *"…only detonate in that hex, losing any
+   explosion radius they might normally have. They will still cause their full damage within the
+   target hex."* In `AoE::fire` that is exactly `$ships2 = $ships1` — and it is measured at the hex
+   the shot **actually landed on, after deviation**, not at the declared one.
+
+⚠️ **Both of those use `TacGamedata::isHexInEdfField()`, which is deliberately TEAM-BLIND** — unlike
+`getEdfPenaltyHexes()`. The own-fleet exemption is about who the field is aimed *at*; these two are
+the field dampening an explosion, which is a property of the hex, and the rules say of each that it
+*"applies to advanced race weapons as well"*, i.e. no exemptions.
+
+---
+
+**As built — Stage 4c, PLAY-TEST FIXES (2026-09-04, game 4334).** Four reports off the first real
+game with a Traveler in it. Three were one bug wearing three hats.
+
+⚠️⚠️ **"THE REACTOR IS COMPLETELY DRAINED" IS NOT `output - drain <= 0`, AND THIS IS A FACT ABOUT
+EVERY FV BLUEPRINT, NOT ABOUT THE EDF.** A Fiery Void `Reactor`'s constructor `output` is the
+ship's **SPARE** power with every system powered up — not the reactor's generation. Virtually every
+hull in the database is therefore built `new Reactor($armour, $maxhealth, 0, **0**)`: a Bin'Tak, a
+Thoughtforce and an Abbai Bimith all read 0. Measuring the drain against that figure meant **one
+point of drain blacked out any ship the field touched**, and took its owner's chance to trade
+systems for power away with it. `EdfExposure::applyPowerBlackout` now measures against
+`getMaxAvailablePower()` — the ceiling the owner could reach by switching off everything they are
+allowed to — which is the user's ruling: *"the reactor can sustain as much negative power as the
+total amount of power it provides to offline-able systems."* Anything less is an **ordinary
+deficit**, handled where FV already handles one: the player powers systems down in Initial Orders
+and `gamedata.doCommit` → `getShipsNegativePower` blocks the commit until they do.
+
+`getMaxAvailablePower()` is the server-side mirror of the client's
+`shipManager.power.getRemainingFreeablePower` (power.js) — **keep the two in step** — and it has
+three special cases, all of which the user named in the report:
+
+- ⚠️ **MAG-GRAV REACTORS (`$fixedPower`: Ipsha, and the Vorlon technical mount) ARE THE OTHER WAY
+  ROUND.** Their `output` is the reactor's TOTAL generation, and every powered system is subtracted
+  from it — which is exactly what *"provides fixed total power, regardless of destroyed systems"*
+  means. So their ceiling is that total **minus only the draws that cannot be shed**; adding the
+  freeable ones back would count the same power twice and make an Ipsha hull unblackout-able.
+- ⚠️ **POWER CAPACITORS AND PLASMA BATTERIES (Vorlon, Pak'ma'ra) hold real spendable power that the
+  SERVER OBJECT CANNOT SEE.** `PowerCapacitor.initializationUpdate` rewrites `powerReq` to
+  **negative `powerCurr`** to inject the charge into the reactor display — a client-only rewrite.
+  The stored charge is added here by class instead. Without it a Vorlon hull (whose Mag-Grav
+  technical reactor generates **0** and runs entirely off its capacitor) blacks out with a full
+  capacitor.
+- ⚠️ **`powerLocked` IS `linkedOrbital !== null && !stowed`, NEVER `!stowed` ALONE.**
+  `Weapon::$stowed` is **declared on `Weapon` and defaults to false**, so a bare `!stowed` test
+  power-locks the entire armament of every hull in the game. The pairing is what makes a deployed
+  Kirishiac orbital's beam unsheddable; a standard mount has `linkedOrbital === null`, which is
+  what keeps the whole test free for everyone else.
+- A StarBase's sweep is restricted to the drained reactor's own section, because
+  `Reactor::addCritical` blacks out only that section.
+
+⭐ **THE CLIENT NEVER SAW THE DRAIN AT ALL.** `shipManager.power.getReactorPower` reads
+`reactor.output + reactor.outputMod` **directly** — it does not go through
+`shipManager.systems.getOutput`, which is the only place the published `edfDrain` was being applied.
+So a drained ship showed a perfectly balanced reactor and its owner was never asked to power
+anything down. The subtraction is now in `getReactorPower` too, in **both** its branches (the
+StarBase multi-reactor one and the ordinary one) and deliberately **NOT clamped at 0**: unlike an
+output figure, a balance is meant to go negative, and that negative **is** the deficit.
+**Generalises: `getReactorPower` is the ship's power BALANCE and `getOutput` is one system's
+output — a rule that changes what a reactor supplies has to be applied in both.**
+
+⭐ **THE THOUGHT SHIELD "REGENERATING ONLY THE SCANNED AMOUNT" WAS THIS SAME BUG, NOT A CPD BUG.**
+Reported as a Chromatic Pulse Driver interaction; it is not. `ThoughtShield::criticalPhaseEffects`
+**returns early when the Thought Shield Generator is offline**, and the blackout cascade had
+forced it off. The reason it looked like a scan bug is arithmetic: `doProtect` absorbs
+`min(capacityAfterScan, damage)`, so an **overwhelmed scanned pool always ends the turn holding
+exactly the scan** (25 − 23 = 2 points, and the scan was 2). Nothing in the regeneration path is
+scan-aware and nothing should be — the scan is computed per shot and never stored (§3.4). Proven
+both ways: with the generator forced off, no regeneration entry at all; with it online, one entry
+of −23 restoring the full 25, while a scanning fleet still only gets through 23 of it.
+
+⭐ **A LOG-ONLY FIRE ORDER MUST CARRY A NON-ZERO `rolled` OR THE PRINTED COMBAT LOG SILENTLY DROPS
+IT.** The EDF drain has always written its `pubnotes` row and it has never been visible.
+`weaponManager.getAllFireOrdersForLogPrint` filters every order through `isResolvedFireOrder()`,
+which is nothing but **`Number(fire.rolled) > 0`** — so the row was discarded before
+`combatLog.logFireOrders` ever saw it, pubnotes and all. `HkJamming` passes its real d20 there and
+so has always printed; `EdfExposure` spends all its rolls on criticals, so it now passes a bare `1`
+as the "this order resolved" marker. `shots`/`shotshit` still stay 0 (`submitDamages` links unknown
+damage by `shotshit > 0`). `"EdfExposure"` also joins `weaponManager.doShortLogText`'s list, or the
+sentence prints behind *"firing 1x Ramming Attack at &lt;itself&gt;. 0/0 shots hit"*.
+⚠️ Rows already in `tac_fireorder` keep their stored `rolled` 0 — turns played before this fix stay
+blank in the log. **Check this on any future technical fire order.**
+
+⭐ **THE GROUNDED FLIGHT NOW SAYS SO, IN PURPLE.** *"Even if the fighter/shuttle does not drop out,
+it will not be able to shoot the next turn"* is enforced silently on the advance path
+(`Firing::withdrawGroundedFighterFireOrders`), so a player declared a full turn's shooting and only
+found out when the orders vanished. Two mirrors, both reading the `EdfFighterGrounded` `oneturn`
+crit off the flight's **sample fighter** with the same `crit.turn + 1 === gamedata.turn` test
+`ShipTooltip.js` already uses for `Uncontrolled`: a map-tooltip line and a ship-window status
+banner (`getStatusBanners`, which the flight variant renders). The colour is `#d250ff`,
+`EWIconContainer`'s existing `COLOR_JAM`, so the two "your unit is suppressed this turn" states
+read as one family and are distinct from red damage.
+
+**How it was proven.** Four throwaway suites in `c:\tmp\`, 62 checks, all green.
+`edf_blackout_test.php` (26) drives the real `applyPowerBlackout` over the reported hull at drains
+1 / 18 / 48 / 49 / 200 — with ⭐ **the pre-fix rule evaluated verbatim beside each one, asserting it
+would have blacked out, so no case is vacuous** — plus the cascade actually landing, an Ipsha
+Battleglobe proving the fixed-power branch differs from the standard one, a Vorlon Destroyer Escort
+proving a charged capacitor raises the ceiling by exactly its charge, and the `$stowed`-defaults-
+false trap asserted directly. `edf_shield_test.php` (12) reproduces game 4334's shield **both ways**.
+`edf_log_test.js` (8) and `edf_power_test.js` (6) **evaluate the real `weaponManager.js` and
+`power.js`** in a `vm` sandbox rather than testing a copy. `edf_grounded_test.js` (15) pulls the two
+private helpers out of the real file source (the `HexZoneRef` trick) and drives all three turns.
+
+Regression gate: `checkShipData.php` **PASS** (0 new findings, 235 accepted baseline), replay
+harness **129 passed / 1 failed** — game 4325 only, the known pre-existing clean-tree failure — and
+`yarn build` run for the React banner (`UI.bundle.js`) and the legacy bundle.
+
+---
+
+**As built — Stage 4d, THE DRAIN IN THE COMBAT LOG AND ON THE SCANNER (2026-09-04, game 4334).**
+Three refinements off continued play-testing. Nothing about the drain's *magnitude* changed; this
+is entirely about where the record lands.
+
+⭐⭐ **A LOG-ONLY FIRE ORDER MUST HANG OFF THE SHOOTER'S OWN WEAPON, AND THAT DECIDES WHO THE
+SHOOTER CAN BE.** The drain reported itself as a **self-targeted** order on the drained unit, so
+the log read *"FIRE: &lt;your own ship&gt;"* in your own team's colour and every log filter — by
+ship, by shooter, by team — filed the Walker's attack under its victim. It is now a normal
+`Walker -> victim` order. The constraint that shapes the fix: the client resolves `fire.weaponid`
+**against `gamedata.getShip(fire.shooterid)`** (`weaponManager.getAllFireOrdersLog`, and
+`combatLog.logFireOrders`'s own `shipManager.systems.getSystem(ship, fire.weaponid)`), so the row
+has to sit on a **Weapon belonging to the shooter** — the Walker's `RammingAttack`, not its
+`EnergyDrainingField`, which is a `ShipSystem` and would send the log loop into
+`weapon.changeFiringMode()` on an object that has none. **Generalises to every technical fire
+order: pick the host off the SHOOTER, and pick a `Weapon`.**
+
+⚠️ **A SHORT-FORM LOG ENTRY PRINTS ITS `pubnotes` ALONE.** `EdfExposure` is in
+`weaponManager.doShortLogText`, and that branch is literally `html += notestext` — the *"at
+&lt;target&gt;"* clause the long form would render is never built. So the moment the shooter stopped
+being the victim, the **victim's name had to move into the pubnotes text**, or the entry named
+only the Walker and left the player guessing which of their ships it meant.
+
+⭐ **WHO IS DRAINING WHOM NEEDS A SECOND MAP, BECAUSE `$edfHexes` HAS THROWN THE ANSWER AWAY.**
+`TacGamedata::$edfHexes` collapses every source over a hex into a *team set* — which is exactly
+what makes overlap and own-fleet immunity structural (§2.1) and exactly why it cannot name a hull.
+`setEdfHexes()` now fills a parallel `$edfSources` (`"q,r" => array(shipId => team)`) in the same
+loop, and `getEdfSourceShip($pos, $victim)` returns the first source that is not on the victim's
+team. ⚠️⚠️ **`$edfSources` is deliberately NOT in `stripForJson()`**: `$edfHexes` tells a viewer
+that *some* enemy field covers a hex, which is all the targeting penalty needs, while this one
+names the hull — a Walker outside everyone's scanner range would be announced by its own
+footprint. It answers with **one** ship even where three fields overlap ("additional fields do not
+provide cumulative modifiers"), and a null falls back to the old self-targeted row rather than
+losing the entry.
+
+⭐ **THE EW DRAIN MOVED FROM THE CnC TO THE SCANNER — AND THAT IS WHAT MADE THE CLIENT SEE IT.**
+`EdfEwDrain` used to be parked on the CnC and subtracted inside `EW::getScannerOutput()`. No client
+code could reach it: `ew.js getScannerOutput` sums `shipManager.systems.getOutput` over every
+`outputType === "EW"` system and never looks at the CnC, so a drained ship let its owner allocate
+EW the server would not honour — the **same class of bug as the reactor one in Stage 4c**, one
+system further along. On the Scanner it needs *no new client code at all*: `Scanner::getOutput()`
+subtracts it and `Scanner::stripForJson()` publishes `edfDrain`, which
+`shipManager.systems.getOutput` **already** subtracts for the Engine and the Reactor. The three
+drains are now one shape. ⚠️ The clamp is per-scanner rather than per-ship, which only differs on a
+hull carrying a second EW source beside its Scanner; ⚠️ and a hull with no Scanner now loses no EW
+at all, which the log no longer claims.
+
+⭐ **AN EDF DROPOUT LEAVES NO DAMAGE ENTRY, SO THE LOG'S FIGHTER ROW NEVER SAW IT.**
+`combatLog`'s *"Fighters disengaged / destroyed:"* row is built inside the **damage** loop
+(`hasCrit && damageDone > 0`), and a craft the field drops out has a `DisengagedFighter` critical
+and nothing else — so the flight's losses existed only as a count inside the drain sentence.
+`combatLog.getEdfDropoutNames()` now emits the same row for an `EdfExposure` order.
+⚠️ It tests `crit.turn == fire.turn` **exactly**, NOT `shipManager.criticals.hasCriticalOnTurn`:
+a `DisengagedFighter` is permanent (`turnend` 0) and that helper's test is `crit.turn <= turn`, so
+it would re-list the same craft under every later drain report. ⚠️ It dedupes through
+`combatLog.critsShown`, the same tracker the damage path uses, so a craft that dropped out under
+fire is never also claimed by the field.
+
+**How it was proven.** `c:\tmp\edf_stage4d_test.php` — 42 checks, all green — drives the real
+`Scanner`, `EW::getScannerOutput`, `TacGamedata::setEdfHexes` and `EdfExposure::resolve`: the
+turn-filtered drain and its clamp, `edfDrain` published only when in effect, a drain on the CnC
+now proven **inert**, `edfSources` covering exactly the same hexes as `edfHexes` and staying out of
+`stripForJson`, the own-field-plus-enemy-field case resolving to the enemy, the whole order
+(shooter, target, weaponid, `rolled`, zero shots, victim named) and the null-source fallback, plus
+a flight's grounded crit, its dropouts and its row. `c:\tmp\edf_logrow_test.js` — 8 checks — renders
+one entry through **the real `combatLog.logFireOrders`** and asserts the fighter row, the
+this-turn-only filter, the dedupe on a second entry and that an ordinary order grows no such row.
+
+Regression gate: `fvbuild.ps1 -Check` — autoload map up to date, `checkShipData.php` **PASS**,
+replay harness **129 passed / 1 failed** (game 4325 only, the known pre-existing clean-tree
+failure). ⭐ The 129 passes are themselves the proof that `Scanner::stripForJson()` adds nothing to
+an undrained hull's payload: every ship in the corpus has a Scanner and every snapshot is
+unchanged.
+
+---
+
+**As built — Stage 4e, THE RULES READ AGAIN (2026-09-04).** Six corrections off continued
+play-testing. Three of them are the same shape: the first build read a rule as *"the same penalty,
+doubled"* where the rules text actually says *"a different quantity, counted differently"*.
+
+⚠️⚠️ **THE TARGETING PENALTY COUNTS INTERVENING HEXES ONLY — NOT THE SHOOTER'S HEX AND NOT THE
+TARGET'S** (user ruling). `HexZone::line()` returns `i = 0 .. steps`, i.e. **both endpoints**, and
+the first build counted every hex it returned. So a Walker shooting out of its own field paid for
+the hex it was standing in, and a target sitting in one was charged for its own hex on top of the
+crossing. `TacGamedata::getEdfPenaltyHexes()` now runs `for ($i = 1; $i < count($line) - 1; $i++)`
+and `weaponManager.getEdfPenaltyHexes` mirrors it; adjacent and same-hex shots therefore cross
+nothing at all. ⭐ **Worth remembering for any future "hexes between A and B" rule: `HexZone::line`
+and `mathlib.hexLine` are inclusive at both ends, and almost every game rule phrased as "hexes the
+shot passes through" is not.**
+
+⭐⭐ **"ESPECIALLY DISRUPTIVE TO PLASMA AND ANTIMATTER" IS A DOUBLED HEX COUNT — AND PLASMA SPENDS
+IT TWICE** (user ruling, simplified 2026-09-04 after a first pass over-complicated it). For a young
+or middleborn race's Plasma and Antimatter, **each intervening field hex counts as two**:
+
+| | EDF targeting penalty | `rangeDamagePenalty` |
+|---|---|---|
+| **Plasma**, young/middleborn | **×2** (-2 per hex) | **+1 hex of range per crossed hex** |
+| **Antimatter**, young/middleborn | **×2** (-2 per hex) | — |
+| everything else, and every advanced race | ×1 | — |
+
+⚠️⚠️ **NOTHING HERE TOUCHES `$distanceForPenalty`.** The range the ordinary range penalty is
+computed at is the real distance for every weapon in the game, EDF or no EDF — an intermediate
+design that lengthened it for Antimatter was tried and rejected as more machinery than the rule
+needs. Two helpers on `Weapon` carry the whole thing: `getEdfHitPenalty()` (the count, doubled for
+the two classes) and `getEdfDamageRangeBonus()` (**Plasma only**, added to `$dis` in
+`getDamageMod`), with `isEdfDisruptedClass()` holding the class + `factionAge` test in one place
+and `getEdfCrossedHexes()` doing the gated lookup. The client mirrors the first in
+`weaponManager.getEdfPenalty`; it needs no mirror of the second, because it draws no damage
+preview.
+
+⚠️ The damage half cannot carry the count over from `calculateHitBase`: damage is a separate pass
+(`Firing::fireWeapons` → `getDamageMod`) with none of that method's locals, so it recomputes from
+the `$pos` the caller already resolved — which is also the right hex for a ballistic.
+
+⭐⭐ **THE DRAIN IS CUMULATIVE AND LOCKED IN, NOT RE-ROLLED** (user ruling). *"The ship loses 1d10
+… increased by a further 1d10 for every additional turn ended in the EDF"* means turn one's roll
+**stands**, and each further consecutive turn adds **one more die to the total already in force**.
+The first build rolled N fresh dice every turn, which let a second turn in a field come out
+**lighter** than the first — the opposite of what an escalation rule is for. A turn out of the
+field resets `$consecutive` to 1 and the next entry starts again at one die.
+
+⭐ **AND IT NEEDS NO NEW STORAGE, WHICH IS THE PART WORTH REUSING.** The running total *is* last
+turn's `oneturn` critical: `sumCriticalParam($type, $turn)` reports a crit with `turn + 1 == $turn`,
+so the accumulator and the reader are the same read. `EdfExposure::accumulate()` is the whole
+mechanism — previous total, plus one die — and it takes the system the crit **rides** (Engine,
+Reactor, Scanner, or the marker for initiative), because that is where the previous total was
+written. ⚠️ An **Enormous** unit keeps its first roll and never adds to it: *"limited to the first
+die (1d10 or 1d6) and do not increase"* is a statement about the total, so the roll is not repeated
+either. ⚠️ The initiative figure is now clamped at `INI_CAP` **at write time as well as in the
+reader**, or an accumulating total would climb for ever and the log would advertise a penalty the
+ship never takes.
+
+⭐ **A SERVER-AUTHORED `pubnotes` CANNOT COLOUR A SHIP NAME, AND THAT IS A GENERAL FACT.** A log
+ship name is drawn in the **reader's** team colours (`gamedata.getShipLogColorCss`: mine green /
+ally blue / enemy red for a 2-team participant, the absolute palette for an observer) and the
+server has no idea who is reading. So `EdfExposure` emits the victim as a **bare link span** —
+`<span class="shiplink" data-id="123">Name</span>`, no colour of its own — and the new
+`combatLog.colourShipLinksInNotes()` fills the style in on the way to the DOM, for **any** pubnotes,
+not just this one. It is gated on a single `indexOf('shiplink')`, so notes that name nobody cost
+nothing, and an unknown id is left exactly as it came.
+
+⚠️ **THE FIELD OVERLAY HOLDS AN ABSOLUTE WORLD z, NOT A LOCAL ONE.** The disc is a **child of the
+ship's mesh** — it has to be, to follow the hull — and that mesh climbs the z ladder as the icon is
+selected (`baseZ + 100`) or hovered (`+499`), so its local z rode up with it and washed purple over
+the EW lines, which are drawn straight into the scene at **z -5** (`EWIconContainer`'s `LineSprite`).
+`ShipIcon.updateEdfFieldZ()` now subtracts the parent's z to pin the disc at `EDF_FIELD_Z` (-20:
+under the EW lines, over the hex grid at -500), and is called from `showEdfField` and from **both**
+places that move `mesh.position.z`. ⭐ **Generalises to any standing overlay that belongs to the
+BOARD rather than to the icon carrying it: parent it for position, compensate its z.**
+
+⭐ **AND THE DISC IS NOW ONLY REBUILT WHEN IT CHANGES** (user: gate the expensive processes).
+`syncAllEdfFields` runs on **every poll**, and `showEdfField` called `buildHexRegion` every time —
+at radius 8 that is a 289-hex sweep, a fresh `BufferGeometry` and a disposal, for a disc identical
+to the one already on screen; worse, it then reported `changed = true` and woke the idle-gated
+render loop every poll for the whole game. A disc is fully described by its **radius and the hex it
+is anchored on**, so those two are the cache key, `showEdfField`/`removeEdfField` return whether
+they actually did anything, and `requestRender()` is called only when one of them did.
+⚠️ **AND `setEdfHexes()` NOW ASKS ITS CHEAPEST QUESTION FIRST.** It runs on **every gamedata load
+of every game**, and it was calling `isDestroyed()`, `isReinforcement()` and `getHexPos()` on every
+ship in the fleet *before* discovering that none of their systems is an `EdfSource`. The system
+sweep — a bare `instanceof` — is now the outer test and everything else is deferred behind it, with
+the same three exclusions and no new state. The rest of the feature's gating was already right and
+was re-asserted by test: `$edfPresent` (server) and `gamedata.edfHexes` (client) keep an ordinary
+game to one boolean read per shot.
+
+**How it was proven.** `c:\tmp\edf_stage4e_test.php` — **40 checks, all green**: the endpoint
+exclusion from both ends and from both at once, adjacent and same-hex shots, own-fleet immunity
+still applying to an interior hex; the whole plasma/antimatter table including `getDamageMod` end
+to end (100 damage → 92 clear, **90 for Plasma** through one crossed hex, **92 for Antimatter**
+through the same hex — the pair that proves the damage half is Plasma's alone) and ⭐ **the gate
+asserted by flipping `$edfPresent` off and watching the same call return 0**;
+the escalation driven over five turns with
+⭐ **40 sampled 4-turn runs asserting the total never once dips**, which is exactly what a re-rolled
+Nd10 would do routinely; the Enormous lock proved by equality across three turns; a turn out of the
+field resetting it; the initiative clamp; and the log row's bare shiplink span.
+`c:\tmp\edf_client4e_test.js` — **32 checks, all green** — evaluates the real `mathlib.js` and the
+extracted `weaponManager` helpers against a **2,400-case corpus the PHP side generated**, zero
+mismatches, with ⭐ **the old endpoint-inclusive count run beside it and shown to disagree on 250 of
+them**, so the mirror test cannot pass against the bug it was written to catch; plus the doubling
+table on both `factionAge` arms, the empty-map gate, and the ShipIcon / PhaseStrategy / combatLog
+edits asserted in source.
+
+Regression gate: `fvbuild.ps1 -Check` — autoload map up to date, `checkShipData.php` **PASS**
+(0 new findings, 235 accepted), replay harness **128 passed / 1 failed** (game 4325 only, the known
+clean-tree failure; game 4324 skipped as advanced-since-record). Legacy bundles rebuilt.
+
+
 
 ### 3.6 Energy Draining Mine
 
@@ -1069,8 +1763,8 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **0** ✅ | `HexZone` extraction (§2.3) — **DONE 2026-09-03** | Replay harness identical before/after; 13,504-case differential test against the pre-move bodies, zero mismatches. |
 | **1** ✅ | Faction skeleton — directory, tier line, and the **user's Walker test hull** (D4) — **DONE 2026-09-03** | `Traveler` generates into `Walkers of Sigma-957.json`; `checkShipData.php` clean (0 new findings, down from 5). |
 | **2** ✅ | Lightning Array + Medium Lightning Array — **DONE 2026-09-03; targeting REVISED twice the same day after play testing** | 157 checks green on the first build, +138 across the revisions, incl. a JS-vs-PHP comparison of all six tables and both mode constants, and the intercept gun accounting verified against the REAL `Firing::isValidInterceptor` over ten scenarios. Two firing modes (Combined / Single), now `multiModeSplit` so both are usable in one turn; both weapons intercept. Revisions: **no allocation dialog** — one click = one discharge, repeat clicks on one target fuse; count rides in `->shots`; `'Sweeping'` + `"Split"` so the shot shows in the shooter's INCOMING list, which counts DISCHARGES not orders; withdrawing PEELS one discharge off a combined shot; Medium starts 1/2, not 0/2. |
-| **3** | Chromatic Pulse Driver — **DONE 2026-09-03** | 186 server checks + 35 client checks green (2026-09-04: the client half was DEAD until gamedata.js was taught to copy `cpdAdaptation` off the payload). Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. |
-| **4** | EDF + Variable EDF (§2.1 + §2.2) | Field map published and drawn; drain lands as crits; targeting penalty matches server↔client to the point; Enormous clamp, own-fleet immunity and multi-field non-stacking all hold. |
+| **3** ✅ | Chromatic Pulse Driver — **DONE 2026-09-03; CLOSED 2026-09-04** | 186 + 56 server checks and 35 client checks green (2026-09-04: the client half was DEAD until gamedata.js was taught to copy `cpdAdaptation` off the payload). Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. ⭐ Closed 2026-09-04 with the CAPACITY-POOL half: Thirdspace, Thought and both Trek shield projections hold a pool instead of a modifier, so the bucket reduction reached nothing on them; they now lose the same points off the pool via `Shield::getCapacityAgainstShooter()`, and `doesProtectFromDamage` gained an optional `$shooter`. |
+| **4** ✅ | EDF + Variable EDF (§2.1 + §2.2) — **DONE 2026-09-04** | 71 + 105 server checks and 32 client checks green. The field (fixed and variable, both crit ladders, boost, deactivation) on the Traveler with its chart row restored; `TacGamedata::$edfHexes` published hex-keyed so overlap collapse and own-fleet immunity are structural; the targeting penalty server↔client, agreeing over a 4,000-line / 128,745-hex differential corpus; the drain landing as six one-turn param criticals read at four choke-points; and the map overlay. ⭐⭐ Two findings worth carrying: the client parity needed a port of PHP's `round()`, not `Math.round` (half-away-from-zero AND PHP's pre-rounding, worth 843 and 13 wrong lines), and the drain needs NO replay roll-note because the RESULT is the record — every roll lands in a persisted crit's param and an `EdfExposed` marker makes a reload idempotent. ⭐ The full rules text arrived the same day and corrected three things: the EW drain is **d6** not d10; a fully drained reactor blacks out every powered system, reusing `Reactor::addCritical`'s existing cascade; and flash/proximity weapons lose their collateral and their blast radius inside a field. Nothing in Stage 4 is inferred any more. |
 | **5** | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) | Ancient hulls see **only** the new IDs; the five existing enhancements are unchanged for every young/middleborn hull in the corpus. |
 | **6** | Energy Draining Mine | Stores 3, launches any number, scatters on its own table, spawns a 7-hex field, cleans up one turn later. |
 | **7** | Energy Draining Net | Pairwise links; closed-area fill respects the `2N−1` cap; three collinear nets still link. |
@@ -1129,6 +1823,22 @@ Collected from the survey; each one has bitten this codebase before.
     `source/autoload.php`. Regenerate **statics** whenever something reaches the client through the
     blueprint rather than gamedata.
 14. **Never commit the two `.legacy.bundle.js` files.**
+15. **PHP's `round()` is not JS's `Math.round()` — in TWO ways.** Half away from zero
+    (`round(-2.5) === -3`), *and* a pre-round to `14 - floor(log10|v|)` decimal places that turns
+    `-20.49999999999999644` into `-20.5`. Any JS port of a PHP geometry routine needs both;
+    `mathlib.phpRound` (Stage 4) is the reference, and the only way to know is a differential
+    corpus generated by the PHP side.
+16. **A new gamedata-LEVEL field reaches the client ONLY if `gamedata.js parseServerData()`
+    copies it BY NAME.** Publishing it from `stripForJson` is half the job. It cost the CPD's
+    whole client half a day (§3.4); `edfHexes` carries the same line for the same reason.
+17. **A `oneturn` critical must NOT carry an `$outputMod`.** `ShipSystem::effectCriticals()` sums
+    `outputMod` across every critical with **no turn filter** (it is built for permanent
+    `OutputReduced*` crits and runs once from `onConstructed`), so a one-turn crit would apply
+    from the turn it was rolled and then for ever. Read a per-turn magnitude through
+    `sumCriticalParam()` in the system's own `getOutput()` instead — Stage 4b.
+18. **`sumCriticalParam($type, $turn = false)` defaults on `=== false`, NOT on null.** A method
+    with a `$turn = null` parameter that passes it straight through makes every turn comparison
+    fail and reads 0, silently — while the same method called with an explicit turn is correct.
 
 ---
 

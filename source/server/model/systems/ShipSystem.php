@@ -1694,7 +1694,13 @@ public function setParentFighter($fighter) {
     }
 	
 	
-	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false){ //hook - systems that can affect damage dealing will return positive value; strongest one will be chosen to interact
+	/* $shooter was added 2026-09-04 so a capacity-pool shield can size its pool against the
+	   fleet actually shooting at it (Walkers of Sigma-957 CPD adaptation - see
+	   Shield::getCapacityAgainstShooter). It is LAST and OPTIONAL so every existing caller and
+	   override stays valid; getSystemProtectingFromDamage() and the three fighter-flight damage
+	   estimators pass it. Anything that needs the shooter here must tolerate null - the value is
+	   advisory (it only ranks candidate protectors), and doProtect() has always had the real one. */
+	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false, $shooter = null){ //hook - systems that can affect damage dealing will return positive value; strongest one will be chosen to interact
 		return 0;
 	}
 	public function doProtect($gamedata, $fireOrder, $target, $shooter, $weapon, $systemProtected, $effectiveDamage,$effectiveArmor){ //hook for actual effect of protection - return modified values of damage and armor that should be used in further calculations

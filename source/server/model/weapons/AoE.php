@@ -91,6 +91,20 @@ public function calculateHit($gamedata, $fireOrder){
             //do damage to ships in range...
             $ships1 = $gamedata->getShipsInDistance($target);
             $ships2 = $gamedata->getShipsInDistance($target, 1);
+            /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 2.1): "Proximity weapons, such as
+               energy mines, that land within a field hex only detonate in that hex, losing any
+               explosion radius they might normally have. They will still cause their full damage
+               within the target hex, affecting any unit therein. This applies to advanced race
+               weapons as well."
+               So the range-1 ring is dropped and the target hex is unchanged - which is exactly
+               "$ships2 becomes $ships1". Measured at the hex the shot ACTUALLY landed on, after
+               any deviation above.
+               ⚠️ Team-blind (isHexInEdfField), and gated on the static so an ordinary game pays
+               one property read per proximity detonation. */
+            if (TacGamedata::$edfPresent && $gamedata->isHexInEdfField($target)) {
+                $ships2 = $ships1;
+                $fireOrder->pubnotes .= "<br>Energy Draining Field contains the blast to its own hex. ";
+            }
             foreach ($ships2 as $targetShip) {
                 if (isset($ships1[$targetShip->id])) { //ship on target hex!
                     $sourceHex = $posLaunch;

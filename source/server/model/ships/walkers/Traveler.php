@@ -5,15 +5,15 @@ class Traveler extends BaseShip{
         parent::__construct($id, $userid, $name,  $slot);
         
 		$this->pointCost = 5400;
-		$this->faction = "Walker of Sigma-957";
+		$this->faction = "Walkers of Sigma-957";
         $this->phpclass = "Traveler";
         $this->shipClass = "Traveler";
         $this->imagePath = "img/ships/WalkerTraveler.png";
-        $this->canvasSize = 256;
+        $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  
@@ -28,7 +28,7 @@ class Traveler extends BaseShip{
         $this->pivotcost = 6;
 		$this->iniativebonus = 2 *5;
 
-		$this->fighters = array("normal"=>24);
+		$this->fighters = array("Mapmaker Probes"=>36);
 
 		/*Walkers will use their own enhancement set */		
 		//Enhancements::nonstandardEnhancementSet($this, 'Walkers');
@@ -46,19 +46,32 @@ class Traveler extends BaseShip{
 		
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));			       
+		//STAGE 2: Lightning Array. Args are (armour, maxhealth, powerReq, startArc, endArc);
+		//0 for health/power takes the class defaults, which are PLACEHOLDER values in specialWeapons.php.
+		$this->addFrontSystem(new LightningArray(6, 0, 0, 270, 90));
+		$this->addFrontSystem(new MediumLightningArray(6, 0, 0, 270, 90));
+		//STAGE 3: Chromatic Pulse Driver. Args are (armour, maxhealth, powerReq, startArc, endArc);
+		//0 for health/power takes the class defaults, which are PLACEHOLDER values in pulse.php.
+		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 270, 90));
 
 
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
-        $this->addAftSystem(new Hangar(6, 24, 12));		
-		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));		
-		
-  
-		$this->addLeftSystem(new GraviticThruster(6, 30, 0, 8, 3));
-        $this->addLeftSystem(new Hangar(6, 6, 6, 5)); 		
+        $this->addAftSystem(new Hangar(6, 24, 12));
+		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
+		//STAGE 4: Energy Draining Field. Args are (armour, maxhealth, powerReq, radius, variable);
+		//0 for health/power and null for radius take the class defaults, which are PLACEHOLDER
+		//values in baseSystems.php until the control sheet lands (D4). Fixed field, not variable.
+		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
 
-     
+
+		$this->addLeftSystem(new GraviticThruster(6, 30, 0, 8, 3));
+		$this->addLeftSystem(new ChromaticPulseDriver(6, 0, 0, 240, 360)); //STAGE 3
+        $this->addLeftSystem(new Hangar(6, 6, 6, 5));
+
+
 		$this->addRightSystem(new GraviticThruster(6, 30, 0, 8, 4));
-        $this->addRightSystem(new Hangar(6, 6, 6, 1)); 				
+		$this->addRightSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120)); //STAGE 3
+        $this->addRightSystem(new Hangar(6, 6, 6, 1));
 				
 
         //0:primary, 1:front, 2:rear, 3:left, 4:right;
@@ -81,28 +94,28 @@ class Traveler extends BaseShip{
 			),
 			1=> array( //Fwd
 				4 => "Thruster",
-				6 => "Lightning Array", 
+				6 => "Lightning Array",
 				9 => "Chromatic Pulse Driver",
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
 				6 => "Thruster",
-				9 => "Energy Draining Field", 
+				9 => "Energy Draining Field",
 				11 => "Hangar", 								
 				18 => "Structure",  				
 				20 => "Primary",
 			),
 			3=> array( //Fwd
 				6 => "Thruster",
-				8 => "Chromatic Pulse Driver", 
+				8 => "Chromatic Pulse Driver",
 				9 => "Hangar", 				
 				18 => "Structure",
 				20 => "Primary",
 			),
 			4=> array( //Fwd
 				6 => "Thruster",
-				8 => "Chromatic Pulse Driver", 
+				8 => "Chromatic Pulse Driver",
 				9 => "Hangar", 				
 				18 => "Structure",
 				20 => "Primary",

@@ -11812,7 +11812,7 @@ class LightningArray extends Weapon {
     public $animation      = "bolt";
     public $animationColor = array(140, 210, 255); //pale electric blue
 
-    public $damageType  = "Standard";        //UNCONFIRMED - switch to "Raking" (and extend Raking) if the control sheet says so
+    public $damageType  = "Flash"; 
     public $weaponClass = "Electromagnetic"; //all Walker weaponry is Electromagnetic
     public $factionAge  = 3;                 //Ancient - matters to several to-hit and EDF rules
 

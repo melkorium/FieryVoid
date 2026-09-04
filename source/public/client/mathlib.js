@@ -352,6 +352,100 @@ window.mathlib = {
 		return false; // Line of sight is clear
 	},
 
+	/* ------------------------------------------------------------------------------------
+	   hexLine - the CLIENT MIRROR of HexZone::line() (server/lib/HexZone.php).
+
+	   Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4) needs the exact set of hexes
+	   a shot crosses so the EDF targeting penalty previewed here is the one the server rolls.
+	   ⚠️ It deliberately does NOT reuse mathlib.isLoSBlocked's geometry: that one asks a
+	   different question (does the segment CLIP any part of a blocked hex, tested in pixels)
+	   and would count a hex the server's line never enters. Line of sight and field crossing
+	   are two different rules and must stay two different functions.
+
+	   ⚠️⚠️ PHP/JS ROUNDING PARITY IS THE WHOLE POINT OF phpRound(). PHP's round() is
+	   "half away from zero" (round(-2.5) === -3) while JS's Math.round() is "half up"
+	   (Math.round(-2.5) === -2). Cube coordinates go negative all over a Fiery Void map, and a
+	   line that passes exactly through a hex corner lands on a .5 - so plain Math.round() here
+	   would silently disagree with the server on precisely the awkward shots, which is the
+	   hardest kind of mismatch to notice. Any future port of a PHP geometry routine needs this.
+
+	   Takes and returns plain {q, r}. Endpoints INCLUDED, both of them, exactly as the server's
+	   loop does (i = 0 .. steps). The 50-step cap is the server's too - keep them equal.
+	   ------------------------------------------------------------------------------------ */
+	hexLine: function hexLine(start, end) {
+		/* ⚠️⚠️ THIS IS NOT Math.round, AND IT IS NOT JUST A SIGN FIX EITHER. PHP's round() differs
+		   from JS's in TWO ways, and both of them bite here:
+
+		     1. HALF AWAY FROM ZERO. PHP round(-2.5) === -3; JS Math.round(-2.5) === -2. Cube
+		        coordinates go negative all over a Fiery Void map.
+		     2. PRE-ROUNDING. PHP first rounds the value to (14 - floor(log10|v|)) decimal places,
+		        so a value that floating-point error has left at -20.49999999999999644 is treated
+		        as -20.5 and lands on -21. Plain rounding gives -20.
+
+		   Measured against the real HexZone::line over a 4,000-line corpus: fixing only (1) still
+		   left 13 lines disagreeing with the server, all of them from (2). Fixing only (2) leaves
+		   843. Both are load-bearing; the throwaway test asserts each of them separately.
+
+		   Mirrors _php_math_round(value, 0) in PHP's ext/standard/math.c. ⚠️ If FV's PHP ever
+		   moves to a version that changes round()'s edge-case behaviour (the "saner round()" work
+		   lands after 8.3 - this was written against 8.2), re-run the differential test before
+		   assuming this still matches. */
+		function halfAwayFromZero(x) { return x < 0 ? -Math.round(-x) : Math.round(x); }
+		function phpRound(v) {
+			if (!isFinite(v) || v === 0) return v;
+			var precisionPlaces = 14 - Math.floor(Math.log10(Math.abs(v)));
+			//PHP's guard, with places = 0: pre-round only when it is both useful and safe
+			if (precisionPlaces > 0 && precisionPlaces < 15) {
+				var f = Math.pow(10, precisionPlaces);
+				v = halfAwayFromZero(v * f) / f;
+			}
+			return halfAwayFromZero(v);
+		}
+
+		function offsetToCube(hex) {
+			var x = hex.q - (hex.r + (hex.r & 1)) / 2;
+			var z = hex.r;
+			var y = -x - z;
+			return [x, y, z];
+		}
+		function cubeRound(x, y, z) {
+			var rx = phpRound(x), ry = phpRound(y), rz = phpRound(z);
+			var dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+			if (dx > dy && dx > dz) { rx = -ry - rz; }
+			else if (dy > dz)       { ry = -rx - rz; }
+			else                    { rz = -rx - ry; }
+			return [rx, ry, rz];
+		}
+		function cubeToOffset(cube) {
+			//Math.trunc mirrors PHP's (int) cast in OffsetCoordinate's constructor. After
+			//cubeRound the division is always exact, so this never actually truncates - it is
+			//here so the two implementations stay line-for-line comparable.
+			var q = cube[0] + (cube[2] + (cube[2] & 1)) / 2;
+			return { q: Math.trunc(q), r: Math.trunc(cube[2]) };
+		}
+
+		var startCube = offsetToCube(start);
+		var endCube   = offsetToCube(end);
+
+		var dx = endCube[0] - startCube[0];
+		var dy = endCube[1] - startCube[1];
+		var dz = endCube[2] - startCube[2];
+
+		var steps = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
+		if (steps > 50) steps = 50;
+
+		var hexes = [];
+		for (var i = 0; i <= steps; i++) {
+			var t = (steps === 0) ? 0 : i / steps;
+			hexes.push(cubeToOffset(cubeRound(
+				startCube[0] + dx * t,
+				startCube[1] + dy * t,
+				startCube[2] + dz * t
+			)));
+		}
+		return hexes;
+	},
+
 
 	/* //Draws a simple line between two positions, replace by drawRuler() below but maybe useful for something else - DK
 	drawLine: function drawLine(p1, p2, color = 0x00ffff) {

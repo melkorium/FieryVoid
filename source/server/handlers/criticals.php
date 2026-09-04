@@ -57,6 +57,18 @@ class Criticals{
          * jump (or destruction, for JumpFailure). Pass 3
          * (processCarrierDestructionEscapes) then sees the post-dock state. */
         HangarOps::processJumpingCarrierDockOrders($gamedata);
+        /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 2.2): the Energy Draining Field drain.
+           BEFORE pass 1 on purpose - it rolls its own fighter dropouts and must not interleave
+           with testCritical's.
+           ⚠️ BOTH lines are inside the gate deliberately: even touching EdfExposure::$resolvedTurn
+           would autoload the resolver, so a game with no field on the board must not reach either.
+           The reset is the once-per-advance guard, exactly like HkJamming::$alreadyResolved above;
+           idempotency ACROSS requests is the EdfExposed marker, not this static. */
+        if (TacGamedata::$edfPresent) {
+            EdfExposure::$resolvedTurn = -1;
+            EdfExposure::resolve($gamedata);
+        }
+
 
         // ---- Pass 1: testCritical block --------------------------------
         foreach ($activeShips as $ship){

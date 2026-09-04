@@ -1291,7 +1291,7 @@ class ChromaticPulseDriver extends Pulse {
     //PLACEHOLDER icon - an existing accelerator pulsar, so nothing 404s. Drop a real
     //ChromaticPulseDriver.png into img/systemicons/ and change this one line.
     //⚠️ The filename is case-sensitive on live even though it is not on Windows.
-    public $iconPath    = "PulseAccelerator.png";
+    public $iconPath    = "ChromaticPulseDriver.png";
 
     public $animation      = "bolt";
     public $animationColor = array(200, 120, 255);        //chromatic violet

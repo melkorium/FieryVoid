@@ -2057,6 +2057,67 @@ window.weaponManager = {
     //   launchPos (optional): the ballistic's launch hex, per ORDER. Mirrors the server's $posmod
     //                         argument to getHitChanceMod - it is the bearing the target's
     //                         arc-limited defensive systems are tested against.
+
+    /* ------------------------------------------------------------------------------------
+       WALKERS OF SIGMA-957 - ENERGY DRAINING FIELD targeting penalty, CLIENT MIRROR.
+       (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4.)
+
+       Server twin: TacGamedata::getEdfPenaltyHexes(). Returns a raw HEX COUNT - how many hexes
+       of somebody ELSE'S field lie BETWEEN the two ends.
+
+       ⚠️⚠️ INTERVENING HEXES ONLY (user ruling, 2026-09-04): mathlib.hexLine mirrors the
+       server's i = 0 .. steps and so returns BOTH endpoints, and neither of them counts. The
+       shot is drained by the field it crosses, not by the field its two ends are standing in.
+       Adjacent and same-hex shots therefore cross nothing. Change this with its server twin.
+
+       The count is -1 to hit per hex, DOUBLED for a young or middleborn race's Plasma and
+       Antimatter - see getEdfPenalty below, which mirrors Weapon::getEdfHitPenalty. Plasma's
+       extra helping at damage time is server-side only (Weapon::getEdfDamageRangeBonus); the
+       client draws no damage preview, and neither class touches the RANGE arithmetic anywhere.
+
+       "Somebody else's" is the shooter's team: a hex covered ONLY by the shooter's own team is
+       free, which is the rules' "the rest of the fleet of the ship deploying the EDF is immune".
+
+       ⚠️ Gated on gamedata.edfHexes, which the server publishes as null (never []) when no field
+       is on the board - so an ordinary game costs one property read per preview. gamedata.js
+       must copy the key by name or this reads null forever; see the note beside cpdAdaptation
+       in parseServerData.
+       ------------------------------------------------------------------------------------ */
+    getEdfPenaltyHexes: function getEdfPenaltyHexes(fromPos, toPos, shooterTeam) {
+        var map = window.gamedata && gamedata.edfHexes;
+        if (!map) return 0;
+        if (!fromPos || !toPos) return 0;
+
+        var line = mathlib.hexLine(fromPos, toPos);
+        var count = 0;
+        for (var i = 1; i < line.length - 1; i++) { //INTERVENING ONLY - endpoints deliberately skipped
+            var entry = map[line[i].q + ',' + line[i].r];
+            if (!entry) continue;
+            var teams = Object.keys(entry.teams || {});
+            //own-fleet immunity: covered by exactly one team, and that team is the shooter's
+            if (shooterTeam !== null && shooterTeam !== undefined
+                && teams.length === 1 && String(teams[0]) === String(shooterTeam)) continue;
+            count++;
+        }
+        return count;
+    },
+
+    /* The full penalty in d20 units, doubling included. Mirrors Weapon::getEdfHitPenalty:
+       -1 per INTERVENING hex, doubled for a young or middleborn race's Plasma and Antimatter,
+       which is the whole of "especially disruptive to plasma and antimatter" as far as a to-hit
+       roll is concerned. Plasma also counts each hex twice for its rangeDamagePenalty, but that
+       is a damage-time figure the client never previews - and NEITHER class changes the range
+       the ordinary range penalty is computed at. Keep this in step with the server. */
+    getEdfPenalty: function getEdfPenalty(shooter, target, weapon, launchPos, targetPos) {
+        var hexes = weaponManager.getEdfPenaltyHexes(launchPos, targetPos,
+                        (shooter && shooter.team !== undefined) ? shooter.team : null);
+        if (hexes <= 0) return 0;
+        if (shooter && shooter.factionAge < 3
+            && (weapon.weaponClass === 'Plasma' || weapon.weaponClass === 'Antimatter')) {
+            return hexes * 2; //"especially disruptive to plasma and antimatter"
+        }
+        return hexes;
+    },
     computeShotModifiers: function computeShotModifiers(shooter, target, weapon, calledid, distance, launchPos, fireOrder) {
         /* Chromatic Pulse Driver shield adaptation (WALKERS_OF_SIGMA_PLAN.md 3.4). getHitChangeMod
            returns the ADAPTED total - that is what the server rolls and it must not change. But a
@@ -2245,6 +2306,20 @@ window.weaponManager = {
         //getHitChanceMod as $posmod, and it is what decides which ARC-LIMITED defensive systems
         //(shields, webs) actually cover the incoming shot.
         var shotMods = weaponManager.computeShotModifiers(shooter, target, weapon, calledid, distance, sPosLaunch, fireOrder);
+        /* Walkers of Sigma-957 (Stage 4): -1 to hit per INTERVENING hex of somebody else's Energy
+           Draining Field, doubled for young/middleborn Plasma and Antimatter. Mirrors the
+           $edfPenalty line in Weapon::calculateHitBase. Nothing above it changes - neither class
+           lengthens the range the range penalty is computed at.
+           ⚠️ sPosLaunch/sPosTarget are only filled in for BALLISTICS above - direct fire leaves
+           both null, so both ends are resolved here. The server measures the same two hexes:
+           $launchPos comes from getFiringHex(), which answers the shooter's own hex for a
+           non-ballistic, and $targetPos is $target->getHexPos(). A ballistic is drained along
+           the line it actually flew, from where it was launched.
+           ⚠️ getEdfPenaltyHexes' own gate on gamedata.edfHexes is what keeps this free in an
+           ordinary game - one property read per preview and no line walk. */
+        var edfFrom = sPosLaunch || shipManager.getShipPosition(shooter);
+        var edfTo   = sPosTarget || shipManager.getShipPosition(target);
+        var edfPenalty = weaponManager.getEdfPenalty(shooter, target, weapon, edfFrom, edfTo);
 
         //Goal: identical to old formula (baseDef - jammermod - noLockMod - rangePenalty + oew + soew + firecontrol + mod)
         //where mod = -defensiveSystems + calledShot + otherTotal
@@ -2259,7 +2334,8 @@ window.weaponManager = {
                  - shotMods.defensiveSystems
                  + shotMods.shieldAdaptation
                  + shotMods.calledShot
-                 + shotMods.otherTotal;
+                 + shotMods.otherTotal
+                 - edfPenalty;
         var hitChance = Math.round(goal * 5);
 
         //Build modifier list (zeros omitted)
@@ -2283,6 +2359,7 @@ window.weaponManager = {
         //"Defensive Systems -20%, Shield Adaptation +5%".
         pushIfNonZero('shieldAdaptation', 'Shield Adaptation',  shotMods.shieldAdaptation);
         if (calledid > 0) pushIfNonZero('calledShot', 'Called Shot', shotMods.calledShot);
+        pushIfNonZero('edfPenalty',       'Energy Draining Field', -edfPenalty);
         pushIfNonZero('other',            'Other',             shotMods.otherTotal);
 
         //Dev-mode invariant: breakdown sum must reproduce hitChance
@@ -5179,7 +5256,11 @@ window.weaponManager = {
             "HyperspaceJump", "JumpFailure", "JumpVortex", "SelfDestruct", "ContainmentBreach",
             "Reactor", "Sabotage", "WreakHavoc", "Capture", "Rescue", "LimpetBore",
             "MagazineExplosion", "NoHangar", "TerrainCollision", "HalfPhase", "TranverseCrit", "Boarding",
-            "InadequateHangar", "HkJamming"
+            //EdfExposure (WALKERS_OF_SIGMA_PLAN.md 2.2): the Energy Draining Field's per-unit drain
+            //report. Like HkJamming beside it, the order is a log line wearing a fire order's
+            //clothes - self-targeted, 0 shots - so without this it printed "firing 1x Ramming
+            //Attack at <itself>. 0/0 shots hit" in front of the sentence that matters.
+            "InadequateHangar", "HkJamming", "EdfExposure"
         ];
 
         //A crash into Huge terrain (multi-hex asteroid, moon) reads like the small-asteroid

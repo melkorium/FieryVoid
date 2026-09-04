@@ -154,6 +154,7 @@ window.PhaseStrategy = function () {
         this.ewIconContainer.hide();
         this.ballisticIconContainer.show();
         this.syncAllDeclaredAreas(); //a poll rebuilds every ship, so re-read what each weapon has declared
+        this.syncAllEdfFields();     //standing overlay, same reason
     };
 
     /*// A same-phase poll (this.update, as opposed to a phase-change activate()) refreshes ship
@@ -190,6 +191,7 @@ window.PhaseStrategy = function () {
         this.showAppropriateHighlight();
         this.showAppropriateEW();
         this.syncAllDeclaredAreas();
+        this.syncAllEdfFields();
         return this;
     };
 
@@ -287,6 +289,55 @@ window.PhaseStrategy = function () {
         this.shipIconContainer.getArray().forEach(function (icon) {
             this.syncDeclaredAreas(icon.ship);
         }, this);
+    };
+
+    /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4). Redraw every Energy Draining
+       Field disc. Same shape and the same two call sites as syncAllDeclaredAreas above: a poll
+       rebuilds every ship object, so a standing overlay has to be re-read rather than assumed.
+
+       ⚠️ requestRender() (plan trap 10 / arch_render_loop_idle_gating): the render loop is idle-
+       gated, so a scene mutation made outside the animation list is simply never drawn without it.
+       Only asked for when something actually changed - a redraw of nothing must not wake the loop
+       on every poll of every game.
+
+       ⚠️ gamedata.edfHexes is the cheap gate: the server publishes it as null when no field is on
+       the board, so an ordinary game does one property read and skips the whole sweep. */
+    PhaseStrategy.prototype.syncAllEdfFields = function () {
+        var anyField = !!(window.gamedata && gamedata.edfHexes);
+        var changed = false;
+
+        this.shipIconContainer.getArray().forEach(function (icon) {
+            var radius = anyField ? PhaseStrategy.getEdfRadiusForShip(icon.ship) : 0;
+
+            /* ⚠️ `changed` is what the icon REPORTS, not "we called it". showEdfField rebuilds
+               nothing when the disc it would draw is the one already on screen, and a standing
+               field must not wake the idle-gated render loop on every poll of every turn. */
+            if (radius > 0) {
+                if (icon.showEdfField(radius)) changed = true;
+            } else if (icon.removeEdfField()) {
+                changed = true;
+            }
+        }, this);
+
+        if (changed && window.webglScene && window.webglScene.requestRender) window.webglScene.requestRender();
+    };
+
+    /* The largest active field this unit projects, or 0. effectiveRadius is published by
+       EnergyDrainingField::stripForJson AFTER criticals and boost - see the note on
+       ShipIcon.showEdfField for why it is not recomputed here.
+       A destroyed or offlined field publishes 0 from getEdfRadius(), so no separate test is
+       needed; a hidden ship has no icon in the container in the first place. */
+    PhaseStrategy.getEdfRadiusForShip = function (ship) {
+        if (!ship || !ship.systems) return 0;
+
+        var best = 0;
+        for (var i in ship.systems) {
+            var system = ship.systems[i];
+            if (!system || system.name !== 'EnergyDrainingField') continue;
+            var radius = parseInt(system.effectiveRadius, 10);
+            if (!isNaN(radius) && radius > best) best = radius;
+        }
+        return best;
     };
 
     PhaseStrategy.prototype.onScrollToShip = function (payload) {

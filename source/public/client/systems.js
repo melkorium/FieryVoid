@@ -93,6 +93,13 @@ shipManager.systems = {
 
         var output = system.output + system.outputMod + shipManager.power.getBoost(system);
         output = Math.max(0, output); //output cannot be negative!
+        /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 2.2): an Energy Draining Field takes
+           thrust off an Engine and power off a Reactor for one turn. The server applies it in
+           Engine/Reactor::getOutput() through a TURN-FILTERED param critical - which is why it
+           cannot ride outputMod (ShipSystem::effectCriticals sums those with no turn filter at
+           all) - and publishes the current turn's figure as edfDrain from those two systems.
+           undefined on every other system, and in every game with no field on the board. */
+        if (system.edfDrain) output = Math.max(0, output - system.edfDrain);
 
         return output;
     },
@@ -111,6 +118,8 @@ shipManager.systems = {
 
         var output = system.output + system.outputMod;
         output = Math.max(0, output); //output cannot be negative!
+        //EDF drain - see the note in getOutput above.
+        if (system.edfDrain) output = Math.max(0, output - system.edfDrain);
 
         return output;
     },

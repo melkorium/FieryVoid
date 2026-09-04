@@ -933,6 +933,25 @@ class Shield extends ShipSystem implements DefensiveSystem{
     {
         return "Shield";
     }
+
+    /* CAPACITY-POOL SHIELDS AND THE WALKERS' SCAN (WALKERS_OF_SIGMA_PLAN.md 3.4).
+       The Thirdspace Shield, the Thought Shield and both Trek Shield Projections extend this class
+       and answer getDefensiveType() "Shield", so a Chromatic Pulse Driver scan banks a point off
+       them and they carry the "Scanned by Walkers" marker - but their getDefensiveHitChangeMod and
+       getDefensiveDamageMod are hard 0 (a reinforced Thought Shield's is the one exception). They
+       hold a POOL and absorb out of it instead, so the reduction that lands on the aggregated
+       defensive bucket in BaseShip::getHitChanceMod / getDamageMod reaches nothing on them. This
+       states the same rule in their own currency: against a fleet that has analysed the race, the
+       pool's last N points cannot be spent. Called from their doesProtectFromDamage() and
+       doProtect(); an ordinary Shield never calls it.
+       ⚠️ Gated on TacGamedata::$cpdAdaptationPresent like every other CPD call site (D10) - this
+       sits on the per-shot damage path of every game in the database. Do NOT make it unconditional.
+       ⚠️ Computed per shot and never stored: no DamageEntry, so the pool regenerates from its real
+       remaining health and reads at full strength against every fleet that has not adapted. */
+    protected function getCapacityAgainstShooter($capacity, $shooter){
+        if (!TacGamedata::$cpdAdaptationPresent) return $capacity;
+        return CpdScanRegistry::applyToCapacity($capacity, $this->getUnit(), $shooter);
+    }
     
     public function getDefensiveHitChangeMod($target, $shooter, $pos, $turn, $weapon){
         if($this->isDestroyed($turn-1) || $this->isOfflineOnTurn($turn))
@@ -1042,6 +1061,27 @@ class Reactor extends ShipSystem implements SpecialAbility {
         parent::__construct($armour, $maxhealth, $powerReq, $output );        
     }
     
+
+    /* WALKERS OF SIGMA-957 - Energy Draining Field power drain (WALKERS_OF_SIGMA_PLAN.md 2.2).
+       The twin of Engine::getOutput() above; read that comment for why this is a summed param
+       critical and not an $outputMod, and why the gate is the criticals array rather than
+       TacGamedata::$edfPresent. */
+    public function getOutput(){
+        $output = parent::getOutput();
+        if ($output > 0 && !empty($this->criticals)){
+            $output = max(0, $output - (int)$this->sumCriticalParam("EdfPowerDrain"));
+        }
+        return $output;
+    }
+
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        if (!empty($this->criticals)){
+            $drain = (int)$this->sumCriticalParam("EdfPowerDrain");
+            if ($drain > 0) $strippedSystem->edfDrain = $drain;
+        }
+        return $strippedSystem;
+    }
     public function addCritical($shipid, $phpclass, $gamedata) {
         if(strcmp($phpclass, "ForcedOfflineOneTurn") == 0){
             // This is the reactor. If it takes a ForcedOffLineForOneTurn,
@@ -1525,6 +1565,35 @@ class Engine extends ShipSystem implements SpecialAbility {
 		$this->data["Own thrust"] = $this->output;
     }
 	
+
+    /* WALKERS OF SIGMA-957 - Energy Draining Field thrust drain (WALKERS_OF_SIGMA_PLAN.md 2.2).
+       One EdfThrustDrain critical carries a whole roll in its param, so it is SUMMED, never
+       counted. sumCriticalParam is turn-filtered and the crit is `oneturn`, so a drain rolled
+       in turn N's Critical Hit step reads here on turn N+1 only - which is the rules' "starting
+       next turn" and is also why this cannot be an $outputMod (effectCriticals sums those with
+       no turn filter at all; see the comment on the crit classes).
+       ⚠️ The gate is $this->criticals being non-empty, NOT TacGamedata::$edfPresent: a Walker's
+       field can be destroyed while its last drain is still in effect, and an undamaged system's
+       criticals array is empty anyway, so this costs nothing in an ordinary game. */
+    public function getOutput(){
+        $output = parent::getOutput();
+        if ($output > 0 && !empty($this->criticals)){
+            $output = max(0, $output - (int)$this->sumCriticalParam("EdfThrustDrain"));
+        }
+        return $output;
+    }
+
+    /* The client computes the thrust budget itself (shipManager.systems.getOutput reads
+       system.output + system.outputMod), so the drain has to be published as its own field or
+       the player would allocate thrust the server will not honour. Only when non-zero. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        if (!empty($this->criticals)){
+            $drain = (int)$this->sumCriticalParam("EdfThrustDrain");
+            if ($drain > 0) $strippedSystem->edfDrain = $drain;
+        }
+        return $strippedSystem;
+    }
     public function markEngineFlux(){
         $this->specialAbilities[] = "EngineFlux";
         $this->specialAbilityValue = true; //so it is actually recognized as special ability!
@@ -1851,10 +1920,45 @@ class Scanner extends ShipSystem implements SpecialAbility{ //on its own Scanner
                 $output += $power->amount;
             }        
         }        
+
+        /* WALKERS OF SIGMA-957 - Energy Draining Field total-EW drain
+           (WALKERS_OF_SIGMA_PLAN.md 2.2). The third of the three drains that ride the system
+           they take from, alongside Engine::getOutput() and Reactor::getOutput() - read the
+           comment on Engine's for why a whole roll is SUMMED rather than counted, why it cannot
+           be an $outputMod, and why the gate is the criticals array rather than
+           TacGamedata::$edfPresent.
+
+           ⭐ IT LIVES HERE, NOT ON THE CnC (user, 2026-09-04). It used to be a subtraction
+           inside EW::getScannerOutput() reading a critical parked on the CnC, which meant the
+           CLIENT never applied it at all - ew.js sums shipManager.systems.getOutput() over the
+           EW systems and knows nothing about the CnC - so a drained ship let its owner allocate
+           EW the server would not honour. On the Scanner it needs no client code whatsoever:
+           getOutput() already subtracts the published edfDrain for the Engine and the Reactor.
+           ⚠️ The clamp is per-scanner rather than per-ship. It only differs on a hull with a
+           SECOND EW source (an ElintScanner beside a Scanner), where a drain larger than the
+           Scanner's own output stops there instead of eating into the array. */
+        if ($output > 0 && !empty($this->criticals)){
+            $output = max(0, $output - (int)$this->sumCriticalParam("EdfEwDrain"));
+        }
+
         return $output;        
     }    
+
+    /* The client computes the EW budget itself (ew.js getScannerOutput sums
+       shipManager.systems.getOutput over every outputType "EW" system), so the drain is
+       published as its own field exactly as Engine and Reactor publish theirs - and
+       shipManager.systems.getOutput already subtracts it. Only when non-zero. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        if (!empty($this->criticals)){
+            $drain = (int)$this->sumCriticalParam("EdfEwDrain");
+            if ($drain > 0) $strippedSystem->edfDrain = $drain;
+        }
+        return $strippedSystem;
+    }
 	
 	/*functions adding Advanced/Improved Sensors trait*/
+
 	public function markImproved(){		
 		$this->specialAbilities[] = "ImprovedSensors";	
 		$this->specialAbilityValue = true; //so it is actually recognized as special ability!		
@@ -11218,7 +11322,7 @@ by 4.
 	//function estimating how good this Diffuser is at stopping damage;
 	//in case of diffuser, its effectiveness equals largest shot it can stop, with tiebreaker equal to remaining total capacity
 	//this is for recognizing it as system capable of affecting damage resolution and choosing best one if multiple Diffusers can protect
-	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false) {
+	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false, $shooter = null) {
 		$remainingCapacity = 0;
 		$totalCapacity = 0;
 		$largestCapacity = 0;
@@ -12163,7 +12267,7 @@ class Bulkhead extends ShipSystem{
 	
 	
 	//function estimating how good this Bulkhead is at stopping damage;
-	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false) {
+	public function doesProtectFromDamage($expectedDmg, $systemProtected = null, $damageWasDealt = false, $inflictingShots = 1, $isUnderShield = false, $shooter = null) {
 		//first do check whether this system can be protected! (same location or appropriate structure location)
 		if ($systemProtected) {
 			//is it on the same section?
@@ -16766,4 +16870,217 @@ class CoopStructureSelfRepair extends StructureSelfRepair {
 
 
 
+
+
+/* =======================================================================================
+   WALKERS OF SIGMA-957 - ENERGY DRAINING FIELD (WALKERS_OF_SIGMA_PLAN.md 2.1 + 3.5, Stage 4)
+   =======================================================================================
+
+   IT LIVES HERE, NOT IN THE WALKER WEAPON FILES, and that is a load-order decision rather
+   than taste - the same one section 3.4 records for the Chromatic Pulse Driver in reverse.
+   The EDF is a ShipSystem, not a Weapon, so its client twin belongs in
+   client/model/system/baseSystems.js, which BOTH game.php and gamelobby.php load before every
+   weapon file. Putting it in a new pair of files would need two <script> tags, two legacy
+   bundle rebuilds and a fresh chance to get the ordering wrong. Keep the pair symmetric.  */
+
+/* A source of Energy Draining Field hexes. Implemented by ship SYSTEMS (this class, and the
+   Energy Draining Net at Stage 7 which answers radius 0) and, from Stage 6, by the terrain
+   unit an Energy Draining Mine spawns. TacGamedata::setEdfHexes() consumes nothing else.
+
+   getEdfRadius($turn) - hexes of field around the unit, AFTER criticals and boost. 0 means
+                         "this hex only"; a source that is not projecting answers 0 too, but
+                         isEdfActive() is the authority on that.
+   isEdfActive($turn)  - destroyed, offlined, or voluntarily deactivated all answer false. */
+interface EdfSource {
+    public function getEdfRadius($turn);
+    public function isEdfActive($turn);
+}
+
+
+/**
+ * Energy Draining Field - the Walkers' area-denial system.
+ *
+ * PLACEHOLDER STAT TABLE. Per WALKERS_OF_SIGMA_PLAN.md D4 the numbers arrive as a Walker
+ * test hull carrying the system; until that lands, everything in EDF STATS below is a guess
+ * that the mechanics are built around, NOT a control-sheet figure. Nothing outside that block
+ * hard-codes a game number, so a re-stat is an edit to those six constants and nothing else.
+ *
+ * WHAT IT DOES (the machinery, which is not placeholder):
+ *  - projects a disc of hexes, collected once per gamedata load into TacGamedata::$edfHexes
+ *    keyed by hex, so overlapping fields collapse for free - which IS the rules' "overlapping
+ *    hexes are only counted once";
+ *  - every hex records which TEAMS cover it, which is what makes "the rest of the fleet of the
+ *    ship deploying the EDF is immune" a single array lookup rather than a distance sweep;
+ *  - a shot whose hex line crosses field hexes belonging to somebody else takes a to-hit
+ *    penalty of one per hex (doubled for Plasma and Antimatter fired by a young or middleborn
+ *    race) - Weapon::calculateHitBase, mirrored in weaponManager.calculateHitChange.
+ *
+ * VARIABLE FIELDS. $variable = true turns on the existing BOOST mechanism (PowerManagementEntry
+ * type 2, allocated in the Ship Power segment, which is exactly where the rules put the choice).
+ * Double power buys BOOST_RADIUS_BONUS extra hexes of radius. No new power concept.
+ *
+ * DEACTIVATION is $canOffLine - "the player may deactivate the field" is all-or-nothing, and
+ * that is already what offlining a system means in FV.
+ *
+ * CRITICALS escalate on the hasCritical() COUNT, so there is no per-crit bookkeeping:
+ *  - fixed field: every EdfRadiusReduced costs 1 hex of radius, floor 1;
+ *  - variable field: the FIRST EdfBoostLost costs the boost, every further one costs 1 hex,
+ *    floor 0. One crit class covers both stages, which keeps the Self Repair menu short.
+ */
+class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSource {
+    public $name = "EnergyDrainingField";
+    public $displayName = "Energy Draining Field";
+    public $iconPath = "EnergyDrainingField.png";
+    public $primary = true;
+
+    public $canOffLine = true;   //"the player may deactivate the field"
+    public $boostEfficiency = 0; //double power, not a fractional cost
+    public $maxBoostLevel = 1;   //one step only: normal radius or boosted radius
+
+    /* Blueprint values. $radius is the NORMAL-power radius; getEdfRadius() derives the rest.
+       Public because the EDF Range enhancement (SYS_EDFR, Stage 5) raises $radius and the
+       client tooltip reads it - see stripForJson() below. */
+    public $radius = 5;
+    public $variable = false;
+    public $boostRadiusBonus = 3;
+
+    protected $possibleCriticals = array(21 => "EdfRadiusReduced"); //replaced for a variable field in the ctor
+
+    /* Parameters: ($armour, $maxhealth, $powerReq, $radius, $variable).
+       0 for maxhealth/powerReq takes the class defaults, exactly as the Walker weapons do, so a
+       hull file can mount a "basic version of the system" without inventing numbers. */
+    function __construct($armour, $maxhealth = 0, $powerReq = 0, $radius = null, $variable = false){
+        if ($maxhealth == 0) $maxhealth = 40;
+        if ($powerReq  == 0) $powerReq  = 16;
+        if ($radius === null) $radius = 5;
+
+        parent::__construct($armour, $maxhealth, $powerReq, $radius);
+
+        $this->radius   = (int)$radius;
+        $this->variable = (bool)$variable;
+
+        /* ⚠️ ADDSYSTEM SECTION-ARC TRAP (arch_addsystem_section_arc_trap): a system whose arcs
+           are BOTH 0 has the section's arc stamped onto it by addSystem(), so an EDF mounted aft
+           would advertise itself as an aft-facing system in the ship window. The field is
+           omnidirectional, so declare 0..360 and the guard never fires. */
+        $this->startArc = 0;
+        $this->endArc   = 360;
+
+        if ($this->variable){
+            $this->boostable = true;
+            /* A DIFFERENT CRIT TABLE, NOT A DIFFERENT CLASS. The two fields share a phpclass
+               deliberately: SystemFactory builds the client twin with `new window[name]`, and a
+               second phpclass would need a second client class, a second blueprint entry and a
+               second everything downstream for one changed array. $possibleCriticals is
+               protected instance state, so setting it here is per-instance and safe - unlike the
+               CLIENT side, where same-phpclass instances share field references (plan trap 6);
+               see the isModified handling in stripForJson(). */
+            $this->possibleCriticals = array(20 => "EdfBoostLost");
+        }
+    }
+
+    /* ---------------------------------------------------------------- EdfSource ------ */
+
+    /* Radius after criticals and boost. Never negative.
+       Reads the CRIT COUNT (hasCritical returns how many), not a param - see the two crit
+       classes in cricialClasses.php. */
+    public function getEdfRadius($turn = null){
+        if ($turn === null) $turn = TacGamedata::$currentTurn;
+        if (!$this->isEdfActive($turn)) return 0;
+
+        $radius = $this->radius;
+
+        if ($this->variable){
+            //First EdfBoostLost kills the boost; every further one costs a hex of radius.
+            $hits = (int)$this->hasCritical("EdfBoostLost", $turn);
+            if ($hits < 1 && $this->getEdfBoostLevel($turn) > 0){
+                $radius += $this->boostRadiusBonus;
+            }
+            if ($hits > 1) $radius -= ($hits - 1);
+            return max(0, $radius);
+        }
+
+        /* ⚠️ THE FLOOR IS A FLOOR ON THE CRITICAL REDUCTION, NOT ON THE BLUEPRINT. A hull that
+           deliberately mounts a radius-0 fixed field must keep radius 0 - max(1, ...) alone would
+           silently promote it to a 7-hex field that nothing on the control sheet asked for. So the
+           floor is the SMALLER of the blueprint radius and MIN_RADIUS_FIXED: criticals can never
+           take a normal field below 1, and can never take a designed-small one above itself. */
+        $floor = min($this->radius, 1);
+        $radius -= (int)$this->hasCritical("EdfRadiusReduced", $turn);
+        return max($floor, $radius);
+    }
+
+    /* Destroyed, offlined by a critical, or switched off by its owner - all the same answer.
+       isDestroyed($turn-1), not isDestroyed($turn): a system killed THIS turn kept working
+       for this turn, which is the convention every other defensive system in the tree follows
+       (BaseShip::checkIsValidAffectingSystem). */
+    public function isEdfActive($turn = null){
+        if ($turn === null) $turn = TacGamedata::$currentTurn;
+        if ($this->isDestroyed($turn - 1)) return false;
+        if ($this->isOfflineOnTurn($turn)) return false;
+        return true;
+    }
+
+    /* ---------------------------------------------------------------- internals ------ */
+
+    /* Double-power boost, the same loop every boostable system in this file writes for itself
+       (Engine, Shield Generator, Trek Shield Projector). type 2 == a boost allocation. */
+    private function getEdfBoostLevel($turn){
+        $boostLevel = 0;
+        foreach ($this->power as $i){
+            if ($i->turn != $turn) continue;
+            if ($i->type == 2) $boostLevel += $i->amount;
+        }
+        return $boostLevel;
+    }
+
+    /* SpecialAbility, so a ship can be asked "do you project a field" without walking systems.
+       Returns radius + 1, so a crippled radius-0 field still reads as a truthy "yes". */
+    public function getSpecialAbilityValue($args){
+        $turn = (is_array($args) && isset($args["turn"]) && $args["turn"] !== null)
+              ? $args["turn"] : TacGamedata::$currentTurn;
+        if (!$this->isEdfActive($turn)) return 0;
+        return $this->getEdfRadius($turn) + 1;
+    }
+
+    /* ---------------------------------------------------------------- display -------- */
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+
+        $radius = $this->getEdfRadius($turn);
+        $hexes  = 1 + (3 * $radius * ($radius + 1)); //centred hex disc
+
+        $this->data["Field radius"] = $radius . ' hex' . ($radius == 1 ? '' : 'es')
+                                    . ' (' . $hexes . ' hexes covered)';
+        $this->data["Special"]  = "Projects an Energy Draining Field around this unit.";
+        $this->data["Special"] .= "<br>Every hex of field an enemy shot crosses is a -1 penalty to hit; doubled for Plasma and Antimatter weapons of young and middleborn races.";
+        $this->data["Special"] .= "<br>Overlapping fields are counted once - additional fields do not stack.";
+        $this->data["Special"] .= "<br>The rest of the projecting unit's own fleet is unaffected by it.";
+        if ($this->variable){
+            $this->data["Special"] .= "<br>Variable: allocating double power in the Ship Power segment extends the radius by "
+                                    . $this->boostRadiusBonus . ".";
+        }
+        $this->data["Special"] .= "<br>The field may be deactivated by its owner.";
+    }
+
+    /* TRAP 6 - CLIENT SYSTEM FIELDS ARE SHARED BY REFERENCE across same-phpclass instances.
+       A fixed field and a variable field on the same hull would otherwise share one $data
+       object and one $variable flag, and the second one built would win. Republishing all
+       three per instance is what keeps them apart; $data has to be republished anyway because
+       the radius is per-instance and moves with criticals.
+       ShipCompactor strips FALSE booleans from a blueprint (plan trap 8), so the client must
+       read `system.variable` as truthy/undefined and never as === false. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        $strippedSystem->data     = $this->data;
+        $strippedSystem->radius   = $this->radius;
+        $strippedSystem->variable = $this->variable;
+        /* The radius AFTER criticals and boost, for the map overlay. Published rather than
+           mirrored: the client would otherwise have to reimplement the crit ladder and the boost
+           lookup, and the two would drift the first time either changed. One number, no maths. */
+        $strippedSystem->effectiveRadius = $this->getEdfRadius();
+        return $strippedSystem;
+    }
+}
 ?>

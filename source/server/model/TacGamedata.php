@@ -37,6 +37,16 @@ class TacGamedata {
       cannot be cleared in markUnavailableSetMarkers() with the other markers, because that runs
       from onConstructed() - long after the sweep - and would wipe the answer.*/
     public static $cpdAdaptationPresent = false;
+    /*Energy Draining Field gate (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4) - the same idea as
+      $cpdAdaptationPresent above and adopted for the same reason: the EDF is one system on one
+      Ancient faction, but its targeting penalty has to be consulted by Weapon::calculateHitBase,
+      which every shot in every game passes through. A game with no field on the board pays for
+      one false static read per shot and nothing else.
+      ⚠️ Unlike $cpdAdaptationPresent this needs NO reset in DBManager: setEdfHexes() rebuilds the
+      whole map from scratch on every load and clears the flag at its top, so it is self-resetting
+      across the double gamedata load (plan trap 1) by construction. Do not add an accumulating
+      cache here without adding that reset.*/
+    public static $edfPresent = false;
     /*D15, second half: a FINISHED game drops every deception so the post-mortem shows what actually
       happened. Set from $this->status, read by applyChameleonDisguise() and maskChameleonArming().
       Deliberately NOT implemented by forcing the two gates above to false: maskChameleonFireOrders()
@@ -74,7 +84,42 @@ class TacGamedata {
        ⚠️ NULL, never array(), when there is nothing - an empty PHP array encodes as JSON `[]` and
        the client indexes this like an object. */
     public $cpdAdaptation = null;
+    /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4). Every hex covered by an
+       Energy Draining Field, as { "q,r": { "teams": { <teamId>: 1 } } }.
+
+       KEYED BY HEX, so overlapping fields collapse for free - which IS the rules' "overlapping
+       hexes are only counted once", rather than a special case bolted on afterwards. "teams"
+       records which teams project into the hex, which is what turns "the rest of the fleet of
+       the ship deploying the EDF is immune" into a single array lookup instead of a per-shot
+       distance sweep over every field source in the game.
+
+       NOT PER-VIEWER, exactly like blockedHexes, and that is correct - an EDF is a visible
+       phenomenon (D5: no Walker hull can conceal itself, so a concealed ship cannot disclose
+       itself through its own field).
+       ⚠️ That is a property of the FLEET, not of this design. The day an EDF reaches a hull that
+       CAN conceal itself - a refit, a custom hull, a `whatif` pack - this map discloses its
+       position to every viewer, silently and with no error anywhere. The answer then is "a
+       concealed ship projects no field", and the guard belongs in setEdfHexes() beside the
+       isReinforcement() one it already carries.
+
+       ⚠️ NULL, never array(), when there is nothing - an empty PHP array encodes as JSON `[]`
+       and the client indexes this like an object (plan trap 9). setEdfHexes() enforces that.
+       ⚠️ A new gamedata-LEVEL field reaches the client ONLY if gamedata.js parseServerData()
+       copies it BY NAME. Publishing it here is half the job; see arch_gamedata_named_key_copy,
+       and section 3.4's record of the day the whole CPD client half was dead for that reason. */
+    public $edfHexes = null;
+    /* Walkers of Sigma-957 (Stage 4c): WHICH unit projects the field over each hex - "q,r" =>
+       array(shipId => team). The twin of $edfHexes above, built in the same loop, and the ONLY
+       thing that can answer "who is draining this ship" once $edfHexes has collapsed its own
+       sources into a team set.
+
+       ⚠️⚠️ SERVER-SIDE ONLY. It is deliberately NOT copied in stripForJson(): $edfHexes already
+       tells a viewer that SOME enemy field covers a hex, which is all the targeting penalty
+       needs, while this names the hull - and a Walker sitting outside anybody's scanner range
+       would be announced by its own field's footprint. EdfExposure is the only reader. */
+    public $edfSources = null;
     public $isStealthPresent = false;
+
     public $areMinesPresent = false; //Marks that ENEMY mines are present.
     
     
@@ -201,6 +246,11 @@ class TacGamedata {
         $strippedGamedata->forPlayer = $this->forPlayer;
         $strippedGamedata->blockedHexes = $this->blockedHexes;
         if ($this->cpdAdaptation !== null) $strippedGamedata->cpdAdaptation = $this->cpdAdaptation;
+        /* Walkers of Sigma-957 (Stage 4). Published only when there IS a field: null rather than
+           an empty array, because an empty PHP array encodes as JSON `[]` and the client indexes
+           this like an object (plan trap 9). ⚠️ gamedata.js parseServerData() must copy this key
+           BY NAME or the whole client half is silently dead - see arch_gamedata_named_key_copy. */
+        if ($this->edfHexes !== null) $strippedGamedata->edfHexes = $this->edfHexes;
         $strippedGamedata->isStealthPresent = $this->isStealthPresent;
         $strippedGamedata->areMinesPresent = $this->areMinesPresent;        
 
@@ -212,6 +262,12 @@ class TacGamedata {
         self::$currentGameFinished = $this->isGameOver(); //post-mortem discloses private logistics (ammo loads, hangar contents)
         $this->setChameleonTeamList();
         $this->setBlockedHexes();
+        /* Walkers of Sigma-957 (Stage 4): the EDF hex map, built the same way and in the same place
+           as blockedHexes above, and for the same reason - the targeting penalty has to be mirrored
+           to the point by the client, and map-once/publish-once is what keeps the two in step.
+           Self-gating: it clears TacGamedata::$edfPresent and rebuilds from scratch, so the double
+           gamedata load in one request cannot double-count (plan trap 1). */
+        $this->setEdfHexes();
         /* Chromatic Pulse Driver adaptation, for the client's hit-chance mirror. Safe here and
            only here: getTacShips() -> getSystemDataForShips() has already reset the registry and
            replayed every CPDSCAN note into it, and this runs before stripForJson().
@@ -2055,6 +2111,183 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
 
         $this->blockedHexes = $blockedHexes;
     } //endof function setBlockedHexes    
+
+    /**
+     * Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4) - build $edfHexes.
+     *
+     * Deliberately the same shape, the same lifecycle and the same call site as
+     * setBlockedHexes() above: computed once per gamedata load in onConstructed(), published
+     * whole in stripForJson(), not per-viewer. blockedHexes has proved that map-once /
+     * publish-once stays in sync with the client, and the EDF needs exactly that because the
+     * targeting penalty has to be mirrored to the point.
+     *
+     * WHY A MAP AND NOT PER-SHIP DISTANCE CHECKS: the penalty is evaluated for every fire order
+     * in the game and the client has to reproduce it exactly. A hex-keyed map also makes
+     * "overlapping hexes are only counted once" and "additional fields do not stack" structural
+     * rather than special cases.
+     *
+     * ⚠️ THREE EXCLUSIONS, each of which is a bug if dropped:
+     *   - a DESTROYED unit projects nothing;
+     *   - a unit still in HYPERSPACE projects nothing (isReinforcement()) - the same leak
+     *     setBlockedHexes() guards against, and worse here, because this map is published to
+     *     every viewer and would announce a reinforcement's arrival box a turn early;
+     *   - a unit with no position yet (lobby / initialisation) is skipped.
+     *
+     * ⚠️ The result is NULL, never array(), when nothing projects: an empty PHP array encodes as
+     * JSON `[]` and the client indexes this like an object (plan trap 9).
+     */
+    public function setEdfHexes() {
+        $this->edfHexes = null;
+        $this->edfSources = null;
+        self::$edfPresent = false;      //self-resetting across the double gamedata load - see the static
+
+        $edfHexes = array();
+        $edfSources = array();          //server-side only - see the property
+
+        try {
+            foreach ($this->ships as $ship){
+                /* ⚠️ THE SYSTEM SWEEP COMES FIRST AND EVERY OTHER QUESTION IS DEFERRED BEHIND IT.
+                   This method runs on every gamedata load of every game, and in all but a handful
+                   of them NOTHING implements EdfSource. `instanceof` is the cheapest question
+                   available here; getHexPos(), isDestroyed() and isReinforcement() are not, and
+                   none of them is worth asking of a ship that projects no field. Same three
+                   exclusions as before - just not paid for by the whole fleet. */
+                $sources = array();
+                foreach ($ship->systems as $system){
+                    if ($system instanceof EdfSource) $sources[] = $system;
+                }
+                if (empty($sources)) continue;
+
+                if ($ship->isDestroyed()) continue;
+                if ($ship->isReinforcement()) continue;   //still in hyperspace - projects nothing, reveals nothing
+
+                $team = isset($ship->team) ? (int)$ship->team : null;
+                if ($team === null) continue;
+
+                $position = $ship->getHexPos();
+                if (!$position) continue;                 //no position yet (lobby / initialisation)
+
+                foreach ($sources as $system){
+                    if (!$system->isEdfActive($this->turn)) continue;
+
+                    $radius = (int)$system->getEdfRadius($this->turn);
+                    if ($radius < 0) continue;
+
+                    //the source's own hex is always in the field, even at radius 0
+                    self::addEdfHex($edfHexes, $edfSources, $position->q, $position->r, $team, $ship->id);
+
+                    if ($radius > 0){
+                        foreach (Mathlib::getNeighbouringHexes($position, $radius) as $hex){
+                            self::addEdfHex($edfHexes, $edfSources, $hex['q'], $hex['r'], $team, $ship->id);
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Ignore exceptions during field calculation (e.g. in Lobby) - same contract as setBlockedHexes()
+        }
+
+        if (empty($edfHexes)) return;                     //stays null, NOT array() - plan trap 9
+
+        $this->edfHexes = $edfHexes;
+        $this->edfSources = $edfSources;
+        self::$edfPresent = true;
+    } //endof function setEdfHexes
+
+    /* One hex of one team's field. Keyed "q,r" so a hex covered by three fields is one entry,
+       and $teams is a SET (teamId => 1) so a team covering it twice is still one member.
+       $edfSources records the same hex the other way round - shipId => team - so the drain
+       resolver can name the hull doing the draining. Two flat maps rather than one nested one
+       because only the first is published. */
+    private static function addEdfHex(&$edfHexes, &$edfSources, $q, $r, $team, $shipId){
+        $key = $q . ',' . $r;
+        if (!isset($edfHexes[$key])) $edfHexes[$key] = array('teams' => array());
+        $edfHexes[$key]['teams'][$team] = 1;
+
+        if (!isset($edfSources[$key])) $edfSources[$key] = array();
+        $edfSources[$key][(int)$shipId] = $team;
+    }
+
+    /* Walkers of Sigma-957 (Stage 4c): the unit whose Energy Draining Field is draining $victim
+       where it stands - the first source over that hex that is NOT on the victim's own team.
+       Returns null when nothing qualifies (no map, no entry, or a hex covered only by the
+       victim's own fleet, which is the case EdfExposure::resolve already skips).
+       ⚠️ Deliberately answers with ONE ship even where three fields overlap: "additional fields
+       do not provide cumulative modifiers", so the drain has exactly one author. */
+    public function getEdfSourceShip($pos, $victim){
+        if (empty($this->edfSources) || !$pos) return null;
+
+        $key = $pos->q . ',' . $pos->r;
+        if (!isset($this->edfSources[$key])) return null;
+
+        $victimTeam = isset($victim->team) ? (int)$victim->team : null;
+        foreach ($this->edfSources[$key] as $shipId => $team){
+            if ($victimTeam !== null && (int)$team === $victimTeam) continue;
+            $source = $this->getShipById($shipId);
+            if ($source) return $source;
+        }
+        return null;
+    }
+
+    /**
+     * The EDF targeting penalty for a shot: how many hexes of SOMEBODY ELSE'S field lie BETWEEN
+     * $fromPos and $toPos. Both ends are OffsetCoordinates.
+     *
+     * ⚠️⚠️ INTERVENING HEXES ONLY - THE SHOOTER'S OWN HEX AND THE TARGET'S ARE NOT COUNTED
+     * (user ruling, 2026-09-04). The shot is drained by the field it has to cross, not by the
+     * field the two ends happen to be standing in, so a Walker shooting out of its own field
+     * pays nothing for the hex it occupies and a target sitting in one is not penalised twice
+     * over for it. HexZone::line() returns i = 0 .. steps, i.e. BOTH endpoints, so the loop
+     * skips the first and last entries; adjacent and same-hex shots therefore cross nothing.
+     *
+     * The single authority for the server half; Weapon::calculateHitBase calls it and the
+     * client mirrors it in weaponManager.getEdfPenaltyHexes(). Returns a raw HEX COUNT: it is
+     * -1 to hit per hex for EVERYBODY, and what young/middleborn Plasma and Antimatter do with
+     * the same count on top of that is the WEAPON's business (Weapon::getEdfRangeBonus), because
+     * only the weapon knows its class and its shooter's factionAge.
+     *
+     * "Somebody else's" is the shooter's team, per the rules' "the rest of the fleet of the ship
+     * deploying the EDF is immune" - so an allied field is free to shoot through and an enemy's
+     * is not, whoever is standing in it.
+     *
+     * ⚠️ Gated by the caller on self::$edfPresent. The empty test here is a second line of
+     * defence, not the gate.
+     */
+    public function getEdfPenaltyHexes($fromPos, $toPos, $shooterTeam) {
+        if (empty($this->edfHexes)) return 0;
+        if ($fromPos === null || $toPos === null) return 0;
+
+        $shooterTeam = ($shooterTeam === null) ? null : (int)$shooterTeam;
+        $count = 0;
+
+        $line = HexZone::line($fromPos, $toPos);
+        $last = count($line) - 1;
+        for ($i = 1; $i < $last; $i++){          //INTERVENING ONLY - endpoints deliberately skipped
+            $hex = $line[$i];
+            $key = $hex->q . ',' . $hex->r;
+            if (!isset($this->edfHexes[$key])) continue;
+            $teams = $this->edfHexes[$key]['teams'];
+            //own-fleet immunity: a hex covered ONLY by the shooter's own team is free
+            if ($shooterTeam !== null && count($teams) == 1 && isset($teams[$shooterTeam])) continue;
+            $count++;
+        }
+        return $count;
+    } //endof function getEdfPenaltyHexes
+
+    /* Is this hex covered by ANY Energy Draining Field? (WALKERS_OF_SIGMA_PLAN.md 2.1.)
+       ⚠️ Deliberately team-blind, unlike getEdfPenaltyHexes() above. The own-fleet exemption is
+       about who the field is aimed AT; the two rules that use this one are about the field
+       dampening an explosion, which is a property of the hex:
+         - flash weapons score no collateral damage against a target inside a field;
+         - proximity weapons landing in a field hex lose their blast radius.
+       The rules stress that both apply to advanced-race weapons as well, i.e. no exemptions.
+       Callers gate on TacGamedata::$edfPresent; the empty test here is a second line of defence. */
+    public function isHexInEdfField($pos) {
+        if (empty($this->edfHexes)) return false;
+        if ($pos === null) return false;
+        return isset($this->edfHexes[$pos->q . ',' . $pos->r]);
+    }
+
 
     
     public function getEnormousHexes() {

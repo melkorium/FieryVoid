@@ -12,6 +12,20 @@ window.ShipIcon = function () {
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
     THRUSTER_TEXTURE.colorSpace = THREE.SRGBColorSpace;
 
+    /* ⚠️ THE ENERGY DRAINING FIELD DISC HOLDS AN ABSOLUTE WORLD z, NOT A LOCAL ONE (user report,
+       2026-09-04: the field was tinting the EW lines that crossed it).
+
+       It is a CHILD of the ship's mesh - it has to be, so it follows the hull around the board -
+       and that mesh climbs the z ladder as the icon is selected (baseZ + 100) or hovered
+       (baseZ + 499). A local z would ride up with it and put a translucent purple wash over
+       everything below. The EW lines are drawn straight into the scene at z -5
+       (EWIconContainer's LineSprite), so the disc is pinned below that and above the hex grid
+       at -500: updateEdfFieldZ() subtracts the parent's z every time the parent's z moves.
+
+       ⭐ Generalises to any standing overlay that belongs to the BOARD rather than to the icon
+       carrying it: parent it for position, but compensate the parent's z. */
+    var EDF_FIELD_Z = -20;
+
     function ShipIcon(ship, scene) {
 
         this.shipId = ship.id;
@@ -309,6 +323,7 @@ window.ShipIcon = function () {
                 this.shipDirectionOfMovementSprite.hide();
             }
         }
+        this.updateEdfFieldZ(); //the icon's z just moved - hold the field disc where it was
         //this.selected = value; //Removed when I added code for mobile browsers to show direction sprites.        
     };
 
@@ -337,6 +352,7 @@ window.ShipIcon = function () {
                 }
             }
         }
+        this.updateEdfFieldZ(); //the icon's z just moved - hold the field disc where it was
         this.selected = value;
     };
 
@@ -1959,6 +1975,82 @@ window.ShipIcon = function () {
         }, this);
 
         this.shipHexagonSpritesMap.clear();
+    };
+
+    /* ---- Energy Draining Field overlay ---------------------------------------------------------
+       WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4). A translucent disc around a
+       unit projecting an Energy Draining Field, so the thing that is costing everyone a to-hit
+       penalty and draining their thrust is actually visible on the map.
+
+       ⚠️ NOT drawn from gamedata.edfHexes. That map is COLLAPSED by hex and by team - it is built
+       for the penalty arithmetic and cannot say which source a hex came from - so drawing from it
+       would fuse two overlapping fields into one shapeless blob with no border between them. Each
+       source draws its own disc; where two overlap the fills compound, which reads correctly.
+
+       ⚠️ The radius comes off the SYSTEM as effectiveRadius, published by the server after
+       criticals and boost. Do not recompute it here: mirroring the crit ladder would be a second
+       implementation of a rule that changes.
+
+       Standing, not hover-only: an EDF is a persistent feature of the board, unlike a weapon arc.
+       One overlay per icon.
+
+       ⭐⭐ RETURNS TRUE ONLY WHEN IT ACTUALLY REDREW, AND REDRAWS ONLY WHEN SOMETHING CHANGED
+       (user, 2026-09-04: "gate the expensive processes"). syncAllEdfFields runs on EVERY poll of
+       the game, and buildHexRegion sweeps the whole range-N square and builds fresh geometry
+       every time it is called - at radius 8 that is 289 hex tests, a new BufferGeometry and a
+       disposal, for a disc pixel-identical to the one already on screen. A disc is fully
+       described by its RADIUS and the HEX it is anchored on, so those two are the cache key.
+       ⚠️ The return value is also what stops a standing field waking the idle-gated render loop
+       on every poll (trap 10 in reverse): requestRender is for changes, and nothing changed. */
+    ShipIcon.prototype.showEdfField = function (radius, color, opacity) {
+        radius = Math.floor(radius);
+        if (isNaN(radius) || radius < 0) return this.removeEdfField();
+
+        //Anchored on the hex rather than on the sprite - the icon is nudged off centre in a
+        //stacked hex and sits between hexes mid-animation. Resolved before the cache test
+        //because the hex it lands on is half of the key.
+        var anchor = getHexAnchor(this);
+        var key = radius + '@' + Math.round(anchor.centre.x) + ',' + Math.round(anchor.centre.y);
+        if (this.edfFieldSprite && this.edfFieldKey === key) return false; //identical disc already up
+
+        this.removeEdfField();
+
+        var hexDistance = window.coordinateConverter.getHexDistance();
+        //A full disc: every hex within range is in, the projecting unit's own hex included.
+        var loops = buildHexRegion(radius, hexDistance, function () { return true; });
+        if (!loops.length) return false;
+
+        if (color == null) color = new THREE.Color(0.55, 0.15, 0.75).convertSRGBToLinear();
+        if (opacity == null) opacity = 0.1; //it can cover a lot of board - keep it faint
+
+        //Border at a higher opacity than the fill so the edge of the field is readable at a glance,
+        //which is the number that actually matters when plotting a course around it.
+        var hexagon = buildRegionOverlay(loops, color, opacity, color, 0.55);
+
+        //Measured in hexes, so grid-locked (see normaliseGridLockedChildren).
+        addGridLockedOverlay(this.mesh, hexagon, anchor.offset);
+        this.edfFieldSprite = hexagon;
+        this.edfFieldKey = key;
+        this.updateEdfFieldZ();
+        return true;
+    };
+
+    /* Hold the disc at EDF_FIELD_Z in WORLD space however the parent icon rises - see the
+       constant. Called from showEdfField and from both places that move the icon's z.
+       normaliseGridLockedChildren only ever touches x, y and scale, so this is not fighting it. */
+    ShipIcon.prototype.updateEdfFieldZ = function () {
+        if (!this.edfFieldSprite) return;
+        this.edfFieldSprite.position.z = EDF_FIELD_Z - this.mesh.position.z;
+    };
+
+    /* Returns whether it removed anything, so callers can tell a real change from a no-op. */
+    ShipIcon.prototype.removeEdfField = function () {
+        if (!this.edfFieldSprite) return false;
+        this.mesh.remove(this.edfFieldSprite);
+        disposeOverlay(this.edfFieldSprite);
+        this.edfFieldSprite = null;
+        this.edfFieldKey = null;
+        return true;
     };
 
     ShipIcon.prototype.positionAndFaceIcon = function (offset) {

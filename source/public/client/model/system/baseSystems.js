@@ -4245,3 +4245,36 @@ CoopStructureSelfRepair.prototype.constructor = CoopStructureSelfRepair;
    No client-side additions needed — cooperative repair logic runs entirely server-side
    in criticalPhaseEffects. The UI (StructureSelfRepairList) works unchanged since
    SystemInfoButtons checks for both names. */
+
+
+/* =======================================================================================
+   WALKERS OF SIGMA-957 - ENERGY DRAINING FIELD (WALKERS_OF_SIGMA_PLAN.md 2.1 + 3.5, Stage 4)
+   Server twin: EnergyDrainingField in server/model/systems/baseSystems.php.
+
+   IT LIVES HERE, NOT IN A WALKER FILE, deliberately. SystemFactory builds every system with
+   `new window[name]`, so this class has to be defined by the time a Traveler is constructed -
+   and baseSystems.js is the FIRST model file both game.php and gamelobby.php load. The
+   Chromatic Pulse Driver had to go into pulse.js for the mirror-image reason (section 3.4);
+   keeping each pair in matching files is what stops that class of load-order bug.
+
+   The field's arithmetic is entirely server-side and published: the radius, the hex map
+   (gamedata.edfHexes) and the tooltip all arrive on the payload. This class exists so the
+   factory has something to build and so the two per-instance scalars survive.
+   ⚠️ ShipCompactor strips FALSE booleans out of a blueprint (plan trap 8), so `this.variable`
+   arrives as UNDEFINED on a fixed field, never as false. Read it as truthy - never `=== false`.
+   ======================================================================================= */
+var EnergyDrainingField = function EnergyDrainingField(json, ship) {
+	ShipSystem.call(this, json, ship);
+	/* Trap 6 - client system fields are shared by reference across same-phpclass instances.
+	   A hull mounting a fixed AND a variable field would otherwise show one tooltip on both.
+	   The server republishes data/radius/variable per instance; this clone keeps a later
+	   client-side edit of one field's tooltip from bleeding onto the other. */
+	this.data = Object.assign({}, this.data);
+};
+EnergyDrainingField.prototype = Object.create(ShipSystem.prototype);
+EnergyDrainingField.prototype.constructor = EnergyDrainingField;
+
+/* Only a variable field offers the double-power boost. maxBoostLevel rides the blueprint. */
+EnergyDrainingField.prototype.hasMaxBoost = function () {
+	return (this.variable ? this.maxBoostLevel > 0 : false);
+};

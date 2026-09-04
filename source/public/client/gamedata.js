@@ -34,6 +34,11 @@ window.gamedata = {
        aggregators test, so an ordinary game costs one property read per hit-chance preview.
        Read by cpdApplyShieldAdaptation() in model/ship.js. */
     cpdAdaptation: null,
+    /* Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 2.1, Stage 4) - every hex covered by an
+       Energy Draining Field, as { "q,r": { teams: { <teamId>: 1 } } }. NULL when no field is on
+       the board, which is also the gate: an ordinary game costs one property read per hit-chance
+       preview. Read by weaponManager.getEdfPenaltyHexes(). */
+    edfHexes: null,
     identityReloadPending: false, //Chameleon Sensor Suite (D14) - a reveal has forced a page reload
 
     mouseOverShipId: -1,
@@ -2711,6 +2716,11 @@ getActiveShipName: function getActiveShipName() {
            and this is indexed by team id), so leaving the previous poll's value in place would
            keep a replay stepping back to a turn before the first scan reading adapted shields. */
         gamedata.cpdAdaptation = serverdata.cpdAdaptation || null;
+        /* Walkers of Sigma-957 (Stage 4) - the SAME named-key rule as cpdAdaptation above, and
+           the same failure if it is forgotten: the server would apply the EDF targeting penalty
+           and the client would preview without it. Assign unconditionally and normalise to null,
+           because the server omits the key when there is no field (trap 9). */
+        gamedata.edfHexes = serverdata.edfHexes || null;
 
         shipManager.initiated = 0;
 

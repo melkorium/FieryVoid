@@ -23,6 +23,9 @@
  *   out : applyToShieldBucket() below, called from the four places that aggregate a unit's
  *         defensive systems - BaseShip::getHitChanceMod / getDamageMod (ShipClasses.php) and
  *         FighterFlight's two redefinitions - plus the client mirror in model/ship.js.
+ *         AND applyToCapacity(), for the shields that hold a POOL instead of a modifier
+ *         (Thirdspace Shield, Thought Shield, both Trek Shield Projections) - reached through
+ *         Shield::getCapacityAgainstShooter() from their doesProtectFromDamage()/doProtect().
  *
  * ⚠️⚠️ THIS IS A PER-LOAD STATIC AND MUST BE RESET PER LOAD. One request loads gamedata more than
  * once (Manager::advanceGameState loads, then the phase's advance() loads again), and without a
@@ -144,6 +147,38 @@ class CpdScanRegistry
 
         $affectingSystems[self::SHIELD_TYPE] = max(0, $affectingSystems[self::SHIELD_TYPE] - $points);
         return $affectingSystems;
+    }
+
+    /**
+     * The SAME rule, in the currency of a CAPACITY-POOL shield.
+     *
+     * Thirdspace Shields, Thought Shields and Trek Shield Projections are all `getDefensiveType()
+     * === "Shield"` - so a scanning hit banks a point off them and they carry the marker - but
+     * their getDefensiveHitChangeMod / getDefensiveDamageMod are hard 0 (a Thought Shield's is
+     * non-zero only while EM-reinforced). They do not reduce a shot's profile or its damage; they
+     * hold a POOL and absorb out of it. So applyToShieldBucket() above lands on nothing for them
+     * and the scan had no effect at all - which is the gap this closes (user, 2026-09-04):
+     * against an adapted fleet the pool's last $points are unspendable.
+     *
+     * ⚠️ COMPUTED PER SHOT, NEVER STORED. This is not damage: it writes no DamageEntry, so the
+     * pool regenerates from its real remaining health as usual and reads at FULL strength against
+     * every fleet that has not analysed the race. Two fleets with different adaptation shooting
+     * the same shield in the same turn each see their own number, which is the point.
+     *
+     * $target is the unit being shot at; $shooter is whoever is shooting. Either may be null or
+     * team-less (terrain, mines, unslotted units), in which case nothing happens.
+     */
+    public static function applyToCapacity($capacity, $target, $shooter){
+        if (empty(self::$adaptation)) return $capacity;                     //free for every ordinary game
+        if ($capacity <= 0) return $capacity;
+
+        $team    = ($shooter !== null && isset($shooter->team))    ? $shooter->team    : null;
+        $faction = ($target  !== null && isset($target->faction))  ? $target->faction  : null;
+
+        $points = self::get($team, $faction);
+        if ($points <= 0) return $capacity;
+
+        return max(0, $capacity - $points);
     }
 
     /* Is this system one of the shield-type defensive systems the reduction lands on?

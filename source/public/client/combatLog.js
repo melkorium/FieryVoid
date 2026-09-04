@@ -22,6 +22,33 @@ window.combatLog = {
     // can otherwise be thirty lines and push every other entry off a 150px panel.
     COLLAPSE_ROWS_OVER: 4,
 
+    /* ⭐ SERVER-AUTHORED pubnotes CANNOT COLOUR A SHIP NAME, BECAUSE THE COLOUR IS PER-VIEWER.
+       gamedata.getShipLogColorCss answers in the READER's terms - green for mine, blue for an
+       ally, red for an enemy in a 2-team game, the absolute team palette for an observer - and
+       the server has no idea who is reading. So a handler that wants a unit named in a pubnotes
+       row (EdfExposure is the first) emits a BARE link span:
+
+           <span class="shiplink" data-id="123">Traveler</span>
+
+       and this fills the style in on the way to the DOM, exactly as the FIRE:/at <target> parts
+       of an ordinary entry are coloured. The inline style wins over `#log .shiplink`'s flat
+       #deebff, and the span joins the same markup the panel already treats as a ship name (the
+       collapse handler skips clicks on it, and it is what a real link handler would hook).
+
+       ⚠️ Cheap by design - one indexOf on notes that already exist, and no work at all for the
+       overwhelming majority of pubnotes, which name no ship. An unknown id is left exactly as
+       it came so a stale note can never blank a name. */
+    colourShipLinksInNotes: function colourShipLinksInNotes(notes) {
+        if (!notes || notes.indexOf('shiplink') === -1) return notes;
+
+        return notes.replace(/<span class="shiplink" data-id="(\d+)">/g, function (whole, id) {
+            var linked = gamedata.getShip(parseInt(id, 10));
+            if (!linked) return whole;
+            return '<span class="shiplink" data-id="' + id + '" style="'
+                 + gamedata.getShipLogColorCss(linked) + '">';
+        });
+    },
+
     PREF_KEY: 'fv.combatLog.view',
 
     // Clears the LIVE replay stream only (#logLive). The printed log (#LogActual) owns its
@@ -82,6 +109,48 @@ window.combatLog = {
         if (!ship) return '';
         var m = /color\s*:\s*([^;]+)/.exec(gamedata.getShipLogColorCss(ship));
         return m ? 'border-left-color:' + m[1] + ';' : '';
+    },
+
+    /* The craft an Energy Draining Field dropped out of `target` THIS turn, as coloured name
+       spans ready for the log's fighter row. Empty for every order that is not a drain report,
+       and for every game without a Walker in it, which is what keeps it free.
+
+       ⚠️ `crit.turn == fire.turn` EXACTLY, not shipManager.criticals.hasCriticalOnTurn: a
+       DisengagedFighter is PERMANENT (turnend 0) and that helper's test is `crit.turn <= turn`,
+       so it answers true for every turn after the craft left - which would re-list the same
+       fighters under every later drain report.
+
+       ⚠️ Deduped through combatLog.critsShown, the same tracker the damage path uses, so a craft
+       that dropped out under fire is never also claimed by the field (and vice versa - whichever
+       entry renders first wins). The two cannot overlap today, because
+       EdfExposure::rollDropouts skips a craft already destroyed or disengaged, but entries are
+       printed in sort order and the guard costs one array lookup. */
+    getEdfDropoutNames: function getEdfDropoutNames(fire, target) {
+        if (!fire || fire.damageclass !== 'EdfExposure') return [];
+        if (!target || !target.systems) return [];
+        if (!target.flight && !(target.flightSize > 0)) return [];
+
+        var names = [];
+        for (var i in target.systems) {
+            var craft = target.systems[i];
+            if (!craft || !craft.criticals) continue;
+            if (combatLog.critsShown[target.id]?.includes(craft.id)) continue;
+
+            var dropped = false;
+            for (var c in craft.criticals) {
+                var crit = craft.criticals[c];
+                if (crit.phpclass === 'DisengagedFighter' && Number(crit.turn) === Number(fire.turn)) {
+                    dropped = true;
+                    break;
+                }
+            }
+            if (!dropped) continue;
+
+            names.push('<span class="critical">' + shipManager.systems.getDisplayName(craft) + '</span>');
+            if (!combatLog.critsShown[target.id]) combatLog.critsShown[target.id] = [];
+            combatLog.critsShown[target.id].push(craft.id);
+        }
+        return names;
     },
 
     // damageIndex is optional: showLog builds one for the whole printed log so each order is a
@@ -277,7 +346,7 @@ window.combatLog = {
         }
 
         var notestext = "";
-        if (notes) notestext = '<span class="pubotes">' + notes + '</span>';
+        if (notes) notestext = '<span class="pubotes">' + combatLog.colourShipLinksInNotes(notes) + '</span>';
 
         var shortText = false;
         if (weaponManager.doShortLogText(fire, ship)) shortText = true;
@@ -482,6 +551,22 @@ window.combatLog = {
             }
 
             damageList += "</ul>";
+        }
+
+        /* Walkers of Sigma-957 (Stage 4d): an Energy Draining Field dropout leaves NO damage
+           entry behind - the craft is disengaged by a critical alone - so the loop above never
+           sees it and the flight's losses would only ever be the count inside the drain
+           sentence. Emit the same "Fighters disengaged / destroyed:" row a dropout from gunfire
+           gets, so the two read identically wherever a player looks for them. */
+        var edfDropouts = combatLog.getEdfDropoutNames(orders[0], target);
+        if (edfDropouts.length > 0) {
+            var edfRow = '<li> Fighters disengaged / destroyed: ' + edfDropouts.join(', ') + '</li>';
+            //The damage loop above opens its own <ul> only when there ARE damages, which for a
+            //drain report there never are - so open one here when it did not.
+            damageList = damageList
+                ? damageList.replace(/<\/ul>$/, edfRow + '</ul>')
+                : '<ul>' + edfRow + '</ul>';
+            damageRows++;
         }
 
         var entryClass = 'logentry fire-' + orders[0].id;
