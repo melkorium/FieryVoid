@@ -13,7 +13,7 @@ class Traveler extends BaseShip{
 	    $this->isd = 'Ancient';
         $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		//$this->variantOf = "NONE";
+		$this->variantOf = "NONE";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  
@@ -31,7 +31,7 @@ class Traveler extends BaseShip{
 		$this->fighters = array("Mapmaker Probes"=>36);
 
 		/*Walkers will use their own enhancement set */		
-		//Enhancements::nonstandardEnhancementSet($this, 'Walkers');
+		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');
 		
          
 		$this->addPrimarySystem(new Reactor(7, 30, 0, 0));//armor, structure, power req, output
@@ -61,7 +61,7 @@ class Traveler extends BaseShip{
 		//STAGE 4: Energy Draining Field. Args are (armour, maxhealth, powerReq, radius, variable);
 		//0 for health/power and null for radius take the class defaults, which are PLACEHOLDER
 		//values in baseSystems.php until the control sheet lands (D4). Fixed field, not variable.
-		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
+		$this->addAftSystem(new EnergyDrainingField(6, 0, 0, 2, true));
 
 
 		$this->addLeftSystem(new GraviticThruster(6, 30, 0, 8, 3));
