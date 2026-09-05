@@ -16934,12 +16934,21 @@ class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSourc
     public $primary = true;
 
     public $canOffLine = true;   //"the player may deactivate the field"
-    public $boostEfficiency = 0; //double power, not a fractional cost
+    public $boostEfficiency = 0; //OVERWRITTEN in the ctor with $powerReq - see the note there
     public $maxBoostLevel = 1;   //one step only: normal radius or boosted radius
 
     /* Blueprint values. $radius is the NORMAL-power radius; getEdfRadius() derives the rest.
-       Public because the EDF Range enhancement (SYS_EDFR, Stage 5) raises $radius and the
-       client tooltip reads it - see stripForJson() below. */
+
+       ALL THREE ARE PUBLIC AND TWO OF THEM MOVE TOGETHER UNDER THE EDF_RANGE ENHANCEMENT
+       (Stage 5, Enhancements::setEnhancementsShip). $radius goes UP by the number of levels
+       bought and $boostRadiusBonus comes DOWN by the same number, floored at 0, because the
+       rules let a variable field buy normal-power radius and explicitly do NOT let it move the
+       double-power one: "a vessel with a Variable Energy Draining Field may only increase the
+       radius of the normal-power field, and does not change the radius of the double-power
+       field". Spending the bonus down is what makes that true with no second stored number -
+       see getEdfBoostedRadius() below, which is the one place that arithmetic is written.
+       ⚠️ Which is also why nothing may hard-code the +3: the client's initializationUpdate did,
+       and would have shown a refitted field a boosted radius it does not have. */
     public $radius = 5;
     public $variable = false;
     public $boostRadiusBonus = 3;
@@ -16958,6 +16967,15 @@ class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSourc
 
         $this->radius   = (int)$radius;
         $this->variable = (bool)$variable;
+
+        /* ⚠️ DOUBLE POWER, AND IT HAS TO BE SET FROM $powerReq RATHER THAN DECLARED.
+           boostEfficiency is the EXTRA power ONE boost level costs (power.js
+           countBoostReqPower / countBoostPowerUsed multiply by it), so a field that wants to
+           cost twice as much when boosted must carry its own requirement as its efficiency.
+           The declared 0 above meant the boosted radius was FREE, which is neither what the
+           rules say nor what the class comment claimed - and there is no blueprint constant to
+           write it as, because $powerReq is a ctor argument. */
+        $this->boostEfficiency = (int)$powerReq;
 
         /* ⚠️ ADDSYSTEM SECTION-ARC TRAP (arch_addsystem_section_arc_trap): a system whose arcs
            are BOTH 0 has the section's arc stamped onto it by addSystem(), so an EDF mounted aft
@@ -17010,6 +17028,27 @@ class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSourc
         return max($floor, $radius);
     }
 
+    /* The radius DOUBLE POWER buys, after criticals. The one place the boost arithmetic is
+       written down; getEdfRadius() above answers the same question for the CURRENT allocation,
+       this one answers "what would boosting be worth", which is what the tooltip and the SCS
+       icon need before the player has allocated anything.
+
+       ⭐ EDF_RANGE DOES NOT MOVE THIS NUMBER, and that is the whole point of spending
+       $boostRadiusBonus down as $radius goes up (see the property block above). Once the bonus
+       reaches 0 this equals the normal radius, i.e. the refit has bought the normal-power field
+       all the way up to the double-power one and double power buys nothing further. That is the
+       rules' intent, not a degenerate case.
+
+       ⚠️ A single EdfBoostLost critical takes the boost away entirely, so from that point on the
+       crit ladder in getEdfRadius() IS the answer and this must not add anything back. */
+    public function getEdfBoostedRadius($turn = null){
+        if ($turn === null) $turn = TacGamedata::$currentTurn;
+        if (!$this->isEdfActive($turn)) return 0;
+        if (!$this->variable) return $this->getEdfRadius($turn);
+        if ((int)$this->hasCritical("EdfBoostLost", $turn) >= 1) return $this->getEdfRadius($turn);
+        return max(0, $this->radius + $this->boostRadiusBonus);
+    }
+
     /* Destroyed, offlined by a critical, or switched off by its owner - all the same answer.
        isDestroyed($turn-1), not isDestroyed($turn): a system killed THIS turn kept working
        for this turn, which is the convention every other defensive system in the tree follows
@@ -17048,20 +17087,39 @@ class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSourc
     public function setSystemDataWindow($turn){
         parent::setSystemDataWindow($turn);
 
+        /* ⭐ EVERY NUMBER IN THIS TOOLTIP LIVES IN ITS OWN data KEY, AND THE PROSE CARRIES NONE.
+           The Extended Draining Field refit (EDF_RANGE) is bought in the LOBBY, where there is no
+           server round trip and the blueprint's data was baked long before the purchase - so the
+           lobby has to rewrite these entries itself. Rewriting one short numeric line is a
+           one-line mirror; re-deriving a number out of the middle of a four-sentence paragraph is
+           the kind of mirror that rots. Keep the numbers out of "Special".
+           ⚠️ MIRROR PAIR with lobbyEnhancements.syncEdfFieldData (JS) - it writes the SAME two
+           keys with the SAME formatting. If a key name or a format changes here, it changes there,
+           and the only symptom is a lobby tooltip quietly quoting the hull as designed. */
         $radius = $this->getEdfRadius($turn);
-        $hexes  = 1 + (3 * $radius * ($radius + 1)); //centred hex disc
 
-        $this->data["Field radius"] = $radius . ' hex' . ($radius == 1 ? '' : 'es')
-                                    . ' (' . $hexes . ' hexes covered)';
+        $this->data["Field radius"] = self::describeEdfRadius($radius);
+        if ($this->variable){
+            $this->data["Boosted radius"] = self::describeEdfRadius($this->getEdfBoostedRadius($turn))
+                                          . ' (double power)';
+        }
+
         $this->data["Special"]  = "Projects an Energy Draining Field around this unit.";
         $this->data["Special"] .= "<br>Every hex of field an enemy shot crosses is a -1 penalty to hit; doubled for Plasma and Antimatter weapons of young and middleborn races.";
         $this->data["Special"] .= "<br>Overlapping fields are counted once - additional fields do not stack.";
         $this->data["Special"] .= "<br>The rest of the projecting unit's own fleet is unaffected by it.";
         if ($this->variable){
-            $this->data["Special"] .= "<br>Variable: allocating double power in the Ship Power segment extends the radius by "
-                                    . $this->boostRadiusBonus . ".";
+            $this->data["Special"] .= "<br>Variable: allocating double power in the Ship Power segment buys the boosted radius above.";
         }
         $this->data["Special"] .= "<br>The field may be deactivated by its owner.";
+    }
+
+    /* "5 hexes (91 hexes covered)" - a radius and the size of the disc it describes.
+       ⚠️ MIRROR PAIR with lobbyEnhancements.describeEdfRadius (JS). */
+    public static function describeEdfRadius($radius){
+        $radius = max(0, (int)$radius);
+        $hexes  = 1 + (3 * $radius * ($radius + 1)); //centred hex disc
+        return $radius . ' hex' . ($radius == 1 ? '' : 'es') . ' (' . $hexes . ' hexes covered)';
     }
 
     /* TRAP 6 - CLIENT SYSTEM FIELDS ARE SHARED BY REFERENCE across same-phpclass instances.
@@ -17076,10 +17134,29 @@ class EnergyDrainingField extends ShipSystem implements SpecialAbility, EdfSourc
         $strippedSystem->data     = $this->data;
         $strippedSystem->radius   = $this->radius;
         $strippedSystem->variable = $this->variable;
+        /* ⚠️ PUBLISHED UNCONDITIONALLY, AND THE EDF_RANGE REFIT DEPENDS ON THAT. The client
+           builds a system from the per-CLASS blueprint, which cannot know what one ship bought,
+           so the two numbers the refit moves have to ride the per-ship payload or the ship window
+           quotes the hull as designed for the rest of the game. Do not make either conditional.
+           (Enhancements::addSystemEnhancementsForJSON names them again for its own case, which is
+           where a reader of the enhancement code will look; both writes are the same value.) */
+        $strippedSystem->boostRadiusBonus = $this->boostRadiusBonus;
         /* The radius AFTER criticals and boost, for the map overlay. Published rather than
            mirrored: the client would otherwise have to reimplement the crit ladder and the boost
            lookup, and the two would drift the first time either changed. One number, no maths. */
         $strippedSystem->effectiveRadius = $this->getEdfRadius();
+        /* ⭐ WHAT DOUBLE POWER WOULD BUY, published beside what the field is doing NOW - so the
+           map overlay can answer "how big will this be if I boost" WITHOUT reimplementing the
+           boost or critical ladders. The player allocates a boost in Initial Orders and the
+           server does not see it until the phase is committed, i.e. until exactly the moment
+           they can no longer act on what it shows; PhaseStrategy.getEdfRadiusForShip therefore
+           picks between THESE TWO PUBLISHED NUMBERS on the strength of the local, uncommitted
+           power entry, which is a choice, not a second copy of a rule.
+           It falls out correctly in the cases that would otherwise need special-casing: on a
+           fixed field, and on a variable one that has lost its boost to EdfBoostLost, this
+           EQUALS effectiveRadius - so allocating power to such a field moves nothing on the map,
+           which is the truth. */
+        $strippedSystem->boostedRadius = $this->getEdfBoostedRadius();
         return $strippedSystem;
     }
 }

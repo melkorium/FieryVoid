@@ -262,12 +262,18 @@ class TacGamedata {
         self::$currentGameFinished = $this->isGameOver(); //post-mortem discloses private logistics (ammo loads, hangar contents)
         $this->setChameleonTeamList();
         $this->setBlockedHexes();
-        /* Walkers of Sigma-957 (Stage 4): the EDF hex map, built the same way and in the same place
-           as blockedHexes above, and for the same reason - the targeting penalty has to be mirrored
-           to the point by the client, and map-once/publish-once is what keeps the two in step.
-           Self-gating: it clears TacGamedata::$edfPresent and rebuilds from scratch, so the double
-           gamedata load in one request cannot double-count (plan trap 1). */
-        $this->setEdfHexes();
+        /* ⚠️⚠️ THE EDF HEX MAP IS BUILT AT THE *END* OF THIS METHOD, NOT HERE BESIDE
+           setBlockedHexes(), AND THE DIFFERENCE IS LOAD-BEARING. It sat here from Stage 4 because
+           the two maps are twins in every other way - same shape, same lifecycle, same
+           publish-once contract. But blockedHexes depends only on where ships ARE, while the EDF
+           map depends on a ship's field RADIUS, and radius is moved by the Extended Draining
+           Field enhancement (EDF_RANGE, Stage 5) - which is applied by BaseShip::onConstructed(),
+           in the per-ship loop BELOW. Built here, the map was drawn from BLUEPRINT radii and a
+           refitted field drained at its unenhanced range, on the server and on the client alike:
+           game 4336, three Travelers refitted to radius 3/4/5, all three still projecting 2.
+           Nothing between here and there reads $edfHexes or $edfPresent - every consumer is in
+           firing / criticals / AoE, i.e. a later step of a later request - so the call simply
+           moves. See the note at its new call site. */
         /* Chromatic Pulse Driver adaptation, for the client's hit-chance mirror. Safe here and
            only here: getTacShips() -> getSystemDataForShips() has already reset the registry and
            replayed every CPDSCAN note into it, and this runs before stripForJson().
@@ -342,6 +348,22 @@ class TacGamedata {
         //more accurate, because every ship is now fully constructed - which the Chameleon gate
         //requires, since onConstructed() is what applies enhancements and fills special abilities.
         $this->markUnavailableSetMarkers();
+
+        /* Walkers of Sigma-957 (Stage 4): the EDF hex map - the twin of setBlockedHexes() above,
+           built for the same reason (the targeting penalty has to be mirrored to the point by the
+           client, and map-once/publish-once is what keeps the two in step).
+
+           ⭐ IT RUNS *HERE*, AFTER THE PER-SHIP LOOP, FOR EXACTLY THE REASON markUnavailableSetMarkers
+           DOES: BaseShip::onConstructed() is what applies enhancements, and the Extended Draining
+           Field refit (EDF_RANGE) MOVES A FIELD'S RADIUS. Called beside setBlockedHexes() - where
+           it was until 2026-09-05 - it read the blueprint radius off a ship whose refit had not
+           been applied yet, so a Traveler bought at radius 5 drained at 2. The generalisation is
+           the one that comment already makes for the Chameleon gate: anything that reads a
+           number an ENHANCEMENT can move belongs below this loop, not above it.
+
+           Self-gating: it clears TacGamedata::$edfPresent and rebuilds from scratch, so the double
+           gamedata load in one request cannot double-count (plan trap 1). */
+        $this->setEdfHexes();
     }
 
     /*Every team in this game, on a static because a ShipSystem has no route back to $gamedata -

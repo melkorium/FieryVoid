@@ -186,7 +186,19 @@ class Enhancements{
 		case 'VorlonFighter':
 			Enhancements::blockStandardEnhancements($unit);
 			$unit->enhancementOptionsEnabled[] = 'VOR_AZURF';
-			break;	  
+			break;	
+			
+		case 'WalkerShip':
+			Enhancements::blockStandardEnhancements($unit);
+			$unit->enhancementOptionsEnabled[] = 'IMPR_SR';
+			//Offered to every Walker hull; setEnhancementOptionsShip drops it again on a hull
+			//that carries no Energy Draining Field to extend.
+			$unit->enhancementOptionsEnabled[] = 'EDF_RANGE';
+			break;	
+			
+		case 'WalkerFighter':
+			Enhancements::blockStandardEnhancements($unit);
+			break;				
 
 	}	  
   }//endof function nonstandardEnhancementSet
@@ -244,6 +256,48 @@ class Enhancements{
 				  $enhPriceStep = 0;
 				  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true, $choices);
 			  }
+		  }
+	  }
+
+	  /* WALKERS OF SIGMA-957 - Extended Draining Field: +1 hex of Energy Draining Field radius
+	     per level (WALKERS_OF_SIGMA_PLAN.md Stage 5).
+
+	     PRICE, from the rules: "The cost is 50x the number of hexes covered. The easy way to
+	     calculate the number of additional hexes is that each hex of radius provides 6x the
+	     radius in new hexes... a ship increasing its EDF radius from 5 to 6 will cost
+	     6x6x50 = 1800pts." So one level on a field of radius R costs 50 * 6 * (R+1), i.e.
+	     300 * (R+1), and the ladder is LINEAR in level - which is what enhancementOptions'
+	     single $enhPriceStep slot requires. 300 * (5+1) = 1800 reproduces the worked example.
+
+	     ⚠️ PRICED OVER EVERY FIELD ON THE HULL, not just the biggest one. This is a SHIP-level
+	     enhancement and the applier raises every Energy Draining Field the ship mounts, so it
+	     has to charge for the hexes all of them gain; pricing off one field would sell the
+	     second field's radius for nothing. With the usual single field it reduces to the rules'
+	     own formula exactly, and $enhPriceStep stays constant at 300 per field.
+
+	     ⚠️ ON A VARIABLE FIELD THIS BUYS NORMAL-POWER RADIUS ONLY. "A vessel with a Variable
+	     Energy Draining Field may only increase the radius of the normal-power field, and does
+	     not change the radius of the double-power field." The applier gets that by spending
+	     $boostRadiusBonus down as it raises $radius - see EnergyDrainingField's property block.
+
+	     The LIMIT of 3 is ours, not the rules': the rules cap it nowhere at all and an offer
+	     tuple has to carry a number. Three steps on a radius-5 field is already 1800+2100+2400. */
+	  $enhID = 'EDF_RANGE';
+	  if(in_array($enhID, $ship->enhancementOptionsEnabled)){ //option needs to be specifically enabled
+		  $fieldCount = 0;
+		  $radiusTotal = 0;
+		  foreach ($ship->systems as $system){
+			if ($system instanceof EnergyDrainingField){
+				$fieldCount++;
+				$radiusTotal += (int)$system->radius; //NORMAL-power radius, and blueprint - offers are built on a fresh ship
+			}
+		  }
+		  if($fieldCount > 0){ //ship is actually equipped with a field to extend
+			  $enhName = 'Extended Draining Field';
+			  $enhLimit = 3;
+			  $enhPrice = 300 * ($radiusTotal + $fieldCount);  //50 * 6 * (radius+1), summed over the fields
+			  $enhPriceStep = 300 * $fieldCount;               //each further level adds one hex to each field
+			  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
 		  }
 	  }
 
@@ -2261,6 +2315,26 @@ class Enhancements{
 						}
 						break;
 
+					case 'EDF_RANGE': //Extended Draining Field: +1 hex of EDF radius per level
+						/* ⭐ TWO FIELDS MOVE, AND THE SECOND ONE IS WHY THIS IS NOT A ONE-LINER.
+						   $radius goes up; $boostRadiusBonus comes DOWN by the same amount,
+						   floored at 0, so a VARIABLE field's double-power radius does not
+						   move - "a vessel with a Variable Energy Draining Field may only
+						   increase the radius of the normal-power field, and does not change
+						   the radius of the double-power field". Once the bonus hits 0 the
+						   normal-power field has caught the double-power one up and boosting
+						   buys nothing, which is exactly what the rule describes.
+						   Harmless on a FIXED field: its bonus is never read.
+						   ⚠️ MIRROR PAIR with lobbyEnhancements' EDF_RANGE case (JS), which has
+						   to reach the same numbers with no server round trip. */
+						foreach ($ship->systems as $system){
+							if ($system instanceof EnergyDrainingField){
+								$system->radius += $enhCount;
+								$system->boostRadiusBonus = max(0, $system->boostRadiusBonus - $enhCount);
+							}
+						}
+						break;
+
 					case 'ELITE_CREW': //Elite Crew: +5 Initiative, +2 Engine, +1 Sensors, +2 Reactor power, -1 Profile, -2 to critical results, +1 to hit all weapons
 						//fixed values
 						$ship->forwardDefense -= $enhCount;
@@ -3085,6 +3159,21 @@ class Enhancements{
 				$enhDescription = $entry[1];
 				if($enhCount > 0) {					
 					switch ($enhID) {	
+						case 'EDF_RANGE': //Extended Draining Field - moves an EDF's radius and its boost bonus
+							/* Both numbers are already published UNCONDITIONALLY by
+							   EnergyDrainingField::stripForJson, because the client builds a
+							   system from the per-CLASS blueprint and that cannot know what one
+							   ship bought. Named here as well because this switch is where a
+							   reader of the enhancement code looks for "what does the client get
+							   told", and a future trim of that stripForJson would otherwise take
+							   the refit off the wire silently. Same values, written twice. */
+							if ($system instanceof EnergyDrainingField){
+								$strippedSystem->radius = $system->radius;
+								$strippedSystem->boostRadiusBonus = $system->boostRadiusBonus;
+								$strippedSystem->effectiveRadius = $system->getEdfRadius();
+								$strippedSystem->data = $system->data;
+							}
+							break;
 						case 'ELITE_CREW': //Elite Crew modifies thrusters' ratings!
 							if($system instanceof Thruster){
 								$strippedSystem->output = $system->output;
@@ -3264,6 +3353,17 @@ class Enhancements{
 	                                     self::regCall(). Keeping them here rather than in four
 	                                     switch statements is what stops the "added it in three
 	                                     places out of four" bug.
+	   ages                              WHICH HULL AGES may buy this refit (1 Young, 2 Middleborn,
+	                                     3 Ancient, 4 Primordial). Absent means array(1, 2), which
+	                                     is the original blanket `factionAge > 2` rule and is the
+	                                     safe default for anything added without thinking about it.
+	                                     ⭐ WALKERS_OF_SIGMA_PLAN.md 3.3: the gate USED to be one
+	                                     whole-ship refusal, so a Walker hull could be offered
+	                                     nothing at all. Narrowing it per-enhancement is what lets
+	                                     an Ancient-only refit exist without opening Gunsights and
+	                                     Hardened Armour to every Shadow, Vorlon and Kirishiac hull
+	                                     in the game - a balance change nobody asked for. The five
+	                                     below therefore say array(1, 2) OUT LOUD.
 	   serialise                         the stripped-payload fields addSystemEnhancementsOwnForJSON
 	                                     must re-send. Naming them HERE rather than in a fourth
 	                                     switch is what stops the "applied but not sent" class of
@@ -3290,6 +3390,7 @@ class Enhancements{
 			'price'     => 'sysEnhPriceADT',
 			'limit'     => 'sysEnhLimitADT',
 			'apply'     => 'sysEnhApplyADT',
+			'ages'      => array(1, 2),
 			'serialise' => array('intercept','interceptArray','data'),
 		),
 		'SYS_GSGT' => array(
@@ -3298,6 +3399,7 @@ class Enhancements{
 			'price'     => 'sysEnhPriceGSGT',
 			'limit'     => 'sysEnhLimitOne',
 			'apply'     => 'sysEnhApplyGSGT',
+			'ages'      => array(1, 2),
 			//isModified is what makes weapon::stripForJson re-send fireControl at all - see §2.2.
 			'serialise' => array('fireControl','fireControlArray','isModified','data'),
 		),
@@ -3307,6 +3409,7 @@ class Enhancements{
 			'price'     => 'sysEnhPriceHSHLD',
 			'limit'     => 'sysEnhLimitOne',
 			'apply'     => 'sysEnhApplyOutput',
+			'ages'      => array(1, 2),
 			'serialise' => array('output'),
 		),
 		'SYS_HARM' => array(
@@ -3315,6 +3418,7 @@ class Enhancements{
 			'price'     => 'sysEnhPriceHARM',
 			'limit'     => 'sysEnhLimitOne',
 			'apply'     => 'sysEnhApplyHARM',
+			'ages'      => array(1, 2),
 			'serialise' => array('armour'),
 		),
 		'SYS_THR' => array(
@@ -3323,6 +3427,7 @@ class Enhancements{
 			'price'     => 'sysEnhPriceTHR',
 			'limit'     => 'sysEnhLimitTHR',
 			'apply'     => 'sysEnhApplyOutput',
+			'ages'      => array(1, 2),
 			'serialise' => array('output'),
 		),
 	);
@@ -3381,11 +3486,39 @@ class Enhancements{
 
 	/* ------------------------------------------------------------------ shared eligibility */
 
+	/* WHICH HULL AGES may buy one enhancement - the registry's `ages` slot, defaulted.
+	   ⚠️ The DEFAULT IS THE OLD BLANKET RULE, array(1, 2), on purpose: a new entry that says
+	   nothing about age keeps the behaviour this file had before the slot existed, so forgetting
+	   the slot cannot silently hand an Ancient hull a refit it was never meant to have. */
+	public static function systemEnhancementAllowsAge($ship, $enhID){
+		if(!is_object($ship)) return false;
+		$ages = isset(self::$systemEnhancementRegistry[$enhID]['ages'])
+			? self::$systemEnhancementRegistry[$enhID]['ages']
+			: array(1, 2);
+		return in_array((int)$ship->factionAge, $ages, true);
+	}
+
+	/* Is there ANY system enhancement this hull's age may buy? The cheap whole-ship exit that
+	   used to read `factionAge > 2`, now derived from the registry so it cannot disagree with the
+	   per-enhancement answer above. A young or middleborn hull short-circuits on the first entry;
+	   a Primordial hull (age 4, which nothing offers anything to) still exits before the
+	   per-system loop, which is the only reason the exit exists. */
+	private static function hullAgeHasAnySystemEnhancement($ship){
+		if(!is_object($ship)) return false;
+		foreach(self::$systemEnhancementRegistry as $enhID => $def){
+			if(self::systemEnhancementAllowsAge($ship, $enhID)) return true;
+		}
+		return false;
+	}
+
 	/* The gate every one of the five sits behind (§4.3). Deliberately mirrors the client's
 	   isPseudoSystem in SystemInfoButtons.js - ⚠️ MIRROR PAIR, change both. */
 	public static function systemMayBeEnhanced($ship, $system){
 		if(!is_object($ship) || !is_object($system)) return false;
-		if($ship->factionAge > 2) return false;                     //D6 - hull age is the primary gate
+		//D6 - hull age is still the primary gate, but it is now a PER-ENHANCEMENT question
+		//(WALKERS_OF_SIGMA_PLAN.md 3.3). This asks only "is anything at all open to this hull";
+		//systemEnhancementsFor and sanitiseSystemEnhancements ask it again per enhancement.
+		if(!self::hullAgeHasAnySystemEnhancement($ship)) return false;
 		if($ship instanceof FighterFlight) return false;            //D7 - per-fighter system ids do not exist in the lobby
 		if(!empty($ship->mine)) return false;                       //D7 - a bulk mine's clone rebuilds systems 0-indexed
 		//Pseudo-system filter. This is what excludes InvulnerableThruster, whose
@@ -3396,8 +3529,21 @@ class Enhancements{
 		/* D6 - the one case the ship-level gate lets through by accident: an ANCIENT weapon bolted
 		   onto a young hull (customDevelopment.php sets factionAge = 3 on ~15 weapon classes).
 		   ⚠️ factionAge is NOT declared on ShipSystem, only on those weapon classes, so this must
-		   be an isset() test and never a bare read. */
-		if(($system instanceof Weapon) && isset($system->factionAge) && $system->factionAge >= 3) return false;
+		   be an isset() test and never a bare read.
+		   ⚠️ BOTH HALVES OF THIS TEST ARE LOAD-BEARING, and dropping either one is a silent
+		   regression measured over the whole corpus (2026-09-04):
+		     >= 3  keeps it about ANCIENT tech. ~40 weapon classes declare factionAge = 2
+		           ("Middle-born"), and a bare `factionAge > $ship->factionAge` refused every one
+		           of them on a young hull - OmegaEpsilonDrakh silently lost twelve systems'
+		           worth of Gunsights and Hardened Armour offers.
+		     > $ship->factionAge  is what stops it refusing an ANCIENT hull its OWN weapons. It
+		           used to read `>= 3` alone, which was the same test only because no Ancient hull
+		           could buy anything at all; now that the gate above is per-enhancement, one can.
+		   The rule the pair encodes is the one it always encoded: a weapon from a MORE ADVANCED
+		   tech base than the hull carrying it. A young hull with a bolted-on Ancient gun still
+		   answers false, exactly as before. */
+		if(($system instanceof Weapon) && isset($system->factionAge)
+		   && $system->factionAge >= 3 && $system->factionAge > $ship->factionAge) return false;
 		return true;
 	}
 
@@ -3406,6 +3552,7 @@ class Enhancements{
 		$out = array();
 		if(!self::systemMayBeEnhanced($ship, $system)) return $out;
 		foreach(self::$systemEnhancementRegistry as $enhID => $def){
+			if(!self::systemEnhancementAllowsAge($ship, $enhID)) continue;  //hull age, per enhancement
 			if(!self::regCall($enhID, 'eligible', array($ship, $system))) continue;
 			if(self::systemEnhancementLimit($ship, $system, $enhID) < 1) continue; //nothing left to buy
 			$out[] = $enhID;
@@ -3456,7 +3603,7 @@ class Enhancements{
 		$ship->systemEnhancementOffers = array();
 		if(!self::$offerSystemEnhancements) return;
 		if(!is_object($ship) || empty($ship->systems)) return;
-		if($ship->factionAge > 2) return;                //cheap whole-ship exit before the per-system loop
+		if(!self::hullAgeHasAnySystemEnhancement($ship)) return;  //cheap whole-ship exit before the per-system loop
 		if($ship instanceof FighterFlight) return;
 		if(!empty($ship->mine)) return;
 
@@ -3868,7 +4015,8 @@ class Enhancements{
 				$out['notices'][] = self::systemEnhancementLabel($enhID) . " on $sysname #$systemid was removed: the system is destroyed.";
 				continue;
 			}
-			if(!self::systemMayBeEnhanced($ship, $system) || !self::regCall($enhID, 'eligible', array($ship, $system))){
+			if(!self::systemMayBeEnhanced($ship, $system) || !self::systemEnhancementAllowsAge($ship, $enhID)
+			   || !self::regCall($enhID, 'eligible', array($ship, $system))){
 				$out['notices'][] = self::systemEnhancementLabel($enhID) . " is no longer available on $sysname #$systemid - removed.";
 				continue;
 			}

@@ -57,6 +57,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li><a href="#shadows">Shadow Association</a></li>
                 <li><a href="#thirdspace">Thirdspace</a></li>                    
                 <li><a href="#vorlons">Vorlon Empire</a></li>
+                <li><a href="#walkers">Walkers of Sigma-957</a></li>
             </ul>
       </li>
         <li><a href="#systemenhancements">System Enhancements</a>
@@ -516,6 +517,19 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 <li>Effect: Power Capacitor gains +2 storage points and +1 recharge point</li>
                 <li>Points Cost: 20 * new Capacitor recharge rate</li>
                 <li>Limit: 6</li>
+            </ul>      
+          </li>
+      </ul>
+    <a class="back-to-top" href="#top">↩ Back to Top</a>
+
+    <h4 id="walkers" style="margin-top: 15px;">Walkers of Sigma-957:</h4>
+      <ul>
+        <li><strong>Extended Draining Field</strong>
+            <ul class="circle-list">
+                <li>Effect: +1 hex of radius for every Energy Draining Field on the unit.</li>
+                <li>Points Cost: 300 * new radius, for each field (that is 50 points per hex of field gained, and a hex of radius adds 6 x radius new hexes)</li>
+                <li>Limit: 3</li>
+                <li>Notes: On a <em>Variable</em> Energy Draining Field this raises the normal-power radius only - the double-power radius does not move, so each hex bought is one hex less that double power is worth. Once the two meet, boosting the field buys nothing further.</li>
             </ul>      
           </li>
       </ul>

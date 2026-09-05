@@ -4279,8 +4279,36 @@ EnergyDrainingField.prototype.hasMaxBoost = function () {
 	return (this.variable ? this.maxBoostLevel > 0 : false);
 };
 
+/* The number on the SCS icon while a variable field is boosted: the radius double power buys.
+   ⚠️ boostRadiusBonus, NEVER a literal 3. The Extended Draining Field refit (EDF_RANGE,
+   WALKERS_OF_SIGMA_PLAN.md Stage 5) raises `radius` and spends `boostRadiusBonus` down by the
+   same amount, so that a variable field's DOUBLE-power radius does not move - a hard-coded 3
+   would show a refitted field a boosted radius it does not have. It also read `this.output`,
+   which an EDF does not have and which is therefore always 0.
+   The server's own answer (effectiveRadius) cannot be used here: a boost allocated THIS turn has
+   not been submitted yet, and immediate feedback is the whole point of this hook. */
 EnergyDrainingField.prototype.initializationUpdate = function () {
-	if(this.variable && shipManager.power.getBoost(this) > 0) this.outputDisplay = this.output +3;
+	/* ⚠️ effectiveRadius FIRST, this.radius only as the fallback. effectiveRadius is the server's
+	   own answer AFTER criticals and boost; this.radius is the blueprint value the refit moved,
+	   which knows nothing about an EdfRadiusReduced / EdfBoostLost crit - so `radius` alone keeps
+	   showing the designed size on a field the enemy has already shot down a hex. The lobby has
+	   no effectiveRadius (stripForJson is the in-game payload, and the static blueprint does not
+	   run it), which is exactly what the fallback is for. */
+	var published = parseInt(this.effectiveRadius, 10);
+	this.outputDisplay = isNaN(published) ? (parseInt(this.radius, 10) || 0) : published;
+
+	/* ⚠️ boostedRadius FIRST here too, for the reason spelled out on
+	   PhaseStrategy.getEdfRadiusForShip: it is the SERVER's answer to "what would double power
+	   buy", so it already knows that an EdfBoostLost critical has taken the boost away - which
+	   radius + boostRadiusBonus cannot, and the client cannot see that crit from here. The local
+	   sum stays as the fallback because the LOBBY has no boostedRadius (stripForJson is the
+	   in-game payload), and in the lobby no critical has been rolled yet, so it is exact there. */
+	if (this.variable && shipManager.power.getBoost(this) > 0) {
+		var boosted = parseInt(this.boostedRadius, 10);
+		this.outputDisplay = isNaN(boosted)
+			? (parseInt(this.radius, 10) || 0) + (parseInt(this.boostRadiusBonus, 10) || 0)
+			: boosted;
+	}
 
     return this;
 };

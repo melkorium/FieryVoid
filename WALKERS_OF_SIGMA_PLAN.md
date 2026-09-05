@@ -587,14 +587,35 @@ Two registry entries — `SYS_WBLA` (300 pts) and `SYS_WBMLA` (200 pts) — foll
 `eligible` = `$system instanceof LightningArray` (resp. `MediumLightningArray`) and
 `!($ship instanceof FighterFlight)` — the latter is already guaranteed by the caller, but state it.
 
-**The `factionAge > 2` gate** ([Enhancements.php:3445](source/server/model/ships/Enhancements.php#L3445))
-must become per-enhancement rather than whole-ship, or no Walker hull is offered anything.
-Recommended shape: keep the cheap whole-ship exit, but make it
-`if($ship->factionAge > 2 && !self::hasAncientSystemEnhancements($ship)) return;` with a small
-allow-list of the Ancient-eligible IDs, and add a `factionAge` test to each existing enhancement's
-`eligible` so the five current ones stay young/middleborn-only. **Do not simply delete the gate** —
-that opens Gunsights, Hardened Armour and the rest to every Shadow, Vorlon and Kirishiac hull in
-the game, which is a balance change nobody asked for.
+**The `factionAge > 2` gate** — **NARROWED 2026-09-04 (Stage 5).** It had to become per-enhancement
+rather than whole-ship, or no Walker hull could ever be offered a per-system refit. **Do not simply
+delete it** — that opens Gunsights, Hardened Armour and the rest to every Shadow, Vorlon and
+Kirishiac hull in the game, which is a balance change nobody asked for.
+
+**As built**, and it is smaller than the shape this section recommended because the registry was
+already the right place for it:
+
+- a new **`ages` registry slot** — `array(1, 2)` written out loud on each of the five existing
+  refits, and **defaulting to `array(1, 2)` when absent**, so an entry added without thinking about
+  age keeps the behaviour this file had before the slot existed;
+- `systemEnhancementAllowsAge($ship, $enhID)` asks it, and is called from `systemEnhancementsFor`
+  **and** from `sanitiseSystemEnhancements` (buy-time validation re-checks it independently);
+- `hullAgeHasAnySystemEnhancement($ship)` replaces the two cheap whole-ship exits
+  (`systemMayBeEnhanced` and `setSystemEnhancementOptions`), derived from the registry so it cannot
+  disagree with the per-enhancement answer.
+
+Stage 8's `SYS_WBLA` / `SYS_WBMLA` therefore need `'ages' => array(3)` and nothing else.
+
+⚠️⚠️ **THE ANCIENT-WEAPON TEST NEEDS BOTH HALVES, and the corpus differential is the only thing
+that catches it.** The old line was `$system->factionAge >= 3`, which was the right test only
+because no Ancient hull could buy anything at all. Rewriting it as
+`$system->factionAge > $ship->factionAge` — "a weapon from a more advanced tech base than its hull",
+which is what the rule has always meant — looked obviously equivalent and **silently cost
+`OmegaEpsilonDrakh` twelve systems' worth of Gunsights and Hardened Armour offers**: ~40 weapon
+classes in `customs.php` declare `factionAge = 2` ("Middle-born"), and `2 > 1` refused every one of
+them on a young hull. It is
+`$system->factionAge >= 3 && $system->factionAge > $ship->factionAge`: the first half keeps it
+about ANCIENT tech, the second stops it refusing an Ancient hull its OWN weapons.
 
 ⚠️ **Wide Beam is mode 3, not mode 2** — Stage 2 took mode 2 for `Single Shots`. Add
 `MODE_WIDEBEAM = 3` alongside the existing constants in both `specialWeapons.php` and `special.js`,
@@ -998,8 +1019,114 @@ protected $possibleCriticals = array(20 => "EdfBoostLost");       // then radius
 ```
 Both escalate on the `hasCritical()` **count**, so no per-crit bookkeeping.
 
-**EDF Range enhancement** (`SYS_EDFR`): `price(level) = 50 * 6 * (currentRadius + level + 1)`,
-i.e. 50 × the hexes added. ⚠️ On a Variable EDF it raises the **normal-power** radius only.
+**EDF Range enhancement** — **BUILT 2026-09-04 as the SHIP-level `EDF_RANGE`, not the per-system
+`SYS_EDFR` this section assumed.** The user's call, and it was the right one: the Walkers now carry
+their own `nonstandardEnhancementSet($this, 'WalkerShip')` set, and a ship-level entry can read the
+hull's systems perfectly well (`CHAM_DISG` already does). Everything below is as built.
+
+- **Human name "Extended Draining Field"**, enabled in the `WalkerShip` case and dropped again in
+  `setEnhancementOptionsShip` on a hull that mounts no field.
+- `price(level) = 300 * Σ(radius_i + level + 1)` over **every** EDF on the hull, i.e. 50 × the hexes
+  added, summed. The rules' worked example (radius 5 → 6 = 6×6×50 = 1800) is `300 * (5+1)`.
+  ⚠️ **Summed over the fields, not taken off the biggest.** It is a ship-level refit and the applier
+  raises every field, so pricing off one would sell the second field's radius for nothing. With the
+  usual single field it reduces to the rules' own formula exactly, and `priceStep` stays the
+  constant `300 * fieldCount` that `enhancementOptions`' single step slot requires.
+- **Limit 3.** Ours, not the rules' — the rules cap it nowhere and an offer tuple needs a number.
+- ⭐⭐ **THE VARIABLE-FIELD RULE IS IMPLEMENTED BY SPENDING THE BOOST BONUS DOWN, and that is the
+  one idea in this stage worth reusing.** "A vessel with a Variable EDF may only increase the radius
+  of the normal-power field, and does not change the radius of the double-power field." The applier
+  therefore does **two** things: `radius += n` **and**
+  `boostRadiusBonus = max(0, boostRadiusBonus − n)`. The double-power radius is then unmoved by
+  construction, with no second stored number, no clamp anywhere else, and no way for the two to
+  drift; when the bonus reaches 0 the normal field has caught the boosted one up and boosting buys
+  nothing, which is exactly what the rule describes. `getEdfBoostedRadius()` is the single place
+  that arithmetic is written down.
+- ⚠️ **Nothing may hard-code the `+3`.** `baseSystems.js`'s `initializationUpdate` did
+  (`this.output + 3`, on a system whose `output` is always 0), so a refitted field would have shown
+  a boosted radius it does not have. Fixed to `radius + boostRadiusBonus`.
+- ⚠️ **Every number in the tooltip lives in its own `data` key and the prose carries none.** The
+  refit is bought in the LOBBY, where there is no server round trip and `data` was baked into the
+  blueprint long before the purchase, so `lobbyEnhancements.syncEdfFieldData` has to rewrite it —
+  and rewriting one short numeric line is a mirror that survives, while re-deriving a number out of
+  the middle of a four-sentence paragraph is one that rots. Hence `Field radius` **and** a new
+  `Boosted radius` key, with `Special` reduced to "buys the boosted radius above".
+- ⚠️ **`boostRadiusBonus` had to be added to `stripForJson`.** The client builds a system from the
+  per-CLASS blueprint, which cannot know what one ship bought.
+
+⚠️⚠️ **THE BUG THAT ACTUALLY SHIPPED, found in play (game 4336, 2026-09-05): the refit moved the
+radius everywhere except the map that matters.** Three Travelers refitted to radius 3 / 4 / 5 all
+still drained at 2. Every value was right — `$system->radius`, `getEdfRadius()`, `effectiveRadius`,
+the tooltip, the enhancement box — and `TacGamedata::$edfHexes` was built from the BLUEPRINT radius
+anyway, because `setEdfHexes()` was called beside `setBlockedHexes()` at the TOP of
+`TacGamedata::onConstructed()` while `BaseShip::onConstructed()` — which is what applies
+enhancements — runs in the per-ship loop **below** it. 29 hexes published where 91 were owed.
+
+⭐ **The generalisation, and it is already written three lines above the loop for another
+feature:** `markUnavailableSetMarkers()` sits below the loop *"because every ship is now fully
+constructed - which the Chameleon gate requires, since onConstructed() is what applies
+enhancements"*. **Anything that reads a number an enhancement can move belongs below that loop.**
+`blockedHexes` genuinely does not (it reads only where ships ARE), which is exactly why the twin
+looked safe beside it — the two maps are identical in shape, lifecycle and publication and differ
+only in whether an enhancement can reach their input. `setEdfHexes()` now runs immediately after
+`markUnavailableSetMarkers()`; nothing between the old and new call sites reads `$edfHexes` or
+`$edfPresent` (every consumer is in firing / criticals / AoE, i.e. a later step of a later
+request), so the call simply moved.
+
+⚠️ **Stage 4 could not have caught this and neither could any unit test.** Without the refit the
+blueprint radius and the effective radius are the same number, so every Stage 4 and Stage 5 check
+passed on both sides of the bug. The guard is now **game 4336 in the replay corpus** — the snapshot
+check is `stripForJson()`, which publishes `edfHexes`, so the baseline pins all 91 hexes and all
+three post-refit radii. It is the first corpus game with an EDF at all.
+
+⭐ **THE LIVE BOOST PREVIEW (user request 2026-09-05).** Double power is allocated in Initial
+Orders and the server does not learn of it until the phase is SUBMITTED — so the map disc grew
+only once it was too late to change your mind about paying for it. The fix publishes a SECOND
+number, `boostedRadius` (from `getEdfBoostedRadius()`), beside `effectiveRadius`, and
+`PhaseStrategy.getEdfRadiusForShip` **picks between the two** on the strength of the local,
+uncommitted `system.power` entry that `shipManager.power.getBoost` reads. Unboosting picks the
+first one again, so the disc shrinks. `showEdfField` already caches on radius + anchor hex, so a
+changed radius redraws and an unchanged one is free; the seam that fires it is
+`onSystemDataChanged`, which `power.clickPlus` / `clickMinus` both raise — **gated on
+`system.name === 'EnergyDrainingField'`**, because that handler is one of the busiest in the file
+and `syncAllEdfFields` walks every icon on the board.
+
+⚠️⚠️ **IT PICKS, IT NEVER ADDS, and that is the whole reason for the second published number.**
+The obvious client-side version — `radius + boostRadiusBonus` — is wrong in a case the client
+cannot see: a field that has taken an `EdfBoostLost` critical can still have power allocated to
+it (`hasMaxBoost()` does not test criticals and the crit is not readable from there), so the map
+would promise hexes the server will never honour. `getEdfBoostedRadius()` already answers "the
+boost is gone" by returning the unboosted radius, so the two numbers arrive EQUAL and clicking +
+correctly moves nothing. Same rule as the note on `showEdfField`: **the radius is published,
+never mirrored.** The SCS icon number now reads `boostedRadius` for the same reason, keeping the
+blueprint sum only as the lobby fallback (where no critical has been rolled yet).
+
+⭐ **DEACTIVATION previews the same way (user, 2026-09-05).** A field switched off projects
+nothing, so its disc goes the moment `shipManager.power.isOffline` answers true and comes back if
+the player changes their mind in the same phase. Two things about it are not obvious:
+
+- **Offline is tested FIRST and wins outright.** Offlining does *not* clear a boost allocation, so
+  a type-1 and a type-2 entry can sit on one system at once — and the server resolves that pair
+  the same way, `getEdfRadius()` returning 0 on `!isEdfActive()` before it looks at anything else.
+- ⚠️ **`onSystemDataChanged` arrives in TWO SHAPES and testing only the first misses half the
+  feature.** The per-system power clicks send `{ship, system}`; `offlineAll` / `onlineAll` — the
+  "all systems of this name" buttons in `SystemInfoButtons` and `SystemPowerSettings`, which an
+  EDF is as eligible for as anything else — send `{ship}` alone. The gate is therefore
+  `system ? system.name === 'EnergyDrainingField' : PhaseStrategy.shipCarriesEdf(ship)`, which
+  stays exact instead of widening to every systemless event.
+
+**What is deliberately NOT previewed: the to-hit penalty.** `weaponManager.getEdfPenaltyHexes`
+reads `gamedata.edfHexes`, which is server-built and cannot know about an uncommitted change —
+mirroring it would mean rebuilding the whole hex map client-side. It costs nothing here because
+**a field never penalises its own fleet**: the only shots your own field's hexes affect belong to
+the enemy, whose client cannot see your uncommitted allocation either way.
+
+⚠️ **A Stage 4 BUG found while building this: the boosted radius was FREE.** The class declared
+`boostEfficiency = 0` under a comment saying "double power" — but `boostEfficiency` is the EXTRA
+power one boost level costs (`power.js countBoostReqPower`/`countBoostPowerUsed` multiply by it), so
+0 means the boost costs nothing at all. It is now set from `$powerReq` in the constructor, which is
+the only place it can be written because the requirement is a ctor argument. **This changes the
+Traveler's power economy**: a boosted field now costs 32 rather than 16.
 
 ---
 
@@ -1765,7 +1892,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **2** ✅ | Lightning Array + Medium Lightning Array — **DONE 2026-09-03; targeting REVISED twice the same day after play testing** | 157 checks green on the first build, +138 across the revisions, incl. a JS-vs-PHP comparison of all six tables and both mode constants, and the intercept gun accounting verified against the REAL `Firing::isValidInterceptor` over ten scenarios. Two firing modes (Combined / Single), now `multiModeSplit` so both are usable in one turn; both weapons intercept. Revisions: **no allocation dialog** — one click = one discharge, repeat clicks on one target fuse; count rides in `->shots`; `'Sweeping'` + `"Split"` so the shot shows in the shooter's INCOMING list, which counts DISCHARGES not orders; withdrawing PEELS one discharge off a combined shot; Medium starts 1/2, not 0/2. |
 | **3** ✅ | Chromatic Pulse Driver — **DONE 2026-09-03; CLOSED 2026-09-04** | 186 + 56 server checks and 35 client checks green (2026-09-04: the client half was DEAD until gamedata.js was taught to copy `cpdAdaptation` off the payload). Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. ⭐ Closed 2026-09-04 with the CAPACITY-POOL half: Thirdspace, Thought and both Trek shield projections hold a pool instead of a modifier, so the bucket reduction reached nothing on them; they now lose the same points off the pool via `Shield::getCapacityAgainstShooter()`, and `doesProtectFromDamage` gained an optional `$shooter`. |
 | **4** ✅ | EDF + Variable EDF (§2.1 + §2.2) — **DONE 2026-09-04** | 71 + 105 server checks and 32 client checks green. The field (fixed and variable, both crit ladders, boost, deactivation) on the Traveler with its chart row restored; `TacGamedata::$edfHexes` published hex-keyed so overlap collapse and own-fleet immunity are structural; the targeting penalty server↔client, agreeing over a 4,000-line / 128,745-hex differential corpus; the drain landing as six one-turn param criticals read at four choke-points; and the map overlay. ⭐⭐ Two findings worth carrying: the client parity needed a port of PHP's `round()`, not `Math.round` (half-away-from-zero AND PHP's pre-rounding, worth 843 and 13 wrong lines), and the drain needs NO replay roll-note because the RESULT is the record — every roll lands in a persisted crit's param and an `EdfExposed` marker makes a reload idempotent. ⭐ The full rules text arrived the same day and corrected three things: the EW drain is **d6** not d10; a fully drained reactor blacks out every powered system, reusing `Reactor::addCritical`'s existing cascade; and flash/proximity weapons lose their collateral and their blast radius inside a field. Nothing in Stage 4 is inferred any more. |
-| **5** | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) | Ancient hulls see **only** the new IDs; the five existing enhancements are unchanged for every young/middleborn hull in the corpus. |
+| **5** ✅ | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) — **DONE 2026-09-04; the refit's RANGE fixed 2026-09-05 after play testing** | 98 server checks and 50 client checks green, plus a **2,573-hull corpus differential** on the offer tuples: the Traveler is the ONLY hull whose offers changed, and only by gaining `EDF_RANGE` + the user's `WalkerShip` set. The crit ladders were already built in Stage 4 and are confirmed against the rules text, which arrived afterwards and matches them exactly (fixed 21+, floor 1; variable 20+, boost first then a hex each, floor 0). ⭐ The refit went **ship-level** (`EDF_RANGE`), not per-system — see §3.5 — and its variable-field rule is implemented by **spending `boostRadiusBonus` down as `radius` goes up**, so the double-power radius is unmoved by construction. ⚠️⚠️ Two findings worth carrying: rewriting the Ancient-weapon gate as a bare `factionAge > $ship->factionAge` silently stripped every refit from the ~40 **middleborn** (`factionAge = 2`) weapon classes on young hulls — the corpus differential was the only thing that caught it, and the test needs BOTH halves (§3.3); and Stage 4 had shipped the variable field's **boost for free** (`boostEfficiency = 0`, which is the EXTRA power a boost level costs, not a flag), now set from `$powerReq` so double power really is double. |
 | **6** | Energy Draining Mine | Stores 3, launches any number, scatters on its own table, spawns a 7-hex field, cleans up one turn later. |
 | **7** | Energy Draining Net | Pairwise links; closed-area fill respects the `2N−1` cap; three collinear nets still link. |
 | **8** | Wide-Beam enhancements | Per-array purchase; per-die floor; cooldown; collateral at 50%/25%. |
@@ -1839,6 +1966,39 @@ Collected from the survey; each one has bitten this codebase before.
 18. **`sumCriticalParam($type, $turn = false)` defaults on `=== false`, NOT on null.** A method
     with a `$turn = null` parameter that passes it straight through makes every turn comparison
     fail and reads 0, silently — while the same method called with an explicit turn is correct.
+19. **`boostEfficiency` is the EXTRA POWER one boost level costs, not a flag and not an
+    efficiency.** `power.js countBoostReqPower` / `countBoostPowerUsed` multiply by it, so `0`
+    means the boost is **free**. A system that wants "double power" must set it to its own
+    `$powerReq` — and since that is normally a constructor argument, it cannot be a declared
+    property (Stage 5, found on the EDF).
+20. **An enhancement that must not change a DERIVED number should spend the derived number's own
+    input down, not clamp the result.** `EDF_RANGE` raises `radius` and lowers `boostRadiusBonus`
+    by the same amount, so "the double-power radius does not change" holds with no second stored
+    value and nothing left to keep in step (Stage 5, §3.5).
+21. **A per-system enhancement's numbers must be kept OUT of prose `data` entries.** The lobby has
+    no server round trip and has to rewrite `data` itself; one short numeric key per number is a
+    mirror that survives, a number inside a paragraph is one that rots (Stage 5).
+22. **A hull-age comparison needs a floor as well as a direction.** `>= 3 && > $ship->factionAge`,
+    never one or the other — the ~40 `factionAge = 2` weapon classes make the difference invisible
+    in every unit test and visible only in a corpus differential (Stage 5, §3.3).
+23. ⭐⭐ **ANYTHING IN `TacGamedata::onConstructed()` THAT READS A NUMBER AN ENHANCEMENT CAN MOVE
+    MUST RUN BELOW THE PER-SHIP LOOP.** `BaseShip::onConstructed()` — called *inside* that loop —
+    is what applies enhancements, so the whole first half of the method sees blueprint values.
+    `setBlockedHexes()` is safe up there because it reads only where ships ARE; `setEdfHexes()`
+    was not, and published a refitted field at its unenhanced radius for a whole stage (§3.5).
+    The comment on `markUnavailableSetMarkers()` already said this for the Chameleon gate.
+24. **A stage whose numbers are equal by default cannot be tested by a unit test alone.** Without
+    the refit, blueprint radius == effective radius, so every check passed on both sides of trap
+    23. A recorded corpus game with the refit actually bought is the only guard — and the replay
+    snapshot IS `stripForJson()`, so it pins published maps like `edfHexes` for free.
+25. ⚠️⚠️ **`replayHarness.php record --games=<id>` REWRITES `manifest.json` FROM SCRATCH** with
+    only the games it just recorded — it does not merge. The other ~130 baseline directories stay
+    on disk but drop out of `check` silently, and `tests/replay/baseline/` is gitignored, so there
+    is no copy to restore. It IS reconstructible without re-recording: each `snapshot_p*.json` is
+    `stripForJson()` output and carries the game's `turn` and `status` **as recorded**, which with
+    the on-disk report list is the whole manifest entry. Intersect with `discoverGames()`'s query
+    (~90 of the directories are dead games that were never in the manifest), and fall back to the
+    DB row for a baseline that recorded a `HARNESS-ERROR` and so has no snapshot to read.
 
 ---
 

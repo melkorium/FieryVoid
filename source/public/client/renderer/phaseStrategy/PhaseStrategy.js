@@ -326,18 +326,70 @@ window.PhaseStrategy = function () {
        EnergyDrainingField::stripForJson AFTER criticals and boost - see the note on
        ShipIcon.showEdfField for why it is not recomputed here.
        A destroyed or offlined field publishes 0 from getEdfRadius(), so no separate test is
-       needed; a hidden ship has no icon in the container in the first place. */
+       needed; a hidden ship has no icon in the container in the first place.
+
+       ⭐ THE UNCOMMITTED BOOST (user request 2026-09-05). Double power is allocated in Initial
+       Orders and the server does not learn about it until the phase is SUBMITTED - so a player
+       deciding whether the extra hexes are worth the power saw the disc grow only after it was
+       too late to change their mind. The uncommitted allocation lives in system.power, which is
+       what shipManager.power.getBoost reads, so the local answer is available the instant the
+       + or - is clicked.
+
+       ⚠️ IT PICKS BETWEEN TWO PUBLISHED NUMBERS - it does NOT add boostRadiusBonus itself. That
+       matters: a variable field that has taken an EdfBoostLost critical can still have power
+       allocated to it (the client cannot see criticals here and hasMaxBoost does not test them),
+       and adding the bonus locally would draw a disc the server will never honour. The server
+       publishes boostedRadius from getEdfBoostedRadius(), which already answers "the boost is
+       gone" by returning the unboosted radius - so the two numbers come out EQUAL and clicking
+       + correctly changes nothing on the map. Same reasoning as the note on showEdfField: the
+       radius is published, never mirrored.
+
+       ⭐ THE UNCOMMITTED OFFLINE is the same request from the other end (user 2026-09-05): a
+       deactivated field projects nothing, so its disc has to go the moment it is switched off
+       rather than at commit - and come back if the player changes their mind in the same phase.
+       Deliberately tested FIRST and allowed to win outright: offlining does not clear a boost
+       allocation, so both entries can sit on one system, and the server resolves that the same
+       way (EnergyDrainingField::getEdfRadius returns 0 on !isEdfActive before it looks at
+       anything else). shipManager.power.isOffline also answers true for the ForcedOffline*
+       criticals, which the server has ALREADY folded into effectiveRadius - agreeing with it
+       costs nothing and disagreeing would be the bug.
+
+       No viewer test is needed for either. system.power is whatever the server chose to send
+       THIS viewer, so an enemy's hidden allocation reads 0; and once orders are committed the
+       published numbers say the same thing, which is why this is also correct in every later
+       phase. */
     PhaseStrategy.getEdfRadiusForShip = function (ship) {
         if (!ship || !ship.systems) return 0;
 
+        var power = (window.shipManager && shipManager.power) ? shipManager.power : null;
         var best = 0;
         for (var i in ship.systems) {
             var system = ship.systems[i];
             if (!system || system.name !== 'EnergyDrainingField') continue;
+
+            if (power && power.isOffline(ship, system)) continue;   //deactivated: projects nothing
+
             var radius = parseInt(system.effectiveRadius, 10);
-            if (!isNaN(radius) && radius > best) best = radius;
+            if (isNaN(radius)) continue;
+
+            if (power && power.getBoost(system) > 0) {
+                var boosted = parseInt(system.boostedRadius, 10);
+                if (!isNaN(boosted) && boosted > radius) radius = boosted;
+            }
+
+            if (radius > best) best = radius;
         }
         return best;
+    };
+
+    /* Does this unit mount an Energy Draining Field at all? Only used as the gate in
+       onSystemDataChanged for the events that carry no system - see the note there. */
+    PhaseStrategy.shipCarriesEdf = function (ship) {
+        if (!ship || !ship.systems) return false;
+        for (var i in ship.systems) {
+            if (ship.systems[i] && ship.systems[i].name === 'EnergyDrainingField') return true;
+        }
+        return false;
     };
 
     PhaseStrategy.prototype.onScrollToShip = function (payload) {
@@ -1298,6 +1350,28 @@ window.PhaseStrategy = function () {
         //Declaring or withdrawing an order is a SystemDataChanged, so this is where a declared-area
         //overlay appears and disappears in response to the player - see syncDeclaredAreas.
         this.syncDeclaredAreas(ship);
+
+        /* Boosting, unboosting, deactivating or reactivating an Energy Draining Field resizes or
+           removes its map disc IMMEDIATELY, so the player can see what double power buys - and
+           what switching the field off costs - while they still have the option (user requests
+           2026-09-05). Every one of those paths (power.clickPlus / clickMinus / onOfflineClicked /
+           onOnlineClicked / offlineAll / onlineAll) raises SystemDataChanged, which is what makes
+           this the seam.
+
+           ⚠️ GATED, because this handler is one of the busiest in the file - every weapon
+           selection and every other system's power click lands here - and syncAllEdfFields walks
+           every icon on the board. (The sweep would still be cheap: showEdfField rebuilds nothing
+           when the disc it would draw is already up, and syncAllEdfFields only wakes the render
+           loop on a reported change. Cheap is not free.)
+
+           ⚠️ TWO SHAPES OF PAYLOAD, and testing only the first would miss half the feature:
+           the per-system clicks send {ship, system}, but offlineAll / onlineAll - the "all systems
+           of this name" buttons in SystemInfoButtons and SystemPowerSettings, which an EDF is as
+           eligible for as anything else - send {ship} alone. Falling back to "does this ship carry
+           a field" keeps the gate exact rather than widening it to every systemless event. */
+        if (system ? system.name === 'EnergyDrainingField' : PhaseStrategy.shipCarriesEdf(ship)) {
+            this.syncAllEdfFields();
+        }
 
         if (this.selectedShip === ship) {
             this.uiManager.showWeaponList({ ship: ship, gamePhase: gamedata.gamephase })
