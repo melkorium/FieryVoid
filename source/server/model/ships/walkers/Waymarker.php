@@ -11,7 +11,6 @@ class Waymarker extends HeavyCombatVessel{
         $this->imagePath = "img/ships/WalkerWaymarker.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
-        $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 		$this->variantOf = "NONE";
 				
