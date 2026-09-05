@@ -1342,8 +1342,8 @@ class ChromaticPulseDriver extends Pulse {
     const SCAN_POINTS_PER_HIT = 1;           //one point of adaptation per scanning hit
 
     function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
-        if ($maxhealth == 0) $maxhealth = 24;   //UNCONFIRMED placeholder
-        if ($powerReq  == 0) $powerReq  = 12;   //UNCONFIRMED placeholder
+        if ($maxhealth == 0) $maxhealth = 15;  
+        if ($powerReq  == 0) $powerReq  = 6;   
         parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         $this->applyChargeProfile();            //blueprint values describe one turn of charge
     }
