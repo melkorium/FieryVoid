@@ -666,6 +666,23 @@ class EdfBoostLost extends Critical{
     }
 }
 
+/* WALKERS OF SIGMA-957 - Energy Draining Net critical (WALKERS_OF_SIGMA_PLAN.md 3.7, Stage 7).
+   "On a result of 20+, the power required to operate the EDN doubles. On successive rolls the
+   power requirement triples, then 4x power, then 5x, and so on."
+
+   The third member of the family above: ORDINARY and PERSISTED (not forInfo, not oneturn),
+   escalating on the hasCritical() COUNT rather than on a param, so there is no per-crit
+   bookkeeping and repairing one steps the multiplier back down by itself.
+   ⚠️ The description cannot name the multiplier - one crit does not know how many siblings it
+   has. EnergyDrainingNet::setSystemDataWindow publishes the actual figure as its own tooltip
+   key, which is where a player reads it. */
+class EdnPowerDoubled extends Critical{
+    public $description = "Power requirement increased";
+    function __construct($id, $shipid, $systemid, $phpclass, $turn, $turnend = 0){
+        parent::__construct($id, $shipid, $systemid, $phpclass, $turn, $turnend);
+    }
+}
+
 /* ===================================================================================
    WALKERS OF SIGMA-957 - Energy Draining Field EXPOSURE criticals
    (WALKERS_OF_SIGMA_PLAN.md 2.2, Stage 4b). Applied by EdfExposure::resolve().

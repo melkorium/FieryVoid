@@ -4312,3 +4312,31 @@ EnergyDrainingField.prototype.initializationUpdate = function () {
 
     return this;
 };
+
+
+/* =======================================================================================
+   WALKERS OF SIGMA-957 - ENERGY DRAINING NET (WALKERS_OF_SIGMA_PLAN.md 3.7, Stage 7)
+   Server twin: EnergyDrainingNet in server/model/systems/baseSystems.php.
+
+   Beside the Energy Draining Field for the same load-order reason: SystemFactory builds every
+   system with `new window[name]`, so the class must exist before a Traveler is constructed, and
+   baseSystems.js is the FIRST model file both game.php and gamelobby.php load. A missing class
+   here is not a degraded tooltip - it is a TypeError that stops the ship being built at all.
+
+   THERE IS DELIBERATELY NO ARITHMETIC IN HERE. A Net's field is generated BETWEEN Nets, and
+   which hexes it covers is a fleet-wide question the client cannot answer from one system: the
+   server resolves it in EdfNetLinks and publishes the result twice over - into gamedata.edfHexes
+   (where the to-hit penalty mirror reads it, unchanged from Stage 4) and into gamedata.edfNetHexes
+   (where BallisticIconContainer draws it). The escalating power requirement arrives the same way,
+   as the ordinary published powerReq, so the power UI needs nothing either.
+   ======================================================================================= */
+var EnergyDrainingNet = function EnergyDrainingNet(json, ship) {
+	ShipSystem.call(this, json, ship);
+	/* Trap 6 - client system fields are shared by reference across same-phpclass instances, so
+	   two Nets on one hull would otherwise share one tooltip object and the second built would
+	   win. The server republishes `data` per instance (the power multiplier is per-system); this
+	   clone keeps a later client-side edit of one from bleeding onto the other. */
+	this.data = Object.assign({}, this.data);
+};
+EnergyDrainingNet.prototype = Object.create(ShipSystem.prototype);
+EnergyDrainingNet.prototype.constructor = EnergyDrainingNet;

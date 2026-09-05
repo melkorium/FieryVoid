@@ -118,6 +118,30 @@ class TacGamedata {
        needs, while this names the hull - and a Walker sitting outside anybody's scanner range
        would be announced by its own field's footprint. EdfExposure is the only reader. */
     public $edfSources = null;
+    /* Walkers of Sigma-957 (Stage 7): the hexes an Energy Draining NET contributes - its own hex
+       plus every corridor and fill hex EdfNetLinks produced - as a flat list of {q, r}.
+
+       ⭐ PUBLISHED PURELY SO THE MAP CAN DRAW THEM, and it exists because the field overlay is
+       drawn PER SOURCE, as a disc anchored on the projecting unit's icon (ShipIcon.showEdfField
+       explains why: drawing from $edfHexes would fuse two overlapping fields into one shapeless
+       blob). A Net's field is not a disc round anything - it is a corridor between two hulls and
+       an area between several - so it is the one field shape that has no icon to hang off, and
+       the client gets the hexes themselves instead.
+
+       ⚠️ IT IS NOT AN AUTHORITY ON ANYTHING. $edfHexes already holds every one of these hexes,
+       team-tagged, and every RULE - the targeting penalty, the drain, own-fleet immunity - reads
+       that map and only that map. This list is a rendering hint; never make a rule read it, or
+       there will be two answers to "is this hex field" for exactly one field type.
+       ⚠️ NO TEAM TAG, deliberately. It is drawn identically whoever owns it (the shape is the
+       information), and the team set is in $edfHexes for anything that needs to care.
+       ⚠️ NOT PER-VIEWER, and it inherits $edfHexes' caveat WITH ONE EXTRA EDGE: these hexes are
+       the Nets' own positions and the corridors between them, so the day an EDN reaches a hull
+       that can conceal itself this list traces that hull's exact position and its formation. The
+       answer is the same one $edfHexes gives - a concealed ship projects no field - and the guard
+       belongs in the same place, beside setEdfHexes()' isReinforcement() test.
+       ⚠️ NULL, never array() (plan trap 9), and it needs its own named copy in gamedata.js
+       parseServerData() like every other gamedata-level key (arch_gamedata_named_key_copy). */
+    public $edfNetHexes = null;
     public $isStealthPresent = false;
 
     public $areMinesPresent = false; //Marks that ENEMY mines are present.
@@ -251,6 +275,9 @@ class TacGamedata {
            this like an object (plan trap 9). ⚠️ gamedata.js parseServerData() must copy this key
            BY NAME or the whole client half is silently dead - see arch_gamedata_named_key_copy. */
         if ($this->edfHexes !== null) $strippedGamedata->edfHexes = $this->edfHexes;
+        /* Walkers of Sigma-957 (Stage 7) - the Net-generated hexes, for the map overlay only.
+           Same null-not-empty contract, same named-key requirement in gamedata.js. */
+        if ($this->edfNetHexes !== null) $strippedGamedata->edfNetHexes = $this->edfNetHexes;
         $strippedGamedata->isStealthPresent = $this->isStealthPresent;
         $strippedGamedata->areMinesPresent = $this->areMinesPresent;        
 
@@ -2161,10 +2188,13 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
     public function setEdfHexes() {
         $this->edfHexes = null;
         $this->edfSources = null;
+        $this->edfNetHexes = null;
         self::$edfPresent = false;      //self-resetting across the double gamedata load - see the static
 
         $edfHexes = array();
         $edfSources = array();          //server-side only - see the property
+        $nets = array();                //Energy Draining Nets, collected for the linking pass below
+        $netHexes = array();            //"q,r" => hex, for the client's Net-field overlay only
 
         try {
             foreach ($this->ships as $ship){
@@ -2189,6 +2219,9 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
                 $position = $ship->getHexPos();
                 if (!$position) continue;                 //no position yet (lobby / initialisation)
 
+                $shipNets = array();     //Stage 7 - this ship's Nets, and whether it draws a disc too
+                $shipDrawsDisc = false;
+
                 foreach ($sources as $system){
                     if (!$system->isEdfActive($this->turn)) continue;
 
@@ -2199,10 +2232,51 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
                     self::addEdfHex($edfHexes, $edfSources, $position->q, $position->r, $team, $ship->id);
 
                     if ($radius > 0){
+                        $shipDrawsDisc = true;
                         foreach (Mathlib::getNeighbouringHexes($position, $radius) as $hex){
                             self::addEdfHex($edfHexes, $edfSources, $hex['q'], $hex['r'], $team, $ship->id);
                         }
                     }
+
+                    /* Walkers of Sigma-957 (Stage 7). A Net's OWN hex is already in the map -
+                       it is an EdfSource of radius 0, so the line above covered it. What it
+                       cannot do for itself is link to the other Nets in its formation, which
+                       needs the whole fleet's Nets in one place; collect them here, where the
+                       three exclusions and isEdfActive() have already been paid for. */
+                    if ($system instanceof EnergyDrainingNet){
+                        $nets[] = array('ship' => $ship, 'system' => $system,
+                                        'pos' => $position, 'team' => $team);
+                        $shipNets[] = $system;
+                    }
+                }
+
+                /* ⚠️ A Net's own hex goes into the OVERLAY list only when nothing else is already
+                   drawing it. The Traveler carries a Net AND a radius-2 field, and ShipIcon's
+                   per-source disc already covers the hex both of them stand in - so publishing it
+                   here as well would lay a second purple blanket over one hex in the middle of
+                   that disc, which reads as a marked hex rather than as more of the same field.
+                   Tested per SHIP rather than against the finished map on purpose: the disc is
+                   drawn from the SHIP's icon, so "is this hex already drawn" is a question about
+                   this hull, not about whatever else happens to cover the hex. */
+                if (!empty($shipNets) && !$shipDrawsDisc){
+                    $netHexes[$position->q . ',' . $position->r] = array('q' => $position->q, 'r' => $position->r);
+                }
+            }
+
+            /* ⭐ THE ENERGY DRAINING NET LINKING PASS, AND IT RUNS *AFTER* THE DISC SWEEP ON
+               PURPOSE. EdfNetLinks answers "which hexes are already field" by looking in the map,
+               which is how the rules' "it is not necessary to count those hexes in an EDF
+               generated by another vessel" is enforced against the fill cap - so the map has to
+               be complete before it is asked. Inside the try, because it reads getHexPos() the
+               same way the loop above does.
+               Its output is folded in through the SAME addEdfHex() as everything else, so a
+               corridor hex is indistinguishable from a projected one to every consumer: the
+               targeting penalty, the drain, own-fleet immunity and overlap collapse all work on
+               Stage 7 without a line of new code. */
+            if (count($nets) > 1){
+                foreach (EdfNetLinks::resolve($this, $nets, $edfHexes) as $hex){
+                    self::addEdfHex($edfHexes, $edfSources, $hex['q'], $hex['r'], $hex['team'], $hex['shipId']);
+                    $netHexes[$hex['q'] . ',' . $hex['r']] = array('q' => $hex['q'], 'r' => $hex['r']);
                 }
             }
         } catch (Exception $e) {
@@ -2213,6 +2287,11 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
 
         $this->edfHexes = $edfHexes;
         $this->edfSources = $edfSources;
+        /* ⚠️ array_values(), because this is published and the client iterates it as a LIST.
+           $netHexes is keyed by hex to dedupe, and a PHP array with string keys encodes as a
+           JSON object, not an array (the other half of plan trap 9). NULL when empty, never
+           array(), for the same reason $edfHexes is. */
+        $this->edfNetHexes = empty($netHexes) ? null : array_values($netHexes);
         self::$edfPresent = true;
     } //endof function setEdfHexes
 

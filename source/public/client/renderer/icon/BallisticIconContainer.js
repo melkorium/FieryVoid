@@ -152,6 +152,7 @@ window.BallisticIconContainer = function () {
 
 		generateBallisticLines.call(this);
 		generateTerrainHexes.call(this, gamedata);
+		generateEdfNetHexes.call(this, gamedata);
 		generateReinforcementHexes.call(this, gamedata);
 		generateJumpPointArrows.call(this, jumpPointOrders);
 		generateExitHexes.call(this, gamedata, exitOrders);
@@ -334,6 +335,147 @@ window.BallisticIconContainer = function () {
 				return overlay && { object: overlay, release: window.HexRegion.dispose };
 			});
 		});
+	}
+
+	/* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.7, Stage 7) - the Energy Draining NET field.
+
+	   ⭐ WHY THIS IS NOT ShipIcon.showEdfField. Every other Energy Draining Field is a disc round
+	   the unit projecting it, so it is drawn as an overlay parented to that unit's icon - which is
+	   what keeps two overlapping fields legible as two shapes rather than one blob. A Net's field
+	   has no unit at its centre: it is its own hex, the CORRIDOR between two Nets three hexes
+	   apart, and the area three or more of them enclose. There is no icon to hang it on, so the
+	   server publishes the hexes themselves (gamedata.edfNetHexes) and they are drawn here, in the
+	   one container that already knows how to lay a blanket over an arbitrary patch of grid.
+
+	   Purple, matching the EDF disc and the Energy Draining Mine marker: on the board they are the
+	   same phenomenon and the rules treat them as one field.
+
+	   ⚠️ gamedata.edfNetHexes is the cheap gate - the server publishes NULL when no Net is on the
+	   board, so an ordinary game does one property read. And the hex LIST is the signature, so a
+	   formation that has not moved is never rebuilt: syncSceneObject would otherwise re-sweep the
+	   region and mint fresh geometry on every poll of every turn.
+
+	   ⚠️⚠️ ONE OVERLAY PER CONNECTED CLUSTER, NOT ONE FOR THE WHOLE SET, and that is a performance
+	   requirement rather than a visual one. HexRegion.buildRegionFromHexes sizes its sweep from the
+	   FARTHEST hex from the anchor and then tests every hex in that square - so a single overlay
+	   covering two Walkers 60 hexes apart would sweep 121 x 121 = 14,641 hexes to draw a handful.
+	   Two lone unlinked Nets at opposite corners of the board is an ordinary thing to happen, so
+	   this is not a corner case. Splitting on adjacency bounds each sweep by the cluster's own
+	   span, which the link rules cap at LINK_RANGE per step.
+
+	   ⚠️ Teams are not distinguished here (the shape is the information, and each cluster belongs
+	   to one fleet anyway); anything that needs to know WHOSE field a hex is reads
+	   gamedata.edfHexes, which is team-tagged and is what every actual rule uses. */
+	function generateEdfNetHexes(gamedata) {
+		//⭐ THE LIVE PREVIEW WINS WHEN THERE IS ONE. PhaseStrategy.syncEdfNetPreview recomputes the
+		//field from PLOTTED positions while the player is moving, so the corridors and the filled
+		//area form as the ship is dragged rather than a commit later (user request, 2026-09-05).
+		//It is advisory only - see model/EdfNetLinks.js - and falls back to the server's answer the
+		//moment the preview is cleared, which is what every other phase gets.
+		const hexes = gamedata.edfNetPreview || gamedata.edfNetHexes;
+		if (!hexes || !hexes.length) return;
+
+		edfNetClusters(hexes).forEach(cluster => {
+			//The cluster's own first hex anchors it, and the cluster list is built in a stable
+			//order - so both the key and the signature stay put while nothing moves.
+			const centre = { q: cluster[0].q, r: cluster[0].r };
+			const signature = cluster.map(hex => `${hex.q},${hex.r}`).join('|');
+
+			syncSceneObject.call(this, `edfnet:${centre.q},${centre.r}`, signature, () => {
+				const overlay = buildHexRegionOverlay.call(this, centre, cluster, 'hexPurple', 1);
+
+				return overlay && { object: overlay, release: window.HexRegion.dispose };
+			});
+		});
+	}
+
+	/* Redraw the Net field ALONE, outside the consumeGamedata pass - which is what the movement
+	   preview needs, because plotting a move fires no poll.
+
+	   ⚠️⚠️ IT HAS TO PRUNE ITS OWN STALE CLUSTERS. consumeGamedata clears `used` on everything and
+	   calls pruneSceneObjects at the end, so an overlay nothing claimed that pass is reclaimed for
+	   free. Nothing does that here, so a cluster that MOVED - which is exactly what happens on
+	   every step of a plotted move - would leave its previous shape on the board and the field
+	   would smear across the whole plotted path. Marking only this prefix and sweeping only this
+	   prefix keeps that fix from touching ballistics, terrain or jump points.
+
+	   Returns whether anything actually changed, so the caller can decide whether to wake the
+	   idle-gated render loop (trap 10) rather than requesting a frame on every mouse move. */
+	BallisticIconContainer.prototype.refreshEdfNetHexes = function (gamedata) {
+		const before = new Map();
+
+		//Clear the claim on this prefix only, and remember what each cluster looked like.
+		this.sceneObjects.forEach((entry, key) => {
+			if (!key.startsWith('edfnet:')) return;
+
+			before.set(key, entry.signature);
+			entry.used = false;
+		});
+
+		generateEdfNetHexes.call(this, gamedata);
+
+		let changed = false;
+
+		this.sceneObjects.forEach((entry, key) => {
+			if (!key.startsWith('edfnet:')) return;
+
+			if (!entry.used) {
+				//Nothing claimed it this pass, so this cluster has gone or moved.
+				releaseSceneObject.call(this, entry);
+				this.sceneObjects.delete(key);
+				changed = true;
+
+				return;
+			}
+
+			//A key it did claim: new, or the same anchor with a different shape.
+			if (before.get(key) !== entry.signature) changed = true;
+		});
+
+		return changed;
+	};
+
+	/* The published Net hexes split into groups of touching hexes. A Net field is corridors and
+	   filled areas, so each group is compact; what it separates is two FORMATIONS, which can be
+	   anywhere relative to each other.
+
+	   Flood fill over mathlib.getNeighbouringHexes, which is the same odd-row offset frame the
+	   server's Mathlib walks - so a corridor the server built as contiguous reads as contiguous
+	   here. O(hexes), and the whole thing only runs when the board actually has a Net on it. */
+	function edfNetClusters(hexes) {
+		const remaining = new Map();
+
+		hexes.forEach(hex => remaining.set(`${hex.q},${hex.r}`, hex));
+
+		const clusters = [];
+
+		hexes.forEach(hex => {
+			const key = `${hex.q},${hex.r}`;
+			if (!remaining.has(key)) return; //already swallowed by an earlier cluster
+
+			const cluster = [];
+			const stack = [remaining.get(key)];
+
+			remaining.delete(key);
+
+			while (stack.length) {
+				const current = stack.pop();
+
+				cluster.push(current);
+
+				mathlib.getNeighbouringHexes(current, 1).forEach(neighbour => {
+					const neighbourKey = `${neighbour.q},${neighbour.r}`;
+
+					if (!remaining.has(neighbourKey)) return;
+					stack.push(remaining.get(neighbourKey));
+					remaining.delete(neighbourKey);
+				});
+			}
+
+			clusters.push(cluster);
+		});
+
+		return clusters;
 	}
 
 	/* SUPERSEDED - kept for reference while the blanket version beds in. One BallisticSprite (one
