@@ -40,9 +40,8 @@ class Traveler extends BaseShip{
 		$scanner->markAdvanced();
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(7, 28, 0, 16, 4));
-        $this->addPrimarySystem(new SelfRepair(7, 22, 9)); //armor, structure, output      
-		$this->addPrimarySystem(new JumpEngine(7, 30, 12, 6));        
-		
+        $this->addPrimarySystem(new SelfRepair(7, 22, 9)); //armor, structure, output
+		$this->addPrimarySystem(new JumpEngine(7, 30, 12, 6));		
 		
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));			       
@@ -61,7 +60,7 @@ class Traveler extends BaseShip{
 		//STAGE 4: Energy Draining Field. Args are (armour, maxhealth, powerReq, radius, variable);
 		//0 for health/power and null for radius take the class defaults, which are PLACEHOLDER
 		//values in baseSystems.php until the control sheet lands (D4). Fixed field, not variable.
-		$this->addAftSystem(new EnergyDrainingField(6, 0, 0, 2, true));
+		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
 
 
 		$this->addLeftSystem(new GraviticThruster(6, 30, 0, 8, 3));
@@ -95,15 +94,15 @@ class Traveler extends BaseShip{
 			1=> array( //Fwd
 				4 => "Thruster",
 				6 => "Lightning Array",
-				9 => "Chromatic Pulse Driver",
+				8 => "Chromatic Pulse Driver",
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
 				6 => "Thruster",
 				9 => "Energy Draining Field",
-				11 => "Hangar", 								
-				18 => "Structure",  				
+				11 => "Hangar",
+				18 => "Structure",
 				20 => "Primary",
 			),
 			3=> array( //Fwd
