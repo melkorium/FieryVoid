@@ -69,7 +69,7 @@ class Waymarker extends HeavyCombatVessel{
 
 
 		$this->addAftSystem(new MediumLightningArray(6, 0, 0, 120, 240));
-		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 120, 240));			
+		$this->addAftSystem(new ChromaticPulseDriver(6, 0, 0, 120, 240));			
 		$this->addAftSystem(new GraviticThruster(6, 15, 0, 6, 2));
         $this->addAftSystem(new Hangar(6, 18, 6));
 		$this->addAftSystem(new GraviticThruster(6, 15, 0, 6, 2));
