@@ -16884,8 +16884,10 @@ class CoopStructureSelfRepair extends StructureSelfRepair {
    bundle rebuilds and a fresh chance to get the ordering wrong. Keep the pair symmetric.  */
 
 /* A source of Energy Draining Field hexes. Implemented by ship SYSTEMS (this class, and the
-   Energy Draining Net at Stage 7 which answers radius 0) and, from Stage 6, by the terrain
-   unit an Energy Draining Mine spawns. TacGamedata::setEdfHexes() consumes nothing else.
+   Energy Draining Net at Stage 7 which answers radius 0). TacGamedata::setEdfHexes() consumes
+   nothing else - which is what let Stage 6's Energy Draining Mine project a field with no new
+   code at all: the terrain orb it spawns (SpawnEnergyDrainingMine) simply mounts a radius-1
+   EnergyDrainingField of its own.
 
    getEdfRadius($turn) - hexes of field around the unit, AFTER criticals and boost. 0 means
                          "this hex only"; a source that is not projecting answers 0 too, but

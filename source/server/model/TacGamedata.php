@@ -2230,6 +2230,59 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
         $edfSources[$key][(int)$shipId] = $team;
     }
 
+    /**
+     * Walkers of Sigma-957 (Stage 6): fold ONE field into the already-built map, mid-request.
+     *
+     * ⭐ WHY THIS EXISTS AT ALL. setEdfHexes() builds the map once per gamedata load, in
+     * onConstructed() - long before Firing. An Energy Draining Mine's probe lands DURING the
+     * Firing step and its field has to be in place for the Critical Hit step that follows, so
+     * that units caught in it are drained on the turn it lands (user ruling 2026-09-05). That is
+     * one hex-disc arriving late, not a reason to rebuild everything.
+     *
+     * ⚠️⚠️ AND IT MUST NOT BE A REBUILD. Calling setEdfHexes() again after Firing would ALSO
+     * re-evaluate every existing field against post-firing state, and setEdfHexes() skips
+     * $ship->isDestroyed() with no turn argument - so a Walker shot down in that same Firing step
+     * would silently stop draining on the turn it died, which is not what
+     * EnergyDrainingField::isEdfActive() says (it asks isDestroyed($turn - 1): a system killed
+     * this turn worked for this turn). Additive, therefore, and only additive.
+     *
+     * Idempotent: $edfHexes is keyed by hex and its `teams` is a set, so registering the same
+     * disc twice is a no-op - which is what makes it safe to call from a resolver that may run
+     * more than once in a request.
+     *
+     * ⚠️ Takes the hex EXPLICITLY rather than a source ship. The probe is unset from
+     * $gamedata->ships the moment it is inserted (see EnergyDrainingMine::spawnFieldOrb), and it
+     * has no in-memory movement row either, so there is nothing to ask getHexPos().
+     * $sourceShipId is the LAUNCHER, for the combat log's "who drained me" line - the orb itself
+     * is not in ships this request and getEdfSourceShip() could not resolve it.
+     *
+     * ⚠️ $edfPresent is set here, and callers rely on it: the whole drain block in
+     * Criticals::setCriticals is gated on that static, so a game whose ONLY field is a probe that
+     * just landed would otherwise never resolve one.
+     */
+    public function registerEdfField($pos, $radius, $team, $sourceShipId)
+    {
+        if (!$pos || $team === null) return;
+
+        //NULL until something projects (trap 9) - so the first registration creates the maps.
+        if ($this->edfHexes === null)   $this->edfHexes = array();
+        if ($this->edfSources === null) $this->edfSources = array();
+
+        $team   = (int)$team;
+        $radius = (int)$radius;
+
+        //the source's own hex is always in the field, even at radius 0
+        self::addEdfHex($this->edfHexes, $this->edfSources, $pos->q, $pos->r, $team, $sourceShipId);
+
+        if ($radius > 0){
+            foreach (Mathlib::getNeighbouringHexes($pos, $radius) as $hex){
+                self::addEdfHex($this->edfHexes, $this->edfSources, $hex['q'], $hex['r'], $team, $sourceShipId);
+            }
+        }
+
+        self::$edfPresent = true;
+    }
+
     /* Walkers of Sigma-957 (Stage 4c): the unit whose Energy Draining Field is draining $victim
        where it stands - the first source over that hex that is NOT on the victim's own team.
        Returns null when nothing qualifies (no map, no entry, or a hex covered only by the

@@ -818,7 +818,12 @@ if (ballistic.damageclass === 'Sweeping' || ballistic.damageclass === 'HPC-subor
 				'Clockwise': { type: 'hexPurple', text: 'Singularity Mine', color: '#7f00ff' }, // GTS for Singularity Mine
 				'Defensive Plasma Web': { type: 'hexGreen', color: '', color: '#787800' },								
 				'Defensive Sand Caster': { type: 'hexYellow', color: '', color: '#787800' },
-				'Energy Mine': { type: 'hexRed', text: 'Energy Mine', color: '#e6140a' },					
+				'Energy Mine': { type: 'hexRed', text: 'Energy Mine', color: '#e6140a' },
+				//WALKERS OF SIGMA-957 (Stage 6). Purple, not red: the probe deals no damage, and a
+				//red hex on this map means incoming fire. The key is the FIRING MODE NAME as the
+				//server declares it (EnergyDrainingMine::$firingModes) - the label is shorter on
+				//purpose, so it fits the hex.
+				'Energy Draining Mine': { type: 'hexPurple', text: 'Energy Drain Mine', color: '#7f00ff' },
 				'Fighter Bomb': { type: 'hexBlue', text: 'Fighter Bomb', color: '#00b8e6' },
 				'Flare': { type: 'hexWhite', text: 'Flare', color: '#ffffff' },  // GTS for Flare Generator
 				'Gravitic Mine': { type: 'hexGreen', text: 'Gravitic Mine', color: '#008000' },											
@@ -851,12 +856,14 @@ if (ballistic.damageclass === 'Sweeping' || ballistic.damageclass === 'HPC-subor
 				// Call splash hex generation for cases where weapon affects more than one hex.
 				// Guard with targetPosition: mine-targeting fire orders (targetid !== -1) have a targetIcon
 				// but no targetPosition, which would make generateSplashHexes place hexes at 0,0 in Replay.
-				if (['Z - Antimine', 'Shredder', 'Energy Mine', 'Ion Storm', 'Jammer', '1-Blanket Shield', '3-Blanket Shade', 'Flare', 'Asteroid Salvo', 'Clockwise', 'Anti-Clockwise'].includes(modeName)) {  //GTS Added Flare, Asteroid Salvo, and spins for Singularity Mine
+				if (['Z - Antimine', 'Shredder', 'Energy Mine', 'Energy Draining Mine', 'Ion Storm', 'Jammer', '1-Blanket Shield', '3-Blanket Shade', 'Flare', 'Asteroid Salvo', 'Clockwise', 'Anti-Clockwise'].includes(modeName)) {  //GTS Added Flare, Asteroid Salvo, and spins for Singularity Mine
 					if ((gamedata.isMyOrTeamOneShip(shooter) || replay) && targetPosition) {
 						//A single RADIUS now, not a list of ring sizes: generateSplashHexes fills the whole
 						//disc in one region, so Ion Storm's old [1, 2] - ring 1 plus ring 2, the only way
 						//to cover a radius-2 area a ring at a time - is simply 2.
-						let size = 1; // Shredder / Energy Mine
+						//Energy Draining Mine takes this default deliberately: radius 1 is the seven
+						//hexes its field covers, i.e. EnergyDrainingMine::FIELD_RADIUS. Move both together.
+						let size = 1; // Shredder / Energy Mine / Energy Draining Mine
 
 						switch (modeName) {
 							case 'Z - Antimine':

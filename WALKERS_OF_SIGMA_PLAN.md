@@ -3,8 +3,8 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: Stages 0–4 COMPLETE (2026-09-04). Stages 5–10 planned.** Written 2026-09-02 after a
-full survey of the existing seams.
+**Status: Stages 0–6 COMPLETE (Stage 6 on 2026-09-05). Stages 7–10 planned.** Written 2026-09-02
+after a full survey of the existing seams.
 
 **Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
 the switch key in `gamelobby.js`, the directory-map key in `ShipLoader::getFactionDirMap()`, the
@@ -1197,6 +1197,11 @@ is exactly what a penalty mirrored "to the point" needs.
   (`isReinforcement()` — worse here than in `setBlockedHexes` because this map goes to *every*
   viewer and would announce an arrival box a turn early), and units with no position yet.
 - ⚠️ **NULL, never `array()`,** when nothing projects (trap 9).
+- ⚠️ **There is ONE mid-request writer, added at Stage 6: `registerEdfField()`.** An Energy
+  Draining Mine's probe lands during Firing, after this map was built, and has to drain at the
+  Critical Hit step of its own turn — so it folds a single hex-disc in. It is **additive on
+  purpose**: a rebuild would also re-test every existing field against post-firing state and drop
+  the field of a Walker shot down in that same step. See §3.6.
 
 ⭐ **THE GATE NEEDS NO `DBManager` RESET, and that is a deliberate difference from
 `CpdScanRegistry`.** `TacGamedata::$edfPresent` is cleared at the top of `setEdfHexes()`, which
@@ -1758,29 +1763,172 @@ clean-tree failure; game 4324 skipped as advanced-since-record). Legacy bundles 
 
 
 
-### 3.6 Energy Draining Mine
+### 3.6 Energy Draining Mine — **BUILT 2026-09-05 (Stage 6)**
 
-`class EnergyDrainingMine extends AoE implements ...` — the `BallisticTorpedo` storage pattern
-(§1.3) over the `EnergyMine` ballistic shape ([AoE.php:140](source/server/model/weapons/AoE.php#L140)).
+`class EnergyDrainingMine extends AoE` in [AoE.php](source/server/model/weapons/AoE.php) (the user's
+instruction: *"Electromagnetic, but created in AoE files"*), client twin `EnergyDrainingMine` in
+[aoe.js](source/public/client/model/weapon/aoe.js). Range 150, `factionAge = 3`, `weaponClass =
+"Electromagnetic"`, `hidetarget`, no intercept rating, **and no damage of any kind** —
+`getDamage`/`setMinDamage`/`setMaxDamage` all answer 0 and `fire()` never reaches `AOEdamage`.
 
-- `normalload = 3`, `canSplitShots = true`, `hextarget = true`, `ballistic = true`,
-  `getStartLoading()` → 0 (*"may not begin the scenario fully loaded"*).
-- **Scatter is its own table, not `AoE::fire`'s.** Override `fire()`: `d20` 1–15 on target;
-  16–20 → `d10`, 1–6 scatters `d5` hexes along the indicated facing, 7–10 no effect.
-- **On landing, spawn a terrain unit** carrying an `EdfSource` with radius 1 (7 hexes), using the
-  `spawnHyperspaceWaveform` recipe at
-  [specialWeapons.php:11080](source/server/model/weapons/specialWeapons.php#L11080):
-  `Manager::insertSingleShip` → `insertSingleMovement` (a `deploy` order) →
-  `SystemData::initSystemData` + `insertSystemData` → `unset($gamedata->ships[$id])`.
-- **Removed in the Vortex Closure segment one turn later** — the Spatial Cutter's
-  `generateIndividualNotes` case 4 is the exact precedent (silent removal, no DamageEntry
-  animation).
-- Criticals: `20+ → EdfMineRechargeSlowed`, escalating on count (1/2 turns, 1/3, …).
-  `IncreasedRecharge1` already exists and may be reusable as-is.
+Mounted on the Traveler in the **aft** section at arc 0..360, hit chart row 13 (placeholder
+placement, like every other Walker stat, until a control sheet says otherwise — D4).
 
-⚠️ Spawned ships: `LAST_INSERT_ID` returns a **string**. Cast it.
+**Storage is `BallisticTorpedo`'s** (§1.3), with one change:
+- `loadingtime = 1`, `normalload = 3`, `canSplitShots`, `hextarget`, `ballistic`,
+  `defaultShots = 1`; `firedOnTurn()` sums `->shots`; `calculateLoading()` adds at phase 1 and
+  deducts at phase 2.
+- `getStartLoading()` returns **1**, not 0 and not `getNormalLoad()` — *"begins battles loaded with
+  1 mine"*.
+- ⚠️ **`turnsloaded` is the COUNT OF MINES HELD, so `loadingtime` must stay 1.** Both
+  `Firing::getFireOrderBlock` and `weaponManager.isLoaded` answer "loaded" with
+  `turnsloaded >= loadingtime`, so raising the loading time to model a slowed reload would mean a
+  crippled launcher needed *two* mines in store before it could fire at all. The reload cadence is
+  a separate number, `$reloadInterval`.
+
+**The recharge critical is `IncreasedRecharge1`, reused as-is** (the plan's guessed
+`EdfMineRechargeSlowed` was not needed): it already means "recharge increased by one turn" and it
+is repeatable, so *"1 per 2 turns, then 1 per 3, and so on"* is the crit COUNT —
+`getReloadInterval() = 1 + hasCritical("IncreasedRecharge1")`.
+
+⭐ **THE CADENCE IS `turn % interval`, NOT A STORED COUNTER.** The obvious home for "turns since the
+last mine" is the `WeaponLoading` overloading slot, which `BallisticTorpedo` leaves at 0 — but
+`weaponManager.isLoaded()` answers `loadingtime <= turnsloaded || loadingtime <= overloadturns`, so
+a counter sitting at 1 would make an **empty** launcher read as loaded on the client. The turn
+number needs no storage, cannot drift across the double gamedata load (trap 1), and replays
+identically. A test asserts `overloading` stays 0 and `loadingtime` stays 1 in every phase.
+`reloadsOnTurn()` is the single authority.
+
+⚠️⚠️ **TURN 1 MUST NOT RELOAD — `getStartLoading()` *IS* TURN ONE'S LOAD** (user report, game 4337:
+the launcher opened the battle at 2/3 and Traveler #1 declared two probes on turn 1). The reload
+branch fires when the game advances **out of DEPLOYMENT**, because
+`Manager::advanceGameState` runs its `onAdvancingGamedata` sweep *after* the phase advance and
+`DeploymentGamePhase::advance()` has already set phase 1 — so on turn 1 it lands **before** the
+player's first Initial Orders. Read the two branch labels accordingly: `currentPhase == 1` means
+"we just left Deployment" and `currentPhase == 2` means "we just left Initial Orders", which is
+when ballistics commit. ⚠️ The fix is **not** to seed `getStartLoading()` with 0 and let the bump
+make it 1 — the ship window would then read 0/3 for the whole Deployment phase, which is the
+complaint `MediumLightningArray` already answered the same way (game 4329).
+
+**Scatter: the rules' table, on the family's d100.** `d20` 1–15 on target, 16–20 → `d10` 1–6
+scatters `d5` hexes / 7–10 no effect is *arithmetically identical* to `AoE::fire`'s shape —
+75% / 15% / 10% — because `0.25 × 0.4 = 0.10`. So `fire()` rolls one `d100` against
+`needed = 90` with the on-target threshold at 75, exactly like every other weapon in the family,
+and `needed` is **derived from the two constants rather than written as a literal**
+(`ON_TARGET_PCT`, `SCATTER_PCT`). The only real difference from the parent is `SCATTER_DIE = 5`
+instead of 6. The direction is a separate uniform `d6` rather than being read off the same `d10`;
+the distribution over the six facings is the same either way. *"Like Energy Mines, scatter rules
+apply"* also brings the family's cap of the distance actually flown — a probe lobbed one hex cannot
+land five hexes past its launcher. Measured over 40,000 resolutions: 74.55% / 15.22% / 10.23%, and
+a flat d5 (1251/1187/1226/1254/1169).
+
+⚠️ **No to-hit modifiers**, exactly as `AoE::calculateHitBase` — fire control, range and the EDF
+penalty all sit a probe's scatter out.
+
+**The field is a spawned Terrain unit,
+[`SpawnEnergyDrainingMine`](source/server/model/ships/terrain/SpawnEnergyDrainingMine.php)**, using
+the `spawnHyperspaceWaveform` recipe (`Manager::insertSingleShip` → `insertSingleMovement` deploy
+order → `SystemData::initSystemData`/`insertSystemData` → `unset($gamedata->ships[$id])`).
+
+⭐ **IT MOUNTS AN ORDINARY `EnergyDrainingField(0, 1, 1, 1, false)` — no bespoke `EdfSource`
+class.** `TacGamedata::setEdfHexes()` collects anything implementing the interface, so the drain,
+the targeting penalty, the overlap collapse, the own-fleet immunity and the map overlay all pick a
+probe up with no code that knows what a mine is. A dedicated class would have needed a client twin
+(`SystemFactory` builds with `new window[name]`), a blueprint entry, **and** its own name in
+`PhaseStrategy.getEdfRadiusForShip` / `shipCarriesEdf`, which both match on
+`system.name === 'EnergyDrainingField'` — three places to forget. Radius 1 is the rules' *"the
+destination hex and those immediately surrounding it (seven hexes in total)"*.
+
+⚠️ `Enormous = false`, like `SpawnJumpPoint` and unlike the waveform: Enormous terrain auto-rams
+everything that flies through it and joins `blockedHexes`, and a drifting field does neither. Its
+primary `Structure` is **indestructible** — the probe's life is one turn and letting damage end it
+early would be a second, unwritten rule about when a field stops. One knock-on worth knowing: it is
+Terrain, so a hex holding a probe refuses a Jump Engine's vortex declaration
+(`Firing::getVortexDeclarationBlock` rejects any terrain-occupied hex).
+
+⭐⭐ **THE ONE-TURN LIFE IS ENCODED IN THE SHIP'S NAME (`"EDM<turn>"`) and re-derived on every
+load** in `SpawnEnergyDrainingMine::onConstructed()`. `tac_ship` has no spawn-turn column and the
+waveform solves the same problem the same way. **This replaces the plan's `generateIndividualNotes`
+cleanup sweep**, and is strictly better: there is nothing to persist, nothing to run, and the probe
+still expires on time when the launcher that fired it has been destroyed. It lands during Firing on
+turn N and is on the board for turns N and N+1.
+
+⭐⭐ **IT DRAINS ON BOTH OF THEM — INCLUDING THE TURN IT LANDS** (user ruling 2026-09-05, revising
+the first build). *"If enemy ships are caught in its AoE on the turn it lands then that counts as
+the first turn they are in an EDF, then the field persists for another turn."* So a unit standing
+in the seven hexes on turn N takes one die, and two (cumulative) if it is still there on N+1 — the
+ordinary `EdfExposed` escalation, with nothing added to it.
+
+Turn N+1 needs no machinery: the probe is an ordinary ship by then and `setEdfHexes()` finds its
+`EnergyDrainingField` at load. Turn N does, because the map was built in `onConstructed()` long
+before Firing. `EnergyDrainingMine::$pendingFields` queues each landed probe and
+`Criticals::setCriticals` drains the queue through the new
+**`TacGamedata::registerEdfField()`** — one hex-disc folded into the existing map.
+
+- ⚠️⚠️ **ADDITIVE, NEVER A REBUILD.** Calling `setEdfHexes()` again after Firing would look like the
+  obvious fix and is a trap: it skips `$ship->isDestroyed()` with no turn argument, so a Walker
+  shot down in that same Firing step would silently stop draining on the turn it died — which
+  contradicts `EnergyDrainingField::isEdfActive()`, whose `isDestroyed($turn - 1)` says a system
+  killed this turn worked for this turn.
+- ⚠️ **The queue is drained at the CRITICAL HIT STEP, not from `fire()`.** Registering at spawn
+  time would make the field visible to weapons resolving LATER in the same Firing step —
+  `AoE::fire` asks `isHexInEdfField()` to decide whether a proximity blast is contained — so
+  whether an enemy energy mine kept its radius would depend on weapon resolution ORDER.
+- ⚠️ **The flush sits BEFORE the `TacGamedata::$edfPresent` gate in `setCriticals`**, because
+  `registerEdfField()` is what sets that static: inside the gate, a game whose only field is a
+  probe that just landed would never reach the resolver. `class_exists('EnergyDrainingMine', FALSE)`
+  keeps it to one hash lookup for every other game.
+- The queued entries carry the **launcher's** team and id, not the orb's: the team is what makes
+  the launching fleet immune, and the orb is not in `$gamedata->ships` this request so
+  `getEdfSourceShip()` could not resolve it for the combat log.
+
+⚠️⚠️ **`$removed` IS SET PER LOAD, NEVER ONCE AND FOR ALL.** `BaseShip::isDestroyed()` with no
+argument answers **true for any unit whose `$removed` is set, whatever `$removedTurn` says** — so
+stamping the flag at spawn time kills the field on the very turn it is meant to work.
+`JumpEngine::restoreVortexState` sets it conditionally for the same reason. It is also set for
+turns *before* the spawn, so a replay of an earlier turn cannot show the field a turn early
+(`setEdfHexes()` skips destroyed units).
+
+**The map marker is PURPLE** — `BallisticIconContainer`'s `modeMap` gains a
+`'Energy Draining Mine': { type: 'hexPurple', text: 'Energy Drain Mine', color: '#7f00ff' }` row,
+plus the mode name in the splash-hex list so the whole seven-hex disc is drawn rather than the
+centre alone. Red is the map's colour for incoming fire and this probe deals none.
+⚠️ **The `modeMap` key is the FIRING MODE NAME the server declares**
+(`EnergyDrainingMine::$firingModes`), not the system name — a one-character drift between the two
+files falls back to a plain red hex with no label and no error. A test compares the two sources.
+⚠️ The splash radius is the switch's **default of 1**, which is `FIELD_RADIUS`; move them together.
+
+**Client half.** `weaponManager.targetHex` routes a `canSplitShots` weapon to
+`doMultipleHexFireOrders`; one right-click declares one mine, `checkFinished()` unselects the
+launcher when the store is spent.
+⚠️ **Remaining mines are DERIVED (`turnsloaded − fireOrders.length`), not counted down.**
+`torpedo.js` keeps a decrement-only `maxVariableShots`, which the server re-publishes at its full
+value on every poll — so a page reload with two mines already declared reports three still
+available. `maxVariableShots` is still kept in step for the generic UI that reads it.
+
+⚠️ Spawned ships: `LAST_INSERT_ID` returns a **string**. `Manager::insertSingleShip` casts it.
 ⚠️ A new shipid-keyed table would need adding to both `deleteGames()` and `leaveSlot()` — this
 feature adds none, but the terrain rows follow the existing spawn cleanup.
+
+**Stats as at 2026-09-05:** `maxhealth = 12`, `powerReq = 5` (user's numbers), mounted aft at
+0..360 on hit-chart row 13. Art landed the same day —
+`img/systemicons/EnergyDrainingMine.png` and `img/ships/WalkerEDMine.png`.
+
+⭐ **THE FIGHTER DROPOUT WAS AUDITED AND IS CORRECT** (user query, game 4337: *"no Frazi fighters
+dropped out on turn 1"*). §2.2's `rollDropouts` rolls `(consecutive + 1)d10` against each craft's
+**remaining boxes**, the same comparison `Fighter::testCritical` makes with its single d10 — so an
+undamaged Frazi's 12 boxes need a 13+. Driving the real resolver 20,000 times from a probe's field
+measured **0.362 per craft on turn 1** against a closed-form 0.360, and **0.067 for zero-of-six**
+against 0.0687. Game 4337 hit that ~1-in-15 tail on turn 1 and then lost 5 of 6 on turn 2, which is
+the *modal* result at 3d10 (37.8%). Nothing to fix.
+
+- ⚠️ **A healthy heavy fighter is 36% to drop out on its first turn in a field, and 78% on its
+  second.** That is the rule as written (*"2d10 instead of the usual 1d10, also increased by an
+  additional 1d10 for every successive turn"*), and it is brutal — but the die COUNT is the whole
+  rule, so the harness now pins it deterministically: at 13 dice the minimum roll of 13 exceeds 12
+  boxes, so every craft must drop.
+- ⚠️ A craft that has already disengaged is skipped on later turns — `Fighter::isDestroyed()` folds
+  `DisengagedFighter` in, and `rollDropouts` tests it. No double-rolling.
 
 ### 3.7 Energy Draining Net
 
@@ -1893,7 +2041,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **3** ✅ | Chromatic Pulse Driver — **DONE 2026-09-03; CLOSED 2026-09-04** | 186 + 56 server checks and 35 client checks green (2026-09-04: the client half was DEAD until gamedata.js was taught to copy `cpdAdaptation` off the payload). Two firing modes (Pulse / Scanning), the Pulse profile keyed by turns charged; a Scanning hit reduces the target race's shields fleet-wide from the **next** turn, survives a reload, and the double-load trap is demonstrated BOTH ways. ⭐ Publication changed from the plan: the reduction lands on the AGGREGATED defensive bucket in `BaseShip::getHitChanceMod`/`getDamageMod` + FighterFlight's two, not inside each of the nine shield classes — four edits instead of eighteen, once-only by construction, no-op when no CPD is in the game. It lives in `pulse.php`/`pulse.js`, not the Walker files, because `special.js` loads BEFORE `pulse.js`. ⭐ Closed 2026-09-04 with the CAPACITY-POOL half: Thirdspace, Thought and both Trek shield projections hold a pool instead of a modifier, so the bucket reduction reached nothing on them; they now lose the same points off the pool via `Shield::getCapacityAgainstShooter()`, and `doesProtectFromDamage` gained an optional `$shooter`. |
 | **4** ✅ | EDF + Variable EDF (§2.1 + §2.2) — **DONE 2026-09-04** | 71 + 105 server checks and 32 client checks green. The field (fixed and variable, both crit ladders, boost, deactivation) on the Traveler with its chart row restored; `TacGamedata::$edfHexes` published hex-keyed so overlap collapse and own-fleet immunity are structural; the targeting penalty server↔client, agreeing over a 4,000-line / 128,745-hex differential corpus; the drain landing as six one-turn param criticals read at four choke-points; and the map overlay. ⭐⭐ Two findings worth carrying: the client parity needed a port of PHP's `round()`, not `Math.round` (half-away-from-zero AND PHP's pre-rounding, worth 843 and 13 wrong lines), and the drain needs NO replay roll-note because the RESULT is the record — every roll lands in a persisted crit's param and an `EdfExposed` marker makes a reload idempotent. ⭐ The full rules text arrived the same day and corrected three things: the EW drain is **d6** not d10; a fully drained reactor blacks out every powered system, reusing `Reactor::addCritical`'s existing cascade; and flash/proximity weapons lose their collateral and their blast radius inside a field. Nothing in Stage 4 is inferred any more. |
 | **5** ✅ | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) — **DONE 2026-09-04; the refit's RANGE fixed 2026-09-05 after play testing** | 98 server checks and 50 client checks green, plus a **2,573-hull corpus differential** on the offer tuples: the Traveler is the ONLY hull whose offers changed, and only by gaining `EDF_RANGE` + the user's `WalkerShip` set. The crit ladders were already built in Stage 4 and are confirmed against the rules text, which arrived afterwards and matches them exactly (fixed 21+, floor 1; variable 20+, boost first then a hex each, floor 0). ⭐ The refit went **ship-level** (`EDF_RANGE`), not per-system — see §3.5 — and its variable-field rule is implemented by **spending `boostRadiusBonus` down as `radius` goes up**, so the double-power radius is unmoved by construction. ⚠️⚠️ Two findings worth carrying: rewriting the Ancient-weapon gate as a bare `factionAge > $ship->factionAge` silently stripped every refit from the ~40 **middleborn** (`factionAge = 2`) weapon classes on young hulls — the corpus differential was the only thing that caught it, and the test needs BOTH halves (§3.3); and Stage 4 had shipped the variable field's **boost for free** (`boostEfficiency = 0`, which is the EXTRA power a boost level costs, not a flag), now set from `$powerReq` so double power really is double. |
-| **6** | Energy Draining Mine | Stores 3, launches any number, scatters on its own table, spawns a 7-hex field, cleans up one turn later. |
+| **6** ✅ | Energy Draining Mine — **DONE 2026-09-05; three play-test revisions the same day** | 215 server checks and 53 client checks green, including a 40,000-shot resolution run measuring 74.55% / 15.22% / 10.23% against the rules' 75 / 15 / 10 and a flat d5 scatter. Stores 3, begins with 1, launches any number at any hexes, spawns a 7-hex field that expires after one turn. ⭐ Two departures from the plan, both simplifications: the orb carries an **ordinary `EnergyDrainingField`** rather than a bespoke `EdfSource` (so the drain, the penalty and the map overlay needed no new code at all), and its one-turn life is **derived from the ship's name on every load** instead of a `generateIndividualNotes` cleanup sweep — which means it still expires on time when the launcher that fired it is dead. `IncreasedRecharge1` covered the crit ladder as-is. ⚠️⚠️ Two findings worth carrying: `turnsloaded` is the MINE COUNT, so `loadingtime` must stay 1 or a crippled launcher needs two mines in store to count as loaded at all — the slowed reload is a separate `turn % interval` cadence, deliberately NOT the `overloading` slot, because `weaponManager.isLoaded` also tests that and would call an empty launcher loaded; and `$removed` has to be re-decided on every load, because `isDestroyed()` with no argument is true for ANY removed unit whatever `removedTurn` says. **Play-test revisions (game 4337):** turn 1 must not reload — the reload branch fires when the game leaves DEPLOYMENT, which on turn 1 is before the player's first Initial Orders, so the launcher opened at 2/3; the map marker is now a PURPLE seven-hex disc labelled "Energy Drain Mine" rather than the default red hex; and ⭐⭐ **the field now drains on the turn it LANDS as well as the turn after**, via a queue flushed through the new `TacGamedata::registerEdfField()` at the top of `Criticals::setCriticals` — ⚠️ additive and never a `setEdfHexes()` rebuild (which would stop a Walker shot down in that same Firing step from draining on the turn it died), flushed at the Critical Hit step rather than from `fire()` (so a probe cannot contain an enemy proximity blast declared later in the same step, which would be resolution-order dependent), and placed BEFORE the `$edfPresent` gate because `registerEdfField()` is what sets it. Zero replay drift across the 128-game corpus. |
 | **7** | Energy Draining Net | Pairwise links; closed-area fill respects the `2N−1` cap; three collinear nets still link. |
 | **8** | Wide-Beam enhancements | Per-array purchase; per-die floor; cooldown; collateral at 50%/25%. |
 | **9** | Sensor Charge Transceiver | Waypoints, arcs, path validation, per-hex targets, receiving-SCT self-damage, dual recharge. |
