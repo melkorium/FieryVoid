@@ -2965,6 +2965,7 @@ spl_autoload_register(
                 'smissilerack' => '/server/model/weapons/missile.php',
                 'snipercannon' => '/server/model/weapons/matter.php',
                 'soladon' => '/server/model/ships/centauri_old/soladon.php',
+                'solarblaster' => '/server/model/weapons/particle.php',
                 'solarcannon' => '/server/model/weapons/particle.php',
                 'solarhawk' => '/server/model/ships/drazi/solarhawk.php',
                 'solyrnam' => '/server/model/ships/korlyan/SolyrnAM.php',
