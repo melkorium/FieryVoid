@@ -9,7 +9,7 @@ class Waymarker extends HeavyCombatVessel{
         $this->phpclass = "Waymarker";
         $this->shipClass = "Waymarker";
         $this->imagePath = "img/ships/WalkerWaymarker.png";
-        $this->canvasSize = 200;
+        $this->canvasSize = 180;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 		$this->variantOf = "NONE";
@@ -85,8 +85,9 @@ class Waymarker extends HeavyCombatVessel{
 		$this->hitChart = array(
 			0=> array( //PRIMARY
 				7 => "Structure",
-				9 => "Energy Draining Net", //STAGE 7 - two slots off Structure, nothing else moved
+				9 => "Thruster",				
 				11 => "Jump Engine",
+				12 => "Energy Draining Net",			
 				13 => "Self Repair",
 				15 => "Scanner",                
 				17 => "Engine",
@@ -94,31 +95,19 @@ class Waymarker extends HeavyCombatVessel{
 				20 => "C&C",
 			),
 			1=> array( //Fwd
-				4 => "Thruster",
-				6 => "Lightning Array",
-				9 => "Chromatic Pulse Driver",
+				3 => "Thruster",
+				6 => "Medium Lightning Array",
+				8 => "Energy Draining Mine",
+				//10 => "EW Detector",								
+				12=> "Chromatic Pulse Driver",
 				18 => "Structure",
 				20 => "Primary",
 			),
 			2=> array( //Aft
-				6 => "Thruster",
-				9 => "Energy Draining Field",
+				4 => "Thruster",
+				7 => "Medium Lightning Array",
+				9=> "Chromatic Pulse Driver",				
 				11 => "Hangar",
-				13 => "Energy Draining Mine",
-				18 => "Structure",
-				20 => "Primary",
-			),
-			3=> array( //Fwd
-				6 => "Thruster",
-				8 => "Chromatic Pulse Driver",
-				9 => "Hangar", 				
-				18 => "Structure",
-				20 => "Primary",
-			),
-			4=> array( //Fwd
-				6 => "Thruster",
-				8 => "Chromatic Pulse Driver",
-				9 => "Hangar", 				
 				18 => "Structure",
 				20 => "Primary",
 			),
