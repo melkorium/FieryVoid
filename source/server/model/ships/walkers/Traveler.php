@@ -45,21 +45,13 @@ class Traveler extends BaseShip{
 		
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));			       
-		//STAGE 2: Lightning Array. Args are (armour, maxhealth, powerReq, startArc, endArc);
-		//0 for health/power takes the class defaults, which are PLACEHOLDER values in specialWeapons.php.
 		$this->addFrontSystem(new LightningArray(6, 0, 0, 270, 90));
-		$this->addFrontSystem(new MediumLightningArray(6, 0, 0, 270, 90));
-		//STAGE 3: Chromatic Pulse Driver. Args are (armour, maxhealth, powerReq, startArc, endArc);
-		//0 for health/power takes the class defaults, which are PLACEHOLDER values in pulse.php.
 		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 270, 90));
 
 
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
         $this->addAftSystem(new Hangar(6, 24, 12));
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
-		//STAGE 4: Energy Draining Field. Args are (armour, maxhealth, powerReq, radius, variable);
-		//0 for health/power and null for radius take the class defaults, which are PLACEHOLDER
-		//values in baseSystems.php until the control sheet lands (D4). Fixed field, not variable.
 		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
 
 
