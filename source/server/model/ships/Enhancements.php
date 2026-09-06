@@ -3448,6 +3448,37 @@ class Enhancements{
 			'ages'      => array(1, 2),
 			'serialise' => array('output'),
 		),
+		/* ⭐ THE FIRST ANCIENT-ONLY REFITS (WALKERS_OF_SIGMA_PLAN.md 3.3, Stage 8). `ages` is
+		   array(3) and that single slot is the whole of the gating: systemEnhancementsFor and
+		   sanitiseSystemEnhancements both ask systemEnhancementAllowsAge() independently, and
+		   hullAgeHasAnySystemEnhancement() - the cheap whole-ship exit - is derived from this same
+		   table, so a Walker hull now passes it while a Human one still short-circuits on age.
+		   ⚠️ Two entries, not one with a branching price, because the rules price the two arrays
+		   separately (300 / 200) and the player buys them per array - "If a ship has more than one
+		   array, the player pays to enhance each one separately, and is not required to improve
+		   them all." A hull with one of each is offered one of each, on its own mount.
+		   ⚠️ `serialise` names only wideBeamFitted: the refit's whole effect is that one boolean -
+		   it buys the CAPABILITY, and arming it is a per-turn toggle carried by an individual note,
+		   not by the purchase. LightningArray::stripForJson already republishes data / minDamage /
+		   maxDamage and both damage arrays per instance for its own reasons. */
+		'SYS_WBLA' => array(
+			'label'     => 'Wide-Beam Lightning Array',
+			'eligible'  => 'sysEnhEligibleWBLA',
+			'price'     => 'sysEnhPriceWBLA',
+			'limit'     => 'sysEnhLimitOne',
+			'apply'     => 'sysEnhApplyWIDEBEAM',
+			'ages'      => array(3),
+			'serialise' => array('wideBeamFitted'),
+		),
+		'SYS_WBMLA' => array(
+			'label'     => 'Wide-Beam Medium Lightning Array',
+			'eligible'  => 'sysEnhEligibleWBMLA',
+			'price'     => 'sysEnhPriceWBMLA',
+			'limit'     => 'sysEnhLimitOne',
+			'apply'     => 'sysEnhApplyWIDEBEAM',
+			'ages'      => array(3),
+			'serialise' => array('wideBeamFitted'),
+		),
 	);
 
 	/* The registry, for anything that needs to read it (the JSON fixups, the client label map
@@ -3870,6 +3901,52 @@ class Enhancements{
 			$directionTotal += (int)$other->output;
 		}
 		return 2 * ($directionTotal + (int)$level);
+	}
+
+	/* ------------------------------------------------ SYS_WBLA / SYS_WBMLA (Wide Beam, plan 3.3) */
+
+	/* ⚠️ MediumLightningArray EXTENDS LightningArray, so `$system instanceof LightningArray` is
+	   true for both and the two refits would be offered on every Medium - at 300 points AND at
+	   200, on the same mount, each adding the same firing mode. The exclusion below is what keeps
+	   one array to one price. Written as an explicit instanceof rather than a get_class() equality
+	   so that a future LightningArray subclass that is NOT a Medium still gets the full-array
+	   offer, which is the behaviour the rules describe ("a lightning array"). */
+	private static function sysEnhEligibleWBLA($ship, $system){
+		if($ship instanceof FighterFlight) return false;   //"may not be used on fighters" - the caller
+		                                                   //already refuses flights; said out loud because
+		                                                   //it is a RULE here, not an implementation detail
+		if(!($system instanceof LightningArray)) return false;
+		return !($system instanceof MediumLightningArray);
+	}
+
+	private static function sysEnhEligibleWBMLA($ship, $system){
+		if($ship instanceof FighterFlight) return false;
+		return ($system instanceof MediumLightningArray);
+	}
+
+	/* Flat prices straight out of the rules - 300 for a lightning array, 200 for a medium one.
+	   Not derived from the mount's damage or gun count, unlike the other five refits: the rules
+	   quote a number and this is it. $level is unused because the limit is 1 (priceStep is then 0
+	   by construction - systemEnhancementPriceStep short-circuits below a limit of 2). */
+	private static function sysEnhPriceWBLA($ship, $system, $level){
+		return 300;
+	}
+
+	private static function sysEnhPriceWBMLA($ship, $system, $level){
+		return 200;
+	}
+
+	/* The purchase is the CAPABILITY, not the shot. Everything the wide beam does - the -2 per
+	   damage die with its per-die floor, the doubled flash collateral, the one turn cooldown - hangs
+	   off the array being ARMED for the turn, which is a Fire-phase toggle carried by an individual
+	   note. So all this applier does is switch the capability on.
+	   ⚠️ Delegated to the weapon rather than written as `$system->wideBeamFitted = true` here: the
+	   field belongs to the class that resolves it, and the applier should not need to know its name.
+	   ⚠️ MIRROR PAIR with the SYS_WBLA / SYS_WBMLA case in systemEnhancements.apply() (JS), which
+	   does the same thing for the lobby preview - where there is no server round trip. */
+	private static function sysEnhApplyWIDEBEAM($ship, $system, $count){
+		if(!method_exists($system, 'enableWideBeam')) return;   //stale purchase on a re-statted hull
+		$system->enableWideBeam();
 	}
 
 	/* ------------------------------------------------------------------ shared appliers */

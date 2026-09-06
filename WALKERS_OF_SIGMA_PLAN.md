@@ -580,12 +580,26 @@ movement/`waiting` fields, nothing to do with weapons.
 so it is built and unplaced. `Traveler` carries one `LightningArray` in the front section and its
 chart row is restored. Icons landed 2026-09-03 (`LightningArray.png`, `LightningArrayMed.png`).
 
-### 3.3 Wide-Beam Lightning Array (system enhancement)
+### 3.3 Wide-Beam Lightning Array (system enhancement) — **BUILT 2026-09-06 (Stage 8)**
 
 Two registry entries — `SYS_WBLA` (300 pts) and `SYS_WBMLA` (200 pts) — following the existing
 `eligible`/`limit`/`price`/`apply` quartet. `limit` is 1 (single-level refit, so `priceStep` is 0).
 `eligible` = `$system instanceof LightningArray` (resp. `MediumLightningArray`) and
 `!($ship instanceof FighterFlight)` — the latter is already guaranteed by the caller, but state it.
+
+⚠️⚠️ **`MediumLightningArray EXTENDS LightningArray`, so that eligibility test as written offers
+BOTH refits on every Medium** — at 300 points and at 200, on the same mount, each adding the same
+firing mode. `sysEnhEligibleWBLA` therefore ends `return !($system instanceof MediumLightningArray);`.
+Written as an instanceof rather than a `get_class()` equality so a future LightningArray subclass
+that is *not* a Medium still gets the full-array offer, which is what the rules describe.
+
+**As built, the purchase is the CAPABILITY and nothing else.** `sysEnhApplyWIDEBEAM` calls
+`LightningArray::enableWideBeam()`, which sets `$wideBeamFitted` on that one instance - a plain
+instance property, so two arrays on one hull refit independently, exactly what *"the player pays to
+enhance each one separately"* asks for. `serialise` names `wideBeamFitted` alone (the class own
+`stripForJson` was already republishing `data`, `minDamage`, `maxDamage` and both damage arrays per
+instance for Stage 2 reasons, and it adds `active` for the arm). Arming is a per-turn toggle carried
+by an individual note, NOT by the purchase - see below.
 
 **The `factionAge > 2` gate** — **NARROWED 2026-09-04 (Stage 5).** It had to become per-enhancement
 rather than whole-ship, or no Walker hull could ever be offered a per-system refit. **Do not simply
@@ -621,19 +635,196 @@ about ANCIENT tech, the second stops it refusing an Ancient hull its OWN weapons
 `MODE_WIDEBEAM = 3` alongside the existing constants in both `specialWeapons.php` and `special.js`,
 and remember `beforeFiringOrderResolution` already branches on `$order->firingMode`.
 
-**Per-turn declaration** is a **firing mode** (`'Wide Beam'`), not a purchase-time flag: the
-enhancement buys the capability, the mode is chosen when firing. Effects:
+**Per-turn declaration** is a **toggle**, not a purchase-time flag: the enhancement buys the
+capability, the array is armed when firing. Effects, in either firing mode:
 - `-2 per damage die, minimum 1 per die` — override `getDamage()`; ⚠️ the floor is **per die**, so
-  it cannot be applied to the total. Roll dice individually.
-- `noCollateral = false` with a 50% flash amount (25% when the target hex is in `$edfHexes`) —
-  the seam is `doCollateralDamage`'s `$flashDamageAmount` parameter.
-- **1-turn cooldown** — bump loading, following the `overloadturns` cooldown machinery.
+  it cannot be applied to the total. `Dice::d(10, $n)` returns a **sum** and cannot express it —
+  five dice each floored at 1 can never total under 5, while a floor on their sum would allow 1 —
+  so the roll is a loop of `max(1, Dice::d(10) - 2)`. The flat `+N` on the row is not a die and is
+  untouched. ⭐ Because the arm is a property of the ARRAY rather than of the shot, `getDamage()`
+  reads `isWideBeamShot()` and needs no fire order at all - which sidesteps the Stage 7 finding
+  (`Firing::fireWeapons` never re-applies an order mode) rather than having to obey it.
+- **The collateral, both halves.** Inside a field the general rule (§2.1) silences a flash weapon
+  entirely; a wide beam is the exception the rules carve out, so inside a field it scores the
+  ordinary **25%** and outside one it scores **50%**. ⭐ **As built this is two tiny hooks in
+  `weapon.php`, not a rewrite of `doCollateralDamage`**: `edfSuppressesCollateral()` wraps the
+  existing field test (LightningArray returns false for a wide beam) and `getFlashCollateralAmount()`
+  wraps the `round($damage/4)` in `damageOneSheet` (LightningArray divides by 2 or 4). Both default
+  to today's behaviour exactly, so every other flash weapon in the game is untouched.
+  ⚠️⚠️ **The 50% must be computed from `$damage`, never by doubling the 25% figure** — rounding an
+  already-rounded number is systematically high: 10 damage gives 3, doubled is 6, and 50% is 5.
+  That is why the amount is a hook taking `$damage` rather than a scaling of the parameter
+  `doCollateralDamage` is handed.
+- **1-turn cooldown.** ⭐ Not a `$loadingtime` bump, and not the `overloadturns` machinery: it is
+  **`calculateLoading()` returning `loading = 0` at the phase −1 turn advance** after a wide-beam
+  shot. The parent hands an ordinary loading-1 weapon its charge straight back (fired on T →
+  loading 0 → +1 → 1 → loaded on T+1); zeroing that one write is the whole cooldown, and the next
+  advance finds no shot on T+1 and restores it. Raising `$loadingtime` instead would have been
+  invisible to the client — `loadingtime` is a BLUEPRINT field riding the per-class static bundle,
+  the exact trap Stage 7 hit with `powerReq` — whereas `turnsloaded` is already published per
+  instance by `Weapon::stripForJson`.
+  - ⚠️⚠️ **`overloadturns` has to be zeroed in the same write, and this is the finding to carry.**
+    `weaponManager.isLoaded` is `loadingtime <= turnsloaded || loadingtime <= overloadturns`, and
+    `calculateLoading`'s phase −1 branch does `overloadturns + 1` for **every** weapon, overloadable
+    or not, clamped to `normalload`. A loading-1 weapon therefore sits at `overloadturns = 1`
+    permanently (confirmed against `tac_systemdata` in games 4335 / 4337 / 4338), so a cooldown that
+    zeroed only `turnsloaded` would have shown a fully loaded array for the whole cooldown turn.
+  - ⚠️⚠️ **Nothing on the server refuses an offensive order from an unloaded weapon.** Both intercept
+    gates in `firing.php` test `getTurnsloaded() < getLoadingTime()`, but `prepareFiring` /
+    `fireWeapons` do not — the client's `isLoaded` is the only gate on that path. So the cooldown
+    needed a server half: `beforeFiringOrderResolution` takes the discharge pool to **0** when
+    `getTurnsloaded() < getLoadingTime()`, and every order then clamps to 0 discharges and 0 damage
+    (this weapon's established loud failure). The two gates agree by construction, because
+    `overloadturns` is 0 at the Fire phase for a non-overloading weapon.
+  - The cooldown costs the array its **defence** as well, since both intercept gates read the same
+    loading — which is what *"stressful on its systems"* ought to mean.
 
-**Timing deviation, accepted (D6):** the rules put this in Prepare Weapons (Initial Orders); FV
-firing modes are chosen in the Fire phase, and that is where it goes. The cooldown cost keeps it a
-real decision rather than a free upgrade. The faithful alternative — a phase-1 toggle in a React
-menu, precedent `GraviticAugmenterMenu` / `MinorThoughtPulsarMenu` — was considered and rejected as
-not worth a menu plus an IndividualNote round trip.
+⭐⭐ **A PER-TURN TOGGLE, NOT A FIRING MODE** (user's ruling, 2026-09-06, after a four-mode build the
+same day). The rules' *"in all modes"* means *whatever the shot's discharge count* — spreading the
+beam and grouping the discharges are orthogonal choices. Modelling that as extra firing modes means
+enumerating the product, and **four entries in the selector is what the player pays for it**; the
+user's verdict on the working four-mode build was *"mechanically that all seems to work perfectly,
+however the UI is a little bit clunky"*. The rules' own framing is a toggle anyway: *"the lightning
+array **may be configured** to fire a wide beam"*, one declaration for the array for the turn.
+
+So: two firing modes as before, plus a **"Wide Beam" / "Normal Beam" pair in the array's
+`<SystemActivation>` box** during the Fire phase. Arming applies to every shot that array fires this
+turn, in either mode. Two booleans carry it — `wideBeamFitted` (the refit, applied at construction
+from the stored purchase) and `wideBeamArmed` (this turn's declaration, replayed from the notes) —
+and `isWideBeamShot()` demands **both**, which is what makes a hand-written note on an unrefitted
+array buy nothing.
+
+**HOW THE TOGGLE REACHES THE SERVER, and why it needed a new hook.** The Fire phase is the one phase
+that has never run the generic `generateIndividualNotes` sweep, and it must not start: **34 of the
+~80 overrides in the codebase carry no phase guard at all** (one has an explicit `case 3`), so
+switching that sweep on in phase 3 would wake every one of them in a phase they have never seen. The
+route is therefore:
+
+1. the client sets `->active` and posts `[1]`/`[0]` in the system's `individualNotesTransfer`;
+2. `Manager::parseShips` calls `doIndividualNotesTransfer()` on **every** POST in **every** phase —
+   this part needed no new plumbing at all — which stashes it on the POST-side array;
+3. `FireGamePhase::process` calls the new **`ShipSystem::saveFirePhaseDeclaration()`**, a hook whose
+   base version does nothing, inside the existing `$ship->userid != $gameData->forPlayer` guard, so
+   a POST can only ever declare for its own units;
+4. the advance re-loads gamedata and `onIndividualNotesLoaded()` sets `wideBeamArmed` before
+   `prepareFiring` runs.
+
+⚠️⚠️ **Step 3 cannot be gated on the refit.** A POST-side ship is rebuilt WITHOUT enhancements
+([[arch_post_side_ship_reconstruction]]), so `wideBeamFitted` reads false there even on a fitted
+array; gating the write on it would silently drop every declaration. The refit is re-checked at READ
+time, on the real ship. This is the single most expensive recurring trap in the codebase and it bit
+again here.
+
+⚠️ **Both states are written, and the highest note id wins.** Writing only on arm leaves a
+re-commit stuck on a stale 1. The load query is `turn <= current` and orders by turn and phase only,
+so two notes written in the same phase come back in an order MySQL does not promise — ids are
+auto-increment, so they are the write order. And the **turn equality test is what makes it a
+per-turn declaration**: without it, arming once would arm the array for the rest of the game.
+
+⚠️ **`system.active` is the field the generic activation box reads**, so that is what the arm is
+published as (the same thing `ChameleonSensors` does). But that box also treats a *weapon's* "has a
+fire order" as active, because for most weapons it IS the fire button — so the array sets
+**`activationIsToggle`**, a one-word opt-out added to `SystemActivation.js`, or the toggle would
+light up the moment anything was declared whichever way it was actually set.
+
+⚠️ **A defensive order is stamped plain Single** (`getInterceptOrderMode`), and separately
+`firedWideBeamOnTurn()` counts only `type == "normal"` orders — so intercepting never costs the
+array the following turn.
+
+⚠️⚠️ **THE ONE REAL BUG THE FOUR-MODE DETOUR EXPOSED, worth keeping even though its cause is gone.**
+`getCombinableOrder` matched *"an order that is not Single Shots"*, which is the same test as *"an
+order in this mode"* only while exactly ONE mode fuses. With Combined **and** Wide Combined both
+fusing, a Wide Combined click fused into a standing ordinary Combined shot — and because growing a
+shot **replaces its order** (§3.2), the discharge already committed was silently converted into a
+wide beam, cooldown and all. It is now an **equality** against the weapon's current mode, which is
+what the rule always was, and it stays that way: it generalises to any `multiModeSplit` weapon that
+grows more than one kind of shot. ⭐ No test of the new mode in isolation would have found it; the
+cross-product of "declare in mode A over a standing order in mode B" did, on the first run.
+
+⚠️ **`isSingleShotMode()` is kept** on both sides even though it is now one comparison. It exists so
+the grouping question is asked by name everywhere, precisely so the wide beam can never be confused
+with it again.
+
+**Timing deviation, accepted (D6, re-confirmed 2026-09-06):** the rules put this in Prepare Weapons
+(Initial Orders); the toggle is in the Fire phase, alongside declaring the shots. The cooldown cost
+keeps it a real decision rather than a free upgrade.
+
+⚠️ **Initial Orders was offered and declined.** It is the faithful phase AND the cheap one — the
+generic `generateIndividualNotes` sweep already runs there, so the note would have needed no new
+hook and no change to any shared phase file at all. The user chose the Fire phase because it keeps
+*when you click* unchanged, and the extra machinery (the narrow `saveFirePhaseDeclaration` hook) is
+the price of that. If the phase is ever revisited, moving it to Initial Orders **removes** code.
+
+**How it was proven.** Two throwaway tests, the Stage 2 method.
+- **Server (143 checks):** the registry slots and the five older refits' `ages` left alone; the age
+  gate both ways against a young control hull; the offers on a Traveler, including ⭐ the
+  Medium-is-a-LightningArray subclass trap and a non-vacuity assertion that the two arrays really
+  are different mounts; the prices, limit and zero `priceStep`; ⭐ **a 2,578-hull corpus scan** in
+  which no non-Walker hull gains an offer; the buy applying to the ONE array and not its sibling,
+  and `sanitiseSystemEnhancements` dropping `SYS_WBLA` bought on a Medium and re-pricing a legal
+  row to 300; ⭐⭐ **the fitted × armed cross-product**, where three of the four combinations must
+  do nothing — the one that matters is ARMED BUT NOT FITTED, which is what a hand-written note or a
+  refunded refit looks like, and it is checked on the damage roll as well as on the predicate; the
+  damage bounds and ⭐ its **mean** measured against `E[max(1,d10-2)] = 3.8` (a 20-dice row can
+  never reach either cap in a few thousand samples, which the first draft failed on) in BOTH firing
+  modes, with the per-die floor isolated on the 1-discharge row where the minimum IS reachable;
+  ⭐⭐ **the toggle's whole round trip** — the POST-side stash on an array that reads as UNFITTED
+  (the trap, asserted as such), the note it queues anyway, the un-armed note written too, a silent
+  client writing nothing at all, the base hook proven inert on an ordinary system, and the replay
+  with **highest-id-wins tested in both array orders** and the per-turn reset proven by a turn-4
+  note failing to arm turn 5; the cooldown gated on armed AND fired, with unarmed, never-fired,
+  unfitted, `intercept` and `selfIntercept` controls that must all reload normally; ⭐⭐ **the whole
+  loading sequence driven the way `advanceGameState` drives it** — fire, advance, the phase-2 and
+  phase-3 writes, advance again — asserting the CLIENT's `isLoaded` formula at every step, for both
+  arrays, with an unarmed control and a standing assertion that `overloadturns` alone WOULD have
+  read as loaded; the collateral at 25 / 50 / 25 with ⭐ the double-rounding case (10 damage → 5,
+  not 6) and an armed-but-unfitted control; the damage span moving for BOTH modes at once (the arm
+  is not per-mode); and `wideBeamFitted` + `active` reaching the client for the fitted mount only,
+  with ⭐ an assertion that the refit publishes **no** per-instance `firingModes` — a per-instance
+  mode list would mean the toggle had leaked back into the selector.
+- **Client (84 checks):** `special.js` and `systemEnhancements.js` **evaluated**, not parsed,
+  against stubbed globals; the constants compared against the PHP side dumped by reflection, plus
+  an assertion that no `MODE_WIDE_*` constant survives; the fitted × armed cross-product again, on
+  `isWideBeamArmed()` and on `getDieCeiling()`; ⭐ **all four damage spans distinct**, the firing
+  mode picking the row and the arm picking the ceiling; the toggle's own controls — labels, the
+  activate/deactivate pair flipping, and every gate (phase, ownership, destroyed, offline, and the
+  cooldown itself) with a non-vacuity re-check after each; ⭐⭐ **`SystemActivation.js`'s active
+  expression reproduced verbatim**, proving an unarmed array with a declared shot reads as INACTIVE
+  while an ordinary weapon in the same state reads as active; the note post in phase 3 and its
+  silence everywhere else, including that the buffer is cleared so an earlier phase cannot leak;
+  ⭐ arming and un-arming RE-PRICING the shots already standing; the firing modes proven untouched
+  by all of it (fusing, not fusing, cross-mode refusal, the INCOMING count, the defensive mode);
+  and ⭐⭐ **the lobby applier leaving the shared `firingModes` object identical by reference** —
+  the old build's whole failure mode was writing to it.
+
+⚠️ Both harnesses stop at the database. The note's actual INSERT and re-load is the one link tested
+only in play; the round trip is driven in memory on either side of it.
+
+**Play-test fixes, 2026-09-06.** Two, both in the UI, neither in the rule.
+
+- ⚠️⚠️ **A WEAPON WAS NEVER GIVEN A DEACTIVATE BUTTON AT ALL** — `SystemActivation`'s
+  `showDeactivate` was `!system.weapon && …`, so the array could be armed and never un-armed. The
+  rule it encodes is right for every other weapon (for them the box IS the fire button, and a shot
+  is withdrawn with the top-row "remove fire order" control), so the fix is the same one-word
+  opt-out the `isActive` line already uses: `(!system.weapon || system.activationIsToggle)`.
+  ⭐ **The two halves of `activationIsToggle` are a pair and a new one must set both** — `isActive`
+  answers *"is this lit?"* and `showDeactivate` answers *"is there an off switch?"*, and the first
+  was written without noticing the second was gated on the same question.
+- **The INCOMING list now names the arm.** `ShipTooltipBallisticsMenu` printed
+  `firingModes[order.firingMode]` directly, so an armed and an unarmed shot read identically as
+  "Combined" while rolling different dice. Now `Weapon.getFiringModeDisplayName(fireOrder)` - a
+  plain `firingModes` lookup for every weapon in the game - with a LightningArray override
+  appending `-Wide`, giving `Combined-Wide` / `Single-Wide`. ⭐ It reads the LIVE arm rather than
+  anything stored on the order, which is correct by construction: arming covers every shot the
+  array fires this turn, which is why `onWideBeamToggled` already re-prices the standing ones.
+  ⚠️ It decorates the DISPLAY only - `firingModes` is a shared per-class object and the selector
+  still offers exactly two entries.
+- **Which mode is current now reads off the buttons.** An ordinary weapon's Activate button is
+  orange whether or not it has fired - that colour is the "this menu belongs to a weapon" signal,
+  not a state readout - so with both buttons showing, Wide Beam was lit even while the array was
+  firing normally. `$isToggle` (`activationIsToggle` again) makes the orange conditional on
+  `$active` for a toggle only, so the button that is NOT the current state falls through to the
+  idle muted blue and exactly one of the pair is ever lit. Ordinary weapons are untouched.
 
 ### 3.4 Chromatic Pulse Driver — **BUILT 2026-09-03 (Stage 3)**
 
@@ -2170,7 +2361,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **5** ✅ | EDF criticals + EDF Range enhancement + the `factionAge` gate fix (§3.3) — **DONE 2026-09-04; the refit's RANGE fixed 2026-09-05 after play testing** | 98 server checks and 50 client checks green, plus a **2,573-hull corpus differential** on the offer tuples: the Traveler is the ONLY hull whose offers changed, and only by gaining `EDF_RANGE` + the user's `WalkerShip` set. The crit ladders were already built in Stage 4 and are confirmed against the rules text, which arrived afterwards and matches them exactly (fixed 21+, floor 1; variable 20+, boost first then a hex each, floor 0). ⭐ The refit went **ship-level** (`EDF_RANGE`), not per-system — see §3.5 — and its variable-field rule is implemented by **spending `boostRadiusBonus` down as `radius` goes up**, so the double-power radius is unmoved by construction. ⚠️⚠️ Two findings worth carrying: rewriting the Ancient-weapon gate as a bare `factionAge > $ship->factionAge` silently stripped every refit from the ~40 **middleborn** (`factionAge = 2`) weapon classes on young hulls — the corpus differential was the only thing that caught it, and the test needs BOTH halves (§3.3); and Stage 4 had shipped the variable field's **boost for free** (`boostEfficiency = 0`, which is the EXTRA power a boost level costs, not a flag), now set from `$powerReq` so double power really is double. |
 | **6** ✅ | Energy Draining Mine — **DONE 2026-09-05; three play-test revisions the same day** | 215 server checks and 53 client checks green, including a 40,000-shot resolution run measuring 74.55% / 15.22% / 10.23% against the rules' 75 / 15 / 10 and a flat d5 scatter. Stores 3, begins with 1, launches any number at any hexes, spawns a 7-hex field that expires after one turn. ⭐ Two departures from the plan, both simplifications: the orb carries an **ordinary `EnergyDrainingField`** rather than a bespoke `EdfSource` (so the drain, the penalty and the map overlay needed no new code at all), and its one-turn life is **derived from the ship's name on every load** instead of a `generateIndividualNotes` cleanup sweep — which means it still expires on time when the launcher that fired it is dead. `IncreasedRecharge1` covered the crit ladder as-is. ⚠️⚠️ Two findings worth carrying: `turnsloaded` is the MINE COUNT, so `loadingtime` must stay 1 or a crippled launcher needs two mines in store to count as loaded at all — the slowed reload is a separate `turn % interval` cadence, deliberately NOT the `overloading` slot, because `weaponManager.isLoaded` also tests that and would call an empty launcher loaded; and `$removed` has to be re-decided on every load, because `isDestroyed()` with no argument is true for ANY removed unit whatever `removedTurn` says. **Play-test revisions (game 4337):** turn 1 must not reload — the reload branch fires when the game leaves DEPLOYMENT, which on turn 1 is before the player's first Initial Orders, so the launcher opened at 2/3; the map marker is now a PURPLE seven-hex disc labelled "Energy Drain Mine" rather than the default red hex; and ⭐⭐ **the field now drains on the turn it LANDS as well as the turn after**, via a queue flushed through the new `TacGamedata::registerEdfField()` at the top of `Criticals::setCriticals` — ⚠️ additive and never a `setEdfHexes()` rebuild (which would stop a Walker shot down in that same Firing step from draining on the turn it died), flushed at the Critical Hit step rather than from `fire()` (so a probe cannot contain an enemy proximity blast declared later in the same step, which would be resolution-order dependent), and placed BEFORE the `$edfPresent` gate because `registerEdfField()` is what sets it. Zero replay drift across the 128-game corpus. |
 | **7** ✅ | Energy Draining Net — **DONE 2026-09-05; play-test fix + live preview the same day** | **Play-test revision (game 4338):** the fill treated any *connected* group of 3+ Nets as a closed area, so three Waymarkers in a **chain** (#1–#2 at 2 hexes, #2–#3 at 3, #1–#3 at 5) filled hexes beside the chain that nothing enclosed — the user reported (1,0). *"Form a closed area"* needs a **cycle**, and the fix is the group's **2-core**: iteratively drop every Net with fewer than two links. A chain erases itself, a ring survives whole, a ring with a trailer keeps the ring. **Live preview added the same day:** deployment and movement now recompute the field client-side from PLOTTED positions (`model/EdfNetLinks.js`, a ported resolver) so the corridors and the filled area form as the ship is dragged; **advisory only** — nothing but the overlay reads it. Proven by a **12,000-board differential** against the PHP across three seeds, hex, team and attribution, zero mismatches, with the generator taught to emit rings deliberately after the coverage guard caught that 13,000 random boards had produced a single cap refusal between them. 68 server checks, 16 preview checks and 7 clustering checks green. **As first built:** replay harness 128 passed / 1 failed, byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure), so zero drift. `checkShipData.php`: 0 new errors. Pairwise links at 1/2/3 hexes and not at 4; the closed-area fill capped at `2N−1` with the corridors isolated out first so the refusal is provable as the *empty set* rather than "fewer hexes"; three collinear Nets still link. ⭐⭐ **Two departures from §3.7, both corrections.** Linking runs in `setEdfHexes()`, not in the §2.2 resolver — the section predates Stage 4's map, and a corridor computed at the Critical Hit step would have drained units while being invisible to the targeting penalty, the client's mirror and the overlay. And `HexZone::line()` is the wrong tool: it answers ONE line including both endpoints, while the rule hands the player a CHOICE between corridors, so all shortest paths are enumerated instead. ⚠️⚠️ Three findings worth carrying: **`Debug::log` cannot be used anywhere `setEdfHexes()` reaches** — it dumps `$_REQUEST` and `$_SESSION` to disk per call, and a fleet parked in an over-cap formation is a persistent state polled every couple of seconds, so the refusal is an in-memory array instead; **the map overlay must be split into connected clusters** because `HexRegion.buildRegionFromHexes` sizes its sweep from the farthest hex, and two lone Nets at opposite corners of the board would sweep 14,641 hexes to draw two; and **an over-cap area needs more Nets, not more spread** — three Nets at maximum spread have corridors that swallow their own interior, leaving 3 fill hexes against a cap of 5, so the refusal test had to go to a five-Net arc. ⚠️⚠️ And one bug caught by a smoke test rather than by any of the 51 checks that preceded it: **`powerReq` is a BLUEPRINT field that rides the per-class static bundle, not the poll payload** — so the crit-escalated requirement never reached the client until `stripForJson()` republished it per instance. Applies to any system whose criticals move a blueprint number. |
-| **8** | Wide-Beam enhancements | Per-array purchase; per-die floor; cooldown; collateral at 50%/25%. |
+| **8** ✅ | Wide-Beam enhancements — **DONE 2026-09-06; reworked twice the same day** | 143 server checks and 84 client checks green, plus a **2,578-hull corpus differential** on the offer tuples in which exactly TWO lines changed (Traveler gains one `SYS_WBLA` + one `SYS_WBMLA`; Waymarker gains one `SYS_WBMLA` per Medium array), and a replay-harness run of 127 passed / 1 failed that is byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure). `checkShipData.php` PASS, with the same 3 pre-existing warnings on both trees. Two registry entries at 300 / 200, `ages => array(3)`, `limit` 1; the per-die floor; the 50% / 25% collateral; the one-turn cooldown. ⭐⭐ **Reworked TWICE on the user's rulings.** It shipped as one extra firing mode; the user pointed out that the rules' *"in all modes"* means *whatever the discharge count*, so it became **four** modes (Combined / Single × normal / wide); then the four-entry selector was judged too clunky — *"mechanically that all seems to work perfectly, however the UI is a little bit clunky"* — and it is now **two firing modes plus a per-turn "Wide Beam" toggle** in the array's `<SystemActivation>` box, which is what the rules describe anyway (*"the lightning array may be configured to fire a wide beam"*). ⚠️⚠️ **Six findings worth carrying**, all in §3.3: **the Fire phase has never run the generic `generateIndividualNotes` sweep and must not start** — 34 of the ~80 overrides carry no phase guard at all — so the toggle's write is a new narrow `ShipSystem::saveFirePhaseDeclaration()` hook that does nothing by default; **that write cannot be gated on the refit**, because a POST-side ship is rebuilt without enhancements, so it writes unconditionally and the refit is re-checked at read time; **both toggle states are written and the highest note id wins**, since the load query cannot promise an order within a phase and writing only on arm strands a re-commit on a stale 1; the four-mode detour exposed a REAL bug — `getCombinableOrder` matched *"not Single Shots"* rather than *"this mode"*, so with two fusing modes a wide click silently converted a standing ordinary shot, cooldown and all, and the equality fix is kept; the cooldown had to zero **`overloadturns` as well as `turnsloaded`**, because `calculateLoading` increments `overloadturns` at every turn advance for EVERY weapon and `weaponManager.isLoaded` is an OR of the two; and **nothing on the server refuses an offensive order from an unloaded weapon at all**, so the cooldown needed a server half of its own. Plus two smaller ones: **`MediumLightningArray extends LightningArray`**, so the full array's refit needs an explicit subclass exclusion or every Medium is offered both at once on one mount; and **50% collateral must be computed from the damage**, never by doubling the 25% figure. |
 | **9** | Sensor Charge Transceiver | Waypoints, arcs, path validation, per-hex targets, receiving-SCT self-damage, dual recharge. |
 | **10** | EW Detector — Stage A then Stage B (§3.8) | Allowance correct at 1/4/5/8/9 detectors; phase-2 EW write is additive and budget-clamped; full `masking` + `snapshot` harness pass. |
 

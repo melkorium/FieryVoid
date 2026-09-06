@@ -1318,13 +1318,33 @@ SpatialCutter.prototype.onFireOrderCreated = function (fire) {
  * them. There is a test that dumps the PHP side by reflection and compares field for field; run it
  * after ANY re-stat.
  *
- * TWO FIRING MODES, matching the PHP constants:
+ * FIRING MODES, matching the PHP constants:
  *   1 Combined Fire - one click declares one discharge; a further click on the SAME target fuses
  *     another discharge into that shot instead of declaring a new one, so its fire control, range
  *     penalty and damage all move to that row of the tables. No dialog. The count rides to the
  *     server in the order's ->shots, which the server re-clamps against the real pool.
  *   2 Single Shots  - every click is a separate one-discharge order, never fused. The server forces
  *     the count to 1 for a mode-2 order regardless of what ->shots says.
+ * ⭐⭐ WIDE BEAM IS A TOGGLE, NOT A THIRD MODE. The SYS_WBLA / SYS_WBMLA refit publishes
+ * `wideBeamFitted` on that one mount; a fitted array then shows a "Wide Beam" / "Normal Beam" pair
+ * in its <SystemActivation> box during the Fire phase, and arming it applies to EVERY shot it fires
+ * this turn in EITHER firing mode - -2 on every damage die (floor 1 per die, rolled server-side one
+ * die at a time), doubled flash collateral, and a one turn cooldown.
+ *
+ * The arm lives in `active`, because that is the field the generic activation box reads, and it
+ * travels to the server as this system's `individualNotesTransfer` (doIndividualNotesTransfer
+ * below) - the same route ChameleonSensors' disguise toggle takes. It comes BACK on every load as
+ * `active` again, so the ship window keeps quoting the right damage span after a refresh.
+ *
+ * ⚠️ It was briefly modelled as two extra FIRING MODES (2026-09-06). Four entries in the selector
+ * for what is really two independent choices was the wrong trade; the toggle costs one boolean.
+ * Nothing in this file compares a mode id even so: grouping asks LightningArray.isSingleShotMode().
+ *
+ * ⚠️ THE COLLATERAL AND COOLDOWN RULES ARE SERVER-SIDE ONLY, deliberately. Nothing the client
+ * predicts (hit chance, range penalty, discharges left) is touched by a wide beam, so mirroring
+ * them here would be a second source of truth for numbers the player never reads before committing.
+ * The cooldown in particular needs NO client code: the server writes the array's turn-advance
+ * reload as 0, so weaponManager.isLoaded already greys the mount out and refuses the declaration.
  *
  * ⭐ multiModeSplit - the two modes are a PER-SHOT choice, not a per-turn one. Declare a couple of
  * combined shots, switch to Single Shots, pepper a flight with the rest, switch back. The flag is
@@ -1355,10 +1375,28 @@ var LightningArray = function LightningArray(json, ship) {
 LightningArray.prototype = Object.create(Weapon.prototype);
 LightningArray.prototype.constructor = LightningArray;
 
-//Firing modes - MUST match the MODE_COMBINED / MODE_SINGLE constants in specialWeapons.php.
-//1 fuses discharges through the allocation dialog; 2 declares one discharge per click, no dialog.
+/* Firing modes - MUST match the MODE_* constants in specialWeapons.php. There are two, and the
+   wide beam is NOT one of them: it is an orthogonal per-turn toggle (see the block comment). */
 LightningArray.MODE_COMBINED = 1;
 LightningArray.MODE_SINGLE   = 2;
+
+/* Does this firing mode never fuse? One line today, because there is one such mode. It exists so
+   the grouping question is asked by NAME everywhere - the wide beam is a separate choice, and the
+   two were briefly modelled as four firing modes (2026-09-06) with exactly the confusion that
+   invites. ⚠️ MIRROR PAIR with LightningArray::isSingleShotMode in specialWeapons.php. */
+LightningArray.isSingleShotMode = function (mode) {
+	return parseInt(mode, 10) === LightningArray.MODE_SINGLE;
+};
+
+//Mirrors WIDEBEAM_DIE_PENALTY / WIDEBEAM_DIE_FLOOR in specialWeapons.php. Used for the damage span
+//in the ship window only - the server rolls the dice.
+LightningArray.prototype.wideBeamDiePenalty = 2;
+LightningArray.prototype.wideBeamDieFloor   = 1;
+
+/* ⚠️ The generic <SystemActivation> box treats a WEAPON's "has a fire order" as active, because for
+   most weapons the box IS the fire button. This one is a persistent toggle that has nothing to do
+   with whether a shot has been declared, so it opts out of that. */
+LightningArray.prototype.activationIsToggle = true;
 
 /* ⚠️ THE SIX TABLES BELOW MUST MATCH THE PHP ONES EXACTLY. The server rolls the shot from its copy
    and the client predicts it from this one, so drift shows the player one number and rolls another,
@@ -1416,9 +1454,10 @@ LightningArray.prototype.getOffensiveDischarges = function () {
 	for (var i = 0; i < this.fireOrders.length; i++) {
 		var fire = this.fireOrders[i];
 		if (fire.type === 'selfIntercept' || fire.type === 'intercept') continue;
-		//Single Shots mode is always one discharge, whatever the order says - the server forces the
-		//same thing in beforeFiringOrderResolution and would ignore a bigger number here.
-		used += (fire.firingMode === LightningArray.MODE_SINGLE) ? 1 : this.getOrderDischarges(fire);
+		//A single-shot mode - Single Shots OR Wide Single - is always one discharge, whatever the
+		//order says: the server forces the same thing in beforeFiringOrderResolution and would
+		//ignore a bigger number here.
+		used += LightningArray.isSingleShotMode(fire.firingMode) ? 1 : this.getOrderDischarges(fire);
 	}
 	return used;
 };
@@ -1482,8 +1521,114 @@ LightningArray.prototype.updateGunAccounting = function () {
 	return this.guns;
 };
 
+/* Is the array sitting in a mode that never fuses? TRUE of Single Shots and of Wide Single - the
+   grouping axis, asked without reference to the wide one. */
 LightningArray.prototype.isSingleShotMode = function () {
-	return parseInt(this.firingMode, 10) === LightningArray.MODE_SINGLE;
+	return LightningArray.isSingleShotMode(this.firingMode);
+};
+
+/* ── The Wide Beam toggle ─────────────────────────────────────────────────────────────────────
+   Two fields, and they are not the same question. `wideBeamFitted` is the REFIT (a purchase, from
+   the lobby or the server's per-instance payload); `active` is THIS TURN's arm, and it is called
+   that because the generic <SystemActivation> box reads system.active. Both are needed before a
+   single die moves, which is what isWideBeamArmed() answers. */
+
+LightningArray.prototype.hasWideBeam = function () {
+	return !!this.wideBeamFitted;
+};
+
+LightningArray.prototype.isWideBeamArmed = function () {
+	return this.hasWideBeam() && !!this.active;
+};
+
+/* Only the Fire phase, on my own ship, with the array able to shoot at all. ⚠️ NOT gated on
+   "nothing declared yet": the toggle covers every shot the array fires this turn, so changing your
+   mind after the first click has to re-price the shots already standing - which is why
+   doActivate/doDeactivate re-price them rather than just flipping the flag. */
+LightningArray.prototype.canToggleWideBeam = function () {
+	if (!this.hasWideBeam()) return false;
+	if (gamedata.gamephase != 3) return false;
+	if (!this.ship || !gamedata.isMyShip(this.ship)) return false;
+	if (shipManager.systems.isDestroyed(this.ship, this)) return false;
+	if (shipManager.power.isOffline(this.ship, this)) return false;
+	return weaponManager.isLoaded(this);
+};
+
+LightningArray.prototype.canActivate = function () {
+	return this.canToggleWideBeam() && !this.active;
+};
+
+LightningArray.prototype.canDeactivate = function () {
+	return this.canToggleWideBeam() && !!this.active;
+};
+
+LightningArray.prototype.getActivateLabel = function () {
+	return "Wide Beam";
+};
+
+LightningArray.prototype.getDeactivateLabel = function () {
+	return "Normal Beam";
+};
+
+LightningArray.prototype.doActivate = function () {
+	this.active = true;
+	this.onWideBeamToggled();
+};
+
+LightningArray.prototype.doDeactivate = function () {
+	this.active = false;
+	this.onWideBeamToggled();
+};
+
+/* Toggling changes what every standing shot will DO, so their quoted damage and their stored hit
+   chance both have to be brought up to date. The hit chance does not actually move - a wide beam
+   is the same bolt spread wider - but re-pricing is what keeps `chance` honest if that ever stops
+   being true, and it is one call. */
+LightningArray.prototype.onWideBeamToggled = function () {
+	this.initializationUpdate();
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		var fire = this.fireOrders[i];
+		if (fire.type !== 'normal') continue;
+		if (fire.weaponid != this.id) continue;
+		if (fire.turn != gamedata.turn) continue;
+		this.setOrderDischarges(fire, this.getOrderDischarges(fire));
+	}
+};
+
+/* THE ROUND TRIP TO THE SERVER. weaponManager/shipManager post `individualNotesTransfer` for every
+   system that fills it in, on every commit, in every phase - Manager::parseShips reads it back and
+   hands it to the PHP doIndividualNotesTransfer(). Returning false posts nothing.
+   ⚠️ Fire phase only, and only on a fitted array: an ordinary game must never write a note. */
+LightningArray.prototype.doIndividualNotesTransfer = function () {
+	this.individualNotesTransfer = "";   //never leave an earlier phase's value standing
+	if (!this.hasWideBeam()) return false;
+	if (gamedata.gamephase != 3) return false;
+	this.individualNotesTransfer = [this.active ? 1 : 0];
+	return true;
+};
+
+/* "Combined" / "Single" while the array is firing normally, "Combined-Wide" / "Single-Wide" while
+   it is armed - the INCOMING list's row for the shot, and its per-shot sub-rows.
+   ⭐ The suffix comes from the LIVE arm rather than from anything stored on the order, and that is
+   correct BY CONSTRUCTION: arming covers every shot the array fires this turn in either mode, so
+   toggling re-prices the standing orders (onWideBeamToggled) and their rows must move with them.
+   ⚠️ Mode names themselves stay untouched - firingModes is a shared per-class object and the
+   selector still offers exactly two entries (WALKERS_OF_SIGMA_PLAN.md 3.3: the wide beam is a
+   toggle, NOT a third mode). This decorates the DISPLAY of a declared shot and nothing else. */
+LightningArray.prototype.getFiringModeDisplayName = function (fireOrder) {
+	var name = Weapon.prototype.getFiringModeDisplayName.call(this, fireOrder);
+	if (!name || !this.isWideBeamArmed()) return name;
+	return name + "-Wide";
+};
+
+/* Highest a single damage die can roll: 10, or 8 while the array is armed. The per-die floor never
+   binds at the top of the range, so the penalty is the whole difference. Applies to BOTH firing
+   modes - the arm and the mode are independent.
+   ⚠️ Mirrors getDieCeiling() in specialWeapons.php - the ship window quotes this span and the
+   server rolls it, so the two must agree. */
+LightningArray.prototype.getDieCeiling = function () {
+	if (!this.isWideBeamArmed()) return 10;
+	return Math.max(this.wideBeamDieFloor, 10 - this.wideBeamDiePenalty);
 };
 
 /* Keeps the split-shot ceiling, the gun count and the tooltip in step with the pool. On the Medium
@@ -1506,12 +1651,17 @@ LightningArray.prototype.initializationUpdate = function () {
 		delete this.data["Discharges Remaining"];
 	}
 
-	//In Single Shots mode the weapon can only ever produce the 1-discharge row, so quoting the
-	//whole combined span would overstate it.
+	//The two questions, read one at a time and independent by construction. The FIRING MODE picks
+	//the row (Single Shots can only ever produce the 1-discharge one, so quoting the whole combined
+	//span would overstate it); the WIDE BEAM TOGGLE picks the ceiling on a single die. All four
+	//combinations fall out. The MINIMUM is unchanged by a wide beam: a d10 already rolls a 1 at
+	//worst and the per-die floor is 1 too.
 	var lo = this.combinedDamage[1];
 	var hi = this.isSingleShotMode() ? lo
 	                                 : this.combinedDamage[Math.min(pool, this.getMaxTabledCount())];
-	if (lo && hi) this.data["Damage"] = "" + (lo.dice + lo.add) + "-" + (hi.dice * 10 + hi.add);
+	if (lo && hi) {
+		this.data["Damage"] = "" + (lo.dice + lo.add) + "-" + (hi.dice * this.getDieCeiling() + hi.add);
+	}
 
 	return this;
 };
@@ -1585,8 +1735,9 @@ LightningArray.prototype.resolveCombinedCount = function (target, calledid, fire
 LightningArray.prototype.getCountForOrder = function (fireOrder) {
 	if (!fireOrder) return null;
 	if (fireOrder.weaponid !== undefined && fireOrder.weaponid != this.id) return null;
-	//A Single Shots order is one discharge whatever ->shots claims - the server forces it.
-	if (parseInt(fireOrder.firingMode, 10) === LightningArray.MODE_SINGLE) return 1;
+	//A single-shot order - Single Shots or Wide Single - is one discharge whatever ->shots claims;
+	//the server forces it.
+	if (LightningArray.isSingleShotMode(fireOrder.firingMode)) return 1;
 	return this.getOrderDischarges(fireOrder);
 };
 
@@ -1671,11 +1822,19 @@ LightningArray.prototype.doMultipleFireOrders = function (shooter, target, syste
 	}];
 };
 
-/* The Combined Fire shot this weapon already has standing against that target, or null when the
-   next click should start a new one. Matched on target AND called system, so a called shot and a
-   hull shot at the same ship stay separate shots. Never matches in Single Shots mode, never matches
-   a Single Shots order (mode is stamped per order, and the player may switch mid-turn), never
-   matches an earlier turn's order, and never matches a shot already at the largest tabled count. */
+/* The shot this weapon already has standing against that target IN THE MODE IT IS SITTING IN, or
+   null when the next click should start a new one. Matched on target AND called system, so a called
+   shot and a hull shot at the same ship stay separate shots. Never matches in a single-shot mode,
+   never matches an earlier turn's order, and never matches a shot already at the largest tabled
+   count.
+
+   ⚠️⚠️ THE MODE MATCH IS AN EQUALITY, NOT "is it combinable" - equivalent today, and kept anyway.
+   It used to read "is this order not Single Shots", which is the same test only while exactly ONE
+   mode fuses. During the brief four-mode build of the wide beam it was not: a Wide Combined click
+   fused into a standing ordinary Combined shot, and because growing a shot REPLACES its order (see
+   doMultipleFireOrders) the discharge already committed was silently converted into a wide beam,
+   taking the -2 per die and the cooldown with it. A shot's mode is stamped per order and
+   multiModeSplit lets the player switch mid-turn, so shots only ever fuse with their own mode. */
 LightningArray.prototype.getCombinableOrder = function (target, calledid) {
 	if (this.isSingleShotMode()) return null;
 	if (!target) return null;
@@ -1683,6 +1842,7 @@ LightningArray.prototype.getCombinableOrder = function (target, calledid) {
 	var targetid = (target.id !== undefined) ? target.id : target;
 	var called   = (calledid > 0) ? calledid : -1;
 	var maxRow   = this.getMaxTabledCount();
+	var mode     = parseInt(this.firingMode, 10);
 
 	for (var i = this.fireOrders.length - 1; i >= 0; i--) {
 		var fire = this.fireOrders[i];
@@ -1690,7 +1850,7 @@ LightningArray.prototype.getCombinableOrder = function (target, calledid) {
 		if (fire.turn != gamedata.turn) continue;
 		if (fire.targetid != targetid) continue;
 		if (((fire.calledid > 0) ? fire.calledid : -1) !== called) continue;
-		if (parseInt(fire.firingMode, 10) === LightningArray.MODE_SINGLE) continue;
+		if (parseInt(fire.firingMode, 10) !== mode) continue;
 		if (this.getOrderDischarges(fire) >= maxRow) continue;
 		return fire;
 	}
@@ -1718,8 +1878,9 @@ LightningArray.prototype.getPreviewCombinedCount = function (target, calledid) {
    and resets it. */
 LightningArray.prototype.getIncomingShotCount = function (fireOrder) {
 	if (!fireOrder) return 1;
-	//A Single Shots order is one discharge whatever ->shots claims - the server forces it.
-	if (parseInt(fireOrder.firingMode, 10) === LightningArray.MODE_SINGLE) return 1;
+	//A single-shot order - Single Shots or Wide Single - is one discharge whatever ->shots claims;
+	//the server forces it.
+	if (LightningArray.isSingleShotMode(fireOrder.firingMode)) return 1;
 	return this.getOrderDischarges(fireOrder);
 };
 
@@ -1738,7 +1899,7 @@ LightningArray.prototype.removeMultiModeSplit = function (ship, target) {
 	if (!fire) return;
 
 	var n = this.getOrderDischarges(fire);
-	if (parseInt(fire.firingMode, 10) !== LightningArray.MODE_SINGLE && n > 1) {
+	if (!LightningArray.isSingleShotMode(fire.firingMode) && n > 1) {
 		this.setOrderDischarges(fire, n - 1);
 	} else {
 		var idx = this.fireOrders.indexOf(fire);
@@ -1854,9 +2015,11 @@ LightningArray.prototype.doMultipleSelfIntercept = function (ship) {
 };
 
 /* A defensive discharge is by definition a single one, so defensive orders are stamped Single Shots
-   whatever mode the weapon is sitting in. Nothing per-mode changes on this weapon today, so this is
-   about the order reading honestly in the log rather than about arithmetic - but it also means that
-   if a per-mode array is ever added, a defensive shot cannot accidentally be priced as a fused one. */
+   whatever mode the weapon is sitting in. That is about the order reading honestly in the log and
+   never being priced as a fused shot.
+   ⚠️ It says nothing about the wide beam, which is a property of the ARRAY this turn rather than of
+   any order - the cooldown is kept off interception by firedWideBeamOnTurn() counting only type
+   'normal' orders. */
 LightningArray.prototype.getInterceptOrderMode = function () {
 	return LightningArray.MODE_SINGLE;
 };

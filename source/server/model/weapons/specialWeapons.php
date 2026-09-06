@@ -11773,12 +11773,15 @@ class HyperplasmaStream extends Plasma{
  * beforeFiringOrderResolution RE-CLAMPS the total against the real pool - client input is never
  * trusted - stashes the per-order count and sets ->shots back to 1.
  *
- * TWO FIRING MODES
+ * TWO FIRING MODES, and only ever two - the Wide Beam refit is a TOGGLE, not a third mode.
  *   1 "Combined Fire" (default) - repeat clicks on one target fuse into a single heavier shot.
  *   2 "Single Shots"            - every click is a separate one-discharge shot, never fused. Useful
- *     against fighters, where four small shots beat one big one. A mode-2 order is EXCLUDED from
- *     combining entirely: beforeFiringOrderResolution forces its count to 1 and ignores ->shots, so
- *     a stale or hand-edited client cannot smuggle a fused shot through the cheap mode.
+ *     against fighters, where four small shots beat one big one. A single-shot order is EXCLUDED
+ *     from combining entirely: beforeFiringOrderResolution forces its count to 1 and ignores
+ *     ->shots, so a stale or hand-edited client cannot smuggle a fused shot through the cheap mode.
+ * ⚠️ Ask isSingleShotMode($mode) rather than comparing against MODE_SINGLE. It is one line either
+ * way today; it exists so that the wide beam - which is orthogonal to the grouping choice - can
+ * never be confused with it, and so a future third GROUPING mode has one place to be added.
  * ⚠️ Read $order->firingMode, never $this->firingMode, inside beforeFiringOrderResolution:
  * prepareFiring only calls changeFiringMode AFTER it, so the weapon's own mode is not yet the
  * order's mode at that point (the Slicer's class comment records the same trap).
@@ -11800,11 +11803,49 @@ class HyperplasmaStream extends Plasma{
  * of the Medium (normalload 2) and not of the full Array - see Firing::isValidInterceptor.
  * A manual 'intercept' order DOES cost one discharge, and the formula charges it.
  *
+ * WIDE BEAM - A PER-TURN TOGGLE, NOT A FIRING MODE (WALKERS_OF_SIGMA_PLAN.md 3.3)
+ * The Wide-Beam refit (SYS_WBLA / SYS_WBMLA in Enhancements.php, 300 / 200 points, one per array)
+ * sets $wideBeamFitted on the array it is bought for, via enableWideBeam(). A fitted array then
+ * shows a "Wide Beam" / "Normal Beam" toggle in its SystemActivation box during the Fire phase,
+ * and ARMING it applies to every shot that array fires this turn, in EITHER firing mode.
+ *
+ * ⭐⭐ IT IS A TOGGLE BECAUSE IT IS AN INDEPENDENT CHOICE. The rules apply the -2 per die "in all
+ * modes", i.e. whatever the shot's discharge count - spreading the beam and grouping the discharges
+ * are orthogonal. Modelling it as extra firing modes (which this weapon did until 2026-09-06) means
+ * enumerating the product, and a four-entry selector is what the player pays for that. The toggle
+ * costs one boolean instead, and the rules' own framing - "the lightning array MAY BE CONFIGURED to
+ * fire a wide beam", one declaration for the array for the turn - is exactly a toggle.
+ *
+ * An ARMED array, in either firing mode:
+ *   - rolls every damage die at -2, with a floor of 1 PER DIE - so it must be rolled one die at a
+ *     time, and the flat +N on the row is untouched because it is not a die;
+ *   - scores flash collateral at 50% of the damage dealt instead of 25%, and the field suppression
+ *     that silences every other flash weapon inside an Energy Draining Field does NOT apply -
+ *     inside a field it simply scores the ordinary 25%;
+ *   - goes into a ONE TURN COOLDOWN if it actually fired: calculateLoading() zeroes the turn-advance
+ *     reload, so the array is not loaded for the following turn and cannot fire OR intercept with it
+ *     (both intercept gates in firing.php test getTurnsloaded() against getLoadingTime()).
+ *
+ * HOW THE TOGGLE REACHES THE SERVER, and why it is not simpler than this:
+ *   1. the player clicks in the Fire phase; the client sets ->active and posts [1] (or [0]) in the
+ *      system's individualNotesTransfer;
+ *   2. Manager::parseShips calls doIndividualNotesTransfer() on EVERY post in EVERY phase, which
+ *      stashes it in $wideBeamRequested on the POST-SIDE ship;
+ *   3. FireGamePhase::process calls saveFirePhaseDeclaration() - a narrow hook, see there - which
+ *      writes it to tac_individual_notes;
+ *   4. the advance re-loads gamedata from the database, and onIndividualNotesLoaded() sets
+ *      $wideBeamArmed on the REAL array before prepareFiring runs.
+ * ⚠️⚠️ Step 3 CANNOT be gated on $wideBeamFitted: a POST-side ship is rebuilt without enhancements
+ * (arch_post_side_ship_reconstruction), so the refit is invisible there and the array would never
+ * write its note. The refit is checked at READ time instead, on the real ship, in isWideBeamShot().
+ *
+ * ⚠️ TIMING DEVIATION, ACCEPTED (plan D6, re-confirmed by the user 2026-09-06): the rules configure
+ * a wide beam during Prepare Weapons (Initial Orders); this toggle is in the Fire phase, alongside
+ * declaring the shots. The cooldown is what keeps it a decision rather than a free upgrade.
+ *
  * WHAT THESE WEAPONS DELIBERATELY DO NOT DO
  * - They are NOT uninterceptable: the rules make the Lightning Array explicitly susceptible to
  *   interception, so $uninterceptable stays false (the Weapon default).
- * - Wide-Beam is Stage 8 and is NOT here. It arrives as a THIRD firing mode plus a per-array
- *   enhancement; $firingModes is spelled out below so that addition is a one-line change.
  */
 class LightningArray extends Weapon {
 
@@ -11819,11 +11860,33 @@ class LightningArray extends Weapon {
     public $weaponClass = "Electromagnetic"; //all Walker weaponry is Electromagnetic
     public $factionAge  = 3;                 //Ancient - matters to several to-hit and EDF rules
 
-    /* Mode ids are referenced from the client (special.js) too - keep the two in step. Stage 8 adds
-       3 => "Wide Beam" here. */
+    /* Mode ids are referenced from the client (special.js) too - keep the two in step. The wide
+       beam is NOT one of these: it is an orthogonal per-turn toggle, see the class comment. */
     const MODE_COMBINED = 1;
     const MODE_SINGLE   = 2;
     public $firingModes = array(1 => "Combined", 2 => "Single");
+
+    /* -2 on every damage die while armed, floored at 1 per die. Named because three separate
+       places read them: the roll, the tooltip damage span and the client mirror in special.js. */
+    const WIDEBEAM_DIE_PENALTY = 2;
+    const WIDEBEAM_DIE_FLOOR   = 1;
+
+    /* The note key the Fire-phase toggle is persisted under. ⚠️ notekey_human is varchar(40) -
+       anything longer is silently truncated by MySQL. */
+    const WIDEBEAM_NOTEKEY = 'wideBeam';
+
+    /* THE REFIT. Set once at construction by enableWideBeam(), from the stored SYS_WBLA / SYS_WBMLA
+       purchase. Published per instance (stripForJson) because it is what tells the client to offer
+       the toggle at all, and because a blueprint value cannot carry a per-mount purchase. */
+    public $wideBeamFitted = false;
+
+    /* THE PER-TURN DECLARATION, rebuilt from the individual notes on every gamedata load. Published
+       as ->active, which is the field the generic SystemActivation box reads. */
+    public $wideBeamArmed = false;
+
+    /* What the CLIENT just asked for, on a POST-side ship only: 1, 0 or null for "said nothing".
+       Transient - never persisted, never serialised, and meaningless on a loaded ship. */
+    protected $wideBeamRequested = null;
 
     public $loadingtime  = 1;                //unconfirmed
     public $priority     = 6;                //unconfirmed
@@ -11916,9 +11979,161 @@ class LightningArray extends Weapon {
     }
 
     /* Total discharges this weapon may spend this turn. The single authority - the client's $guns /
-       $maxVariableShots are only hints, and beforeFiringOrderResolution clamps against THIS. */
+       $maxVariableShots are only hints, and beforeFiringOrderResolution clamps against THIS.
+       ⚠️ Deliberately NOT gated on the array being loaded: the tooltip, setMaxDamage and the
+       fleet builder all read it on a weapon that is mid-reload and must still describe the mount.
+       The "may it fire at all right now" question is asked once, in beforeFiringOrderResolution. */
     public function getDischargePool(){
         return $this->dischargePool;
+    }
+
+    /* ---------------------------------------------------------------- Wide Beam (plan 3.3) */
+
+    /* Called by the SYS_WBLA / SYS_WBMLA applier in Enhancements.php, once per construction, on the
+       ONE array the refit was bought for. It buys the CAPABILITY; arming it is a per-turn decision.
+       ⚠️ A plain instance property, so two Lightning Arrays on one hull are refitted independently -
+       which is what the rules ask for ("the player pays to enhance each one separately"). */
+    public function enableWideBeam(){
+        $this->wideBeamFitted = true;
+    }
+
+    /* Was this array refitted? */
+    public function hasWideBeam(){
+        return $this->wideBeamFitted;
+    }
+
+    /* Is this array firing a wide beam THIS TURN? Both halves are required: the refit (blueprint
+       purchase, applied at construction) and the arm (this turn's toggle, replayed from the notes).
+       ⚠️ Takes no fire order, on purpose. The rules configure the ARRAY, not the shot - one
+       declaration covers every discharge it fires this turn, in either firing mode - so there is
+       nothing per-order to read and no way for two shots in one turn to disagree. */
+    public function isWideBeamShot(){
+        return $this->wideBeamFitted && $this->wideBeamArmed;
+    }
+
+    /* Does this firing mode never fuse? One line today, because there is one such mode. It exists
+       so that the grouping question is asked by NAME everywhere - the wide beam is a separate,
+       orthogonal choice, and the two were briefly modelled as four firing modes (2026-09-06) with
+       exactly the confusion that invites. A future third grouping mode adds itself here. */
+    public static function isSingleShotMode($mode){
+        return ((int)$mode) === self::MODE_SINGLE;
+    }
+
+    /* ---------------------------------------------- the toggle's round trip (class comment, 3) */
+
+    /* Step 2. Called by Manager::parseShips on every POST, in every phase, as soon as the POST-side
+       system exists. All it does is remember what was asked; the write is step 3.
+       ⚠️ NOT gated on $wideBeamFitted - a POST-side ship is rebuilt WITHOUT enhancements
+       (arch_post_side_ship_reconstruction), so the refit reads false here on a fitted array and
+       gating would silently drop every declaration. The refit is re-checked at read time instead. */
+    public function doIndividualNotesTransfer(){
+        if (is_array($this->individualNotesTransfer) && isset($this->individualNotesTransfer[0])) {
+            $this->wideBeamRequested = ((int)$this->individualNotesTransfer[0] === 1) ? 1 : 0;
+        }
+        $this->individualNotesTransfer = array();
+    }
+
+    /* Step 3. Called from FireGamePhase::process for the submitting player's own ships only - see
+       the hook on ShipSystem for why this is a narrow hook rather than the generic
+       generateIndividualNotes sweep the other phases run.
+       Writes BOTH states, so that re-committing after un-arming is not stuck on a stale 1;
+       onIndividualNotesLoaded takes the LAST note of the turn. Nothing is written at all unless the
+       client sent a toggle state, so a game with no fitted array never touches the table. */
+    public function saveFirePhaseDeclaration($gamedata, $dbManager){
+        if ($this->wideBeamRequested === null) return;
+
+        $ship = $this->getUnit();
+        if (!$ship) return;
+
+        $this->individualNotes[] = new IndividualNote(
+            -1, TacGamedata::$currentGameID, $gamedata->turn, $gamedata->phase,
+            $ship->id, $this->id,
+            self::WIDEBEAM_NOTEKEY,
+            'Wide beam declaration',      //notekey_human is varchar(40) - keep it short
+            $this->wideBeamRequested
+        );
+        $this->wideBeamRequested = null;
+    }
+
+    /* Step 4. Rebuilds this turn's declaration on every gamedata load, before prepareFiring runs.
+       ⚠️ getIndividualNotesForGame loads `turn <= current`, so the turn test is what makes this a
+       PER-TURN declaration rather than a permanent one - without it, arming once would arm the
+       array for the rest of the game.
+       ⚠️ Highest id wins, not last in the array: the query orders by turn and phase only, so two
+       notes written in the same phase (arm, then re-commit un-armed) come back in an order MySQL
+       does not promise. Ids are auto-increment, so they are the write order. */
+    public function onIndividualNotesLoaded($gamedata){
+        $bestId = -1;
+        foreach ($this->individualNotes as $currNote){
+            if ($currNote->notekey !== self::WIDEBEAM_NOTEKEY) continue;
+            if ($currNote->turn != $gamedata->turn) continue;
+            if ((int)$currNote->id < $bestId) continue;
+            $bestId = (int)$currNote->id;
+            $this->wideBeamArmed = ((int)$currNote->notevalue === 1);
+        }
+        parent::onIndividualNotesLoaded($gamedata);   //clears the array, as every other reader does
+    }
+
+    /* Did this array fire a wide beam on $turn? Used only at the turn advance, where the fire
+       orders in memory ARE that turn's (DBManager::getFireOrdersForShips loads one turn, and
+       $gamedata->turn has already been stepped past it by then) - which is also why the cooldown
+       cannot be re-derived during the following turn's Fire phase and has to live in the persisted
+       loading state instead.
+       ⚠️ OFFENSIVE orders only. Interception is a single discharge and never a wide beam
+       (getInterceptOrderMode), so defending must not cost the array the following turn as well. */
+    protected function firedWideBeamOnTurn($turn){
+        if (!$this->isWideBeamShot()) return false;
+        foreach ($this->fireOrders as $order){
+            if ($order->type != "normal") continue;
+            if ($order->weaponid != $this->id) continue;
+            if ($order->turn != $turn) continue;
+            return true;
+        }
+        return false;
+    }
+
+    /* THE COOLDOWN. "The operation of a lightning array in this mode is stressful on its systems,
+       and therefore requires a 1 turn cooldown period."
+     *
+     * The turn advance (phase -1) is the one write that decides what the array has next turn, and
+     * the parent's version of it hands an ordinary loading-1 weapon its charge straight back:
+     * fired on turn T -> loading 0 -> +1 -> 1 -> loaded again on T+1. Zeroing that ONE write is the
+     * entire cooldown. On T+1 the array holds 0/1 and is not loaded, so:
+     *   - the client greys it out (weaponManager.isLoaded tests turnsloaded AND overloadturns, and
+     *     the phase-2 write leaves overloadturns at 0 for a non-overloading weapon);
+     *   - Firing::isValidInterceptor and validateManualIntercept both refuse it, so a wide beam
+     *     costs the array its DEFENCE for the following turn too, which is what "stressful on its
+     *     systems" should mean;
+     *   - beforeFiringOrderResolution gives it a pool of 0, so a tampered POST buys nothing.
+     * Advancing T+1 -> T+2 finds no shot on T+1, so the ordinary +1 puts it back at 1/1 (and the
+     * Medium back at 1/2, part-charged, which is where it starts a scenario anyway).
+     *
+     * ⚠️ NOT done by raising $loadingtime for a turn. That number is a BLUEPRINT field riding the
+     * per-class static bundle rather than the poll payload, so the client would have gone on
+     * reading 1 and shown a loaded array - the Stage 7 trap. $turnsloaded IS published per
+     * instance by Weapon::stripForJson, so this way the cooldown is visible for free. */
+    public function calculateLoading(TacGamedata $gamedata){
+        $loading = parent::calculateLoading($gamedata);
+        if (!$loading) return $loading;
+        if ($gamedata->phase != -1) return $loading;                    //only the turn-advance write reloads
+        if (!$this->firedWideBeamOnTurn($gamedata->turn - 1)) return $loading;
+
+        return new WeaponLoading(
+            0,                          //<- no charge regained this turn: THE cooldown
+            $loading->extrashots,
+            $loading->loadedammo,
+            0,                          //<- and no overload credit either, or the client reads it as loaded
+            $loading->loadingtime,
+            $loading->firingmode
+        );
+    }
+
+    /* Is the array able to shoot at all right now? The same test both intercept gates in firing.php
+       make, reused here because nothing on the server stops an UNLOADED weapon from resolving an
+       offensive order - the client's isLoaded is the only gate on that path, and a cooldown that
+       only the client enforced would not be a cooldown. */
+    protected function isReadyToFire(){
+        return $this->getTurnsloaded() >= $this->getLoadingTime();
     }
 
     /* Highest fused count the damage/FC tables actually describe. Guards against a control sheet
@@ -11932,7 +12147,12 @@ class LightningArray extends Weapon {
     public function beforeFiringOrderResolution($gamedata){
         $this->combinedCount = array();
 
-        $pool   = $this->getDischargePool();
+        /* An array in its Wide Beam cooldown - or offline, or otherwise mid-reload - has nothing to
+           spend. Every order below then clamps to 0 discharges and does 0 damage, which is this
+           weapon's established loud failure (a 0-damage line in the log rather than a silently
+           dropped order). The client refuses to declare in the first place; this is the half that
+           cannot be edited out of a POST. */
+        $pool   = $this->isReadyToFire() ? $this->getDischargePool() : 0;
         $left   = $pool;
         $maxRow = $this->getMaxTabledCount();
 
@@ -11943,12 +12163,17 @@ class LightningArray extends Weapon {
             if ($order->type != "normal") continue;
             $offensiveOrders++;
 
-            /* SINGLE SHOTS mode is exactly one discharge, whatever the order claims. Reading
+            /* ⚠️ NO WIDE-BEAM CHECK HERE, and that is the point of the toggle: the wide beam is a
+               property of the ARRAY this turn, not of the order, so there is no per-order claim to
+               validate or demote. An array that was never refitted answers false to
+               isWideBeamShot() whatever its notes say, so a hand-written note buys nothing.
+
+               A SINGLE SHOTS order is exactly one discharge, whatever the order claims. Reading
                $order->firingMode and not $this->firingMode is load-bearing: prepareFiring calls
                changeFiringMode only AFTER this method, so the weapon's own mode is still last
                turn's here. Ignoring ->shots rather than clamping it is deliberate - it means a
                stale or hand-edited client cannot declare a fused shot in the cheap mode. */
-            if ((int)$order->firingMode === self::MODE_SINGLE) {
+            if (self::isSingleShotMode($order->firingMode)) {
                 $count = 1;
             } else {
                 //->shots IS the fused count, exactly as it is the shot count on every other
@@ -12017,7 +12242,60 @@ class LightningArray extends Weapon {
         $n = $this->getCombinedCount($fireOrder);
         if ($n < 1 || !isset($this->combinedDamageArray[$n])) return 0;
         $row = $this->combinedDamageArray[$n];
+
+        /* ⚠️ WIDE BEAM IS ROLLED ONE DIE AT A TIME. The floor is per DIE, not on the total, so
+           Dice::d(10, $n) - which returns a sum - cannot express it: five dice each floored at 1
+           can never total less than 5, while a floor applied to their sum would allow 1. The flat
+           +N on the row is not a die and is not touched. */
+        if ($this->isWideBeamShot()) {
+            $total = 0;
+            for ($i = 0; $i < $row['dice']; $i++) {
+                $total += max(self::WIDEBEAM_DIE_FLOOR, Dice::d(10) - self::WIDEBEAM_DIE_PENALTY);
+            }
+            return $total + $row['add'];
+        }
+
         return Dice::d(10, $row['dice']) + $row['add'];
+    }
+
+    /* WIDE BEAM COLLATERAL, both halves of the rule, and they pull in opposite directions.
+     *
+     *   "Collateral flash damage is scored as normal when the target is inside an energy draining
+     *    field (i.e. 25% on any other targets in the same hex). If the target is not in an energy
+     *    draining field, collateral flash damage is scored at an amount of 50%."
+     *
+     * The general rule (weapon.php, plan 2.1) is that a flash weapon striking a unit INSIDE a field
+     * scores no collateral at all. A wide beam is the exception the rules carve out: inside a field
+     * it drops back to the ordinary 25% instead of to nothing, and outside one it doubles to 50%.
+     * ⚠️ 50% is computed from the damage, not by doubling the 25% figure - see the parent hook. */
+    protected function edfSuppressesCollateral($target, $fireOrder, $gamedata){
+        if ($this->isWideBeamShot()) return false;
+        return parent::edfSuppressesCollateral($target, $fireOrder, $gamedata);
+    }
+
+    /* The one genuinely surprising outcome gets a log line: everything else in the game scores NO
+       collateral against a target standing in a draining field, so a wide beam splashing there
+       looks like a bug unless the log says otherwise. The 50% case outside a field needs no note -
+       nothing about it contradicts what the player already expects of a flash weapon.
+       ⚠️ Written before the parent runs, and unconditionally, exactly as the suppression note it
+       replaces is: neither knows yet whether anything is actually sharing the hex. */
+    public function doCollateralDamage($target, $shooter, $fireOrder, $gamedata, $flashDamageAmount){
+        if ($this->isWideBeamShot()
+            && TacGamedata::$edfPresent && $gamedata->isHexInEdfField($target->getHexPos())) {
+            $fireOrder->pubnotes .= "<br>Wide beam deals Flash damage through the Energy Draining Field -"
+                                 . " 25% collateral damage is scored. ";
+        }
+        parent::doCollateralDamage($target, $shooter, $fireOrder, $gamedata, $flashDamageAmount);
+    }
+
+    protected function getFlashCollateralAmount($damage, $target, $fireOrder, $gamedata){
+        if (!$this->isWideBeamShot()) {
+            return parent::getFlashCollateralAmount($damage, $target, $fireOrder, $gamedata);
+        }
+        //Same hex test the suppression uses - ANY field hex, no own-fleet exemption: this is the
+        //field dampening an explosion, which is a property of the hex.
+        $inField = TacGamedata::$edfPresent && $gamedata->isHexInEdfField($target->getHexPos());
+        return (int)round($damage / ($inField ? 4 : 2), 0, PHP_ROUND_HALF_UP);
     }
 
     /* Combined fire is harder to aim. Applied as a DELTA on top of whatever the parent worked out,
@@ -12046,6 +12324,14 @@ class LightningArray extends Weapon {
             $fireOrder->needed += $delta * 5; //d20 table -> d100 roll
             $fireOrder->notes  .= " Combined fire x" . $this->getCombinedCount($fireOrder)
                                . ": " . ($delta > 0 ? "+" : "") . $delta . " FC.";
+        }
+
+        /* Wide Beam changes no hit chance at all - it is the same bolt spread wider - so this is
+           purely the log saying why the damage came out low. Written here rather than in getDamage
+           so that a MISS still records what was fired, and so a withdrawn shot records nothing. */
+        if ($this->isWideBeamShot()) {
+            $fireOrder->notes .= " Wide beam: -" . self::WIDEBEAM_DIE_PENALTY . " per damage die"
+                              . " (min " . self::WIDEBEAM_DIE_FLOOR . ").";
         }
     }
 
@@ -12101,8 +12387,25 @@ class LightningArray extends Weapon {
                                . " fuses together into one heavier hit.";
         $this->data["Special"] .= "<br>Single Shots mode: Every shot is a separate one-discharge"
                                . " shot.";
+        $this->data["Special"] .= $this->getWideBeamTooltip();
         $this->data["Special"] .= $this->getCombinedFireTooltip();
         $this->data["Special"] .= "<br>Each shot not fired will instead intercept one incoming shot.";
+    }
+
+    /* The Wide Beam block, present only on a refitted array. ⚠️ It reaches the client because this
+       class's stripForJson() republishes $this->data per instance - $data is otherwise baked into
+       the per-class static blueprint, so an enhanced mount would quote the hull as designed. */
+    protected function getWideBeamTooltip(){
+        if (!$this->hasWideBeam()) return "";
+        return "<br>Wide Beam (enhancement): toggled on this array for the whole turn, in EITHER"
+             . " firing mode. While armed, every damage die is rolled at -"
+             . self::WIDEBEAM_DIE_PENALTY . " (minimum " . self::WIDEBEAM_DIE_FLOOR . " per die)."
+             . "<br> - Collateral flash damage is 50% instead of 25%, or the usual 25% when the"
+             . " target stands inside an Energy Draining Field (where a flash weapon normally"
+             . " scores none at all)."
+             . "<br> - Firing a wide beam puts this array into a one turn cooldown: it cannot fire"
+             . " or intercept on the following turn."
+             . ($this->wideBeamArmed ? "<br> - ARMED THIS TURN." : "");
     }
 
     /* The combined-fire table as tooltip rows, generated from the tables themselves so a re-stat
@@ -12127,16 +12430,31 @@ class LightningArray extends Weapon {
     }
 
     /* Tooltip damage spans one discharge at its worst to the whole pool at its best, which is what
-       the weapon can actually produce in a turn. */
+       the weapon can actually produce in a turn.
+       ⚠️ These two are called by Weapon::setSystemDataWindow inside a loop that walks $firingModes
+       and calls changeFiringMode() before each pair, filling minDamageArray/maxDamageArray. So
+       $this->firingMode IS the mode being described here - the one place in this class where
+       reading it rather than an order is correct - and adding mode 3 to $firingModes is all it
+       takes for the ship window to quote the wide beam's own span. */
     public function setMinDamage(){
         $row = isset($this->combinedDamageArray[1]) ? $this->combinedDamageArray[1] : array('dice' => 0, 'add' => 0);
+        //Unchanged by Wide Beam: a d10 already rolls a 1 at worst, and the floor is 1 as well.
         $this->minDamage = $row['dice'] + $row['add'];
     }
 
     public function setMaxDamage(){
         $n   = min($this->getDischargePool(), $this->getMaxTabledCount());
         $row = isset($this->combinedDamageArray[$n]) ? $this->combinedDamageArray[$n] : array('dice' => 0, 'add' => 0);
-        $this->maxDamage = ($row['dice'] * 10) + $row['add'];
+        $this->maxDamage = ($row['dice'] * $this->getDieCeiling()) + $row['add'];
+    }
+
+    /* Highest a single damage die can roll - 10, or 8 while the array is armed for a wide beam. The
+       floor never binds at the top of the range, so the penalty is the whole difference. Applies to
+       BOTH firing modes, which is what makes the arm and the mode independent in the ship window
+       exactly as they are in the dice. */
+    protected function getDieCeiling(){
+        if (!$this->isWideBeamShot()) return 10;
+        return max(self::WIDEBEAM_DIE_FLOOR, 10 - self::WIDEBEAM_DIE_PENALTY);
     }
 
     /* The pool, the damage span and the tooltip all move with charge time on the Medium variant, so
@@ -12154,6 +12472,17 @@ class LightningArray extends Weapon {
         //see the property comment. Without this line the client locks the firing-mode selector as
         //soon as one shot is declared.
         $strippedSystem->multiModeSplit = $this->multiModeSplit;
+
+        /* THE WIDE BEAM TOGGLE, both halves.
+           - wideBeamFitted is the REFIT, and the registry's `serialise` list would publish it for
+             the enhanced mount anyway; naming it here as well costs nothing and keeps the two
+             halves of one feature together.
+           - active is THIS TURN's arm. Published under that name because the generic
+             <SystemActivation> box reads system.active - the same thing ChameleonSensors does. */
+        if ($this->wideBeamFitted) {
+            $strippedSystem->wideBeamFitted = true;
+            $strippedSystem->active         = $this->wideBeamArmed;
+        }
         return $strippedSystem;
     }
 

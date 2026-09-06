@@ -206,7 +206,7 @@ window.ShipTooltipBallisticsMenu = function () {
                 // `amount` stays the MEMBER count, because that is what the disclosure caret opens
                 // into and what the per-shot interception sub-rows are.
                 var textToDisplay = shotsInGroup(ball.weapon, members) + 'x ' + ball.weapon.displayName
-                    + ' (' + ball.weapon.firingModes[ball.fireOrder.firingMode] + ')'
+                    + ' (' + modeName(ball.weapon, ball.fireOrder) + ')'
                     + diceSuffix(ball.weapon, members);
                 jQuery(".weapon", ballElement).html(textToDisplay).attr('title', textToDisplay);
 
@@ -434,7 +434,7 @@ window.ShipTooltipBallisticsMenu = function () {
                         subElement.addClass('ballsub');
 
                         var subText = ball.weapon.displayName
-                            + ' (' + ball.weapon.firingModes[ball.fireOrder.firingMode] + ')'
+                            + ' (' + modeName(ball.weapon, member.fireOrder) + ')'
                             + diceSuffix(ball.weapon, [member]);
                         jQuery(".weapon", subElement).html(subText).attr('title', subText);
 
@@ -509,6 +509,20 @@ window.ShipTooltipBallisticsMenu = function () {
             var n = parseInt(weapon.getIncomingShotCount(member.fireOrder), 10);
             return total + ((isNaN(n) || n < 1) ? 1 : n);
         }, 0);
+    }
+
+    /* The mode name a row prints in its brackets. Weapon.getFiringModeDisplayName is a plain
+       firingModes lookup for everything in the game; the hook exists so a weapon whose shot carries
+       something the mode id does not can say so - the Wide-Beam Lightning Array appends "-Wide"
+       while it is armed, because the arm is a per-turn toggle orthogonal to the mode and two shots
+       that roll different dice would otherwise read identically (user report 2026-09-06).
+       ⚠️ The typeof guard is not decoration: replay and older payloads can put an object here that
+       predates the hook, and a row is not worth a TypeError. */
+    function modeName(weapon, fireOrder) {
+        if (weapon && typeof weapon.getFiringModeDisplayName === "function") {
+            return weapon.getFiringModeDisplayName(fireOrder);
+        }
+        return (weapon && weapon.firingModes) ? weapon.firingModes[fireOrder.firingMode] : '';
     }
 
     /* "(3d + 12)" - the dice and set damage a Shadow split weapon has committed to a row's shots.

@@ -2425,6 +2425,29 @@ public function getStartLoading()
     }//endof function getArcOverkillStructure
 
 
+    /* Does an Energy Draining Field standing on the TARGET'S hex suppress this weapon's flash
+       collateral entirely? True for every ordinary flash weapon - see the rules quote in
+       doCollateralDamage() below, which is the only caller. A hook rather than an inline test so
+       that a weapon the rules exempt can say so in its own file; the Wide-Beam Lightning Array
+       (WALKERS_OF_SIGMA_PLAN.md 3.3) is the only one today.
+       ⚠️ Keep the TacGamedata::$edfPresent short-circuit first in every override: a game with no
+       field in it must not pay for a hex lookup on every flash hit. */
+    protected function edfSuppressesCollateral($target, $fireOrder, $gamedata)
+    {
+        return TacGamedata::$edfPresent && $gamedata->isHexInEdfField($target->getHexPos());
+    }
+
+    /* How much collateral a flash hit splashes onto everything else in the target's hex, as a
+       function of the damage the DIRECT hit scored. 25%, rounded half up, for every ordinary flash
+       weapon.
+       ⚠️ A hook, and overrides must recompute from $damage rather than scaling the 25% figure:
+       rounding an already-rounded number is systematically high (10 damage gives 3, and doubling
+       that is 6, where 50% of 10 is 5). */
+    protected function getFlashCollateralAmount($damage, $target, $fireOrder, $gamedata)
+    {
+        return (int)round($damage / 4, 0, PHP_ROUND_HALF_UP);
+    }
+
     /*collateral damage from a Flash explosion (if any), called from function damage*/
     public function doCollateralDamage($target, $shooter, $fireOrder, $gamedata, $flashDamageAmount)
     {
@@ -2440,8 +2463,11 @@ public function getStartLoading()
            targeting penalty is about who the field is aimed at; this is the field dampening an
            explosion, which is a property of the hex - and the rules stress it applies even to
            advanced-race weapons.
-           ⚠️ Gated on the static, so an ordinary game pays one property read per flash hit. */
-        if (TacGamedata::$edfPresent && $gamedata->isHexInEdfField($target->getHexPos())) {
+           ⚠️ Gated on the static, so an ordinary game pays one property read per flash hit.
+           ⚠️ The test itself is a HOOK - see edfSuppressesCollateral() - because the Wide-Beam
+           Lightning Array (WALKERS_OF_SIGMA_PLAN.md 3.3) is the one weapon the rules explicitly
+           exempt: a wide beam still scores its collateral inside a field. */
+        if ($this->edfSuppressesCollateral($target, $fireOrder, $gamedata)) {
             $fireOrder->pubnotes .= "<br>Energy Draining Field dampens the explosion - no collateral damage. ";
             return;
         }
@@ -2605,7 +2631,9 @@ public function getStartLoading()
 
         $flashDamageAmount = 0; //also read further down, for other fighters in a hit flight - keep it defined on every path
         if($this->damageType=='Flash'){
-            $flashDamageAmount = (int)round($damage/4, 0, PHP_ROUND_HALF_UP); //other units on target hex receive 25% of damage dealt to target, rounded up from .5
+            //other units on target hex receive 25% of damage dealt to target, rounded up from .5.
+            //Via a hook so a weapon can score a different fraction - see getFlashCollateralAmount.
+            $flashDamageAmount = $this->getFlashCollateralAmount($damage, $target, $fireOrder, $gamedata);
 
             /*Flash splash is dealt to the REAL ships sharing the target's hex, and a phantom sits in the
               same hex as the ship it impersonates - so running this on the mirrored pass would deal the

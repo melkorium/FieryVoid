@@ -1168,7 +1168,25 @@ public function setParentFighter($fighter) {
 	/*generates individual notes (if necessary)
 	base version is empty, to be redefined by systems as necessary
 	*/
-	public function generateIndividualNotes($gamedata, $dbManager){	}	
+	public function generateIndividualNotes($gamedata, $dbManager){	}
+
+	/* A per-system DECLARATION made in the Fire phase, persisted so the advance can read it back.
+	   Called from FireGamePhase::process, for the submitting player's own ships only, immediately
+	   before saveIndividualNotes(). Push IndividualNote objects onto $this->individualNotes; the
+	   base version does nothing, which is the answer for every system but one.
+
+	   ⚠️⚠️ THIS IS DELIBERATELY NOT generateIndividualNotes(), and the difference is the whole
+	   reason it exists. Every other phase runs the generic generateIndividualNotes sweep, but the
+	   Fire phase never has - and 34 of the ~80 overrides in this codebase have NO phase guard at
+	   all (plus one with an explicit `case 3`), so switching that sweep on here would wake all of
+	   them in a phase they have never run in. A narrow hook that answers "nothing" by default
+	   cannot do that. See WALKERS_OF_SIGMA_PLAN.md 3.3; the Wide-Beam Lightning Array toggle is
+	   the only user today.
+
+	   ⚠️ The system this runs on is a POST-SIDE rebuild - no enhancements, no loaded notes
+	   (arch_post_side_ship_reconstruction). Write what the client asked for; judge it on the real
+	   ship when the note is read back. */
+	public function saveFirePhaseDeclaration($gamedata, $dbManager){	}
 	
 	public function addIndividualNote($noteObject){
 		$this->individualNotes[] = $noteObject;
