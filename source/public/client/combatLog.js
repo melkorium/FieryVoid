@@ -20,6 +20,7 @@ window.combatLog = {
 
     // Damage lists longer than this start collapsed - one alpha strike against a big hull
     // can otherwise be thirty lines and push every other entry off a 150px panel.
+    //Commented out below for now, but I'll keep the idea in for now.
     COLLAPSE_ROWS_OVER: 4,
 
     /* ⭐ SERVER-AUTHORED pubnotes CANNOT COLOUR A SHIP NAME, BECAUSE THE COLOUR IS PER-VIEWER.
@@ -568,15 +569,16 @@ window.combatLog = {
                 : '<ul>' + edfRow + '</ul>';
             damageRows++;
         }
-
+        
         var entryClass = 'logentry fire-' + orders[0].id;
+        /*//Removed as I found that collapsed rows were a bit annoying - DK
         if (damageRows > combatLog.COLLAPSE_ROWS_OVER) {
             // One alpha strike can be thirty rows; start those folded and let the entry be
             // clicked open. The count goes in the affordance so the fold is never silent.
             entryClass += ' collapsible collapsed';
             html += '<span class="logexpand" role="button" tabindex="0">'
                 + damageRows + ' damage lines</span>';
-        }
+        }*/
 
         html = '<div class="' + entryClass + '" style="' + combatLog.logRailStyle(ship) + '">'
             + html + damageList + '</div>';
