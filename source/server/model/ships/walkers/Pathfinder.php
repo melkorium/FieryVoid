@@ -34,14 +34,14 @@ class Pathfinder extends MediumShip{
          
 		$this->addPrimarySystem(new Reactor(6, 12, 0, 0));//armor, structure, power req, output
         $this->addPrimarySystem(new CnC(6, 12, 0, 0));
-		$scanner = new ElintScanner(6, 21, 0, 16);
+		$scanner = new ElintScanner(6, 28, 0, 16);
 		$scanner->markAdvanced();
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(5, 15, 0, 10, 3));		
         $this->addPrimarySystem(new SelfRepair(6, 3, 2)); //armor, structure, output
 		$this->addPrimarySystem(new JumpEngine(6, 11, 9, 4));
-		$this->addPrimarySystem(new GraviticThruster(6, 15, 0, 5, 3));
-		$this->addPrimarySystem(new GraviticThruster(6, 15, 0, 5, 4));		
+		$this->addPrimarySystem(new GraviticThruster(6, 20, 0, 5, 3));
+		$this->addPrimarySystem(new GraviticThruster(6, 20, 0, 5, 4));		
 		
 		
         $this->addFrontSystem(new GraviticThruster(6, 12, 0, 4, 1));
