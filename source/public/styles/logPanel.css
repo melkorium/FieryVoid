@@ -1372,6 +1372,21 @@ only screen and (max-height: 500px) and (orientation: landscape) {
     padding: 1px 0;
 }
 
+/* ⚠ THE RELATION TRACK IS FIXED, NOT `auto` (user report, 2026-09-06). EVERY <li> IS ITS
+   OWN GRID, so a track sized from content resolves to a different width on each row: the
+   relation span is EMPTY on a DEW row and holds "by" on an OEW row, which left the two 1fr
+   tracks ~6px apart and put the OEW value a few pixels left of the DEW value directly above
+   it - in the one column this grid exists to line up. A fixed track makes every EW row
+   identical, and lines up the target names as well. Wide enough for "at"/"by" plus the
+   padding-right below; a longer relation word would need this number raised.
+
+   Scoped to the EW rows: the fire rows carry .decl-meter in column 4 and NEVER a
+   .decl-rel (theirs lives in the .decl-group heading, which is a flex div, not this grid),
+   so they would only inherit 18px of dead space. */
+.decl-rows li:has(> .decl-rel) {
+    grid-template-columns: minmax(0, 1fr) 58px 18px minmax(0, 1.3fr);
+}
+
 .decl-what {
     min-width: 0;
     overflow: hidden;
