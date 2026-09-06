@@ -2757,6 +2757,7 @@ spl_autoload_register(
                 'scoravarefittedam' => '/server/model/ships/descari/ScoravarefittedAM.php',
                 'scorotaam' => '/server/model/ships/descari/ScorotaAM.php',
                 'scorran' => '/server/model/ships/descari/Scorran.php',
+                'scribe' => '/server/model/ships/walkers/Scribe.php',
                 'secondarycnc' => '/server/model/systems/baseSystems.php',
                 'secondsight' => '/server/model/weapons/specialWeapons.php',
                 'secundus' => '/server/model/ships/centauri/secundus.php',
