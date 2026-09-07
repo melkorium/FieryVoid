@@ -13343,4 +13343,37 @@ class SensorChargeTransceiver extends Weapon {
 
 }//endof class SensorChargeTransceiver
 
+    class LightChromaticPulsar extends LinkedWeapon{
+        public $name = "LightChromaticPulsar";
+        public $displayName = "Light Chromatic Pulsar"; //it's not 'paired' in any way, except being usually mounted twin linked - like most fighter weapons...
+        public $animation = "bolt";
+    	public $animationColor = array(140, 210, 255); //pale electric blue
+
+        public $intercept = 2;
+
+        public $loadingtime = 1;
+        public $shots = 2;
+        public $defaultShots = 2;
+		public $priority = 4; //correct for d6+2 and lighter
+
+        public $rangePenalty = 2;
+        public $fireControl = array(0, 0, 0); // fighters, <mediums, <capitals
+        private $damagebonus = 0;
+        
+        public $damageType = "Standard"; 
+        public $weaponClass = "Electromagnetic";         
+
+        function __construct($startArc, $endArc){
+            parent::__construct(0, 1, 0, $startArc, $endArc);
+        }
+
+        public function setSystemDataWindow($turn){
+            parent::setSystemDataWindow($turn);
+        }
+
+        public function getDamage($fireOrder){        return Dice::d(6, 2);   }
+        public function setMinDamage(){     $this->minDamage = 2;      }
+        public function setMaxDamage(){     $this->maxDamage = 12;      }
+    } //endof LightChromaticPulsar
+
 ?>
