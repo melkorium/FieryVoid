@@ -2627,3 +2627,10 @@ SensorChargeTransceiver.prototype.initializationUpdate = function () {
 
 	return this;
 };
+
+
+var LightChromaticPulsar = function LightChromaticPulsar(json, ship) {
+    Weapon.call(this, json, ship);
+};
+LightChromaticPulsar.prototype = Object.create(Weapon.prototype);
+LightChromaticPulsar.prototype.constructor = LightChromaticPulsar;
