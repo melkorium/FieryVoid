@@ -13294,21 +13294,21 @@ class SensorChargeTransceiver extends Weapon {
 
         $boost = $this->getChargeBoost($turn);
 
-        $this->data["Special"] .= "Plots a course for a sensor charge, hex by hex, and damages every"
-            . " enemy unit it passes through - one target per hex, at full fire control and with no"
+        $this->data["Special"] .= "Plots a course for a sensor charge, and damages every"
+            . " enemy unit it passes through - one target per hex with no"
             . " range penalty.";
         $this->data["Special"] .= "<br>The charge flies in straight legs: " . self::CHARGE_RANGE
             . " hexes and " . self::CHARGE_MANOEUVRES . " manoeuvres, a manoeuvre being each 60"
-            . "&deg; of turn taken at a waypoint. The first leg is free.";
+            . "&deg; turn taken.";
         $this->data["Special"] .= "<br>Every " . self::BOOST_POWER_PER_LEVEL . " points of boost"
             . " power buy one more hex OR one more manoeuvre, spent as the course needs them."
             . ($boost > 0 ? " <b>Boosted this turn: +" . $boost . ".</b>" : "");
-        $this->data["Special"] .= "<br>The course MUST end in the hex of a friendly ship carrying a"
-            . " Sensor Charge Transceiver (this one included), or the charge is lost and does no"
-            . " damage at all.";
+        $this->data["Special"] .= "<br>The course MUST end at a friendly ship with a"
+            . " Sensor Charge Transceiver or the charge is lost and does no"
+            . " damage.";
         $this->data["Special"] .= "<br>The receiving transceiver takes 1 point of damage, rolling"
             . " criticals as normal, for every " . self::SELFDAMAGE_PER_HEXES . " full hexes of"
-            . " range the charge did not use - so plot a long course.";
+            . " range the charge did not use.";
         $this->data["Special"] .= "<br>Recharges in " . $this->loadingtime . " turns after a"
             . " recovered charge, but in 1 turn when a charge is lost.";
     }
