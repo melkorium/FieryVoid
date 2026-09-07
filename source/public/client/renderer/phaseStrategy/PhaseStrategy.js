@@ -1535,6 +1535,20 @@ window.PhaseStrategy = function () {
             this.syncEdfNetPreview();
         }
 
+        /* WALKERS_OF_SIGMA_PLAN.md 3.9 - the Sensor Charge course overlay. Declaring a waypoint
+           goes through onHexTargeted, which rebuilds everything; the three things that DON'T are
+           withdrawing a waypoint, selecting the transceiver and unselecting it, and all three land
+           here. Selection is what the blue reachable-ray fan is gated on, so without this the rays
+           would appear only after the next poll and linger after the weapon was put away.
+           ⚠️ Gated on the system, and cheaply: this handler is one of the busiest in the file. The
+           systemless payload shape (offlineAll / onlineAll) is deliberately NOT covered - a
+           transceiver taken offline still has its course drawn until the next poll, which is a
+           cosmetic lag rather than a wrong answer. */
+        if (system && system.name === 'SensorChargeTransceiver'
+            && this.ballisticIconContainer && this.ballisticIconContainer.refreshSensorChargeCourses) {
+            this.ballisticIconContainer.refreshSensorChargeCourses(this.gamedata);
+        }
+
         if (this.selectedShip === ship) {
             this.uiManager.showWeaponList({ ship: ship, gamePhase: gamedata.gamephase })
         }

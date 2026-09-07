@@ -109,6 +109,15 @@ class Weapon extends ShipSystem
     public $freeinterceptspecial = false;  //has its own routine for handling decision whether it's capable of interception - for freeintercept only?
     public $hidetarget = false;
 	public $hidetargetArray = array();  //for weapons that do not show their target
+	/*true = blank this weapon's fire-order ->notes in enemy/spectator payloads for as long as
+	$hidetarget is masking its x/y and targetid (TacGamedata::hideSystemFireOrders).
+	OPT-IN rather than blanket: ->notes is a general-purpose channel and most of what rides it is
+	either already public or written at resolution, so only a weapon that encodes part of its AIM
+	POINT there needs this. The Sensor Charge Transceiver does - its waypoint token can carry the
+	id of the unit the player chose to hit in a shared hex, which is exactly the information
+	$hidetarget exists to withhold. PROTECTED like $alwaysHideFireOrders so a raw-embedded weapon
+	object (a launcher's missileArray) does not serialize it into the payload.*/
+	protected $hideNotesFromEnemies = false;
 	protected $alwaysHideFireOrders = false; //To not show animtaiton in replay, e.g. for launched mines.
 	/*true = this weapon's use is completely invisible to enemies until it resolves: its pending
 	current-turn fire orders are stripped from enemy/spectator gamedata in every live phase
@@ -528,6 +537,10 @@ class Weapon extends ShipSystem
 
 	public function getHideFireOrdersFromEnemies(){
 		return $this->hideFireOrdersFromEnemies;
+	}
+
+	public function getHideNotesFromEnemies(){
+		return $this->hideNotesFromEnemies;
 	}
 
     public function getRange($fireOrder)

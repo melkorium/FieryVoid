@@ -861,6 +861,14 @@ window.ShipIcon = function () {
        did. 0 means "no reach at all" - e.g. a Warp Jump whose nacelle damage has taken its range to
        0 - and the callers draw nothing for it. */
     function getWeaponReachInHexes(weapon) {
+        /* ⭐ A WEAPON WHOSE REACH IS NOT ITS RANGE. `range` 0 means "no range limit" and
+           `rangePenalty` 0 means "no penalty", and a weapon carrying BOTH works out to a reach of
+           zero here - so nothing was drawn at all. The Sensor Charge Transceiver is exactly that:
+           its reach is the charge's own hex budget, which has nothing to do with how far a target
+           sits from the ship, so it publishes that budget as arcDisplayRange for this one purpose
+           (user report 2026-09-06: "not showing any arcs on normal hover like it should"). */
+        if (weapon.arcDisplayRange > 0) return Math.floor(weapon.arcDisplayRange);
+
         var maxHexes = weapon.rangePenalty === 0 ? weapon.range : Math.floor(50 / weapon.rangePenalty);
 
         if (weapon.range > 0 && maxHexes > weapon.range) maxHexes = weapon.range;

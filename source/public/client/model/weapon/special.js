@@ -2063,3 +2063,567 @@ MediumLightningArray.prototype.getDischargePool = function () {
 	if (pool < 1) pool = 1;
 	return pool;
 };
+
+
+/* =====================================================================================
+ * SENSOR CHARGE TRANSCEIVER - client half of SensorChargeTransceiver (specialWeapons.php).
+ * WALKERS_OF_SIGMA_PLAN.md 3.9 (Stage 9), decision D2.
+ *
+ * ⚠️ EVERY NUMBER HERE IS A MIRROR of a constant on the PHP class. The server re-walks the
+ * course from scratch and is the only authority on what it does; this half exists so the
+ * player can see a legal course being built while they build it. Re-stat one side and the
+ * other silently disagrees - and the failure mode is a course the client drew and the server
+ * truncated, which reads as the game eating clicks.
+ *
+ * HOW A COURSE IS DECLARED
+ * The transceiver is a hex-target split-shot weapon, so weaponManager.targetHex routes every
+ * right-click on a hex into doMultipleHexFireOrders below. Each accepted click appends ONE
+ * fire order carrying that waypoint's hex plus a "SCT|w:<n>" token in ->notes, and the chain
+ * of those orders IS the course. Withdrawing uses the shared path
+ * (weaponManager.removeFiringOrderMulti with no target), which pops the LAST order - exactly
+ * right for a chain, and why this weapon needs no removeMultiModeSplit hook of its own.
+ *
+ * ⚠️ NOT the 'Sweeping' + "Split" contract the Lightning Arrays use. That pair exists to put a
+ * split shot into the INCOMING list and to make BallisticIconContainer redraw its line, and
+ * neither applies here: a waypoint is not a shot at a unit, and ->notes is spoken for by the
+ * token. The course is drawn by BallisticIconContainer.refreshSensorChargeCourses instead.
+ * ===================================================================================== */
+var SensorChargeTransceiver = function SensorChargeTransceiver(json, ship) {
+	Weapon.call(this, json, ship);
+	//Plan trap 6: client system fields are shared BY REFERENCE across same-phpclass instances,
+	//and the charge lines written below are per instance. Two transceivers on one hull would
+	//otherwise share a tooltip and the second one built would win.
+	this.data = Object.assign({}, this.data);
+};
+SensorChargeTransceiver.prototype = Object.create(Weapon.prototype);
+SensorChargeTransceiver.prototype.constructor = SensorChargeTransceiver;
+
+/* ⚠️ MIRROR PAIR with SensorChargeTransceiver::CHARGE_RANGE / CHARGE_MANOEUVRES /
+   BOOST_POWER_PER_LEVEL in specialWeapons.php. */
+SensorChargeTransceiver.prototype.chargeRange = 16;
+SensorChargeTransceiver.prototype.chargeManoeuvres = 4;
+SensorChargeTransceiver.prototype.boostPowerPerLevel = 2;
+
+//The waypoint token. ⚠️ MIRROR PAIR with SensorChargeTransceiver::WAYPOINT_TOKEN.
+SensorChargeTransceiver.WAYPOINT_TOKEN = 'SCT|w:';
+
+/* The OPTIONAL second half of it: "|t:<shipid>", the unit the player picked out of a shared hex.
+   ⚠️ MIRROR PAIR with SensorChargeTransceiver::TARGET_TOKEN. Written by the ship tooltip's
+   "Target Ship" button (shipTooltipFireMenu.js) and ADVISORY only - the server re-tests the named
+   unit against every eligibility rule and falls back to its own pick if it fails one.
+   ⚠️ It is masked out of an enemy's payload by Weapon::$hideNotesFromEnemies, alongside the x/y
+   hidetarget already blanks - so this must never become the way the OWNER'S client identifies a
+   waypoint, only extra detail hanging off one. */
+SensorChargeTransceiver.TARGET_TOKEN = '|t:';
+
+//Boost levels bought this turn - one level is one extra hex OR one extra manoeuvre, spent as
+//the course needs it. Mirrors SensorChargeTransceiver::getChargeBoost.
+SensorChargeTransceiver.prototype.getChargeBoost = function () {
+	var boost = parseInt(shipManager.power.getBoost(this), 10);
+	return isNaN(boost) ? 0 : boost;
+};
+
+//This turn's waypoint orders, in the order they were clicked.
+SensorChargeTransceiver.prototype.getWaypointOrders = function () {
+	var orders = [];
+
+	for (var i = 0; i < this.fireOrders.length; i++) {
+		var fire = this.fireOrders[i];
+		if (fire.weaponid != this.id) continue;
+		if (fire.turn != gamedata.turn) continue;
+		if (SensorChargeTransceiver.readWaypointIndex(fire) === null) continue;
+		orders.push(fire);
+	}
+
+	orders.sort(function (a, b) {
+		return SensorChargeTransceiver.readWaypointIndex(a) - SensorChargeTransceiver.readWaypointIndex(b);
+	});
+
+	return orders;
+};
+
+//The waypoint's place in the course, or null when this order carries no token at all.
+SensorChargeTransceiver.readWaypointIndex = function (fire) {
+	if (!fire || !fire.notes) return null;
+	var match = /SCT\|w:(\d+)/.exec(fire.notes);
+	return match ? parseInt(match[1], 10) : null;
+};
+
+//The unit the player named for this waypoint's hex, or null when they named none.
+SensorChargeTransceiver.readWaypointTarget = function (fire) {
+	if (!fire || !fire.notes) return null;
+	var match = /SCT\|w:\d+\|t:(\d+)/.exec(fire.notes);
+	return match ? parseInt(match[1], 10) : null;
+};
+
+/* ⭐ THE COURSE AS THE CLIENT UNDERSTANDS IT - the mirror of
+   SensorChargeTransceiver::getChargeOutcome, minus the parts only the server needs (target
+   selection and the receiver's self-damage). Everything that draws, validates or explains a
+   course goes through this one function, so there is one definition of a legal path.
+
+   ⚠️ It works off the ship's CURRENT position, which is what a direct-fire weapon launches
+   from (weaponManager.getFiringHex). A course plotted before the ship finished moving would
+   start from the wrong hex, which is one reason this is a Fire phase weapon.
+
+   Returns null when the shooter cannot be resolved. Otherwise:
+     origin              the launch hex
+     waypoints           [{q, r}] in flight order, origin NOT included
+     legs                [{from, to, bearing, length}] for the renderer
+     hexes               every hex the charge enters, origin excluded, deduplicated
+     hexesUsed / manoeuvresUsed   what the course has spent
+     hexesLeft / manoeuvresLeft   the most a further leg could still spend on that axis alone
+     boost / boostLeft   boost levels bought, and those not yet committed to either axis
+     lastBearing         null before the first leg
+     head                the hex a further leg would start from
+     receiver            the friendly ship whose transceiver would take the charge, or null
+     markers             [{q, r, text}] - the hexes worth marking on the map (getCourseMarkers) */
+SensorChargeTransceiver.prototype.getCoursePlan = function (shooter) {
+	if (!shooter) shooter = this.ship;
+	if (!shooter || !shooter.movement || shooter.movement.length === 0) return null;
+
+	var origin = shipManager.getShipPosition(shooter);
+	if (!origin) return null;
+
+	var plan = {
+		//Carried so measureLeg can ask the LAUNCH ARC question - see isLaunchBearingOnArc. It is
+		//the only thing on the plan that is not a number or a hex, and nothing that builds a
+		//renderer signature reads it.
+		shooter: shooter,
+		origin: { q: origin.q, r: origin.r },
+		waypoints: [], legs: [], hexes: [],
+		hexesUsed: 0, manoeuvresUsed: 0,
+		lastBearing: null, head: { q: origin.q, r: origin.r },
+		boost: this.getChargeBoost(), receiver: null
+	};
+
+	var seen = {};
+	seen[origin.q + ',' + origin.r] = true;
+
+	var orders = this.getWaypointOrders();
+	for (var i = 0; i < orders.length; i++) {
+		var to = { q: parseInt(orders[i].x, 10), r: parseInt(orders[i].y, 10) };
+		//A masked order: hidetarget blanks x/y to the STRING "null" for anyone not on the shooter's
+		//team, so an enemy course resolves to an empty plan by construction and never draws.
+		//⚠️ break, not continue - the legs of a course are a chain, and skipping a blanked one in
+		//the middle would join the two hexes either side of it into a leg nobody plotted.
+		if (isNaN(to.q) || isNaN(to.r)) break;
+
+		var step = this.measureLeg(plan, to);
+		if (!step.legal) break;                     //the server truncates at the same leg
+
+		var walk = plan.head;
+		for (var h = 0; h < step.length; h++) {
+			walk = mathlib.moveInDirection(walk, step.bearing, 1);
+			var key = walk.q + ',' + walk.r;
+			if (seen[key]) continue;                //a course may cross itself; a hex is hit once
+			seen[key] = true;
+			plan.hexes.push({ q: walk.q, r: walk.r });
+		}
+
+		plan.legs.push({
+			from: plan.head, to: to, bearing: step.bearing, length: step.length,
+			//What this leg COST and what the player decided at the waypoint it ends on. Both are
+			//what the map marks, and both are cheaper to record here than to re-derive later from
+			//a bare list of hexes.
+			turnCost: step.turnCost,
+			targetId: SensorChargeTransceiver.readWaypointTarget(orders[i])
+		});
+		plan.waypoints.push(to);
+		plan.hexesUsed += step.length;
+		plan.manoeuvresUsed += step.turnCost;
+		plan.head = to;
+		plan.lastBearing = step.bearing;
+	}
+
+	/* WHAT IS STILL AFFORDABLE. The boost pool is shared between hexes and manoeuvres, so each
+	   of these is "the most this axis could still take if nothing more is spent on the other" -
+	   which is the number a player reading the ship window wants. The authoritative test for one
+	   specific leg is measureLeg, which prices both axes together. */
+	var hexOver = Math.max(0, plan.hexesUsed - this.chargeRange);
+	var manOver = Math.max(0, plan.manoeuvresUsed - this.chargeManoeuvres);
+	plan.boostLeft = Math.max(0, plan.boost - hexOver - manOver);
+	plan.hexesLeft = Math.max(0, this.chargeRange + (plan.boost - manOver) - plan.hexesUsed);
+	plan.manoeuvresLeft = Math.max(0, this.chargeManoeuvres + (plan.boost - hexOver) - plan.manoeuvresUsed);
+
+	if (plan.waypoints.length > 0) plan.receiver = this.findReceiver(shooter, plan.head);
+
+	plan.markers = this.getCourseMarkers(plan);
+
+	return plan;
+};
+
+/* WHICH HEXES OF A COURSE GET A MARKER (user ruling 2026-09-06). Not every waypoint: a course run
+   along one axis can hold a dozen of them, and marking them all buries the line under hexes that
+   say nothing. What earns a hex is a place where something HAPPENED -
+
+     - a hex where the charge MANOEUVRED, because manoeuvres are the scarce half of the budget and
+       a turn is the only place the course could have gone somewhere else;
+     - the HEAD, the last hex clicked so far, because that is where the next leg starts and where
+       the reachable fan and the budget read-out are drawn;
+     - any hex where the player NAMED A UNIT to hit. A waypoint that carries straight on costs no
+       manoeuvre, which is exactly what makes it a free way to pick a unit out of a crowded hex -
+       and without a marker that choice would have nothing on screen to confirm it.
+
+   A manoeuvre is paid AT the waypoint a leg starts from, so leg i's turn cost marks legs[i].from,
+   which is legs[i-1].to - and the choice recorded there is legs[i-1]'s. The first leg is the
+   launch and is free (measureLeg), so the previous leg always exists in that branch. */
+SensorChargeTransceiver.prototype.getCourseMarkers = function (plan) {
+	var markers = [];
+	var seen = {};
+
+	function add(hex, targetId) {
+		var key = hex.q + ',' + hex.r;
+		if (seen[key]) return;                 //a course may cross itself; one marker per hex
+		seen[key] = true;
+
+		var target = (targetId !== null && targetId !== undefined) ? gamedata.getShip(targetId) : null;
+
+		markers.push({ q: hex.q, r: hex.r, text: target ? target.name : "" });
+	}
+
+	for (var i = 1; i < plan.legs.length; i++) {
+		var previous = plan.legs[i - 1];
+		if (plan.legs[i].turnCost > 0 || previous.targetId !== null) add(previous.to, previous.targetId);
+	}
+
+	if (plan.legs.length) {
+		var last = plan.legs[plan.legs.length - 1];
+		add(plan.head, last.targetId);
+	}
+
+	return markers;
+};
+
+/* ⭐⭐ THE MOUNT AIMS THE LAUNCH, NOT THE COURSE (user ruling 2026-09-06). The Scribe's
+   transceiver is a 300..60 mount; what that arc bounds is the direction the charge LEAVES ON, and
+   after the first leg it steers wherever its manoeuvres will take it.
+
+   ⚠️ Asked through weaponManager.isPosOnWeaponArc, about the hex ONE STEP along the launch
+   bearing, rather than by comparing degrees here - the same call targetHex itself would have made,
+   so this inherits the facing arithmetic, the roll mirror, split arcs and a jammed turret's
+   reduced arc for free, and never has to assume a hex direction and a compass heading are the
+   same number.
+   ⚠️ MIRROR PAIR with SensorChargeTransceiver::isLaunchBearingOnArc, which asks the server's own
+   getBearingOnPos the identical question about the identical hex. */
+SensorChargeTransceiver.prototype.isLaunchBearingOnArc = function (shooter, bearing) {
+	if (!shooter || bearing === null) return false;
+
+	var origin = shipManager.getShipPosition(shooter);
+	if (!origin) return false;
+
+	return weaponManager.isPosOnWeaponArc(shooter, mathlib.moveInDirection(origin, bearing, 1), this);
+};
+
+/* The hex bearings a charge may be launched on - the six, less any the mount cannot point at.
+   This is what the blue fan draws before the first waypoint is placed, so the fan and the click
+   can never disagree about which directions are open. */
+SensorChargeTransceiver.prototype.getLaunchBearings = function (shooter) {
+	var bearings = [];
+	var all = [0, 60, 120, 180, 240, 300];
+
+	for (var i = 0; i < all.length; i++) {
+		if (this.isLaunchBearingOnArc(shooter, all[i])) bearings.push(all[i]);
+	}
+
+	return bearings;
+};
+
+/* ⭐ THE HOOK weaponManager.targetHex CALLS INSTEAD OF ITS OWN ARC TEST, and the whole reason it
+   exists (user report 2026-09-06: waypoints past the fourth were being refused with no message).
+   targetHex gates every hex click on isPosOnWeaponArc(shooter, hex, weapon) - the mount's wedge
+   measured from the SHIP - which is exactly right for a weapon that SHOOTS at a hex, and exactly
+   wrong for one that flies a course through it: as the course wandered out of the Scribe's forward
+   120 degrees the clicks were silently dropped, while the charge's own budget was untouched.
+   Here the arc governs the LAUNCH and nothing else.
+
+   ⭐ AND IT ANSWERS THE OFF-AXIS CASE TOO (user request 2026-09-07), which it used to wave
+   through so that measureLeg could explain it in a sentence. Now that the blue fan draws the
+   reachable hexes, a click outside it has already been answered on the map, and a pop-up saying
+   so again is noise - so a hex that is not on a hex axis from the head of the course is simply
+   NOT ON THE ARC, and targetHex drops the click in silence exactly as it does for every other
+   straight-arc weapon (that `if` has no else). measureLeg still refuses the same two cases, with
+   no reason attached, because it is also what truncates a course replayed out of the database. */
+SensorChargeTransceiver.prototype.isHexOnFiringArc = function (shooter, hexpos) {
+	var plan = this.getCoursePlan(shooter);
+	if (!plan) return false;
+
+	/* ⚠️ From the HEAD, not the origin: after the launch it is the end of the course that a new
+	   leg runs from, and "does a straight leg reach that hex" is the question the fan answered.
+	   getHexDirection returns 0 - not null - for the head itself, so a click there stays on the
+	   arc and measureLeg gives it the "one hex further on" sentence it has always had. */
+	var bearing = mathlib.getHexDirection(plan.head, hexpos);
+	if (bearing === null) return false;             //not a straight leg; the fan never offered it
+
+	if (plan.legs.length > 0) return true;          //already launched; the charge steers from here
+
+	return this.isLaunchBearingOnArc(shooter, bearing);
+};
+
+/* Would a leg from the course's head to `to` be legal, and what does it cost? The shared budget
+   test, used both when replaying the standing orders above and when judging a new click.
+   ⚠️ MIRROR PAIR with the validation loop in SensorChargeTransceiver::getChargeOutcome, down to
+   the single overspend expression - hexes overspent and manoeuvres overspent come out of the
+   same pool of boost levels, which is what lets the player decide the split by flying. */
+SensorChargeTransceiver.prototype.measureLeg = function (plan, to) {
+	var start = new hexagon.Offset(plan.head.q, plan.head.r);
+	var end = new hexagon.Offset(to.q, to.r);
+	var length = start.distanceTo(end);
+	var bearing = mathlib.getHexDirection(start, end);
+
+	var step = { legal: false, length: length, bearing: bearing, turnCost: 0, reason: null };
+
+	if (length < 1) {
+		step.reason = "A waypoint has to be at least one hex further on than the last one.";
+		return step;
+	}
+	/* ⚠️⚠️ THESE TWO REFUSALS CARRY NO REASON, ON PURPOSE (user request 2026-09-07). Both are
+	   geometry the blue fan already draws - a leg has to run along a hex axis, and the first one
+	   has to run along an axis the mount covers - so isHexOnFiringArc answers them first and
+	   targetHex drops the click silently, the way every other straight-arc weapon refuses a hex
+	   outside its arc. They stay HERE because measureLeg is also what replays the standing orders
+	   in getCoursePlan: a course read back out of the database, or posted by a client that skipped
+	   the check, has to truncate at leg one exactly as the server's resolver truncates it. A null
+	   reason is the signal to refuse without saying anything - see doMultipleHexFireOrders. */
+	if (bearing === null) return step;
+
+	//THE LAUNCH IS THE ARC'S ONLY SAY.
+	if (plan.lastBearing === null && !this.isLaunchBearingOnArc(plan.shooter, bearing)) return step;
+
+	step.turnCost = (plan.lastBearing === null)
+		? 0                                                      //the launch is free
+		: mathlib.getHexTurnCost(plan.lastBearing, bearing);
+
+	var overspend = Math.max(0, plan.hexesUsed + length - this.chargeRange)
+		+ Math.max(0, plan.manoeuvresUsed + step.turnCost - this.chargeManoeuvres);
+
+	if (overspend > plan.boost) {
+		step.reason = (step.turnCost > 0 && plan.manoeuvresUsed + step.turnCost > this.chargeManoeuvres + plan.boost)
+			? "The charge has no manoeuvres left to turn that far."
+			: "That leg is longer than the charge has range for.";
+		return step;
+	}
+
+	step.legal = true;
+	return step;
+};
+
+/* The friendly ship on `hex` whose transceiver could take the charge, or null. Mirrors
+   SensorChargeTransceiver::findReceiver - same TEAM, still alive, transceiver not destroyed,
+   and the firing ship's own hex counts ("or possibly returning to the originator"). */
+SensorChargeTransceiver.prototype.findReceiver = function (shooter, hex) {
+	for (var i in gamedata.ships) {
+		var ship = gamedata.ships[i];
+		if (!ship || ship.team != shooter.team) continue;
+		if (!ship.movement || ship.movement.length === 0) continue;
+		if (shipManager.isDestroyed(ship)) continue;
+
+		var position = shipManager.getShipPosition(ship);
+		if (!position || position.q != hex.q || position.r != hex.r) continue;
+
+		for (var s in ship.systems) {
+			var system = ship.systems[s];
+			if (!system || system.name !== 'SensorChargeTransceiver') continue;
+			if (shipManager.systems.isDestroyed(ship, system)) continue;
+			return ship;
+		}
+	}
+
+	return null;
+};
+
+/* Every direction a further leg could legally take, with how far it could go: the six rays out
+   of the course's head, each stopped at whatever the remaining budget pays for. The renderer
+   draws one line per entry, and a ray is straight by construction, so nothing needs the
+   individual hexes.
+
+   The arithmetic is measureLeg's constraint solved for length. Turning is charged FIRST because
+   it is the fixed cost of facing that way at all: with mOver manoeuvres of overspend, only
+   (boost - mOver) levels are left to lengthen the leg. */
+SensorChargeTransceiver.prototype.getReachableRays = function (plan) {
+	var rays = [];
+	if (!plan) return rays;
+
+	/* ⚠️ BEFORE THE FIRST LEG THE MOUNT'S ARC APPLIES, so the fan must offer only the directions
+	   the charge may launch on - otherwise it draws hexes a click on would be refused, which is the
+	   one thing this overlay exists not to do. Afterwards the charge steers and all six are open. */
+	var bearings = (plan.lastBearing === null)
+		? this.getLaunchBearings(plan.shooter)
+		: [0, 60, 120, 180, 240, 300];
+
+	for (var i = 0; i < bearings.length; i++) {
+		var turnCost = (plan.lastBearing === null)
+			? 0 : mathlib.getHexTurnCost(plan.lastBearing, bearings[i]);
+
+		var manOver = Math.max(0, plan.manoeuvresUsed + turnCost - this.chargeManoeuvres);
+		if (manOver > plan.boost) continue;              //cannot afford to face that way at all
+
+		var length = this.chargeRange + (plan.boost - manOver) - plan.hexesUsed;
+		if (length < 1) continue;
+
+		rays.push({ bearing: bearings[i], length: length, turnCost: turnCost });
+	}
+
+	return rays;
+};
+
+/* THE REACHABLE FAN AS HEXES rather than as lines (user request 2026-09-06). A ray is straight by
+   construction, so this is only its length walked out along its bearing - but drawn as an actual
+   patch of grid it answers "can I click there?" without the player having to judge whether a hex
+   centre sits on a line.
+
+   The head is excluded: a leg has to go somewhere (measureLeg's length >= 1 test), and the head
+   already carries the course's own marker. Six distinct bearings out of one hex cannot overlap,
+   so nothing here needs deduplicating. */
+SensorChargeTransceiver.prototype.getReachableHexes = function (plan) {
+	var hexes = [];
+	if (!plan) return hexes;
+
+	var rays = this.getReachableRays(plan);
+	for (var i = 0; i < rays.length; i++) {
+		var walk = plan.head;
+		for (var n = 0; n < rays[i].length; n++) {
+			walk = mathlib.moveInDirection(walk, rays[i].bearing, 1);
+			hexes.push({ q: walk.q, r: walk.r });
+		}
+	}
+
+	return hexes;
+};
+
+/* The unit the player named for this hex, or null. Mirrors the eligibility half of
+   SensorChargeTransceiver::pickTargetInHex - an enemy, alive, and actually standing there - so a
+   choice the server would silently drop is never written into the order to begin with.
+   ⚠️ The client is not the authority and does not try to be: every one of these is re-tested at
+   resolution, against positions that cannot have changed (the Fire phase is after movement) but
+   against a unit that may since have been destroyed by an earlier shot. */
+SensorChargeTransceiver.prototype.resolveHexTargetChoice = function (shooter, hexpos, targetId) {
+	if (targetId === null || targetId === undefined || targetId === -1) return null;
+
+	var target = gamedata.getShip(targetId);
+	if (!target || !shooter) return null;
+	if (target.team == shooter.team) return null;
+	if (shipManager.isDestroyed(target)) return null;
+	if (!target.movement || target.movement.length === 0) return null;
+
+	var position = shipManager.getShipPosition(target);
+	if (!position || position.q != hexpos.q || position.r != hexpos.r) return null;
+
+	return target;
+};
+
+/* One click, one waypoint. weaponManager.targetHex has already checked the phase, the arc, the
+   loading and the ship; everything below is this weapon's own.
+
+   preferredTargetId arrives only from the ship tooltip's "Target Ship" button
+   (shipTooltipFireMenu.js); a plain right-click on a hex names nobody and leaves the choice to the
+   server's automatic pick, which is what the rules' "one target per hex" defaults to. */
+SensorChargeTransceiver.prototype.doMultipleHexFireOrders = function (shooter, hexpos, preferredTargetId) {
+	var plan = this.getCoursePlan(shooter);
+	if (!plan) return [];
+
+	var step = this.measureLeg(plan, { q: hexpos.q, r: hexpos.r });
+	if (!step.legal) {
+		//⚠️ A refusal with no reason is a SILENT one - the geometry cases isHexOnFiringArc has
+		//already dropped, which only reach here from a course replayed out of the database. Never
+		//concatenate a null into the player's face.
+		if (step.reason) confirm.error("<b>" + this.displayName + "</b>: " + step.reason);
+		return [];
+	}
+
+	//The index is what puts the course back in order after a round trip through the database -
+	//see getWaypointOrders. It is a position in the chain, so it counts the standing orders.
+	var index = plan.waypoints.length + 1;
+	var fireid = shooter.id + "_" + this.id + "_" + index;
+
+	//The choice rides ON the waypoint token rather than beside it, so readWaypointIndex keeps
+	//matching either form and a course declared before this existed still reads correctly.
+	var notes = SensorChargeTransceiver.WAYPOINT_TOKEN + index;
+	var chosen = this.resolveHexTargetChoice(shooter, hexpos, preferredTargetId);
+	if (chosen) notes += SensorChargeTransceiver.TARGET_TOKEN + chosen.id;
+
+	return [{
+		id: fireid,
+		type: 'normal',
+		shooterid: shooter.id,
+		targetid: -1,
+		weaponid: this.id,
+		calledid: -1,
+		turn: gamedata.turn,
+		firingMode: this.firingMode,
+		shots: 1,
+		x: hexpos.q,
+		y: hexpos.r,
+		/* ⚠️ THIS STRING IS WHAT KEEPS A WAYPOINT OFF THE BALLISTIC LAYER. A hex order with
+		   targetid -1 is admitted by weaponManager.getAllFireOrdersForAllShipsForTurn as a
+		   ballistic, and BallisticIconContainer.consumeGamedata drops the order on exactly this
+		   damageclass instead - so a waypoint gets no red "incoming fire" hex and no white arrow
+		   back to the shooter, and the course draws itself instead (user request 2026-09-06).
+		   ⚠️ Case matters and is not an accident: the shots the charge scores are built
+		   server-side as 'electromagnetic', and the informational log row is 'SensorCharge' -
+		   neither of which is this, and neither of which is a hex order anyway. */
+		damageclass: 'sensorcharge',
+		notes: notes
+	}];
+};
+
+/* Is there anything left for a further click to do? Two ways there is not, and they are treated
+   alike - the weapon unselects and its remaining-shots read-out goes to zero:
+
+     - the charge has made CONTACT with a receiver (user ruling 2026-09-07). Ending on a friendly
+       transceiver is what makes a course legal, and it is also where the flight is over: the
+       charge is home, so the declaration is done and the weapon gets out of the player's way;
+     - no further leg is affordable on any of the six bearings - it ran out of hexes.
+
+   ⚠️ Unselecting is not a lock. The course lives in ->fireOrders, getCoursePlan rebuilds it from
+   them, and nothing gates re-selecting a weapon on checkFinished - so a player who does want to
+   fly on past a receiver to cross one more hex picks the transceiver up again and keeps clicking.
+   ⚠️ plan.receiver is only resolved once a course exists (getCoursePlan), so a transceiver
+   parked in a friendly's hex with nothing plotted does not finish the moment it is selected. */
+SensorChargeTransceiver.prototype.isCourseFinished = function (plan) {
+	if (!plan) return false;
+	if (plan.receiver) return true;
+	return this.getReachableRays(plan).length === 0;
+};
+
+SensorChargeTransceiver.prototype.checkFinished = function () {
+	return this.isCourseFinished(this.getCoursePlan(this.ship));
+};
+
+/* The commit-time warning (gamedata.js' hasSplitFO sweep). A course that does not end on a friendly
+   transceiver loses the charge and does NO damage at all, whatever it flew over - which is the one
+   mistake with this weapon that costs the player their whole turn, and the map's yellow line is the
+   only other thing that says so. The generic message ("weapons with unused shots") is not a perfect
+   fit for it, but it names the ship, which is what the player needs to go and look. */
+SensorChargeTransceiver.prototype.checkForWastedShots = function () {
+	var plan = this.getCoursePlan(this.ship);
+	if (!plan || plan.waypoints.length === 0) return false;
+	return plan.receiver === null;
+};
+
+/* The ship window's read-out of the course. ⚠️ REMAINING IS DERIVED, never counted down from a
+   stored field: maxVariableShots comes back from the server at its full value on every poll, so
+   anything kept in it drifts the moment the page is reloaded mid-declaration.
+   ⚠️ This runs only when a system icon renders (arch_lazy_window_side_effects), which is why the
+   live feedback while plotting is the map overlay rather than these lines. */
+SensorChargeTransceiver.prototype.initializationUpdate = function () {
+	var plan = this.getCoursePlan(this.ship);
+	if (!plan) return this;
+
+	//⚠️ The SAME predicate the unselect uses, not getReachableRays on its own: a course that has
+	//reached its receiver is finished, and a shots-remaining figure still counting up beside a
+	//weapon that has just deselected itself reads as a bug.
+	this.maxVariableShots = this.isCourseFinished(plan) ? 0 : (plan.manoeuvresLeft + 1);
+
+	this.data["Charge course"] = plan.hexesUsed + " hexes, " + plan.manoeuvresUsed + " manoeuvres";
+	/* ⚠️ THE TWO FIGURES COMPETE FOR THE SAME BOOST, so a boosted charge has to say so or they
+	   read as two independent allowances that can both be spent (user report 2026-09-06). Each is
+	   "the most this axis could still take if nothing more goes to the other"; the unspent levels
+	   named here are what they are both drawing on. Same information the map's `+N` row carries. */
+	this.data["Charge remaining"] = plan.hexesLeft + " hexes, " + plan.manoeuvresLeft + " manoeuvres"
+		+ ((plan.boost > 0) ? " (sharing " + plan.boostLeft + " unspent boost)" : "");
+	this.data["Charge received by"] = (plan.waypoints.length === 0)
+		? "No course plotted"
+		: (plan.receiver ? plan.receiver.name : "Invalid Route - charge will be lost");
+
+	return this;
+};

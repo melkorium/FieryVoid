@@ -12587,4 +12587,760 @@ class MediumLightningArray extends LightningArray {
 
 }//endof class MediumLightningArray
 
+/* SENSOR CHARGE TRANSCEIVER - WALKERS_OF_SIGMA_PLAN.md 3.9 (Stage 9), decision D2.
+ *
+ * "This system is used by advanced races to chart irregularities in the fabric of space... The
+ *  transceiver launches a precisely modulated sensor charge encased in a force field that steers
+ *  the charge through the field of interest to gather data. The pulse is then returned to the
+ *  transceiver for analysis. The main disadvantage is that the charges need to have a complete
+ *  path from and to a transceiver to be of any use."
+ *
+ * WHAT MAKES THIS WEAPON UNLIKE EVERY OTHER ONE IN THE TREE
+ * It does not shoot at a target. The player plots a COURSE - a chain of straight legs from the
+ * firing ship to a friendly ship that also carries a transceiver - and the charge damages whatever
+ * enemy units it passes through on the way. So the declaration and the shots are two different
+ * things, and most of this class is the bridge between them:
+ *
+ *   1. THE CLIENT (special.js) declares one hex fire order PER WAYPOINT, each carrying a
+ *      "SCT|w:<n>" token in ->notes. That is the split-shot channel the Slicer's class comment
+ *      describes, used here to carry a path rather than an allocation. None of those orders is a
+ *      shot.
+ *   2. beforeFiringOrderResolution() re-walks the path from scratch (client input is never
+ *      trusted), DETACHES every waypoint order from $this->fireOrders, and puts back one real
+ *      damage order per enemy-occupied hex plus one informational order for the combat log.
+ *   3. Firing::prepareFiring then rolls those the ordinary way.
+ *
+ * ⚠️ THE WAYPOINT ORDERS ARE ALREADY IN THE DATABASE by the time step 2 runs - FireGamePhase::
+ * process persisted them at the POST - so detaching them is an in-memory act only. That is
+ * deliberate, and it is what makes the course re-derivable: see getChargeOutcome(), which the turn
+ * advance calls a second time, on a DIFFERENT gamedata object, to decide the reload.
+ *
+ * THE PATH MODEL (D2, and the one simplification in this class worth arguing about)
+ * The rules move the charge "in a manner similar to a fighter... speed 16 with 16 thrust and a 1/4
+ * turn cost", i.e. 16 hexes and 4 manoeuvres, "with a manoeuvre counting as a turn or slide". A
+ * full fighter plotter would be a second movement engine; instead each click is a WAYPOINT, and a
+ * leg between two waypoints must run along one of the six hex axes. Changing axis at a waypoint
+ * costs mathlib::getHexTurnCost() manoeuvres - 1 for 60 degrees, 2 for 120, 3 for a reversal -
+ * which is what the same course would cost a fighter, and a one-hex leg at 60 degrees is a slide
+ * priced at a slide's own cost. The first leg is free: the charge is launched, not turned.
+ *
+ * THE BOOST ("every additional 2 points of power applied as a boost produces either 1 additional
+ * hex of range or adds the capability for an extra manoeuvre")
+ * $boostEfficiency = 2 is those two points; one boost level buys ONE point, spendable on either.
+ * ⭐ THE SPLIT IS NOT DECLARED - it is inferred at resolution from the course actually plotted
+ * (hexes overspent plus manoeuvres overspent must fit the boost bought). That is a convenience,
+ * not a power increase: the totals are identical either way, and it saves an Initial Orders
+ * allocation dialog for a choice the player cannot make properly until they can see the board. The
+ * BOOST ITSELF is still bought in Initial Orders, which is what the rules' "must be configured for
+ * firing" is asking for.
+ *
+ * THE RECEIVING TRANSCEIVER PAYS FOR A SHORT COURSE
+ * "For every 2 full hexes of possible range remaining on a received charge, the SCT must take a
+ * point of damage, rolling critical hits as normal." Remaining is measured against the BASE range
+ * (16), never the boosted one: a player who buys boost and spends it on manoeuvres has not
+ * lengthened the charge, and one who spends it on hexes has by definition used those hexes. The
+ * damage lands as an ordinary DamageEntry on the receiving system, so Criticals::setCriticals rolls
+ * its critical in the same pass as every other system damaged this turn (isDamagedOnTurn).
+ *
+ * THE DUAL RECHARGE
+ * "The rate of fire is 1 per 3 turns. This refers to the weapon's ability to fire a RECOVERED
+ * charge. If a charge is not recovered (if it is intercepted, for example), then the recharge rate
+ * is increased to 1 per turn." So a course that ends nowhere is not purely a loss - the transceiver
+ * simply modulates a fresh charge, which is quick. calculateLoading() below is the whole of it.
+ * ⚠️ INTERCEPTION IS NOT MODELLED AS AN EVENT OF ITS OWN. FV only intercepts ballistics, and this
+ * weapon declares and resolves inside the Fire phase; "not recovered" is the general case that the
+ * rules give interception as one example of, and it is the case implemented here.
+ *
+ * WHAT THIS CLASS DELIBERATELY DOES NOT DO
+ * - The charge does not get its own hit section: a shot resolves on the FIRING ship's bearing, like
+ *   any other direct-fire weapon, rather than on the bearing of the leg it arrived along. Doing it
+ *   properly means a ballistic-style hit LOCATION and a ballistic-style defence PROFILE, and the
+ *   two have to move together or the profile and the section describe different shots.
+ * - It does not test line of sight along the course. A steered charge is not a beam, and the
+ *   engine's only LoS test is a straight line from shooter to target hex, which a course is not.
+ */
+class SensorChargeTransceiver extends Weapon {
+
+    public $name        = "SensorChargeTransceiver";
+    public $displayName = "Sensor Charge Transceiver";
+    //⚠️ Case-sensitive on the live Linux box (arch_dockingcollar_icon_case).
+    public $iconPath    = "SensorChargeTransceiver.png";
+
+    public $animation      = "bolt";
+    public $animationColor = array(120, 255, 210); //pale sensor green
+
+    public $weaponClass = "Electromagnetic"; //all Walker weaponry is Electromagnetic
+    public $factionAge  = 3;                 //Ancient - matters to several to-hit and EDF rules
+
+    public $damageType  = "Standard";
+    /* "Damage is scored as a single standard-mode volley with overkill not transferring to
+       structure (similar to a matter weapon volley)." */
+    public $noOverkill  = true;
+
+    public $loadingtime = 3;                 //"1 per 3 turns" - calculateLoading has the other rate
+    public $priority    = 6;
+    public $fireControl = array(1, 2, 3);    //fighters, <=mediums, <=capitals
+    /* "Range penalty: None." Implemented as a real override of calculateRangePenalty() rather than
+       a delta on ->needed, because the parent derives the no-lock and jammer modifiers from it. */
+    public $rangePenalty = 0;
+    /* 0 means UNLIMITED to weaponManager.targetHex and to isInDistanceRange. The charge's reach is
+       its own hex budget, which has nothing to do with how far a target sits from the ship. */
+    public $range        = 0;
+
+    public $hextarget     = true;
+    public $canSplitShots = true;            //D2: routes each click through doMultipleHexFireOrders
+    /* The aim point is a COURSE, and a course drawn on the enemy's map a phase early would hand
+       them every hex the charge is about to cross. TacGamedata::hideSystemFireOrders blanks x/y on
+       a hidetarget order for anyone not on the shooter's team, for the turn it is declared on. */
+    public $hidetarget    = true;
+    /* And its ->notes with it. A waypoint token can name the unit the player picked out of a
+       shared hex (TARGET_TOKEN below), and that hex is on the very course hidetarget has just
+       blanked - so the two masks have to move together. See Weapon::$hideNotesFromEnemies. */
+    protected $hideNotesFromEnemies = true;
+    /* Nothing to shoot down: FV's interception machinery is for ballistics in flight, and this
+       charge is declared and resolved inside one Fire phase. The rules' "a successful interception
+       results in the loss of the charge" is folded into the not-recovered branch - class comment. */
+    public $uninterceptable = true;
+    public $doNotIntercept  = true;
+    public $intercept       = 0;
+
+    public $guns         = 1;
+    public $defaultShots = 1;
+    public $maxVariableShots = 5;            //client hint: the manoeuvres plus the free first leg
+    public $firingModes  = array(1 => "Sensor Charge");
+    public $hideFiringModeSelector = true;   //one mode; the selector would be a dead control
+
+    /* THE BOOST. $boostEfficiency is the EXTRA power one level costs - the trap recorded against
+       the Energy Draining Field, where a declared 0 made the boost free. The rules price a level at
+       2 points and give it either a hex or a manoeuvre. $maxBoostLevel caps it at 4 (8 power on top
+       of the base 5); the rules state no ceiling, so this is the tunable number. */
+    public $boostable     = true;
+    public $maxBoostLevel = 4;
+    public $boostEfficiency = self::BOOST_POWER_PER_LEVEL;
+
+    /* THE CHARGE'S OWN MOVEMENT ALLOWANCE. Named because four things read them: the resolver, the
+       tooltip, the client mirror in special.js, and the plan.
+       ⚠️ MIRROR PAIR with SensorChargeTransceiver.prototype.chargeRange / chargeManoeuvres. */
+    const CHARGE_RANGE      = 16;    //"a charge defaults to a range of 16 hexes"
+    const CHARGE_MANOEUVRES = 4;     //"and the ability to make 4 manoeuvres"
+    const BOOST_POWER_PER_LEVEL = 2; //"every additional 2 points of power applied as a boost"
+    const SELFDAMAGE_PER_HEXES  = 2; //"for every 2 full hexes of possible range remaining"
+
+    /* The waypoint token the client encodes into ->notes. The index is what orders the course:
+       fire orders come back from the database in an order MySQL does not promise, and a path read
+       out of sequence is a different path. */
+    const WAYPOINT_TOKEN = 'SCT|w:';
+
+    /* The OPTIONAL second half of that token: "|t:<shipid>", the unit the player chose to hit in
+       that waypoint's hex ("providing that it is sent against only one target per hex" gives the
+       player the choice between units sharing one). A waypoint that continues on the SAME bearing
+       costs no manoeuvre, so dropping one on a crowded hex is a free way to say which - which is
+       why the choice rides the waypoint rather than needing a per-hex gesture of its own.
+       ⚠️ ADVISORY, NEVER AUTHORITATIVE: the named unit still has to pass every eligibility test in
+       pickTargetInHex, and anything that does not falls silently back to the automatic pick. So a
+       stale or hostile POST can change WHICH legal enemy in that hex is hit and nothing else.
+       ⚠️ MIRROR PAIR with SensorChargeTransceiver.TARGET_TOKEN in special.js. */
+    const TARGET_TOKEN = '|t:';
+
+    /* damageclass on the informational order that reports the transfer. ⚠️ It is also the key
+       weaponManager.doShortLogText's shortLogTypes matches on, which is what makes the combat log
+       print the pubnotes ALONE rather than behind "firing 1x ... at ...". Because of that, the
+       pubnotes must name the ships itself, as bare shiplink spans. */
+    const LOG_DAMAGECLASS = 'SensorCharge';
+
+    /* 6d10 (rules). A flat volley - the charge either reaches a hex or it does not, and nothing
+       about the course changes what it is carrying when it gets there. */
+    protected $damageDice = 6;
+
+    function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
+        if ($maxhealth == 0) $maxhealth = 8;   //"Health 8"
+        if ($powerReq  == 0) $powerReq  = 5;   //"Power 5"
+        parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
+    }
+
+    /* ------------------------------------------------------------------ the charge's budget --- */
+
+    /* Boost levels bought for $turn. The same loop every boostable system in the tree writes for
+       itself (Engine, Shield Generator, Energy Draining Field); type 2 is a boost allocation. */
+    protected function getChargeBoost($turn){
+        $boost = 0;
+        foreach ($this->power as $entry){
+            if ($entry->turn != $turn) continue;
+            if ($entry->type == 2) $boost += $entry->amount;
+        }
+        return (int)$boost;
+    }
+
+    /* Is this transceiver able to send a charge at all right now? The same test both intercept
+       gates in firing.php make, reused here because NOTHING on the server refuses an offensive
+       order from an unloaded weapon - the client's isLoaded is the only gate on that path, and a
+       three-turn recharge that only the client enforced would not be a recharge. */
+    protected function isReadyToFire(){
+        return $this->getTurnsloaded() >= $this->getLoadingTime();
+    }
+
+    /* Can this transceiver RECEIVE a charge? Deliberately weaker than isReadyToFire(): receiving is
+       not firing, so a transceiver still recharging - or one that has already sent its own charge
+       this turn - is a perfectly good destination. Only a wrecked one is not. */
+    public function canReceiveCharge($turn){
+        return !$this->isDestroyed($turn);
+    }
+
+    /* ------------------------------------------------------------------ the resolver ---------- */
+
+    /* Waypoint orders belonging to this weapon on $turn, in the order the player clicked them.
+       ⚠️ Sorted by the token index, not by array position: DBManager hands fire orders back in
+       whatever order the query produced, and the legs of a course are not commutative. */
+    protected function getWaypointOrders($turn){
+        $found = array();
+        foreach ($this->fireOrders as $order){
+            if ($order->weaponid != $this->id) continue;
+            if ($order->turn != $turn) continue;
+            if ($order->type != "normal") continue;
+            $index = self::readWaypointIndex($order);
+            if ($index === null) continue;
+            $found[] = array('index' => $index, 'order' => $order);
+        }
+
+        usort($found, function($a, $b){
+            if ($a['index'] == $b['index']) return 0;
+            return ($a['index'] < $b['index']) ? -1 : 1;
+        });
+
+        $orders = array();
+        foreach ($found as $entry) $orders[] = $entry['order'];
+        return $orders;
+    }
+
+    /* The waypoint's position in the course, or null when the order carries no token at all - so it
+       is not a waypoint (a hand-built payload, or a client that predates this weapon). */
+    public static function readWaypointIndex($order){
+        if (empty($order->notes)) return null;
+        if (!preg_match('/SCT\|w:(\d+)/', $order->notes, $matches)) return null;
+        return (int)$matches[1];
+    }
+
+    /* The unit the player named for this waypoint's hex, or null when they named none.
+       ⚠️ Deliberately a SEPARATE match rather than one regex with an optional group: a waypoint
+       with no choice is the ordinary case, and readWaypointIndex must keep answering for the
+       courses declared before this token existed. */
+    public static function readWaypointTarget($order){
+        if (empty($order->notes)) return null;
+        if (!preg_match('/SCT\|w:\d+\|t:(\d+)/', $order->notes, $matches)) return null;
+        return (int)$matches[1];
+    }
+
+    /* ⭐⭐ THE SINGLE AUTHORITY ON WHAT A DECLARED COURSE DOES, and it is called from TWO places, on
+     * two different gamedata objects:
+     *
+     *   - beforeFiringOrderResolution(), during the Fire phase advance, to build the shots;
+     *   - calculateLoading(), at the turn advance, to decide whether the reload is 1 turn or 3.
+     *
+     * ⚠️ THE SECOND CALLER IS WHY THIS RE-DERIVES EVERYTHING AND PERSISTS NOTHING. The turn advance
+     * sweep runs on the gamedata object Manager::advanceGameState loaded BEFORE the Fire phase
+     * resolved, so an individual note written during that resolution is in the database but not on
+     * this object. Re-walking the same waypoints against the same positions gives the same answer
+     * with no storage at all, and replays identically. (The waypoint orders themselves ARE on both
+     * objects: the client's POST persisted them, and both loads read the same turn's fire orders.)
+     *
+     * Returns null when there is nothing to resolve. Otherwise:
+     *   accepted   - the waypoint orders that fitted the budget, in flight order
+     *   rejected   - the ones that did not (a tampered or stale POST; the client never sends these)
+     *   hexes      - every hex the charge enters, origin EXCLUDED, in flight order, deduplicated
+     *   hexesUsed / manoeuvresUsed  - what the course actually spent
+     *   remaining  - unused BASE range, which is what the receiving transceiver pays for
+     *   receiver / receiverSystem   - the friendly ship and transceiver the charge reached, or null
+     *   ready      - was this weapon loaded at all
+     */
+    public function getChargeOutcome($gamedata, $turn){
+        $orders = $this->getWaypointOrders($turn);
+        if (empty($orders)) return null;
+
+        $shooter = $this->getUnit();
+        if (!$shooter) return null;
+
+        $outcome = array(
+            'accepted' => array(), 'rejected' => array(), 'hexes' => array(),
+            'hexesUsed' => 0, 'manoeuvresUsed' => 0, 'remaining' => self::CHARGE_RANGE,
+            'receiver' => null, 'receiverSystem' => null, 'ready' => $this->isReadyToFire(),
+            //hexKey => shipid, from the accepted waypoints that named one. See TARGET_TOKEN.
+            'targetChoices' => array(),
+        );
+
+        $boost       = $this->getChargeBoost($turn);
+        $previous    = $shooter->getHexPos();
+        $lastBearing = null;
+        $seen        = array(self::hexKey($previous) => true);
+
+        foreach ($orders as $order){
+            $to = new OffsetCoordinate((int)$order->x, (int)$order->y);
+
+            //⚠️ CAST. OffsetCoordinate::distanceTo works in cube coordinates and answers a FLOAT,
+            //which would otherwise make hexesUsed and remaining floats too - and 'remaining' is
+            //divided to produce the receiver's damage, which has to be a whole number of points.
+            $legLength = (int)round(mathlib::getDistanceHex($previous, $to));
+            $bearing   = mathlib::getHexDirection($previous, $to);
+
+            //A leg has to go somewhere, and it has to go somewhere STRAIGHT.
+            $legValid = ($legLength >= 1) && ($bearing !== null);
+            $turnCost = 0;
+
+            /* And the FIRST one has to go somewhere the mount can point. Truncating at leg 1
+               rejects the whole course, which is right: a charge that cannot be launched has not
+               been launched. ⚠️ Only the first - $lastBearing is still null exactly then. */
+            if ($legValid && $lastBearing === null && !$this->isLaunchBearingOnArc($shooter, $bearing)){
+                $legValid = false;
+            }
+
+            if ($legValid){
+                $turnCost = ($lastBearing === null)
+                          ? 0                                                //the launch is free
+                          : mathlib::getHexTurnCost($lastBearing, $bearing);
+
+                $hexes      = $outcome['hexesUsed'] + $legLength;
+                $manoeuvres = $outcome['manoeuvresUsed'] + $turnCost;
+
+                /* THE DEFERRED BOOST ALLOCATION, in one expression. Overspending on hexes and
+                   overspending on manoeuvres both come out of the same pool of boost levels, so the
+                   player never has to say in advance which of the two they bought. */
+                $overspend = max(0, $hexes - self::CHARGE_RANGE)
+                           + max(0, $manoeuvres - self::CHARGE_MANOEUVRES);
+                $legValid  = ($overspend <= $boost);
+            }
+
+            /* ⚠️ TRUNCATE, do not skip. The legs of a course are a chain: dropping one in the middle
+               would silently teleport the charge across the gap. The first leg the budget cannot pay
+               for ends the course, and everything after it is rejected with it. */
+            if (!$legValid || !empty($outcome['rejected'])){
+                $outcome['rejected'][] = $order;
+                continue;
+            }
+
+            $walk = $previous;
+            for ($step = 0; $step < $legLength; $step++){
+                $walk = mathlib::moveInDirection($walk, $bearing, 1);
+                $key  = self::hexKey($walk);
+                if (isset($seen[$key])) continue;   //a course may cross itself; a hex is hit once
+                $seen[$key] = true;
+                $outcome['hexes'][] = $walk;
+            }
+
+            $outcome['hexesUsed']      += $legLength;
+            $outcome['manoeuvresUsed'] += $turnCost;
+            $outcome['accepted'][]      = $order;
+
+            //Only an ACCEPTED waypoint's choice counts: a rejected leg is never flown, so its hex
+            //is not on the course at all and a preference recorded for it would name a unit the
+            //charge never reaches.
+            $chosen = self::readWaypointTarget($order);
+            if ($chosen !== null) $outcome['targetChoices'][self::hexKey($to)] = $chosen;
+            $previous    = $to;
+            $lastBearing = $bearing;
+        }
+
+        //Unused BASE range - the class comment says why the boosted range is not the yardstick.
+        $outcome['remaining'] = max(0, self::CHARGE_RANGE - $outcome['hexesUsed']);
+
+        /* "The charge must end its movement in the same hex as another ship with a SCT" - and
+           "(or possibly returning to the originator)", so the firing ship's own hex counts. */
+        if (!empty($outcome['accepted'])){
+            $receiver = self::findReceiver($gamedata, $shooter, $previous, $turn);
+            if ($receiver !== null){
+                $outcome['receiver']       = $receiver['ship'];
+                $outcome['receiverSystem'] = $receiver['system'];
+            }
+        }
+
+        return $outcome;
+    }
+
+    /* ⭐⭐ THE MOUNT AIMS THE LAUNCH, NOT THE COURSE (user ruling 2026-09-06). The Scribe's
+       transceiver is a 300..60 mount, and until now that arc did nothing here at all - the plan
+       had it as 0..360 on the reasoning that "the charge steers, so the section is for damage, not
+       coverage". The arc is real, and what it bounds is the direction the charge LEAVES ON: the
+       first leg must run along one of the hex lines the mount covers, and after that the charge
+       steers wherever its manoeuvres will take it.
+
+       ⚠️ Asked through the ship's OWN getBearingOnPos, about the hex one step along the launch
+       bearing, rather than by comparing degrees here. That is the same call every other arc test
+       on the server makes, so this inherits the facing arithmetic and the ROLL mirror for free -
+       and it never has to assume that a hex direction and a compass heading are the same number.
+       ⚠️ MIRROR PAIR with SensorChargeTransceiver.prototype.isLaunchBearingOnArc in special.js,
+       which asks weaponManager.isPosOnWeaponArc the identical question about the identical hex. */
+    protected function isLaunchBearingOnArc($shooter, $bearing){
+        //A mount with no arc at all, or a full circle (isInArc's own start == end case).
+        if (!is_int($this->startArc) || !is_int($this->endArc)) return true;
+
+        $oneStep  = mathlib::moveInDirection($shooter->getHexPos(), $bearing, 1);
+        $relative = $shooter->getBearingOnPos($oneStep);
+
+        return mathlib::isInArc($relative, $this->startArc, $this->endArc);
+    }
+
+    /* The friendly ship standing on $hex with a transceiver able to take the charge, or null.
+       Same TEAM rather than same player: "any other ship in the fleet" is a fleet question, and FV
+       treats a team as one fleet everywhere else a friendly is asked for. */
+    protected static function findReceiver($gamedata, $shooter, OffsetCoordinate $hex, $turn){
+        $wanted = self::hexKey($hex);
+
+        foreach ($gamedata->ships as $ship){
+            if ($ship->team != $shooter->team) continue;
+            if ($ship->isDestroyed()) continue;
+            if (empty($ship->movement)) continue;                       //never placed - no position
+            if ($ship->getTurnDeployed($gamedata) > $turn) continue;    //not on the board yet
+            if (self::hexKey($ship->getHexPos()) !== $wanted) continue;
+
+            foreach ($ship->systems as $system){
+                if (!($system instanceof SensorChargeTransceiver)) continue;
+                if (!$system->canReceiveCharge($turn)) continue;
+                return array('ship' => $ship, 'system' => $system);
+            }
+        }
+
+        return null;
+    }
+
+    protected static function hexKey($hex){
+        return ((int)$hex->q) . ',' . ((int)$hex->r);
+    }
+
+    /* ------------------------------------------------------------------ resolution ------------ */
+
+    public function beforeFiringOrderResolution($gamedata){
+        $outcome = $this->getChargeOutcome($gamedata, $gamedata->turn);
+        if ($outcome === null) return;
+
+        $shooter = $this->getUnit();
+
+        /* STEP 1 - every waypoint order comes off the weapon, accepted or not. They are a
+           DECLARATION, not shots: left in place, Firing::prepareFiring would hand each one to
+           calculateHitBase with targetid -1 and stamp "ERROR: Null target shot attempted in normal
+           fire routines" into the player's own combat log. Their database rows are untouched. */
+        $waypoints = array_merge($outcome['accepted'], $outcome['rejected']);
+        $keep = array();
+        foreach ($this->fireOrders as $order){
+            if (!in_array($order, $waypoints, true)) $keep[] = $order;
+        }
+        $this->fireOrders = $keep;
+
+        if (!$outcome['ready']){
+            //A tampered or stale POST from a transceiver that is still recharging. Said out loud
+            //rather than silently dropped: an order vanishing with no explanation is the failure
+            //mode this avoids.
+            $this->logChargeEvent($gamedata, $shooter, $shooter,
+                "'s <b>Sensor Charge Transceiver</b> is still modulating and could not send a charge.");
+            return;
+        }
+
+        if (empty($outcome['accepted'])) return;   //nothing survived validation - nothing happened
+
+        /* STEP 2 - did the charge come home? "If it does not, then the charge is lost, and it is
+           unable to do any damage during the turn." No shots at all, whatever it flew over. */
+        if ($outcome['receiver'] === null){
+            $this->logChargeEvent($gamedata, $shooter, $shooter,
+                "'s sensor charge ran its course of " . (int)$outcome['hexesUsed']
+                . " hexes with no transceiver to receive it. <b>The charge is lost</b> and does no"
+                . " damage; a fresh charge is modulated in one turn instead of three.");
+            return;
+        }
+
+        /* STEP 3 - one shot per enemy-occupied hex on the course, "providing that it is sent
+           against only one target per hex". Built before the receiver's self-damage so that the
+           informational row sits after the shots it describes. */
+        $shots = 0;
+        foreach ($outcome['hexes'] as $hex){
+            $key    = self::hexKey($hex);
+            $chosen = isset($outcome['targetChoices'][$key]) ? $outcome['targetChoices'][$key] : null;
+            $target = self::pickTargetInHex($gamedata, $shooter, $hex, $gamedata->turn, $chosen);
+            if ($target === null) continue;
+            $this->createChargeShot($gamedata, $shooter, $target, $hex);
+            $shots++;
+        }
+
+        /* STEP 4 - "For every 2 full hexes of possible range remaining on a received charge, the
+           SCT must take a point of damage, rolling critical hits as normal." */
+        $selfDamage = (int)floor($outcome['remaining'] / self::SELFDAMAGE_PER_HEXES);
+        $logOrder   = $this->logChargeEvent($gamedata, $shooter, $outcome['receiver'],
+            "'s sensor charge ran " . (int)$outcome['hexesUsed'] . " hexes through "
+            . $shots . " enemy " . ($shots == 1 ? "hex" : "hexes")
+            . " and was received by " . self::shipLink($outcome['receiver']) . ".");
+
+        if ($selfDamage > 0){
+            $this->applyReceiverDamage($gamedata, $shooter, $outcome, $selfDamage, $logOrder);
+        }
+    }
+
+    /* One enemy unit standing on $hex, or null. The rules make hitting optional ("the SCT MAY
+       attempt to hit it") and that half is still resolved here - declining a free hit is never a
+       decision.
+
+       ⭐ THE CHOICE BETWEEN UNITS SHARING A HEX IS THE PLAYER'S when they asked for it, and the
+       automatic pick when they did not (user ruling 2026-09-06). $preferredId is whatever a
+       waypoint on this hex named, and it wins ONLY by passing the same eligibility loop every
+       other candidate does - so an id that is friendly, dead, terrain, not yet deployed or simply
+       somewhere else is not an error, it just leaves the automatic pick in charge.
+
+       That automatic pick is unchanged and stays deterministic and replay-stable: capitals before
+       small craft, bigger before smaller, then lowest id. */
+    protected static function pickTargetInHex($gamedata, $shooter, OffsetCoordinate $hex, $turn, $preferredId = null){
+        $wanted = self::hexKey($hex);
+        $best   = null;
+
+        foreach ($gamedata->ships as $ship){
+            if ($ship->team == $shooter->team) continue;
+            if ($ship instanceof Terrain) continue;
+            if ($ship->isDestroyed()) continue;
+            if (empty($ship->movement)) continue;
+            if ($ship->getTurnDeployed($gamedata) > $turn) continue;
+            if (self::hexKey($ship->getHexPos()) !== $wanted) continue;
+
+            //Named by the player, and legal - nothing else in the hex is even considered.
+            if ($preferredId !== null && (int)$ship->id === (int)$preferredId) return $ship;
+
+            if ($best === null || self::isBetterTarget($ship, $best)) $best = $ship;
+        }
+
+        return $best;
+    }
+
+    protected static function isBetterTarget($candidate, $incumbent){
+        $candidateSmall = ($candidate instanceof FighterFlight) || $candidate->mine;
+        $incumbentSmall = ($incumbent instanceof FighterFlight) || $incumbent->mine;
+        if ($candidateSmall != $incumbentSmall) return !$candidateSmall;
+
+        if ($candidate->shipSizeClass != $incumbent->shipSizeClass){
+            return $candidate->shipSizeClass > $incumbent->shipSizeClass;
+        }
+
+        return $candidate->id < $incumbent->id;   //the tie-break that makes a replay identical
+    }
+
+    /* A real shot. ⚠️ INSERTED IMMEDIATELY to claim a database id: several of these exist per turn
+       on one weapon, and DamageEntry copies $fireOrder->id at the moment damage is dealt. Left at
+       -1 they would all share it, and DBManager::submitDamages' back-fill (same shooter + weapon +
+       turn, first row, no ORDER BY) would file every hit against whichever row it found first. */
+    protected function createChargeShot($gamedata, $shooter, $target, OffsetCoordinate $hex){
+        $order = new FireOrder(
+            -1, "normal", $shooter->id, $target->id,
+            $this->id, -1, $gamedata->turn, $this->firingMode,
+            0, 0, 1, 0, 0,                       //needed, rolled, shots, shotshit, intercepted
+            $hex->q, $hex->r, strtolower($this->weaponClass), -1
+        );
+        $order->pubnotes = " Sensor charge passes through this hex.";
+        $order->addToDB  = true;
+
+        $newId = Manager::insertSingleFiringOrder($gamedata, $order);
+        if ($newId) $order->id = (int)$newId;
+        $order->addToDB = false;
+        $order->updated = true;
+
+        $this->fireOrders[] = $order;
+        return $order;
+    }
+
+    /* The combat log row for the transfer itself. HOSTED ON THIS WEAPON, not on RammingAttack: the
+       client resolves fire.weaponid against the SHOOTER and demands a Weapon, and both are true of
+       the transceiver that sent the charge.
+       ⚠️ $rolled MUST be non-zero or the printed log drops the row without a word
+       (weaponManager.isResolvedFireOrder is literally `Number(fire.rolled) > 0`), while $shots and
+       $shotshit MUST stay 0 so the row can never steal a real shot's damage in submitDamages'
+       back-fill. A non-zero rolled is ALSO what stops Firing::fire from passing this to fire(). */
+    protected function logChargeEvent($gamedata, $shooter, $subject, $text){
+        $order = new FireOrder(
+            -1, "normal", $shooter->id, $subject->id,
+            $this->id, -1, $gamedata->turn, $this->firingMode,
+            100, 1, 0, 0, 0,                     //needed, rolled=1 marker, no shots
+            0, 0, self::LOG_DAMAGECLASS, 10000
+        );
+        /* ⚠️ THE SHOOTER IS ALREADY NAMED - DO NOT NAME IT AGAIN (user report 2026-09-06: the
+           name appeared twice, once white and once in team colour). combatLog.js opens EVERY entry
+           with `FIRE: <shiplink shooter>`, and a short-log entry (doShortLogText) then appends the
+           pubnotes to that same line with no separator - so a pubnotes beginning with its own
+           shipLink printed the name twice running. Every $text handed to this method therefore
+           starts with "'s", and the rendered line reads "FIRE: Scribe #2's sensor charge ran...".
+           ⚠️ Other ships named MID-sentence still need a bare shipLink span, and the receiver's
+           does - log colours are per-VIEWER (howto_create_fire_orders). It is only the LEADING
+           one, the shooter's, that the header has already supplied. */
+        $order->pubnotes = $text;
+        $order->addToDB  = true;
+
+        $newId = Manager::insertSingleFiringOrder($gamedata, $order);
+        if ($newId) $order->id = (int)$newId;
+        $order->addToDB = false;
+
+        $this->fireOrders[] = $order;
+        return $order;
+    }
+
+    /* "the SCT must take a point of damage, rolling critical hits as normal". The critical is NOT
+       rolled here: this runs inside the Fire phase advance, and Criticals::setCriticals' first pass
+       tests every system that isDamagedOnTurn() a moment later. */
+    protected function applyReceiverDamage($gamedata, $shooter, $outcome, $points, $logOrder){
+        $system = $outcome['receiverSystem'];
+        $ship   = $outcome['receiver'];
+
+        $remainingHealth = $system->getRemainingHealth();
+        $destroyed       = ($points >= $remainingHealth);
+        $dealt           = min($points, $remainingHealth);
+
+        $entry = new DamageEntry(
+            -1, $ship->id, -1, $gamedata->turn, $system->id,
+            $dealt, 0, 0, (int)$logOrder->id, $destroyed, false, "", self::LOG_DAMAGECLASS
+        );
+        $entry->updated = true;
+        //Named anyway, even though fireorderid is already real: submitDamages only falls back to
+        //these when it is not, and a future change that loses the id should not lose the shooter.
+        $entry->shooterid = $shooter->id;
+        $entry->weaponid  = $this->id;
+        $system->damage[] = $entry;
+
+        $logOrder->pubnotes .= " " . (int)$outcome['remaining'] . " hexes of range went unused, so"
+            . " the receiving transceiver absorbs " . $dealt . " point"
+            . ($dealt == 1 ? "" : "s") . " of damage"
+            . ($destroyed ? " and is destroyed." : ".");
+    }
+
+    /* A ship name in the combat log is drawn in the READER's team colours and the server has no
+       idea who is reading - so it goes out with no colour of its own, and
+       combatLog.colourShipLinksInNotes() fills it in per viewer on the way to the DOM. */
+    protected static function shipLink($ship){
+        return '<span class="shiplink" data-id="' . (int)$ship->id . '">' . $ship->name . '</span>';
+    }
+
+    /* ------------------------------------------------------------------ to hit and damage ----- */
+
+    public function calculateHitBase(TacGamedata $gamedata, FireOrder $fireOrder){
+        //The informational row is not a shot, and must keep the needed/rolled it was built with.
+        if ($fireOrder->damageclass === self::LOG_DAMAGECLASS) return;
+        parent::calculateHitBase($gamedata, $fireOrder);
+    }
+
+    /* "All EW and fire control modifiers apply (although there is no range penalty)... There is no
+       degradation on the chance to hit." A real override rather than a delta on ->needed: the
+       parent derives the no-lock and the jammer modifiers from this same method, and in the
+       doubleRangeIfNoLock branch calls it again at two modified distances. */
+    public function calculateRangePenalty($distance){
+        return 0;
+    }
+
+    public function getDamage($fireOrder){
+        return Dice::d(10, $this->damageDice);
+    }
+
+    public function setMinDamage(){
+        $this->minDamage = $this->damageDice;
+    }
+
+    public function setMaxDamage(){
+        $this->maxDamage = $this->damageDice * 10;
+    }
+
+    /* ------------------------------------------------------------------ the dual recharge ----- */
+
+    /* "The rate of fire is 1 per 3 turns. This refers to the weapon's ability to fire a RECOVERED
+     * charge. If a charge is not recovered... then the recharge rate is increased to 1 per turn."
+     *
+     * The turn advance (phase -1) is the one write that decides what this weapon has next turn, and
+     * the parent's version of it hands a weapon that fired last turn a single point of charge
+     * (0 -> +1 -> 1/3). Filling it instead is the whole of the fast rate.
+     *
+     * ⚠️ $gamedata->turn has ALREADY been stepped past the turn that fired by the time this runs,
+     * which is why the outcome is asked about turn - 1. The fire orders loaded on this object are
+     * that turn's, exactly as the Wide-Beam cooldown relies on.
+     *
+     * ⚠️ NOT done by lowering $loadingtime for a turn. That is a BLUEPRINT field riding the
+     * per-class static bundle rather than the poll payload, so the client would go on reading 3 -
+     * the Stage 7 trap. $turnsloaded IS published per instance by Weapon::stripForJson, so filling
+     * it is visible for free. */
+    public function calculateLoading(TacGamedata $gamedata){
+        /* ⚠️⚠️ ASKED BEFORE THE PARENT RUNS, and that ordering is load-bearing.
+           parent::calculateLoading's phase -1 branch calls setLoading(), which writes
+           $turnsloaded back to 0 for a weapon that fired - and isReadyToFire() inside
+           getChargeOutcome() reads exactly that field. Asked afterwards, every charge looks as
+           though it was sent by an unloaded transceiver, the fast rate never fires, and the only
+           symptom is a recharge that is silently always three turns. */
+        $outcome = ($gamedata->phase == -1)
+                 ? $this->getChargeOutcome($gamedata, $gamedata->turn - 1)
+                 : null;
+
+        $loading = parent::calculateLoading($gamedata);
+        if (!$loading) return $loading;
+        if ($gamedata->phase != -1) return $loading;
+
+        if ($outcome === null) return $loading;             //declared nothing last turn
+        if (!$outcome['ready']) return $loading;            //was not loaded, so it never fired
+        if (empty($outcome['accepted'])) return $loading;
+        if ($outcome['receiver'] !== null) return $loading; //recovered: the slow rate stands
+
+        return new WeaponLoading(
+            $this->getLoadingTime(),   //<- a fresh charge is ready NEXT turn: THE fast rate
+            $loading->extrashots,
+            $loading->loadedammo,
+            $loading->overloading,
+            $loading->loadingtime,
+            $loading->firingmode
+        );
+    }
+
+    /* ------------------------------------------------------------------ display --------------- */
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+        if (!isset($this->data["Special"])) {
+            $this->data["Special"] = '';
+        } else {
+            $this->data["Special"] .= '<br>';
+        }
+
+        $boost = $this->getChargeBoost($turn);
+
+        $this->data["Special"] .= "Plots a course for a sensor charge, hex by hex, and damages every"
+            . " enemy unit it passes through - one target per hex, at full fire control and with no"
+            . " range penalty.";
+        $this->data["Special"] .= "<br>The charge flies in straight legs: " . self::CHARGE_RANGE
+            . " hexes and " . self::CHARGE_MANOEUVRES . " manoeuvres, a manoeuvre being each 60"
+            . "&deg; of turn taken at a waypoint. The first leg is free.";
+        $this->data["Special"] .= "<br>Every " . self::BOOST_POWER_PER_LEVEL . " points of boost"
+            . " power buy one more hex OR one more manoeuvre, spent as the course needs them."
+            . ($boost > 0 ? " <b>Boosted this turn: +" . $boost . ".</b>" : "");
+        $this->data["Special"] .= "<br>The course MUST end in the hex of a friendly ship carrying a"
+            . " Sensor Charge Transceiver (this one included), or the charge is lost and does no"
+            . " damage at all.";
+        $this->data["Special"] .= "<br>The receiving transceiver takes 1 point of damage, rolling"
+            . " criticals as normal, for every " . self::SELFDAMAGE_PER_HEXES . " full hexes of"
+            . " range the charge did not use - so plot a long course.";
+        $this->data["Special"] .= "<br>Recharges in " . $this->loadingtime . " turns after a"
+            . " recovered charge, but in 1 turn when a charge is lost.";
+    }
+
+    /* The tooltip quotes this turn's boost, so it is per instance and cannot ride the per-class
+       static blueprint. Everything else here is re-read from the live system, so ShipCompactor
+       stripping a value at its default is harmless.
+
+       ⚠️ THE OTHER TWO ARE DISPLAY-ONLY AND THE CLIENT CANNOT DERIVE EITHER (user report
+       2026-09-06: "SCT is also not showing any arcs on normal hover like it should as a weapon").
+       ShipIcon.showWeaponArc sizes every arc through getWeaponReachInHexes(), which reads
+       ->range and ->rangePenalty - and this weapon carries BOTH at 0, meaning "no range limit"
+       and "no range penalty". That works out to a reach of ZERO hexes, and nothing was drawn at
+       all. $arcDisplayRange is the reach to draw instead: the charge's own BASE range, which is
+       the honest answer to "how far does this thing reach" even though it has nothing to do with
+       how far a target sits from the ship. Base rather than boosted, because a hover arc is a
+       property of the mount and the boost is bought per turn.
+
+       $shootsStraight then picks showStraightArcs' STAR OF HEX LINES over a smooth wedge, which
+       is exactly the set of hexes a charge flying along hex axes can launch onto - and it is
+       clipped to the mount's arc, so a 300..60 transceiver draws its three arms and no more.
+       Both are protected on Weapon and reach the client only by being named here. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+
+        $strippedSystem->data            = $this->data;
+        $strippedSystem->shootsStraight  = $this->shootsStraight;
+        $strippedSystem->arcDisplayRange = self::CHARGE_RANGE;
+
+        return $strippedSystem;
+    }
+
+}//endof class SensorChargeTransceiver
+
 ?>

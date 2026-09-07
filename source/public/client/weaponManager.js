@@ -3897,7 +3897,13 @@ window.weaponManager = {
     },
 
 
-    targetHex: function targetHex(selectedShip, hexpos) {
+    /* preferredTargetId is OPTIONAL and is only ever set by the ship tooltip's hex button, which
+       knows which UNIT the player right-clicked (shipTooltipFireMenu.js). It reaches a split-shot
+       weapon's doMultipleHexFireOrders and nothing else - a hex is still a hex to every other
+       weapon here, and none of the checks in this loop are about the unit standing on it.
+       WALKERS_OF_SIGMA_PLAN.md 3.9: the Sensor Charge Transceiver uses it to record which of the
+       units sharing a hex the charge should hit. */
+    targetHex: function targetHex(selectedShip, hexpos, preferredTargetId) {
         if (shipManager.isDestroyed(selectedShip)) return;
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
         var hidden = weaponManager.isHidden(selectedShip); //Block invisible ships from firing where appropriate.
@@ -4023,7 +4029,18 @@ window.weaponManager = {
                 type = 'prefiring';
             }
 
-            if (weaponManager.isPosOnWeaponArc(selectedShip, hexpos, weapon)) {
+            /* ⭐ A WEAPON MAY ANSWER THE ARC QUESTION ITSELF. For every weapon that SHOOTS at a
+               hex, "is that hex in my arc" is the right question and isPosOnWeaponArc is the right
+               answer. For one whose hex declaration is a FLIGHT PATH rather than an aim point it
+               is not: the Sensor Charge Transceiver's mount aims the launch, and the waypoints
+               after it go wherever the charge can steer (WALKERS_OF_SIGMA_PLAN.md 3.9). Without
+               this hook every waypoint outside the ship's forward wedge was dropped here - and
+               dropped SILENTLY, since this `if` has no else. */
+            var onArc = (typeof weapon.isHexOnFiringArc === 'function')
+                ? weapon.isHexOnFiringArc(selectedShip, hexpos)
+                : weaponManager.isPosOnWeaponArc(selectedShip, hexpos, weapon);
+
+            if (onArc) {
 
                 //Check for Line of sight
                 //var blockedLosHex = weaponManager.getBlockedHexes();
@@ -4043,7 +4060,7 @@ window.weaponManager = {
                 if (weapon.range === 0 || shipManager.getShipPosition(selectedShip).distanceTo(hexpos) <= weapon.range) {
 
                     if (weapon.canSplitShots) {
-                        var fire = weapon.doMultipleHexFireOrders(selectedShip, hexpos);
+                        var fire = weapon.doMultipleHexFireOrders(selectedShip, hexpos, preferredTargetId);
                         if (!Array.isArray(fire)) fire = fire ? [fire] : []; // Ensure fire is an array or an empty one                       
                         if (fire.length === 0) continue;
 
@@ -5261,7 +5278,14 @@ window.weaponManager = {
             //report. Like HkJamming beside it, the order is a log line wearing a fire order's
             //clothes - self-targeted, 0 shots - so without this it printed "firing 1x Ramming
             //Attack at <itself>. 0/0 shots hit" in front of the sentence that matters.
-            "InadequateHangar", "HkJamming", "EdfExposure"
+            "InadequateHangar", "HkJamming", "EdfExposure",
+            //SensorCharge (WALKERS_OF_SIGMA_PLAN.md 3.9): the Sensor Charge Transceiver's report of
+            //where its charge went - received, or lost for want of a transceiver at the end of the
+            //course. Also a log line wearing a fire order's clothes (0 shots, hosted on the
+            //transceiver itself), so it prints its sentence alone. ⚠️ The shots the charge scored
+            //along the way are ORDINARY fire orders carrying damageclass 'electromagnetic', and
+            //must NOT be listed here or the log would stop reporting what they hit.
+            "SensorCharge"
         ];
 
         //A crash into Huge terrain (multi-hex asteroid, moon) reads like the small-asteroid

@@ -1740,6 +1740,13 @@ class TacGamedata {
                     $fire->targetid = -1;
                     $fire->x = "null";
                     $fire->y = "null";
+                    /*A weapon that encodes part of its aim point in ->notes has to lose that too, or
+                      the mask is only half applied. Opt-in (Weapon::$hideNotesFromEnemies) - see the
+                      property for why this is not done for every hidetarget weapon.
+                      WALKERS_OF_SIGMA_PLAN.md 3.9: the Sensor Charge Transceiver's waypoint token can
+                      carry the unit the player picked out of a shared hex, so leaving it here would
+                      name a ship standing on a course whose hexes have just been blanked.*/
+                    if ($weapon->getHideNotesFromEnemies()) $fire->notes = "";
 
                     foreach ($this->ballistics as $ball){
                         if ($ball->fireOrderId == $fire->id){

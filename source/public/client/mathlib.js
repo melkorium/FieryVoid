@@ -688,6 +688,56 @@ window.mathlib = {
 	},
 
 
+	/* ------------------------------------------------------------------------------------
+	   moveInDirection / getHexDirection / getHexTurnCost - the CLIENT MIRROR of the three
+	   statics of the same names in server/lib/mathlib.php.
+
+	   Walkers of Sigma-957 (WALKERS_OF_SIGMA_PLAN.md 3.9, Stage 9): a Sensor Charge flies in
+	   straight legs along the six hex axes and pays manoeuvres to change axis, and the client
+	   has to draw exactly the courses the server will accept.
+
+	   ⚠️ THE COMPASS IS hexagon.Offset's, NOT mathlib.offsetNeighbors underneath this.
+	   Offset.prototype.neighbours is byte-for-byte the PHP mathlib::$neighbours table, and the
+	   ORDER of that table is the whole meaning of a direction index; offsetNeighbors lists the
+	   same six hexes in a different order, so reusing it would give the client a different
+	   compass from the server's and every leg but due east would disagree.
+	   Bearings run 0 = east, then clockwise in 60 degree steps.
+	   ------------------------------------------------------------------------------------ */
+	moveInDirection: function moveInDirection(pos, bearing, distance) {
+		var index = ((((parseInt(bearing, 10) % 360) + 360) % 360) / 60) | 0;
+		var current = new hexagon.Offset(parseInt(pos.q, 10), parseInt(pos.r, 10));
+
+		for (var i = 0; i < distance; i++) {
+			current = current.getNeighbourAtDirection(index);
+		}
+
+		return current;
+	},
+
+	/* The bearing of the straight run from `from` to `to`, or null when the two hexes are not on
+	   a common hex axis. 0 when they are the same hex - callers must read that as "no leg".
+	   Walked rather than derived from a pixel heading, for the reason in the header above. */
+	getHexDirection: function getHexDirection(from, to) {
+		var start = new hexagon.Offset(parseInt(from.q, 10), parseInt(from.r, 10));
+		var end = new hexagon.Offset(parseInt(to.q, 10), parseInt(to.r, 10));
+		var distance = start.distanceTo(end);
+		if (distance <= 0) return 0;
+
+		var bearings = [0, 60, 120, 180, 240, 300];
+		for (var i = 0; i < bearings.length; i++) {
+			if (mathlib.moveInDirection(start, bearings[i], distance).equals(end)) return bearings[i];
+		}
+
+		return null;
+	},
+
+	//Manoeuvres spent turning from one hex bearing to another: 1, 2 or 3, whichever way round the
+	//compass is shorter, and 0 for no change.
+	getHexTurnCost: function getHexTurnCost(fromBearing, toBearing) {
+		var steps = Math.abs((parseInt(fromBearing, 10) - parseInt(toBearing, 10)) / 60) % 6;
+		return Math.min(steps, 6 - steps);
+	},
+
 	// parity-aware 6 neighbours for your odd-row offset system
 	offsetNeighbors: function offsetNeighbors(pos) {
 		const q = pos.q, r = pos.r;

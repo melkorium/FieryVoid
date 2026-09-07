@@ -3,8 +3,8 @@
 New Ancient faction. Nine new systems, three of which need machinery FV does not have today.
 This document is the long-form record; update it as stages land.
 
-**Status: Stages 0–7 COMPLETE (Stages 6 and 7 on 2026-09-05). Stages 8–10 planned.** Written 2026-09-02
-after a full survey of the existing seams.
+**Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06). Stage 10 (EW Detector) remains.**
+Written 2026-09-02 after a full survey of the existing seams.
 
 **Faction string is `Walkers of Sigma-957`** — plural, hyphenated, exactly as spelled here. It is
 the switch key in `gamelobby.js`, the directory-map key in `ShipLoader::getFactionDirMap()`, the
@@ -2305,45 +2305,240 @@ highest-blast-radius item in this plan. Budget a full `masking` + `snapshot` har
 alone. Without it the detector does nothing of value, so it cannot simply be dropped — but it
 should land last among the non-SCT work.
 
-### 3.9 Sensor Charge Transceiver
+### 3.9 Sensor Charge Transceiver — **BUILT 2026-09-06 (Stage 9)**
 
-Per D2. Hex-target, split-shot weapon where **each shot is a waypoint**.
+Per D2. Hex-target, split-shot weapon where **each declared shot is a waypoint**. The full rules
+text arrived with the stage, so nothing here is inferred. Stats: health 8, power 5, FC 1/2/3,
+Standard damage 6d10 with no overkill, loading time 3, weaponClass Electromagnetic, no range
+penalty. Server: `SensorChargeTransceiver` in `specialWeapons.php`. Client:
+`SensorChargeTransceiver` in `model/weapon/special.js`. Mounted on the **Scribe**, Front section,
+**arc 300–60**, hit chart roll 6–8.
 
-**Client — `SensorChargeTransceiver.prototype.doMultipleHexFireOrders(shooter, hexpos)`**
-(the existing hook at [weaponManager.js:3843](source/public/client/weaponManager.js#L3843)):
-- `maxVariableShots` = manoeuvres available (4 base, +1 per 2 points of extra power allocated in
-  the Ship Power segment; the range/manoeuvre split is the player's, per the rules).
-- Each accepted pick appends a waypoint fire order with `x`/`y` and a `SCT|w:<index>` note token.
-- Reject a pick that would exceed remaining range; `checkFinished()` when manoeuvres are spent.
+⭐⭐ **THE MOUNT AIMS THE LAUNCH, NOT THE COURSE** (user ruling 2026-09-06; this **supersedes** the
+original "arc 0–360, the charge steers so the section is for damage, not coverage"). The arc is
+real and it bounds the direction the charge **leaves on**: the first leg must run along one of the
+hex lines the mount covers — for a 300–60 transceiver that is bearings 300, 0 and 60 — and after
+that the charge steers wherever its manoeuvres will take it.
 
-**Renderer:**
-- **Yellow** `LineSprite` arcs along the confirmed path (waypoint → waypoint).
-  `LineSprite` ([renderer/sprite/LineSprite.js](source/public/client/renderer/sprite/LineSprite.js))
-  takes start/end/width/z/colour/opacity and is the right primitive; `BallisticLineSprite` is the
-  styling reference.
-- **Blue** arcs from the latest waypoint to every hex still reachable on the remaining range.
-- Hook into `FirePhaseStrategy` beside the existing overlay pair
-  `onShowTargetedHexagonInArc` / `onRemoveTargetedHexagonInArc`
-  ([FirePhaseStrategy.js:176](source/public/client/renderer/phaseStrategy/FirePhaseStrategy.js#L176)).
-- ⚠️ **Every sprite add/remove outside the animation list must call `requestRender()`** — the render
-  loop is idle-gated and the arcs will simply not appear otherwise.
+⚠️⚠️ **AND UNTIL THAT RULING THE ARC WAS BEING APPLIED TO EVERY WAYPOINT, SILENTLY.**
+`weaponManager.targetHex` gates every hex click on `isPosOnWeaponArc(shooter, hex, weapon)` — the
+mount's wedge measured from the **ship** — which is exactly right for a weapon that SHOOTS at a
+hex and exactly wrong for one that flies a course through it. So as a course wandered out of the
+Scribe's forward 120° the clicks were dropped, **with no message at all** (that `if` has no else),
+while the charge's own read-out sat at 9/16 hexes and 2/4 manoeuvres. Reported as *"prevented from
+travelling any further… despite only being at 9/16 hexes"* (game 4341); reproduced hex for hex, and
+the split between the refused and accepted hexes was exactly the 300–60 wedge (67.6° and 68.9° out,
+60°/60°/52.4° in). Fixed with a small generic hook: a weapon may now answer the arc question
+itself (`weapon.isHexOnFiringArc`), and the transceiver answers *"only the launch"*.
 
-**Server — `beforeFiringOrderResolution`:**
-1. Read the waypoints in index order; re-clamp count against manoeuvres and total length
-   (`HexZone::line` per segment) against range. **Client input is never trusted.**
-2. Require the last waypoint to hold a **friendly ship with an operational SCT**; if not, the
-   charge is lost — no damage this turn, and recharge drops to 1/turn.
-3. Collect enemy units standing on path hexes; emit **one damage order per hex** (the rules'
-   "only one target per hex"), all at full to-hit with **no range penalty** but all EW and fire
-   control applying.
-4. Damage: single Standard-mode volley with `noOverkill = true`
-   ([weapon.php:177](source/server/model/weapons/weapon.php#L177)).
-5. **Receiving-SCT self-damage:** 1 point per 2 full hexes of range remaining, rolling criticals
-   normally. Use `howto_create_fire_orders`' attribution pattern so the combat log reads sanely.
+⭐ **Both ends ask their OWN existing arc function about the hex ONE STEP along the launch bearing**
+— `weaponManager.isPosOnWeaponArc` on the client, `$shooter->getBearingOnPos()` on the server —
+rather than comparing degrees. That inherits facing arithmetic, the roll mirror, split arcs and a
+jammed turret's reduced arc for free, and neither side ever has to assume a hex direction and a
+compass heading are the same number.
 
-**Recharge:** 1 per 3 turns normally; 1 per turn when the charge was lost to interception.
-⚠️ A variable recharge rule must read the **cooldown delay**, not `$loadingtime` — the same trap
-recorded for `JumpEngine` in `JUMP_GATES_PLAN.md`.
+⭐ **AND A REFUSED CLICK NOW SAYS NOTHING** (user request 2026-09-07). `isHexOnFiringArc` answers
+**both** geometry questions — is the hex on a hex axis *from the head of the course*, and, on the
+first leg only, is that axis one the mount covers — so `targetHex` drops the click in silence, the
+way it refuses an out-of-arc hex for every other straight-arc weapon (that `if` has no else). The
+two sentences `measureLeg` used to raise for these are gone: the **blue fan already draws the
+answer**, and a pop-up repeating it on every stray click is spam. ⚠️ The two refusals stay in
+`measureLeg` with `reason` left **null**, because `measureLeg` is also what replays the standing
+orders in `getCoursePlan` — a course read back out of the database has to truncate at leg one
+exactly where the server's resolver truncates it. A null reason is the signal to refuse
+*quietly*, and `doMultipleHexFireOrders` guards on it rather than concatenating a null into the
+player's face. ⭐ The anchor moved with it: the bearing is taken from **`plan.head`, not
+`plan.origin`**, because after the launch it is the end of the course a new leg runs from — and
+`getHexDirection` returns **0, not null**, for the head itself, so clicking the head still reaches
+the one sentence it always had ("at least one hex further on"). The two refusals that are *not*
+geometry — a zero-length leg and an unaffordable one — keep their sentences, because the fan
+cannot express either.
+
+⭐ **CONTACT WITH A RECEIVER FINISHES THE COURSE** (user ruling 2026-09-07; this **supersedes** the
+original "deliberately NOT once the course has reached a receiver"). `checkFinished` now unselects
+the transceiver the moment the last waypoint holds a friendly transceiver, exactly as it does when
+the charge runs out of hexes — the charge is home, so the declaration is done and the weapon gets
+out of the player's way. ⚠️ Unselecting is **not a lock**: the course lives in `->fireOrders`,
+`getCoursePlan` rebuilds it from them, and nothing gates re-selecting a weapon on `checkFinished`,
+so a player who does want to fly on past a receiver picks the transceiver up again and keeps
+clicking. ⚠️ Both branches now go through one predicate, `isCourseFinished(plan)`, which the ship
+window's `maxVariableShots` reads as well — two derived read-outs disagreeing about whether a
+weapon is done reads as a bug, and the shots figure was the one that would have kept counting.
+
+**The shape of it, and why it needs one:** this weapon does not shoot at a target. The player plots
+a COURSE and the charge damages whatever enemy units it passes through on the way, so the
+declaration and the shots are two different things:
+
+1. the client declares one hex fire order **per waypoint**, each carrying a `SCT|w:<n>` token in
+   `->notes` — the Slicer's allocation channel, used here to carry a path;
+2. `beforeFiringOrderResolution()` re-walks the course from scratch, **detaches every waypoint
+   order** from `$this->fireOrders`, and puts back one real damage order per enemy-occupied hex
+   plus one informational order for the combat log;
+3. `Firing::prepareFiring` rolls those the ordinary way.
+
+⚠️ The waypoint orders are **already in the database** when step 2 runs (`FireGamePhase::process`
+persisted them at the POST), so detaching is an in-memory act only — and that is what makes the
+course re-derivable, which the recharge depends on. Detaching is not optional: left in place,
+`prepareFiring` hands each waypoint to `calculateHitBase` with `targetid -1` and stamps *"ERROR:
+Null target shot attempted in normal fire routines"* into the player's own combat log.
+
+**The path model (the one simplification worth arguing about).** The rules move the charge "in a
+manner similar to a fighter… speed 16 with 16 thrust and a 1/4 turn cost", i.e. 16 hexes and 4
+manoeuvres, "with a manoeuvre counting as a turn or slide". A full fighter plotter would be a second
+movement engine; instead **a leg between two waypoints must run along one of the six hex axes**, and
+changing axis at a waypoint costs `mathlib::getHexTurnCost()` manoeuvres — 1 for 60°, 2 for 120°, 3
+for a reversal — which is what the same course costs a fighter. A one-hex leg at 60° is a slide,
+priced at a slide's own cost. **The first leg is free**: the charge is launched, not turned.
+
+**⭐ The boost's split is inferred, not declared.** "Every additional 2 points of power applied as a
+boost produces either 1 additional hex of range or… an extra manoeuvre." `boostEfficiency = 2` is
+those two points and one level buys one point — but which axis it is spent on is worked out at
+resolution from the course actually plotted: `max(0, hexes−16) + max(0, manoeuvres−4) <= boost`.
+One expression, no Initial Orders allocation dialog, and the totals are identical to declaring the
+split in advance. The boost itself is still bought in Initial Orders, which is what the rules'
+"must be configured for firing" asks for. `maxBoostLevel = 4` is the one number the rules do not
+give.
+
+**Truncation, not skipping.** The legs of a course are a chain, so dropping one in the middle would
+teleport the charge across the gap. The first leg the budget cannot pay for ends the course and
+everything after it is rejected with it.
+
+**Targets.** One shot per enemy-occupied hex, origin hex excluded (a charge has not "passed
+through" the hex it launched from). The rules make hitting optional and that half is still resolved
+server-side — declining a free hit is never a decision. The automatic pick is deterministic and
+replay-stable: capitals before small craft, bigger before smaller, then lowest id.
+
+⭐ **The choice between units sharing a hex is the PLAYER'S, and it needed no new gesture**
+(user ruling 2026-09-06). It first shipped server-side too, on the grounds that a per-hex target
+picker would be a whole second gesture on top of plotting — but it does not have to be one, because
+a waypoint that carries straight on costs **no manoeuvre and no extra range beyond the hexes it was
+going to cross anyway**. So dropping a waypoint on a crowded hex is already free, and the choice
+rides on the waypoint: the ship tooltip's hex button reads **"Target Ship"** whenever a transceiver
+is selected and the unit under the cursor is an enemy, and the id it names is appended to the
+waypoint token as `SCT|w:<n>|t:<shipid>` (`TARGET_TOKEN`).
+
+⚠️ **ADVISORY, NEVER AUTHORITATIVE.** `pickTargetInHex()` takes the named id as a hint and it wins
+only by passing the same eligibility loop as every other candidate — enemy, alive, not terrain,
+deployed, and actually standing on that hex. Anything that fails one of those is not an error: it
+falls silently back to the automatic pick, so a stale or hostile POST can change WHICH legal enemy
+in a hex is hit and nothing else. The client refuses the same cases before writing the token
+(`resolveHexTargetChoice`), so the two ends agree, but the server never trusts that.
+
+⚠️⚠️ **AND IT NEEDED A MASK.** `hidetarget` blanks `x`, `y` and `targetid` for an enemy viewer,
+but it has never touched `->notes` — so the token would have named a ship standing on a course whose
+hexes had just been blanked, which is exactly the information `hidetarget` exists to withhold. New
+opt-in flag `Weapon::$hideNotesFromEnemies` (protected, with a getter, like `$alwaysHideFireOrders`)
+blanks the notes in the same branch. Opt-in rather than blanket: `->notes` is a general-purpose
+channel and most of what rides it is either public or written at resolution.
+
+**The receiver.** The last waypoint must hold a friendly ship (same TEAM) with an undestroyed
+transceiver — the firing ship's own hex counts, per "or possibly returning to the originator", and a
+closed triangle of side 5 costs exactly 15 hexes and 4 manoeuvres, so a **single** transceiver is a
+usable weapon. If nothing is there the charge is lost and does no damage at all, whatever it flew
+over. A receiving transceiver takes 1 point per 2 full hexes of **base** range left unused (never
+the boosted range: boost spent on manoeuvres has not lengthened the charge, and boost spent on hexes
+has by definition been used), as an ordinary `DamageEntry`, so `Criticals::setCriticals` rolls its
+critical in the same pass as everything else damaged that turn.
+
+**The dual recharge.** 3 turns after a recovered charge, 1 turn when it was not recovered.
+⚠️ **Interception is not modelled as an event of its own** — FV only intercepts ballistics and this
+weapon declares and resolves inside the Fire phase, so "not recovered" is the general case the rules
+give interception as one example of.
+
+**The overlay** (`BallisticIconContainer.generateSensorChargeCourses` /
+`refreshSensorChargeCourses`) — **four** scene objects, all of them built from the weapon's own
+`getCoursePlan()` so what the player sees and what `doMultipleHexFireOrders` will accept can never
+disagree. Reworked 2026-09-06 after play testing; what the first build got wrong is recorded with
+each one.
+
+- **The course**, one line per leg, **green** once it ends on a friendly transceiver and **yellow**
+  until then — that colour change is the whole "or the charge is lost" rule, shown rather than
+  explained. Now with **chevrons every 2 hexes**, walked BACKWARDS from each waypoint so every leg
+  finishes with one pointing into its corner. A course crosses itself, doubles back and ends
+  nowhere in particular, so which way round it is flown is not something the geometry says on its
+  own — and it is what decides which end has to hold the receiver.
+- **The reachable fan**, in the ordinary **weapon-arc blue** (`rgb(20,80,128)`, mirrored from
+  `ShipIcon.showWeaponArc` — it makes the same statement a firing arc does, so it should not have
+  a colour of its own; the cyan it launched with belongs to "not here yet" markers), drawn only
+  while the transceiver is SELECTED. ⚠️ **This was six
+  LINES and is now HEXES** (`getReachableHexes` → `buildHexRegionOverlay`). The original argument
+  for lines was cost — ~96 hexes over a 41×41 sweep — and it was true but beside the point: a line
+  asks the player to judge whether a hex centre sits on it, and the answer to *"can I click there?"*
+  is a hex. The sweep only runs when the weapon is selected AND the course changed
+  (`syncSceneObject`'s signature covers both), which is a handful of rebuilds per turn.
+- **The markers**, green hexes, and NOT one per waypoint: a course run along one axis can hold a
+  dozen and marking them all buries the line under hexes that say nothing. What earns a hex is a
+  place where something HAPPENED — where the charge **manoeuvred**, the **head** (the last hex
+  clicked so far), and any hex where the player **named a unit**. That third case is not decoration:
+  a straight-through waypoint costs no manoeuvre, which is exactly what makes it the free way to
+  pick a unit out of a crowded hex, and without a marker the choice would have nothing on screen to
+  confirm it. Drawn as `BallisticSprite`s rather than one `HexRegion` blanket because they are
+  scattered (a region would be one loop per hex anyway) and because a sprite can carry TEXT — which
+  is how a named hex says whose name it is.
+- **The budget**, two rows of figures at the head, SELECTED-only, in the LoS ruler's idiom
+  (`mathlib.drawRuler`). Hexes and manoeuvres, each as **spent-of-total**. ⚠️ The totals are
+  DERIVED (`used + left`), never the class constants: boost levels are bought in Initial Orders and
+  go to either axis, so "16" stops being right the moment the player buys one.
+  ⚠️⚠️ **AND A THIRD ROW, `+N`, WHENEVER THE WEAPON IS BOOSTED** — added 2026-09-06 after the
+  report *"seems to run out of hexes after it goes above the normal 4 manoeuvres"* (game 4341,
+  Scribe #2, boosted 3). **There was no arithmetic bug**: the two totals are each *"the most THIS
+  axis could take if nothing further goes to the other"*, and boost is a **shared** pool — so they
+  can never both be reached, and the hex total visibly shrinks 19 → 18 → 17 as manoeuvres eat
+  levels off it. Carrying straight on really does still have the whole remainder (proved on both
+  ends over the identical course). What was missing was any sign of the pool the two rows compete
+  for; `+N` is that pool. The ship window's "Charge remaining" line says the same thing in words.
+  ⭐ Generalises: **two "remaining" figures drawn from one pool will always contradict each other
+  — show the pool, or show one figure.**
+  ⚠️⚠️ It sits at **z 130**. The head of a course is exactly the sort of hex that holds a stack of
+  ships and a selected or active-mover hull sits at +100 for a whole phase, so the requirement is
+  z > 100, not z > 0 ([[arch_map_z_planes]]).
+
+**Tuning it by hand.** Every number that sizes this overlay is one `const` in the block above
+`buildLineChain`, and they are meant to be edited: `SCT_ARROW_SIZE` (barb length in hexes — the
+arrow knob), `SCT_ARROW_EVERY` (hexes between chevrons), `SCT_ARROW_ANGLE` (how wide a chevron
+opens), `SCT_LABEL_SCALE` (the whole read-out's size in hexes — the font knob), `SCT_LABEL_FONT_PX`
+(glyph against padding inside the canvas) and `SCT_FAN_DIM` (how strongly the fan tints). All six
+were halved or better on the first play test. Nothing else changes when one moves — they feed the
+builders directly, and each is in hexes or canvas pixels so it holds at every zoom.
+
+⚠️ **AND THE WAYPOINTS ARE NOW OFF THE BALLISTIC LAYER ENTIRELY.**
+`getAllFireOrdersForAllShipsForTurn` admits any normal order with `targetid -1` as a ballistic, so
+every waypoint had been drawing a red "incoming fire" hex and a white arrow back to the shooter —
+a dozen of them fanning out of one hull, each describing a straight line to a corner of a course
+that is not straight and does not start there. `consumeGamedata` now drops the order on its
+`damageclass` (`'sensorcharge'`), at the LOOP level rather than inside `createBallisticIcon`, for
+the same reason the Gravitic Mine suppression is there: `updateBallisticIcon` would otherwise keep
+icons left over from a Replay session alive.
+
+⚠️ `refreshSensorChargeCourses` marks and sweeps BY PREFIX and now owns **four** of them
+(`SCT_KEY_PREFIXES`). It runs outside the `consumeGamedata` pass, which is the only thing that
+clears `used` on everything — so a prefix left out of that list is an overlay that never goes away.
+
+**The hover arc.** ⚠️ The transceiver drew **no arc at all** on hover until 2026-09-06.
+`ShipIcon.showWeaponArc` sizes every arc through `getWeaponReachInHexes()`, which reads `range`
+and `rangePenalty` — and this weapon carries **both at 0**, meaning "no range limit" and "no range
+penalty", which works out to a reach of zero hexes and nothing drawn. Its `stripForJson` now also
+publishes `shootsStraight` (so it takes `showStraightArcs`' **star of hex lines**, clipped to the
+mount's arc — three arms for a 300–60 mount, which is precisely the set of hexes a charge can
+launch onto) and `arcDisplayRange = CHARGE_RANGE` (the reach to draw, since `range` does not
+describe it). Base range rather than boosted: a hover arc is a property of the mount and the boost
+is bought per turn. ⭐ Both ride the **poll payload**, published per instance, so no static
+regeneration is needed — the same fix shape as the Stage 7 `powerReq` trap.
+
+**Deliberately not done:**
+- the charge gets no hit section of its own — a shot resolves on the FIRING ship's bearing like any
+  other direct-fire weapon, not on the bearing of the leg it arrived along. Doing it properly needs
+  a ballistic-style hit LOCATION *and* a ballistic-style defence PROFILE, and the two have to move
+  together or they describe different shots;
+- no line-of-sight test along the course. A steered charge is not a beam, and the engine's only LoS
+  test is a straight line from shooter to target hex, which a course is not.
+
+**New shared geometry:** `mathlib::getHexDirection()` and `mathlib::getHexTurnCost()` (server) with
+mirrors in `mathlib.js`. ⚠️ The client mirror uses **`hexagon.Offset`'s** neighbour table, which is
+byte-for-byte the PHP `mathlib::$neighbours` one — *not* `mathlib.offsetNeighbors` underneath it,
+which lists the same six hexes in a different order. The order of that table is the entire meaning
+of a direction index, so the wrong one gives the client a different compass and every leg but due
+east disagrees.
 
 ---
 
@@ -2362,7 +2557,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **6** ✅ | Energy Draining Mine — **DONE 2026-09-05; three play-test revisions the same day** | 215 server checks and 53 client checks green, including a 40,000-shot resolution run measuring 74.55% / 15.22% / 10.23% against the rules' 75 / 15 / 10 and a flat d5 scatter. Stores 3, begins with 1, launches any number at any hexes, spawns a 7-hex field that expires after one turn. ⭐ Two departures from the plan, both simplifications: the orb carries an **ordinary `EnergyDrainingField`** rather than a bespoke `EdfSource` (so the drain, the penalty and the map overlay needed no new code at all), and its one-turn life is **derived from the ship's name on every load** instead of a `generateIndividualNotes` cleanup sweep — which means it still expires on time when the launcher that fired it is dead. `IncreasedRecharge1` covered the crit ladder as-is. ⚠️⚠️ Two findings worth carrying: `turnsloaded` is the MINE COUNT, so `loadingtime` must stay 1 or a crippled launcher needs two mines in store to count as loaded at all — the slowed reload is a separate `turn % interval` cadence, deliberately NOT the `overloading` slot, because `weaponManager.isLoaded` also tests that and would call an empty launcher loaded; and `$removed` has to be re-decided on every load, because `isDestroyed()` with no argument is true for ANY removed unit whatever `removedTurn` says. **Play-test revisions (game 4337):** turn 1 must not reload — the reload branch fires when the game leaves DEPLOYMENT, which on turn 1 is before the player's first Initial Orders, so the launcher opened at 2/3; the map marker is now a PURPLE seven-hex disc labelled "Energy Drain Mine" rather than the default red hex; and ⭐⭐ **the field now drains on the turn it LANDS as well as the turn after**, via a queue flushed through the new `TacGamedata::registerEdfField()` at the top of `Criticals::setCriticals` — ⚠️ additive and never a `setEdfHexes()` rebuild (which would stop a Walker shot down in that same Firing step from draining on the turn it died), flushed at the Critical Hit step rather than from `fire()` (so a probe cannot contain an enemy proximity blast declared later in the same step, which would be resolution-order dependent), and placed BEFORE the `$edfPresent` gate because `registerEdfField()` is what sets it. Zero replay drift across the 128-game corpus. |
 | **7** ✅ | Energy Draining Net — **DONE 2026-09-05; play-test fix + live preview the same day** | **Play-test revision (game 4338):** the fill treated any *connected* group of 3+ Nets as a closed area, so three Waymarkers in a **chain** (#1–#2 at 2 hexes, #2–#3 at 3, #1–#3 at 5) filled hexes beside the chain that nothing enclosed — the user reported (1,0). *"Form a closed area"* needs a **cycle**, and the fix is the group's **2-core**: iteratively drop every Net with fewer than two links. A chain erases itself, a ring survives whole, a ring with a trailer keeps the ring. **Live preview added the same day:** deployment and movement now recompute the field client-side from PLOTTED positions (`model/EdfNetLinks.js`, a ported resolver) so the corridors and the filled area form as the ship is dragged; **advisory only** — nothing but the overlay reads it. Proven by a **12,000-board differential** against the PHP across three seeds, hex, team and attribution, zero mismatches, with the generator taught to emit rings deliberately after the coverage guard caught that 13,000 random boards had produced a single cap refusal between them. 68 server checks, 16 preview checks and 7 clustering checks green. **As first built:** replay harness 128 passed / 1 failed, byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure), so zero drift. `checkShipData.php`: 0 new errors. Pairwise links at 1/2/3 hexes and not at 4; the closed-area fill capped at `2N−1` with the corridors isolated out first so the refusal is provable as the *empty set* rather than "fewer hexes"; three collinear Nets still link. ⭐⭐ **Two departures from §3.7, both corrections.** Linking runs in `setEdfHexes()`, not in the §2.2 resolver — the section predates Stage 4's map, and a corridor computed at the Critical Hit step would have drained units while being invisible to the targeting penalty, the client's mirror and the overlay. And `HexZone::line()` is the wrong tool: it answers ONE line including both endpoints, while the rule hands the player a CHOICE between corridors, so all shortest paths are enumerated instead. ⚠️⚠️ Three findings worth carrying: **`Debug::log` cannot be used anywhere `setEdfHexes()` reaches** — it dumps `$_REQUEST` and `$_SESSION` to disk per call, and a fleet parked in an over-cap formation is a persistent state polled every couple of seconds, so the refusal is an in-memory array instead; **the map overlay must be split into connected clusters** because `HexRegion.buildRegionFromHexes` sizes its sweep from the farthest hex, and two lone Nets at opposite corners of the board would sweep 14,641 hexes to draw two; and **an over-cap area needs more Nets, not more spread** — three Nets at maximum spread have corridors that swallow their own interior, leaving 3 fill hexes against a cap of 5, so the refusal test had to go to a five-Net arc. ⚠️⚠️ And one bug caught by a smoke test rather than by any of the 51 checks that preceded it: **`powerReq` is a BLUEPRINT field that rides the per-class static bundle, not the poll payload** — so the crit-escalated requirement never reached the client until `stripForJson()` republished it per instance. Applies to any system whose criticals move a blueprint number. |
 | **8** ✅ | Wide-Beam enhancements — **DONE 2026-09-06; reworked twice the same day** | 143 server checks and 84 client checks green, plus a **2,578-hull corpus differential** on the offer tuples in which exactly TWO lines changed (Traveler gains one `SYS_WBLA` + one `SYS_WBMLA`; Waymarker gains one `SYS_WBMLA` per Medium array), and a replay-harness run of 127 passed / 1 failed that is byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure). `checkShipData.php` PASS, with the same 3 pre-existing warnings on both trees. Two registry entries at 300 / 200, `ages => array(3)`, `limit` 1; the per-die floor; the 50% / 25% collateral; the one-turn cooldown. ⭐⭐ **Reworked TWICE on the user's rulings.** It shipped as one extra firing mode; the user pointed out that the rules' *"in all modes"* means *whatever the discharge count*, so it became **four** modes (Combined / Single × normal / wide); then the four-entry selector was judged too clunky — *"mechanically that all seems to work perfectly, however the UI is a little bit clunky"* — and it is now **two firing modes plus a per-turn "Wide Beam" toggle** in the array's `<SystemActivation>` box, which is what the rules describe anyway (*"the lightning array may be configured to fire a wide beam"*). ⚠️⚠️ **Six findings worth carrying**, all in §3.3: **the Fire phase has never run the generic `generateIndividualNotes` sweep and must not start** — 34 of the ~80 overrides carry no phase guard at all — so the toggle's write is a new narrow `ShipSystem::saveFirePhaseDeclaration()` hook that does nothing by default; **that write cannot be gated on the refit**, because a POST-side ship is rebuilt without enhancements, so it writes unconditionally and the refit is re-checked at read time; **both toggle states are written and the highest note id wins**, since the load query cannot promise an order within a phase and writing only on arm strands a re-commit on a stale 1; the four-mode detour exposed a REAL bug — `getCombinableOrder` matched *"not Single Shots"* rather than *"this mode"*, so with two fusing modes a wide click silently converted a standing ordinary shot, cooldown and all, and the equality fix is kept; the cooldown had to zero **`overloadturns` as well as `turnsloaded`**, because `calculateLoading` increments `overloadturns` at every turn advance for EVERY weapon and `weaponManager.isLoaded` is an OR of the two; and **nothing on the server refuses an offensive order from an unloaded weapon at all**, so the cooldown needed a server half of its own. Plus two smaller ones: **`MediumLightningArray extends LightningArray`**, so the full array's refit needs an explicit subclass exclusion or every Medium is offered both at once on one mount; and **50% collateral must be computed from the damage**, never by doubling the 25% figure. |
-| **9** | Sensor Charge Transceiver | Waypoints, arcs, path validation, per-hex targets, receiving-SCT self-damage, dual recharge. |
+| **9** ✅ | Sensor Charge Transceiver — **DONE 2026-09-06** | 72 checks green in one harness covering both ends, plus a replay run of 127 passed / 1 failed that is **identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised, and `checkShipData.php` PASS with the same 3 pre-existing warnings. The harness proves four things nothing else would catch: a **1,080-case geometry differential** on the three new `mathlib` helpers, PHP against the JS mirror, with 495 of the pairs on a hex axis and turn costs 0–3 all present; the resolver over a **12-course corpus** written as (bearing, length) legs rather than hexes; `beforeFiringOrderResolution` end to end against a real `TacGamedata` with a stand-in DBManager — every shot claiming its own database id, the informational row at `rolled 1 / shots 0`, the receiver's `DamageEntry` filed against that row and visible to `isDamagedOnTurn`; and the client's `measureLeg` accepting **exactly** what the server's resolver accepts, over the same corpus. ⭐ Every group asserts its own non-vacuity. ⚠️⚠️ **The test found one real bug that no amount of reading would have**: `calculateLoading` asked `getChargeOutcome` AFTER `parent::calculateLoading`, which calls `setLoading()` and writes `turnsloaded` back to 0 — so `isReadyToFire()` read 0, every charge looked as though an unloaded transceiver had sent it, and the fast recharge could never fire. The outcome is now taken before the parent runs. ⚠️ The icon is a **placeholder** (a copy of `sensorSpike.png`) until real art lands. **Play-test revisions 2026-09-06 (§3.9):** the reachable fan is HEXES rather than six lines; the course carries direction chevrons and the waypoint orders are suppressed from the ballistic layer (they were drawing a red hex and a white arrow each); green markers at the manoeuvre points, the head and any hex where a unit was named; a two-row spent-of-total budget label at the head while the weapon is selected; and the **choice between units sharing a hex is now the player's**, carried as `SCT|w:<n>|t:<id>` from a "Target Ship" tooltip button, advisory-only at resolution, with a new opt-in `Weapon::$hideNotesFromEnemies` so `hidetarget` blanks the token along with the x/y it already blanked. 68 client + 47 server checks green in a throwaway harness covering both ends, and a replay-harness run of 127 passed / 1 failed that is **byte-identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised; `checkShipData.php` 0 new errors, the same 3 pre-existing warnings. **Play-test revisions 2026-09-07 (§3.9), client-only:** a refused hex click is now **silent** — `isHexOnFiringArc` owns both geometry refusals (off-axis, and an off-arc launch), measured from the **head** rather than the origin, and `measureLeg` keeps them with `reason` null so a replayed course still truncates identically; and **contact with a receiver finishes the course**, unselecting the weapon and zeroing its shots read-out through one shared `isCourseFinished` predicate. 49 checks green in a throwaway harness, which **fails 11 of them on the pre-edit bodies** — all 11 exactly the changed behaviours, with the "ran out of hexes" branch passing both ways. No server change, no serialised field, so no replay-harness run. |
 | **10** | EW Detector — Stage A then Stage B (§3.8) | Allowance correct at 1/4/5/8/9 detectors; phase-2 EW write is additive and budget-clamped; full `masking` + `snapshot` harness pass. |
 
 **Every stage:** run `fvbuild.ps1 -Check` (ship-data validator + replay harness). ⚠️ The baseline
