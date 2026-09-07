@@ -9,9 +9,9 @@ class Scribe extends MediumShip{
         $this->phpclass = "Scribe";
         $this->shipClass = "Scribe";
         $this->imagePath = "img/ships/WalkerScribe.png";
-        $this->canvasSize = 200;
+        $this->canvasSize = 175;
 	    $this->isd = 'Ancient';
-		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
+		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 		$this->variantOf = "NONE";
 				
         $this->gravitic = true;
@@ -46,7 +46,10 @@ class Scribe extends MediumShip{
         $this->addFrontSystem(new GraviticThruster(6, 10, 0, 4, 1));
         $this->addFrontSystem(new GraviticThruster(6, 10, 0, 4, 1));			       		
 		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 240, 360));
-		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120));		
+		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120));
+		//A sensor charge steers itself, so the transceiver has no firing arc to speak of - it is
+		//in the Front section for damage, not for coverage. WALKERS_OF_SIGMA_PLAN.md 3.9.
+		$this->addFrontSystem(new SensorChargeTransceiver(6, 0, 0, 300, 60));
 
 		$this->addAftSystem(new EnergyDrainingNet(6, 0, 0));		
 		$this->addAftSystem(new GraviticThruster(6, 10, 0, 5, 2));
@@ -70,7 +73,7 @@ class Scribe extends MediumShip{
 			),
 			1=> array( //Fwd
 				5 => "Thruster",
-				//8 => "Sensor Charge Receiver",
+				8 => "Sensor Charge Transceiver",
 				10=> "Chromatic Pulse Driver",
 				18 => "Structure",
 				20 => "Primary",
