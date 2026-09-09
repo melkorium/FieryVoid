@@ -8,7 +8,7 @@ class Pathfinder extends MediumShip{
 		$this->faction = "Walkers of Sigma-957";
         $this->phpclass = "Pathfinder";
         $this->shipClass = "Pathfinder";
-        $this->imagePath = "img/ships/WalkerScribe.png";
+        $this->imagePath = "img/ships/WalkerPathfinder.png";
         $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
