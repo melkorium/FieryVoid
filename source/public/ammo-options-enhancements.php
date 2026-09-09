@@ -147,7 +147,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
     <ul>  
       <li><strong>Elite Crew</strong>
         <ul class="circle-list">
-            <li>Effect: +1 to hit with all weapons, +5 Initiative, +2 Engine, +1 Sensors, +2 Reactor power, -5% Defence Rating, -2 to critical results</li>
+            <li>Effect: +1 to hit with all weapons, +5 Initiative, +2 Engine, +1 Sensors, +2 Reactor power, -5% Defence Rating, -1 to critical results</li>
             <li>Points Cost: +40% of ship cost (second time: +60%)</li>
             <li>Limit: 2</li>
         </ul>      
