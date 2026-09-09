@@ -12,7 +12,7 @@ class MapmakerProbes extends FighterFlight{
 	    
 		$this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
         
 		/*Vorlons use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerFighter');
@@ -51,7 +51,7 @@ class MapmakerProbes extends FighterFlight{
 			$fighter->iconPath = "img/ships/WalkerMapmaker_large.png";
 						
 			//main weapon
-			$fighter->addFrontSystem(new LightChromaticPulsar(330, 30));//arcfrom, arcto, dual mount true/false
+			$fighter->addFrontSystem(new LightChromaticPulsar(330, 30));
 			//$fighter->addFrontSystem(new MedLightnIngArrayFighter(330, 30, false));//arcfrom, arcto, dual mount true/false
 			
 			//ramming attack 			

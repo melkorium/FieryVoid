@@ -12,7 +12,7 @@ class Scribe extends MediumShip{
         $this->canvasSize = 175;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  

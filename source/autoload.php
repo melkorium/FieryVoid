@@ -3657,6 +3657,7 @@ spl_autoload_register(
                 'vymish' => '/server/model/ships/vree/Vymish.php',
                 'vyreel' => '/server/model/ships/vree/Vyreel.php',
                 'vyshesh' => '/server/model/ships/civilians/Vyshesh.php',
+                'wanderer' => '/server/model/ships/walkers/Wanderer.php',
                 'warbird' => '/server/model/ships/drazi/warbird.php',
                 'wardsat' => '/server/model/ships/deneth/wardSat.php',
                 'wareagle' => '/server/model/ships/drazi/wareagle.php',

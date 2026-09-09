@@ -14,7 +14,7 @@ class Guideship extends MediumShip{
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 
 		$this->variantOf = 'Pathfinder';
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
 
         $this->gravitic = true;
 		$this->advancedArmor = true;  

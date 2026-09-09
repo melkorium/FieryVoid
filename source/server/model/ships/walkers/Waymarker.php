@@ -12,7 +12,7 @@ class Waymarker extends HeavyCombatVessel{
         $this->canvasSize = 180;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  
@@ -62,7 +62,9 @@ class Waymarker extends HeavyCombatVessel{
 		//⚠️ 0..360 rather than 0..0 on purpose - a system with both arcs at zero has its SECTION's
 		//arc stamped onto it by addSystem() (arch_addsystem_section_arc_trap), and the probe is
 		//launched in any direction.
-		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 240, 360));	
+		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 240, 360));			
+		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 300, 60));	
+		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 300, 60));				
 		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 0, 120));				
 		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 240, 360));
 		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120));		
@@ -106,7 +108,7 @@ class Waymarker extends HeavyCombatVessel{
 			2=> array( //Aft
 				4 => "Thruster",
 				7 => "Medium Lightning Array",
-				9=> "Chromatic Pulse Driver",				
+				9 => "Chromatic Pulse Driver",				
 				11 => "Hangar",
 				18 => "Structure",
 				20 => "Primary",

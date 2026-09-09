@@ -12,7 +12,7 @@ class Pathfinder extends MediumShip{
         $this->canvasSize = 200;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
-		$this->variantOf = "NONE";
+		//$this->variantOf = "NONE";
 		$this->limited = 50;
 				
         $this->gravitic = true;
