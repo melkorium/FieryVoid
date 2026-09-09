@@ -34,8 +34,6 @@ class Wanderer extends BaseShip{
 		$this->critRollMod = -1;
 		$this->toHitBonus = 1;		
 
-		//$this->fighters = array("Mapmaker Probes"=>36);
-
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');
 		
