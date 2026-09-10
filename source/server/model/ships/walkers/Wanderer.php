@@ -31,6 +31,7 @@ class Wanderer extends BaseShip{
 
 		//Has Elite Crew stats
 		$this->notes = "Elite Crew";
+		$this->notes .= "WEapons begin battle fully charged";		
 		$this->critRollMod = -1;
 		$this->toHitBonus = 1;		
 
@@ -91,7 +92,7 @@ class Wanderer extends BaseShip{
 				4 => "Thruster",
 				6 => "Lightning Array",
 				8 => "Chromatic Pulse Driver",
-				9 => "EW Detector",				
+				9 => "Electronic Warfare Detector",				
 				18 => "Structure",
 				20 => "Primary",
 			),
