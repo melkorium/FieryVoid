@@ -17314,4 +17314,123 @@ class EnergyDrainingNet extends ShipSystem implements SpecialAbility, EdfSource 
         return $strippedSystem;
     }
 }
+/**
+ * EW Detector - WALKERS_OF_SIGMA_PLAN.md 3.8 (Stage 10A).
+ * Control sheet: health 20, power 6, range 20.
+ *
+ * "The sensors on an EWD-equipped ship can detect the configuration of any enemy's EW suite and
+ * instantaneously report it to the ship's fleet, enabling the ships to react to any change and use
+ * it to their advantage. This system provides every friendly unit within 20 hexes of the EW
+ * Detector the enhancement of Expert Scanner: all friendly ships may save one point of EW for
+ * allocation as late in the combat turn as the end of the movement segment."
+ *
+ * ⭐ THE SYSTEM ITSELF DOES ALMOST NOTHING, AND THAT IS THE DESIGN. An EW Detector has no output,
+ * no arc and no order. What it grants is a FLEET-WIDE, RANGE-KEYED allowance that belongs to the
+ * ships receiving it, not to the detector - so the arithmetic lives in one place, EW::*, beside
+ * getBlanketDEW, which is the same shape of sweep (every friendly unit within 20 hexes of an ELINT
+ * hull). This class exists so the hull can mount it, so it can be shot, and so its tooltip can
+ * quote the rule.
+ *
+ * ⚠️ NO CRITICAL TABLE. The rules text lists none, and a plausible-looking invented entry would be
+ * a rule nobody wrote. Destruction and power-down are the whole of its damage model, which is what
+ * isEwDetectorActive() answers.
+ *
+ * ⚠️ THE RANGE IS PER SYSTEM, NOT A CONSTANT. Every sweep asks the DETECTOR for its range rather
+ * than assuming 20, so a hull may mount a shorter- or longer-ranged one from its control sheet
+ * without a second class - and so a future enhancement has one number to move.
+ */
+class EWDetector extends ShipSystem implements SpecialAbility {
+    public $name = "EWDetector";
+    public $displayName = "Electronic Warfare Detector";
+    public $iconPath = "EWDetector.png";
+    public $primary = true;
+
+    public $range = 20; //hexes; blueprint value, see the note above
+
+    /* Parameters: ($armour, $maxhealth, $powerReq, $range).
+       0 for maxhealth/powerReq/range takes the CONTROL SHEET values, exactly as every other Walker
+       system does, so a hull file can mount a basic version without inventing numbers. */
+    function __construct($armour, $maxhealth = 0, $powerReq = 0, $range = 0){
+        if ($maxhealth == 0) $maxhealth = 20;
+        if ($powerReq  == 0) $powerReq  = 6;
+        if ($range     == 0) $range     = 20;
+
+        parent::__construct($armour, $maxhealth, $powerReq, 0);
+
+        $this->range = (int)$range;
+
+        /* ⚠️ ADDSYSTEM SECTION-ARC TRAP (arch_addsystem_section_arc_trap): a system whose arcs are
+           BOTH 0 has its SECTION's arc stamped onto it by addSystem(), so a front-mounted detector
+           would advertise itself as a forward-facing system in the ship window. The detection is
+           omnidirectional, so declare 0..360 and the guard never fires. */
+        $this->startArc = 0;
+        $this->endArc   = 360;
+    }
+
+    /* Destroyed, or switched off in the power segment - all the same answer.
+       isDestroyed($turn-1), not isDestroyed($turn): a system killed THIS turn kept working for
+       this turn, the convention every other support system in the tree follows
+       (BaseShip::checkIsValidAffectingSystem, EnergyDrainingField::isEdfActive). */
+    public function isEwDetectorActive($turn = null){
+        if ($turn === null) $turn = TacGamedata::$currentTurn;
+        if ($this->isDestroyed($turn - 1)) return false;
+        if ($this->isOfflineOnTurn($turn)) return false;
+        return true;
+    }
+
+    /* Effective range after damage. There is no crit ladder (see the class note), so this is the
+       blueprint value or nothing - but every caller goes through it rather than reading ->range,
+       so a ladder could be added in exactly one place. */
+    public function getDetectorRange($turn = null){
+        if ($turn === null) $turn = TacGamedata::$currentTurn;
+        if (!$this->isEwDetectorActive($turn)) return 0;
+        return max(0, (int)$this->range);
+    }
+
+    /* SpecialAbility, so a ship can be asked "do you carry a detector" without walking systems.
+       Returns range + 1, so a crippled range-0 detector still reads as a truthy "yes" - the same
+       convention EnergyDrainingField uses.
+       ⚠️ hasSpecialAbility maps an ability to ONE system id, so it can never count the detectors on
+       a hull that mounts several. Every sweep in EW::* walks ->systems for that reason. */
+    public function getSpecialAbilityValue($args){
+        $turn = (is_array($args) && isset($args["turn"]) && $args["turn"] !== null)
+              ? $args["turn"] : TacGamedata::$currentTurn;
+        if (!$this->isEwDetectorActive($turn)) return 0;
+        return $this->getDetectorRange($turn) + 1;
+    }
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+
+        /* ⭐ THE RANGE GETS ITS OWN data KEY AND THE PROSE CARRIES NO NUMBER, for the reason
+           EnergyDrainingField::setSystemDataWindow records at length: a number buried in a
+           paragraph cannot be rewritten by the lobby, which has no server round trip. */
+        $this->data["Range"] = $this->range . ' hexes';
+
+        $this->data["Special"]  = "Detects the configuration of enemy EW suites and reports it to the fleet.";
+        $this->data["Special"] .= "<br>Every friendly unit within range may SAVE EW points from Initial Orders and allocate them as late as the end of the Movement segment.";
+        $this->data["Special"] .= "<br>Detectors are cumulative but degrade: the first four allow 1 saved point each, the fifth to eighth 1/2 each, and any beyond that 1/4 each. Fractions of 1/4 and 1/2 round down, 3/4 rounds up.";
+        $this->data["Special"] .= "<br>A unit that declares a saved point but ends its movement out of range loses it. ELINT points may be saved, but the ELINT vessel must be in range both before and after movement.";
+    }
+
+    /* ⚠️ THE RANGE HAS TO RIDE THE PER-SHIP PAYLOAD. The client mirrors the whole sweep (see
+       ew.getSavedEwAllowance), because the answer depends on where a ship ENDS its movement - a
+       position the server has not been told about yet, and the entire point of the rule. So the
+       client needs the detector's range live, and `range` is not one of the 21 keys the client
+       constructor re-defaults.
+       `data` goes with it because of TRAP 6 - client system fields are shared by reference across
+       same-phpclass instances, so two detectors on one hull would otherwise share one tooltip
+       object and the second built would win. */
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        $strippedSystem->range = $this->range;
+        $strippedSystem->data  = $this->data;
+        /* The range AFTER damage and power-down, so the client's sweep does not have to
+           reimplement isEwDetectorActive - one number, no maths. It reads 0 for a dead or
+           unpowered detector, which is exactly what excludes it from the count. */
+        $strippedSystem->effectiveRange = $this->getDetectorRange();
+        return $strippedSystem;
+    }
+}
+
 ?>

@@ -4340,3 +4340,43 @@ var EnergyDrainingNet = function EnergyDrainingNet(json, ship) {
 };
 EnergyDrainingNet.prototype = Object.create(ShipSystem.prototype);
 EnergyDrainingNet.prototype.constructor = EnergyDrainingNet;
+
+
+/* =======================================================================================
+   WALKERS OF SIGMA-957 - EW DETECTOR (WALKERS_OF_SIGMA_PLAN.md 3.8, Stage 10A)
+   Server twin: EWDetector in server/model/systems/baseSystems.php.
+
+   Beside the Energy Draining Field and Net for the same load-order reason: SystemFactory builds
+   every system with `new window[name]`, so the class must exist before a Waymarker is constructed,
+   and baseSystems.js is the FIRST model file both game.php and gamelobby.php load. A missing class
+   here is not a degraded tooltip - it is a TypeError that stops the ship being built at all.
+
+   THE ARITHMETIC IS NOT IN HERE, but unlike the Net's it is not on the server either - it is in
+   ew.js, because the answer depends on where every friendly ship ENDS its movement, which is a
+   fleet-wide question over PLOTTED, UNCOMMITTED positions. This class carries the detector's own
+   two numbers and nothing else; ew.collectEwDetectors reads them off it.
+
+   ⚠️ `effectiveRange` is the server's answer AFTER destruction and power-down and is what the
+   sweep reads; `range` is the blueprint value and is the LOBBY's only answer, since stripForJson
+   is the in-game payload and the static blueprint never runs it. Same fallback shape as the EDF's
+   effectiveRadius.
+   ======================================================================================= */
+var EWDetector = function EWDetector(json, ship) {
+	ShipSystem.call(this, json, ship);
+	/* Trap 6 - client system fields are shared by reference across same-phpclass instances, so two
+	   detectors on one hull would otherwise share one tooltip object and the second built would
+	   win. The server republishes `data` per instance; this clone keeps a later client-side edit of
+	   one from bleeding onto the other. */
+	this.data = Object.assign({}, this.data);
+};
+EWDetector.prototype = Object.create(ShipSystem.prototype);
+EWDetector.prototype.constructor = EWDetector;
+
+/* The range shown on the SCS icon. Published value first, blueprint as the lobby fallback - see
+   the class note. */
+EWDetector.prototype.initializationUpdate = function () {
+	var published = parseInt(this.effectiveRange, 10);
+	this.outputDisplay = isNaN(published) ? (parseInt(this.range, 10) || 0) : published;
+
+	return this;
+};

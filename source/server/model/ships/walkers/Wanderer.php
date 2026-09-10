@@ -50,7 +50,8 @@ class Wanderer extends BaseShip{
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));			       
 		$this->addFrontSystem(new LightningArray(6, 0, 0, 270, 90));
-		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 300, 60));				
+		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 300, 60));
+		$this->addFrontSystem(new EWDetector(6, 0, 0, 0));							
 
 
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
@@ -90,7 +91,7 @@ class Wanderer extends BaseShip{
 				4 => "Thruster",
 				6 => "Lightning Array",
 				8 => "Chromatic Pulse Driver",
-				//9 => "EW Detector",				
+				9 => "EW Detector",				
 				18 => "Structure",
 				20 => "Primary",
 			),

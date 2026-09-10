@@ -5,8 +5,9 @@ second wave (Stages 11–19, added 2026-09-08) covering Mapmaker electronic warf
 Docking Bay and the two Walker jump drives. This document is the long-form record; update it as
 stages land.
 
-**Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06). Stage 10 (EW Detector) remains, and
-Stages 11–19 were added 2026-09-08 — housekeeping, the Mapmaker Sensor Probes' three abilities, the
+**Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06) and Stage 10 COMPLETE
+(10A the EW Detector's allowance 2026-09-09, 10B late EW allocation 2026-09-10) - so the FIRST
+WAVE IS FINISHED. Stages 11–19 were added 2026-09-08 — housekeeping, the Mapmaker Sensor Probes' three abilities, the
 Traveler's Docking Bay / repair / power sharing, and the traveler and extra-dimensional jump
 drives.** Written 2026-09-02 after a full survey of the existing seams; re-surveyed 2026-09-08 for
 the second wave, whose rulings and control sheet arrived the same day (D11–D26; Q8–Q15 all answered).
@@ -48,6 +49,10 @@ silent everywhere.
 | D24 | Medium Lightning Array (fighter) stats (2026-09-08) | **Read from the control sheet**, not inferred: Electromagnetic, **Flash** mode, 4d10+12 at −1/3 hexes and FC +2/+4/+6 for the 3-group, 8d10+12 at −1/4 hexes and FC +5/+5/+4 for the 6-group, **RoF 1 per 4 turns** (`loadingtime = 4` — the brief's "2 turns" was a slip, corrected by the user 2026-09-08), and it may fire combined on turn 1. §3.13. |
 | D25 | The two Mapmaker weapons lock on differently (2026-09-08) | Light Chromatic Pulsar = **Offensive Bonus + any OEW**, defensive EW ignored entirely, as every fighter weapon in the game. Medium Lightning Array = **flight EW instead of the bonus**, contested by DEW + BDEW + SDEW down to 0. *"Flight-level combat"* on the sheet is not an FV concept and means nothing beyond that. §3.11, §3.13. |
 | D26 | Flash collateral inside an Energy Draining Field (2026-09-08) | *"Flash damage always loses its collateral damage (friend or foe) ... unless the Lightning Array is boosted by the Wide Beam enhancement."* ⭐ Already how Stage 4 built it — `isHexInEdfField()` is team-blind and `edfSuppressesCollateral()` defaults to true — so `MedLightningArrayFtr` inherits it for free, and Wide Beam is a ship refit Mapmakers cannot buy. §3.13. |
+| D27 | Where "the end of the movement segment" is (2026-09-09) | *"The 'End of movement' in FV is essentially the start of Pre-Firing phase (if there is one) or start of Firing phase. If we restrict the late EW allocation to these phases and don't worry too much about the Movement phase for now that's fine."* ⭐⭐ **This deleted the hard half of Stage 10B**: with the window opening AFTER movement there is nothing to *declare*, so "a point declared and then carried out of range is lost" needs no declaration and no reconciliation — the allowance is simply recomputed at the post-movement hex. Phases **5 and 3 both**, sharing one budget. §3.8. |
+| D28 | What a saved EW point is drawn from (2026-09-09) | *"If a ship spends all their EW on non-DEW EW types, then they are unable to save a point of EW ... DEW is the only pool of unspent EW that saved EW can be drawn from in Pre-Firing/Firing."* So the allowance is `min(ladder, unspent pool)`, and the ship-window figure has to track the player's own clicking during Initial Orders rather than promising a point they have already spent. §3.8. |
+| D29 | The Wanderer's weapons begin charged (2026-09-09) | *"Unlike other Walker ships, the Wanderer phpclass ship's weapons DO start the battle fully charged."* An exception keyed on **phpclass**, hung on `Weapon::setInitialSystemData($ship)` rather than on `getStartLoading()`, which does not know its ship. §3.10e, Stage 11. |
+| D30 | Docked craft must be placeable on the Traveler's hex (2026-09-09) | *"Scribes, Waymarker and Pathfinders are all ships, which means they will not be eligible to stack on Traveler hex during Deployment at present. So we may need to loosen that restriction."* Loosened through the **existing** deploy-dock exemption in `getShipsInSameHex` (`pendingDeployDock` / `pendingLcvDeployDock`), never by weakening hull-versus-hull occupancy for everyone. §3.14, Stage 15. |
 
 Everything below assumes these.
 
@@ -2302,29 +2307,281 @@ watching player's session to disk every couple of seconds for as long as the shi
 refusal goes into `EdfNetLinks::$refusals` instead — an in-memory array, cleared at the top of
 `resolve()`, which is also why it needs no `DBManager` reset (§2.1's per-load-static trap).
 
-### 3.8 EW Detector
+### 3.8 EW Detector — **BUILT: Stage A 2026-09-09, Stage B 2026-09-10**
 
-`class EWDetector extends ShipSystem implements SpecialAbility` — `specialAbilities[] = "EWDetector"`.
+`class EWDetector extends ShipSystem implements SpecialAbility`, in `baseSystems.php` below
+`EnergyDrainingNet`. Control sheet (user, 2026-09-09): **health 20, power 6, range 20**.
 
-**Two stages, because the second one is expensive.**
+> *"The sensors on an EWD-equipped ship can detect the configuration of any enemy's EW suite and
+> instantaneously report it to the ship's fleet ... This system provides every friendly unit within
+> 20 hexes of the EW Detector the enhancement of Expert Scanner: all friendly ships may save one
+> point of EW for allocation as late in the combat turn as the end of the movement segment. The
+> effects are cumulative with multiple EW Detectors, but the efficiency degrades. The first four EW
+> Detectors allow the fleet to save 1 point of EW each. EW Detectors number 5-8 allow the fleet to
+> save 1/2 of a point each. All additional EW detectors allow only 1/4 of a point each. Round down
+> fractions of 1/4 and 1/2 and round up fractions of 3/4. If a vessel declares that it is saving an
+> EW point but ends its movement step out of range of the EW Detector, the point is lost. It is
+> possible to save ELINT EW points as well, as long as the ELINT vessel is within range both before
+> and after movement."*
 
-- **Stage A — the allowance.** A fleet sweep computes the saved-EW budget: detectors 1–4 give 1
-  each, 5–8 give ½ each, 9+ give ¼ each; round ¼ and ½ down, ¾ up. Ships must be in range of a
-  detector both before and after movement (ELINT included). Display the allowance; nothing yet
-  allocates it. Cheap, and immediately makes the system legible.
-- **Stage B — late allocation.** EW is submitted **only** in `InitialOrdersGamePhase::process`
-  ([InitialOrdersGamePhase.php:219](source/server/Phase/InitialOrdersGamePhase.php#L219)) and the
-  client hard-gates the UI on `gamedata.gamephase != 1`
-  ([ew.js:512](source/public/client/ew.js#L512)). Making one point allocatable at the end of
-  Movement means: an EW write path in `MovementGamePhase::process` (budget-clamped, additive only —
-  never allow a phase-2 submission to rewrite phase-1 allocations), the client gate relaxed to
-  exactly the saved allowance, and a masking review, since EW visibility is phase-conditional
-  (`deleteHiddenData`'s phase-1 guard).
+**Two stages, because the second one is expensive.** Both landed.
 
-⚠️ **Stage B changes a shared, load-bearing path for every faction in the game.** It is the
-highest-blast-radius item in this plan. Budget a full `masking` + `snapshot` harness pass for it
-alone. Without it the detector does nothing of value, so it cannot simply be dropped — but it
-should land last among the non-SCT work.
+- **Stage A — the allowance. DONE 2026-09-09.** A fleet sweep computes the saved-EW budget:
+  detectors 1–4 give 1 each, 5–8 give ½ each, 9+ give ¼ each; round ¼ and ½ down, ¾ up. The
+  allowance is displayed and nothing yet allocates it.
+- **Stage B — late allocation. DONE 2026-09-10.** The saved points are spendable in Pre-Firing and
+  Firing, clamped by the unspent (DEW) pool, with the same EW buttons the Initial Orders menu uses.
+
+⚠️ **Stage B changed a shared, load-bearing path for every faction in the game** — it was the
+highest-blast-radius item in this plan. It came out clean: replay harness **byte-identical** to the
+same run with the six server files stashed, all five checks including `masking` and `snapshot`.
+
+#### Two rulings that shaped Stage B (user, 2026-09-09)
+
+**R1 — WHERE "the end of the movement segment" IS.** *"The 'End of movement' in FV is essentially
+the start of Pre-Firing phase (if there is one) or start of Firing phase. If we restrict the late EW
+allocation to these phases and don't worry too much about the Movement phase for now that's fine."*
+
+⭐⭐ **This ruling is what made Stage B tractable, and it deleted a whole sub-problem.** The plan had
+budgeted for an EW write path in `MovementGamePhase::process` plus a separate "declare now, verify
+after you move" mechanism for *"if a vessel declares that it is saving an EW point but ends its
+movement step out of range … the point is lost"*. With the window opening AFTER movement there is
+**nothing to declare**: the allowance is simply recomputed at the unit's post-movement hex, and a
+ship that drifted out of range finds it is zero. The rule is enforced by the arithmetic already
+written for Stage A, asked at a different moment. No declaration, no reconciliation, no note.
+
+⚠️ **BOTH phases, sharing ONE budget.** Phase 5 is Pre-Firing and 3 is Firing. Gating on 5 alone
+would silently deny the allowance on any turn whose Initial Orders had nothing to activate —
+`InitialOrdersGamePhase::advance` jumps straight to phase 3 in that case, which is exactly the
+situation where a player has fewest units left. One budget across both, because the write diffs
+against what is already stored: points spent in Pre-Firing are stored rows by the time Firing opens,
+so only the remainder is still spendable.
+
+**R2 — WHAT THE POINT IS DRAWN FROM.** *"If a ship spends all their EW on non-DEW EW types, then
+they are unable to save a point of EW (and the EW panel should reflect this during EW orders, so it
+doesn't misleadingly show a player saving some EW points for later when in fact they've spent them
+all on non-DEW uses). Essentially DEW is the only pool of unspent EW that saved EW can be drawn
+from in Pre-Firing/Firing."*
+
+So the number that matters is **`min(ladder, unspent pool)`**, not the ladder. `EW::getDetectorAllowance`
+answers what the detectors offer, `EW::getSavedEwAllowance` answers what the ship can actually take
+up, and only the second is ever displayed or budgeted to.
+
+#### What Stage B built
+
+**The pool, and the one subtlety in it.** `EW::getUnspentEw` / `ew.getSavedEwPool` read the
+**committed DEW row** when one exists, and fall back to the derived remainder
+(`scannerOutput − allEWExceptDEW`) when it does not.
+
+- ⚠️ **There is no DEW row during Initial Orders.** `convertUnusedToDEW` writes it inside `doCommit`
+  ([gamedata.js:1948](source/public/client/gamedata.js#L1948)), so while the player is still
+  allocating there is nothing listed — and the derived fallback is what makes the panel's figure
+  fall as they spend, which is the half of R2 the user asked for explicitly.
+- ⚠️ **The committed row WINS when it exists**, because the client wrote it with `getEWLeft()`,
+  which also subtracts EW-boosted system boosts (Particle Impeders, Psionic Lances) that nothing
+  on the server re-derives. Reading the row is the only way the two ends agree on those hulls.
+- ⚠️ **`getDEW()` cannot tell "no row" from "a row reading 0"** — it returns 0 for both — and the two
+  mean opposite things to the write path (below). Hence `EW::hasCommittedDewRow`.
+
+⭐⭐ **THE LATE-WINDOW BOOKKEEPING IS ONE DERIVED NUMBER AND TWO BOUNDS.** This is the part worth
+carrying to any similar feature. Every point spent moves a point OUT of the unspent remainder, so:
+
+```
+spent      = pool − getEWLeft()          // pool is the ANCHOR; getEWLeft is live
+remaining  = allowance − spent
+```
+
+- The **upper** bound (`remaining ≥ cost`) is the budget.
+- The **lower** bound (`spent ≥ cost` before a de-allocate) is what stops the player undoing an
+  *Initial Orders* allocation in a phase where the server would ignore the removal anyway.
+
+No snapshot of the committed EW array, no per-entry marking, nothing a poll rebuilding
+`gamedata.ships` can get out of step with. ⚠️ **The anchor must be the committed pool, never
+`getEWLeft()`** — `getEWLeft()` falls by one with every point spent, so using it as the budget would
+shrink the budget as the budget was spent and each point would cost two.
+
+**The write.** `EW::submitLateEw`, called from `PreFiringGamePhase::process` and
+`FireGamePhase::process`, outside their per-ship loops.
+
+- ⚠️⚠️ **ADDITIVE ONLY, ENFORCED BY THE SHAPE OF THE DIFF RATHER THAN BY A CHECK.**
+  `EW::diffLateEw` emits only **positive** deltas against the stored rows, so a POST that removed or
+  reduced an Initial Orders allocation changes nothing at all. The one row driven downwards is the
+  ship's own DEW, which is not an allocation but the remainder the saved point is defined to come
+  out of.
+- ⚠️ **AN EXISTING ROW IS RAISED, NEVER DUPLICATED.** `getEWbyType()` and `getDEW()` return the
+  **first** matching row while `getOEW()` **sums** — so a second row for one (ship, turn, type,
+  target) would be counted by the shooting maths and ignored by everything else. Hence
+  `DBManager::adjustEwAmount` (UPDATE … LIMIT 1) beside `insertEwEntry`.
+- ⚠️ **IDEMPOTENT BY CONSTRUCTION.** A second submission in the same phase diffs the posted array
+  against rows that now already contain it, finds nothing, writes nothing.
+- ⚠️ **ALL OR NOTHING PER ENTRY.** A Disruption allocation is 3 points (4 on a `ConstrainedEW` hull)
+  and means nothing as a fragment, so a budget that cannot take the whole entry takes none of it.
+- ⚠️ **NO COMMITTED DEW ROW MEANS NO SPEND.** There is nothing to debit, and a spend that cannot be
+  debited is free EW. A flight never gets a row (`convertUnusedToDEW` returns early on one), which is
+  also the right answer — the rule is about ships.
+- ⚠️ **THE BUDGET IS RE-DERIVED SERVER-SIDE, NEVER FROM THE POST.** A POST-side ship carries whatever
+  movement the client sent, so its `getHexPos()` is client-controlled — and its EW array is the thing
+  being validated.
+- ⭐ **AND IT RELOADS NOTHING.** `Manager::submitGamedata` builds the authoritative gamedata with
+  `DBManager::getTacGamedata` and hands **that same object** to `process()` as `$gameData`; only
+  `$ships` is POST-side. Nothing earlier in either phase’s `process()` touches EW or a unit’s hex (a
+  Fire-phase combat pivot changes facing, not position), and the player cannot already have submitted
+  this phase because `hasAlreadySubmitted()` throws first — so a second load would be one of the
+  heaviest calls in a submit, spent to re-read what is already in hand. ⚠️ That
+  `InitialOrdersGamePhase::process` *does* re-load before `EW::validateEW` is not an inconsistency:
+  it has written power and notes earlier in the same method and needs to see them.
+
+**The UI.** The EW buttons the Initial Orders menu already carries are **reused verbatim**:
+`ShipTooltipInitialOrdersMenu.ewButtons` is now a named subset, and
+`ShipTooltipFireMenu.getAllButtons()` concatenates it while the late window is open.
+
+- ⭐ **ONE GATE, AT THE MENU LEVEL, NOT TWENTY CONDITIONS.** The button objects are *shared* between
+  the two menus, so a phase condition pushed into them would apply to Initial Orders too.
+  `ew.isLateEwWindowOpen` answers the whole question — right phase, my ship, not yet committed, and
+  an allowance worth something. The alternative was a second copy of twenty-two entries and their
+  fifteen condition helpers in `shipTooltipFireMenu.js`.
+- ⚠️ **The subset stops before `removeAllEW`.** "Remove All EW" clears the whole turn, Initial Orders
+  allocations included, and those are committed rows the late window cannot un-write — the button
+  would blank the panel and the next payload would put it all back. `ew.removeEW` refuses outside
+  phase 1 for the same reason.
+- ⚠️ `this.selectedShip` is routinely **null** in these menus and one throwing condition deletes the
+  whole tooltip, Open Ship Details included; `isLateEwWindowOpen(null)` is false, and the harness
+  asserts the null case explicitly.
+- The `Saved EW` row becomes **`remaining / total`** once the window opens, and is now suppressed on
+  a zero *allowance* rather than a zero *value* — a unit that has spent its whole budget still has
+  one, and the row vanishing at the moment it is used up would read as the feature breaking.
+
+**Initial Orders is bit-for-bit unchanged.** `ew.canAllocateEwNow` / `canDeallocateEwNow` open with
+an unconditional `return true` on phase 1 rather than with a condition that happens to pass — the
+phase has its own long-standing rules, including different `gamedata.waiting` handling on the assign
+and de-assign paths, and Stage B must not quietly move any of them.
+
+#### ⚠️ The masking review, and the one residual it leaves
+
+`deleteHiddenData` blanks enemy `EW` **only in phase 1** ([TacGamedata.php:1543](source/server/model/TacGamedata.php#L1543)).
+In phases 2, 5 and 3 an opponent's EW allocation has always been fully visible — that is not
+something Stage B introduced, and the aiming UI depends on it.
+
+**What Stage B does introduce is that EW can now CHANGE inside phases 5 and 3.** The review:
+
+- ⭐ **In ordinary play the change is invisible until the phase advances.** `Manager::getTacGamedata`
+  serves a body only when `DBManager::isNewGamedata` says turn, phase or activeship moved
+  ([Manager.php:654](source/server/controller/Manager.php#L654)). Both late phases run at
+  `activeship = -1`, so a poll inside a steady phase 5 or 3 returns `{}` and the opponent is served
+  nothing. By the time they see it, both players have committed.
+- ⚠️ **A deliberate page RELOAD would show it.** `game.php` calls `getTacGamedataJSON(..., force =
+  true)`, which bypasses the APCu cache — so an opponent who hard-refreshes after you have committed
+  and before they have would see your late allocation. The information is one EW point's worth, in a
+  phase where the rest of your EW is already public, and the rule this implements is explicitly
+  about *"enabling the ships to react to any change"* — so this was judged acceptable rather than
+  designed around.
+- **If it ever matters, the fix is a `phase` column on `tac_ew`** and a `deleteHiddenData` branch
+  dropping enemy rows written in the current phase. ⚠️⚠️ It is not free: `DBManager::submitEW`,
+  `insertEwEntry` and `adjustEwAmount` all use **positional** `INSERT INTO tac_ew VALUES (...)`, so
+  the column and all three writes must change in one edit, and the live migration must land before
+  the code.
+
+#### Exit criteria met
+
+**Stage A.** 77 server checks and 90 client checks green, including a **41-count ladder differential**
+in which the JS reads back the table the PHP wrote (so the two are compared over the same inputs
+rather than two independently-typed expectations, and the run asserts its own non-vacuity), the
+stage's own 1/4/5/8/9 tuple on both sides, inclusive-at-exactly-range geometry, per-system ranges,
+and the ladder exercised **end to end through the real sweep** at 13 detector counts.
+
+**Stage B.** **210 checks green across three throwaway harnesses** — 50 server, 135 client, 25
+tooltip-menu — covering the pool and its two sources, the clamp (including the R2 case: a ship that
+spent everything on non-DEW types saves nothing), the phase window, the diff in all six of its
+refusal modes, `submitLateEw` end to end against a recording DBManager (budget clamp, all-or-nothing
+Disruption, idempotence, wrong phase, another player's ship, and the no-detector fast path proving
+it never loads gamedata at all), the derived-bookkeeping invariant, both gates with Initial Orders
+asserted unchanged, the real `AssignOEW`/`assignEW`/`deassignEW`/`removeEW` paths end to end, and
+the menu split proved lossless **by object identity** with the null-selection case asserted.
+
+**Both.** `checkShipData.php` PASS — 0 new findings, the same 237 in baseline. Replay harness 119
+passed / 4 failed, and the same run with the six server files stashed is **byte-identical with
+timings normalised**, so zero drift on any of the five checks, `masking` and `snapshot` included.
+⚠️ The four failures are the known clean-tree baseline (4325, plus 3676 / 4249 / 4297 moved by the
+*Elite crew* and *Kelly Phaser* commits and never re-recorded).
+
+⚠️ **Two things a play test needs to know.** One detector grants 1 point, so the degrading ladder
+needs **four** Waymarkers to see the first bracket end and **nine** to reach the quarter-point one.
+And a ship that allocated all its EW during Initial Orders has nothing to save — that is R2 working,
+not the detector failing.
+
+#### What Stage A built
+
+**The system.** `EWDetector` carries a `$range` and nothing else — no output, no arc, no order. Its
+ctor takes `($armour, $maxhealth = 0, $powerReq = 0, $range = 0)` and 0 takes the control-sheet
+value, the same convention every other Walker system uses. `isEwDetectorActive()` is
+`!isDestroyed($turn - 1) && !isOfflineOnTurn($turn)`; `getDetectorRange()` returns 0 when it is not,
+which is what removes it from the count. Arcs are declared 0..360 so `addSystem()` cannot stamp the
+FRONT section's arc onto a front-mounted detector (`arch_addsystem_section_arc_trap`). Mounted on
+the **Waymarker's front** for testing, with hit-chart row `10 => "EW Detector"` in the FWD section —
+the row was already there, commented out.
+
+⚠️ **NO CRITICAL TABLE, deliberately.** The rules list none, and a plausible-looking invented entry
+would be a rule nobody wrote. Destruction and power-down are the whole of the damage model. If one
+is ever wanted, `getDetectorRange()` is the single place a ladder goes.
+
+⚠️ **THE RANGE IS PER SYSTEM, NOT A CONSTANT.** Every sweep asks the detector for its range rather
+than assuming 20, so a hull may mount a shorter- or longer-ranged one from a control sheet without a
+second class, and a future refit has one number to move.
+
+**The arithmetic**, in `EW::` beside `getBlanketDEW` — which is the same shape of sweep, every
+friendly unit within 20 hexes of an ELINT hull:
+
+```php
+EW::collectEwDetectors($gamedata, $turn)          // flat (team, pos, range) tuples, collected ONCE
+EW::savedEwAllowanceFromDetectors($count)         // the degrading ladder
+EW::countEwDetectorsCovering($detectors, $team, $position)
+EW::getSavedEwAllowance($gamedata, $ship, $detectors = null, $turn = null)
+```
+
+⭐ **THE LADDER IS COUNTED IN QUARTERS, AS INTEGERS, START TO FINISH.** Every term is a multiple of
+¼, so the whole rule is exact in integer arithmetic — and integer arithmetic is the only kind that
+can be *promised* identical in PHP and JavaScript. A float version works today and drifts the first
+time somebody adds a bracket. And the rounding rule collapses to one expression: down at ¼ and ½, up
+at ¾, is `floor(x + ¼)`, i.e. `(quarters + 1) intdiv 4`. Worked through: 1→1, 4→4, 5→4, 8→6, 9→6,
+10→6, 11→7, 12→7.
+
+⭐⭐ **AND THE CLIENT MIRRORS ALL OF IT — the one EW sweep in the game that is not server-only.** The
+rule is *"in range both before and after movement"*, and the after-movement position is a **plotted,
+uncommitted** one: the server has not been told about it and by definition cannot be, because the
+whole point of the allowance is that the player spends it at the end of the Movement segment on the
+strength of where they ended up. `shipManager.getShipPosition()` already follows the plot, so
+`ew.collectEwDetectors` / `savedEwAllowanceFromDetectors` / `countEwDetectorsCovering` /
+`getSavedEwAllowance` track the drag for free. The server keeps the authoritative copy for Stage B's
+validation. ⚠️ **MIRROR SET — a change to any one of the four is a change to its twin.**
+
+**Both sweeps defer every question behind the `instanceof` / name test**, exactly as
+`TacGamedata::setEdfHexes()` records: in all but a handful of games nothing is an EW Detector, and
+`getHexPos()`, `isDestroyed()` and `isReinforcement()` are not worth asking of a ship that carries
+none. Same three exclusions as the EDF sweep (destroyed, still in hyperspace, no position yet), plus
+the detector's own two (destroyed system, powered down).
+
+⚠️ **`range` and `effectiveRange` ride `stripForJson`, and they have to.** The client sweep needs the
+range live, and `range` is not one of the 21 keys the client constructor re-defaults
+(`arch_shipcompactor_key_stripping`). `effectiveRange` is the server's answer *after* destruction and
+power-down, so the client does not reimplement `isEwDetectorActive` — but the client still tests
+`systems.isDestroyed` and `power.isOffline` itself, because a player may power a detector down during
+Initial Orders and the server will not know until the phase commits, which is exactly the window in
+which the allowance is being read. `range` alone is the LOBBY fallback, since `stripForJson` is the
+in-game payload. `data` goes with them for TRAP 6 (client system fields are shared by reference
+across same-phpclass instances).
+
+**Display.** A gold `Saved EW` row at the bottom of the ship window's Electronic Warfare panel
+(`ShipWindowEw.getShipRows`), suppressed at zero. ⚠️ **OWN SIDE ONLY** — the number is a live read of
+where friendly detectors are, so rendering it on an enemy hull would answer *"how many EW Detectors
+cover this hex"* for a fleet the viewer is not in. Same ruling the stealth-toggle forecast carries;
+`isPlayerInGame()` guards the observer, who has no side.
+
+**The reading of "the fleet" that Stage A implements**, since the rules text says both things: the
+allowance is **PER SHIP**, equal to `degrade(number of friendly detectors covering THAT ship)`.
+*"This system provides every friendly unit within 20 hexes ... all friendly ships may save one point
+of EW"* is unambiguous; *"allow the fleet to save 1 point of EW each"* is read as *"allow the fleet's
+ships to save one more point each"*, with the "each" attaching to the detector. If the user rules the
+other way — a single pooled fleet budget — `getSavedEwAllowance` is the only body that changes.
 
 ### 3.9 Sensor Charge Transceiver — **BUILT 2026-09-06 (Stage 9)**
 
@@ -2561,9 +2818,9 @@ which lists the same six hexes in a different order. The order of that table is 
 of a direction index, so the wrong one gives the client a different compass and every leg but due
 east disagrees.
 
-### 3.10 Housekeeping — four corrections to shipped stages
+### 3.10 Housekeeping — five corrections to shipped stages
 
-Four unrelated small items, collected because none of them is worth a stage of its own and all four
+Five unrelated small items, collected because none of them is worth a stage of its own and all five
 are cheap. They land together as Stage 11.
 
 #### 3.10a The 50% deployment bracket
@@ -2671,6 +2928,35 @@ with a hangar exemption to explain.
 ⭐⭐ **AND IT IS NOW A STANDING OBLIGATION.** Every stage from here on adds a paragraph to this
 entry as part of its own exit criterion. A faction page written once and never updated is worse than
 none: players read it as authoritative and it silently describes a game that no longer exists.
+
+#### 3.10e The Wanderer's weapons DO begin the game fully charged
+
+User ruling 2026-09-09: *"Unlike other Walker ships, the Wanderer phpclass ship's weapons DO start
+the battle fully charged."*
+
+Every Walker weapon that charges over turns currently overrides `getStartLoading()` to seed less
+than `normalload` — the Lightning Array pair
+([specialWeapons.php:12562](source/server/model/weapons/specialWeapons.php#L12562)) and the
+Chromatic Pulse Driver ([pulse.php:1381](source/server/model/weapons/pulse.php#L1381)). The
+Wanderer is the exception, so that override has to become conditional on the mounting hull instead
+of absolute.
+
+⭐ **`getStartLoading()` is the wrong hook, because it does not know its ship.** Its one caller does:
+`Weapon::setInitialSystemData($ship)` ([weapon.php:1010](source/server/model/weapons/weapon.php#L1010))
+receives the hull and writes the result into `tac_systemdata`. Put the exception there — a
+`Weapon::$startsFullyChargedOnClasses`-style opt-out consulted against `$ship->phpclass`, or a plain
+override on the two Walker weapon classes — and `getStartLoading()` keeps its no-argument signature
+for every other caller in the tree (`HangarOps` re-seeds launched craft through it in four places,
+and `dualWeapon`/`duoWeapon` call it on their sub-weapons).
+
+- ⚠️ Key it on **`phpclass`**, not on faction: every other Walker hull shares
+  `"Walkers of Sigma-957"` and must keep the restricted seed.
+- ⚠️⚠️ `setInitialSystemData` runs **once, at ship creation**. An existing game does not re-seed, so
+  a play test needs a **fresh game**, not a reload — and any Wanderer already on a board keeps the
+  charge it was created with.
+
+**Exit criterion:** a newly created Wanderer's Lightning Array and Chromatic Pulse Driver report
+full charge on turn 1, while the same weapon classes on a Traveler still report their seeded value.
 
 ### 3.11 Mapmaker Electronic Warfare
 
@@ -3076,6 +3362,31 @@ never see an Initial Orders or Movement hangar order.
 `leaveSlot()`, because leaving a slot deletes `tac_ship` alone and MariaDB recycles the id. Keeping
 the whole link in notes avoids the question.
 
+⚠️⚠️ **THREE OF THE FOUR DOCKABLE CRAFT ARE SHIPS, AND SHIPS MAY NOT DEPLOY ONTO AN OCCUPIED HEX.**
+(User, 2026-09-09.) Only the Mapmaker Sensor Probes are a `FighterFlight`; Scribe, Pathfinder and
+Waymarker are hulls, and the Deployment phase refuses to place a hull on a hex that already holds a
+unit — `shipManager.getShipsInSameHex` ([ships.js:927](source/public/client/ships.js#L927)) collects
+every non-destroyed unit whose position equals the candidate hex, and the Deployment strategy's
+`isBlocked` rules turn a non-empty list into a refusal. So a fleet that wants to start the battle
+with its Scribes already inside the Traveler cannot even be *placed*, quite apart from the docking
+machinery.
+
+⭐ **The exemption already exists in exactly the shape we need** — `getShipsInSameHex` skips
+`ship2.pendingDeployDock` (Hangar Ops Stage 7) and `ship2.pendingLcvDeployDock` (LCV Rails), both
+for the same reason: *"a unit queued for deployment-phase dock is logically inside a carrier's
+hangar, not on the board."* A Docking Bay deploy-dock is the third instance of that idea, not a new
+concept — so the restriction is loosened by making the bay's queued craft carry the same kind of
+marker, **not** by weakening the hull-versus-hull occupancy rule for everyone.
+
+- ⚠️ Skipping the craft is only half of it. The occupancy test is symmetric: the queued Scribe must
+  also not be *refused* when the player drops it onto the Traveler's hex in the first place, which
+  is the placement path rather than the collision list.
+- ⚠️ Keep it to the deploy-dock queue. Two Scribes that are simply both on the board must still
+  refuse to share a hex on turn 1 exactly as they do today; nothing here is a general permission for
+  ships to stack during Deployment.
+- ⚠️ The terrain branch must stay intact — a queued craft still cannot be dropped onto terrain, and
+  the Huge/`hexOffsets` collision arms of the same function are untouched.
+
 #### 3.14a The Waymarker's two-turn procedure — **OPTIONAL within Stage 15 (D23)**
 
 Everything above is one-turn docking, which is what the bay already does and what the other three
@@ -3433,12 +3744,13 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **7** ✅ | Energy Draining Net — **DONE 2026-09-05; play-test fix + live preview the same day** | **Play-test revision (game 4338):** the fill treated any *connected* group of 3+ Nets as a closed area, so three Waymarkers in a **chain** (#1–#2 at 2 hexes, #2–#3 at 3, #1–#3 at 5) filled hexes beside the chain that nothing enclosed — the user reported (1,0). *"Form a closed area"* needs a **cycle**, and the fix is the group's **2-core**: iteratively drop every Net with fewer than two links. A chain erases itself, a ring survives whole, a ring with a trailer keeps the ring. **Live preview added the same day:** deployment and movement now recompute the field client-side from PLOTTED positions (`model/EdfNetLinks.js`, a ported resolver) so the corridors and the filled area form as the ship is dragged; **advisory only** — nothing but the overlay reads it. Proven by a **12,000-board differential** against the PHP across three seeds, hex, team and attribution, zero mismatches, with the generator taught to emit rings deliberately after the coverage guard caught that 13,000 random boards had produced a single cap refusal between them. 68 server checks, 16 preview checks and 7 clustering checks green. **As first built:** replay harness 128 passed / 1 failed, byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure), so zero drift. `checkShipData.php`: 0 new errors. Pairwise links at 1/2/3 hexes and not at 4; the closed-area fill capped at `2N−1` with the corridors isolated out first so the refusal is provable as the *empty set* rather than "fewer hexes"; three collinear Nets still link. ⭐⭐ **Two departures from §3.7, both corrections.** Linking runs in `setEdfHexes()`, not in the §2.2 resolver — the section predates Stage 4's map, and a corridor computed at the Critical Hit step would have drained units while being invisible to the targeting penalty, the client's mirror and the overlay. And `HexZone::line()` is the wrong tool: it answers ONE line including both endpoints, while the rule hands the player a CHOICE between corridors, so all shortest paths are enumerated instead. ⚠️⚠️ Three findings worth carrying: **`Debug::log` cannot be used anywhere `setEdfHexes()` reaches** — it dumps `$_REQUEST` and `$_SESSION` to disk per call, and a fleet parked in an over-cap formation is a persistent state polled every couple of seconds, so the refusal is an in-memory array instead; **the map overlay must be split into connected clusters** because `HexRegion.buildRegionFromHexes` sizes its sweep from the farthest hex, and two lone Nets at opposite corners of the board would sweep 14,641 hexes to draw two; and **an over-cap area needs more Nets, not more spread** — three Nets at maximum spread have corridors that swallow their own interior, leaving 3 fill hexes against a cap of 5, so the refusal test had to go to a five-Net arc. ⚠️⚠️ And one bug caught by a smoke test rather than by any of the 51 checks that preceded it: **`powerReq` is a BLUEPRINT field that rides the per-class static bundle, not the poll payload** — so the crit-escalated requirement never reached the client until `stripForJson()` republished it per instance. Applies to any system whose criticals move a blueprint number. |
 | **8** ✅ | Wide-Beam enhancements — **DONE 2026-09-06; reworked twice the same day** | 143 server checks and 84 client checks green, plus a **2,578-hull corpus differential** on the offer tuples in which exactly TWO lines changed (Traveler gains one `SYS_WBLA` + one `SYS_WBMLA`; Waymarker gains one `SYS_WBMLA` per Medium array), and a replay-harness run of 127 passed / 1 failed that is byte-identical to the same run on a stashed tree (game 4325, the known clean-tree failure). `checkShipData.php` PASS, with the same 3 pre-existing warnings on both trees. Two registry entries at 300 / 200, `ages => array(3)`, `limit` 1; the per-die floor; the 50% / 25% collateral; the one-turn cooldown. ⭐⭐ **Reworked TWICE on the user's rulings.** It shipped as one extra firing mode; the user pointed out that the rules' *"in all modes"* means *whatever the discharge count*, so it became **four** modes (Combined / Single × normal / wide); then the four-entry selector was judged too clunky — *"mechanically that all seems to work perfectly, however the UI is a little bit clunky"* — and it is now **two firing modes plus a per-turn "Wide Beam" toggle** in the array's `<SystemActivation>` box, which is what the rules describe anyway (*"the lightning array may be configured to fire a wide beam"*). ⚠️⚠️ **Six findings worth carrying**, all in §3.3: **the Fire phase has never run the generic `generateIndividualNotes` sweep and must not start** — 34 of the ~80 overrides carry no phase guard at all — so the toggle's write is a new narrow `ShipSystem::saveFirePhaseDeclaration()` hook that does nothing by default; **that write cannot be gated on the refit**, because a POST-side ship is rebuilt without enhancements, so it writes unconditionally and the refit is re-checked at read time; **both toggle states are written and the highest note id wins**, since the load query cannot promise an order within a phase and writing only on arm strands a re-commit on a stale 1; the four-mode detour exposed a REAL bug — `getCombinableOrder` matched *"not Single Shots"* rather than *"this mode"*, so with two fusing modes a wide click silently converted a standing ordinary shot, cooldown and all, and the equality fix is kept; the cooldown had to zero **`overloadturns` as well as `turnsloaded`**, because `calculateLoading` increments `overloadturns` at every turn advance for EVERY weapon and `weaponManager.isLoaded` is an OR of the two; and **nothing on the server refuses an offensive order from an unloaded weapon at all**, so the cooldown needed a server half of its own. Plus two smaller ones: **`MediumLightningArray extends LightningArray`**, so the full array's refit needs an explicit subclass exclusion or every Medium is offered both at once on one mount; and **50% collateral must be computed from the damage**, never by doubling the 25% figure. |
 | **9** ✅ | Sensor Charge Transceiver — **DONE 2026-09-06** | 72 checks green in one harness covering both ends, plus a replay run of 127 passed / 1 failed that is **identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised, and `checkShipData.php` PASS with the same 3 pre-existing warnings. The harness proves four things nothing else would catch: a **1,080-case geometry differential** on the three new `mathlib` helpers, PHP against the JS mirror, with 495 of the pairs on a hex axis and turn costs 0–3 all present; the resolver over a **12-course corpus** written as (bearing, length) legs rather than hexes; `beforeFiringOrderResolution` end to end against a real `TacGamedata` with a stand-in DBManager — every shot claiming its own database id, the informational row at `rolled 1 / shots 0`, the receiver's `DamageEntry` filed against that row and visible to `isDamagedOnTurn`; and the client's `measureLeg` accepting **exactly** what the server's resolver accepts, over the same corpus. ⭐ Every group asserts its own non-vacuity. ⚠️⚠️ **The test found one real bug that no amount of reading would have**: `calculateLoading` asked `getChargeOutcome` AFTER `parent::calculateLoading`, which calls `setLoading()` and writes `turnsloaded` back to 0 — so `isReadyToFire()` read 0, every charge looked as though an unloaded transceiver had sent it, and the fast recharge could never fire. The outcome is now taken before the parent runs. ⚠️ The icon is a **placeholder** (a copy of `sensorSpike.png`) until real art lands. **Play-test revisions 2026-09-06 (§3.9):** the reachable fan is HEXES rather than six lines; the course carries direction chevrons and the waypoint orders are suppressed from the ballistic layer (they were drawing a red hex and a white arrow each); green markers at the manoeuvre points, the head and any hex where a unit was named; a two-row spent-of-total budget label at the head while the weapon is selected; and the **choice between units sharing a hex is now the player's**, carried as `SCT|w:<n>|t:<id>` from a "Target Ship" tooltip button, advisory-only at resolution, with a new opt-in `Weapon::$hideNotesFromEnemies` so `hidetarget` blanks the token along with the x/y it already blanked. 68 client + 47 server checks green in a throwaway harness covering both ends, and a replay-harness run of 127 passed / 1 failed that is **byte-identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised; `checkShipData.php` 0 new errors, the same 3 pre-existing warnings. **Play-test revisions 2026-09-07 (§3.9), client-only:** a refused hex click is now **silent** — `isHexOnFiringArc` owns both geometry refusals (off-axis, and an off-arc launch), measured from the **head** rather than the origin, and `measureLeg` keeps them with `reason` null so a replayed course still truncates identically; and **contact with a receiver finishes the course**, unselecting the weapon and zeroing its shots read-out through one shared `isCourseFinished` predicate. 49 checks green in a throwaway harness, which **fails 11 of them on the pre-edit bodies** — all 11 exactly the changed behaviours, with the "ran out of hexes" branch passing both ways. No server change, no serialised field, so no replay-harness run. |
-| **10** | EW Detector — Stage A then Stage B (§3.8) | Allowance correct at 1/4/5/8/9 detectors; phase-2 EW write is additive and budget-clamped; full `masking` + `snapshot` harness pass. |
-| **11** | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` | Four independent items, each provable on its own. A Pathfinder fleet passes/fails the 50% bracket at the right cap on **both** copies of the fleet check; no 10%/33% verdict moves across the hull corpus; the SCT course still marks its manoeuvre, head and named-unit hexes with no text; the EDM cannot be clicked as a target and its field, its overlay and every area effect over its hex are unchanged; the faction page renders with a TOC entry. |
+| **10A** ✅ | EW Detector, the allowance (§3.8) — **DONE 2026-09-09** | 77 server checks and 90 client checks green in a throwaway harness covering both ends, incl. a **41-count ladder differential** in which the JS reads back the table the PHP wrote (so both are compared over the same inputs, with the run asserting its own non-vacuity), the stage's 1/4/5/8/9 tuple on both sides, inclusive-at-exactly-range geometry, per-system ranges, and the ladder exercised **end to end through the real sweep** at 13 counts. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 123 passed / 4 failed, **byte-identical** to the same run on a tree with the three server files stashed (4325 is the known clean-tree failure; 3676 / 4249 / 4297 are pre-existing, moved by the *Elite crew* and *Kelly Phaser* commits and never re-recorded). ⭐⭐ **The one EW sweep in the game that is MIRRORED on the client**, because "in range both before and after movement" asks about a plotted, uncommitted position the server cannot have. ⭐ The ladder is counted in **quarters, as integers**, and the rounding rule collapses to `(quarters + 1) intdiv 4`. ⚠️ The allowance is **own-side only** in the UI, and per SHIP rather than a pooled fleet budget — see §3.8 for the reading. |
+| **10B** ✅ | EW Detector, late allocation (§3.8) — **DONE 2026-09-10** | **210 checks green across three throwaway harnesses** — 50 server, 135 client, 25 tooltip-menu — covering the pool and its two sources, the clamp, the phase window, the diff in all six refusal modes, `submitLateEw` end to end against a recording DBManager (budget clamp, all-or-nothing Disruption, idempotence, wrong phase, another player's ship, and the no-detector fast path proving it never loads gamedata at all), the derived-bookkeeping invariant, both gates with Initial Orders asserted unchanged, the real `AssignOEW`/`assignEW`/`deassignEW`/`removeEW` paths end to end, and the menu split proved lossless **by object identity** with the null-selection case asserted. `checkShipData.php` PASS, 0 new findings; replay harness 119 passed / 4 failed, **byte-identical with timings normalised** to the same run with the six server files stashed — zero drift on all five checks, `masking` and `snapshot` included. ⭐⭐ **User ruling R1 deleted the hard half of this stage**: "end of the movement segment" is the start of Pre-Firing (or of Firing), so there is nothing to DECLARE — the allowance is simply recomputed at the post-movement hex and a ship that drifted out of range finds it is zero. ⭐⭐ **The bookkeeping is one derived number and two bounds** — `spent = pool − getEWLeft()`, upper bound the budget, lower bound what stops an Initial Orders allocation being taken back — no snapshot, no per-entry marking. ⭐ **User ruling R2**: the point comes out of the unspent DEW pool alone, so the allowance is `min(ladder, pool)` and a ship that spent everything on non-DEW types saves nothing. ⚠️ The write is **additive by the shape of the diff**, raises existing rows rather than duplicating them (`getEWbyType` reads the first, `getOEW` sums), and is idempotent. ⚠️ The EW buttons are **reused verbatim** from the Initial Orders menu behind ONE menu-level gate. ⚠️ Masking verdict and its one residual (a deliberate mid-phase page reload) recorded in §3.8.
+| **11** | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged | Five independent items, each provable on its own. A Pathfinder fleet passes/fails the 50% bracket at the right cap on **both** copies of the fleet check; no 10%/33% verdict moves across the hull corpus; the SCT course still marks its manoeuvre, head and named-unit hexes with no text; the EDM cannot be clicked as a target and its field, its overlay and every area effect over its hex are unchanged; the faction page renders with a TOC entry; and a freshly created Wanderer opens turn 1 with its Lightning Array and Chromatic Pulse Driver at full charge while a Traveler's do not (§3.10e). |
 | **12** | Mapmaker Electronic Warfare (§3.11) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
 | **13** | Mapmaker Jump Engine (§3.12) | One jump point per flight however many craft declare; the second declaration refused by the existing one-vortex-per-shooter rule; 10 turns of recharge read from `$delay`; the flight leaves through its own vortex and is recorded as jumped. |
 | **14** | `MedLightningArrayFtr` (§3.13) — **control sheet in hand (D24)** | 3 and 6 combine, 1/2/4/5 do not; damaged craft excluded; the two Mapmaker weapons cannot be mixed in one flight in one turn, refused on both sides of the wire; the Array locks on with flight EW while the Pulsar keeps its offensive bonus **plus** any OEW (D25); both stat profiles written out independently (the flat +12 does not double); `loadingtime = 4`, able to fire combined on turn 1; no flash collateral inside ANY Energy Draining Field, inherited free from Stage 4 (D26); and the combined shot counted as ONE discharge by `Firing::automateIntercept`. |
-| **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
+| **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
 | **16** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
 | **17** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
 | **18** | Traveler jump drive (§3.17) | The unit still on the board through Pre-Firing and Firing, firing normally, gone at end of turn; every enemy order naming it refused **server-side**; no failure roll while in use but a completely destroyed drive still cancelling; the d100 still drawn; replay corpus byte-identical on games without a Walker. |

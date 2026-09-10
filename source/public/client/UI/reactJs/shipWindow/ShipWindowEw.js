@@ -31,6 +31,7 @@ const EW_LABEL_COLORS = {
     'DIST': '#e6b98f',              //soft orange
     'SOEW': theme.colors.text,        //soft orange
     'OEW_HOSTILE': '#e49b9b',       //soft red - pseudo-label, see ewLabelColor
+    'Saved EW': '#e0d39a',          //soft gold - the EW Detector allowance (WALKERS_OF_SIGMA_PLAN.md 3.8)
 };
 
 /*OEW is the one CONTEXTUAL label (user request 2026-07-23): it keeps the green while the
@@ -328,6 +329,44 @@ const getShipRows = (ship, component) => {
 
     if (detectSEW) {
         list.push(<Row key={`DetectSEW-scs-${ship.id}`}><RowLabel $color={ewLabelColor('Detect Stealth')}>Detect Stealth</RowLabel><RowValue>{formatEW(detectSEW)}</RowValue></Row>);
+    }
+
+
+    /*WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.8, Stage 10A) - EW points this unit may HOLD
+      BACK from Initial Orders and spend as late as the end of the Movement segment, granted by
+      friendly EW Detectors in range. Last in the list because it is an ALLOWANCE rather than an
+      allocation: every row above it is EW that has been spent.
+
+      ⚠️ OWN SIDE ONLY, and deliberately - the same ruling the stealth-toggle forecast carries.
+      The number is a live read of where FRIENDLY detectors are, so rendering it on an enemy hull
+      would answer "how many EW Detectors cover this hex" for a fleet the viewer is not in.
+      isPlayerInGame() guards the observer case, who has no side and therefore sees no row.
+
+      ⚠️ SUPPRESSED WHEN THE ALLOWANCE IS ZERO - which is not the same as "when the value is zero".
+      A fleet with no detector is every game in the corpus but a handful, and a permanent
+      "Saved EW 0" line on all of them is noise; but a unit that has SPENT its whole allowance in
+      the late window still has an allowance, and the row disappearing at the moment it is used up
+      would read as the feature breaking.
+
+      ⭐ STAGE 10B - THE VALUE CHANGES MEANING WITH THE PHASE, and the "n / total" form is what says
+      so. During Initial Orders and Movement there is nothing to spend it on yet, so the row is a
+      forecast and shows the allowance alone. Once the Pre-Firing/Firing window opens it becomes a
+      budget, and the player needs to see what is LEFT beside what they started with.
+
+      ⚠️ THE FORECAST TRACKS THE PLAYER'S OWN CLICKING, which is what the user asked for: the
+      allowance is the ladder clamped by the UNSPENT pool (ew.getSavedEwPool), so a ship that has
+      just put its last point into OEW watches this row fall to zero rather than promising a saved
+      point it can no longer keep.*/
+    if (gamedata.isPlayerInGame() && gamedata.isMyorMyTeamShip(ship)) {
+        const savedEW = ew.getSavedEwAllowance(ship);
+        if (savedEW > 0) {
+            const spendable = ew.isLateEwWindowOpen(ship) || (ew.isLateEwPhase() && gamedata.isMyShip(ship));
+            const value = spendable
+                ? `${formatEW(ew.getLateEwRemaining(ship))} / ${formatEW(savedEW)}`
+                : formatEW(savedEW);
+
+            list.push(<Row key={`savedew-scs-${ship.id}`}><RowLabel $color={ewLabelColor('Saved EW')}>Saved EW</RowLabel><RowValue>{value}</RowValue></Row>);
+        }
     }
 
     return list;

@@ -25,7 +25,36 @@ window.ShipTooltipFireMenu = function () {
 	];
 
     ShipTooltipFireMenu.prototype.getAllButtons = function () {
-        return ShipTooltipFireMenu.buttons.concat(ShipTooltipMenu.prototype.getAllButtons.call(this));
+        var buttons = ShipTooltipFireMenu.buttons;
+
+        /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.8, Stage 10B) - THE LATE EW WINDOW.
+           An EW Detector lets every friendly unit in range hold one or more EW points back from
+           Initial Orders and allocate them "as late as the end of the movement segment", which in FV
+           is the start of Pre-Firing (or of Firing, when there is no Pre-Firing). This menu serves
+           both phases, so the whole EW button set is borrowed from the Initial Orders menu rather
+           than copied - see the note on ShipTooltipInitialOrdersMenu.ewButtons.
+
+           ⚠️ ONE GATE, AT THE MENU LEVEL, NOT TWENTY CONDITIONS. The button objects are SHARED with
+           the Initial Orders menu, so a phase condition added to them there would also apply there.
+           isLateEwWindowOpen answers the whole question: right phase, my ship, not yet committed,
+           and an allowance that is actually worth something (ladder ∩ unspent DEW).
+
+           ⚠️ this.selectedShip is ROUTINELY null here (see the ⭐ on FirePhaseStrategy.targetShip),
+           and isLateEwWindowOpen answers false for it rather than throwing - which matters, because
+           ONE throwing condition takes the entire tooltip down, Open Ship Details included.
+
+           ⚠️ Guarded on the class existing at all: this file and shipTooltipInitialOrdersMenu.js are
+           separate script tags and only document order puts them in sequence.
+
+           The buttons go FIRST, matching where they sit in the Initial Orders menu, so a player who
+           has used them all game finds them in the same place. */
+        if (window.ShipTooltipInitialOrdersMenu
+            && ShipTooltipInitialOrdersMenu.ewButtons
+            && window.ew && ew.isLateEwWindowOpen(this.selectedShip)) {
+            buttons = ShipTooltipInitialOrdersMenu.ewButtons.concat(buttons);
+        }
+
+        return buttons.concat(ShipTooltipMenu.prototype.getAllButtons.call(this));
     };
 
     // Per-craft box cost helpers — canonical bodies live in HangarShared

@@ -67,7 +67,18 @@ class Waymarker extends HeavyCombatVessel{
 		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 300, 60));				
 		$this->addFrontSystem(new EnergyDrainingMine(6, 0, 0, 0, 120));				
 		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 240, 360));
-		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120));		
+		$this->addFrontSystem(new ChromaticPulseDriver(6, 0, 0, 0, 120));
+
+		//STAGE 10A: EW Detector. Args are (armour, maxhealth, powerReq, range);
+		//0 for health/power/range takes the CONTROL SHEET values in baseSystems.php - health 20,
+		//power 6, range 20 hexes.
+		//⚠️ NO ARCS. The detector declares 0..360 in its own constructor (it is omnidirectional),
+		//which is also what keeps addSystem() from stamping the FRONT section's arc onto it
+		//(arch_addsystem_section_arc_trap).
+		//⚠️ ONE detector grants an allowance of 1 saved EW point to every friendly unit within 20
+		//hexes. Testing the degrading ladder needs FOUR Waymarkers for the first bracket and NINE
+		//to reach the quarter-point one - see EW::savedEwAllowanceFromDetectors.
+		$this->addFrontSystem(new EWDetector(6, 0, 0, 0));		
 
 
 		$this->addAftSystem(new MediumLightningArray(6, 0, 0, 120, 240));
@@ -100,7 +111,7 @@ class Waymarker extends HeavyCombatVessel{
 				3 => "Thruster",
 				6 => "Medium Lightning Array",
 				8 => "Energy Draining Mine",
-				//10 => "EW Detector",								
+				10 => "Electronic Warfare Detector",
 				12=> "Chromatic Pulse Driver",
 				18 => "Structure",
 				20 => "Primary",

@@ -9,7 +9,27 @@ window.ShipTooltipInitialOrdersMenu = function () {
 
     ShipTooltipInitialOrdersMenu.prototype = Object.create(ShipTooltipMenu.prototype);
 
-    ShipTooltipInitialOrdersMenu.buttons = [
+    /* ⭐⭐ THE EW ALLOCATION BUTTONS ARE A NAMED SUBSET, because Stage 10B reuses them VERBATIM in
+       the Pre-Firing and Firing menus (WALKERS_OF_SIGMA_PLAN.md 3.8). An EW Detector lets a fleet
+       hold a point back from Initial Orders and spend it at the end of Movement, and "spend it"
+       means exactly these buttons - so the alternative was a second copy of twenty entries and
+       their fifteen condition helpers in shipTooltipFireMenu.js, which would rot the first time
+       one of them changed.
+
+       ⚠️ THE SUBSET STOPS BEFORE removeAllEW, and that omission is deliberate rather than tidy:
+       "Remove All EW" clears the whole turn, Initial Orders allocations included, and those are
+       committed rows the late window cannot un-write (EW::diffLateEw takes positive deltas only).
+       ew.removeEW refuses outside phase 1 for the same reason; leaving the button out of the late
+       menu is what stops the player finding a control that silently does nothing.
+
+       ⚠️ Every entry below reads this.selectedShip / this.targetedShip and nothing else off the
+       menu, which is what makes them portable - ShipTooltipFireMenu has both. None touches
+       this.hexagon, which only this class carries.
+
+       ⚠️ NO EXTRA PHASE CONDITION IS ADDED TO THESE ENTRIES. The gate is one test at the MENU
+       level (ShipTooltipFireMenu.getAllButtons), because these objects are SHARED between the two
+       menus - pushing a condition into them here would push it into Initial Orders too. */
+    ShipTooltipInitialOrdersMenu.ewButtons = [
         { className: "addCCEW", condition: [isSelf, notFlight, notMine], action: addCCEW, info: "Add CCEW (right-click: max)", supportsMaxClick: true },
         { className: "removeCCEW", condition: [isSelf, notFlight, notMine], action: removeCCEW, info: "Remove CCEW (right-click: clear)", supportsMaxClick: true },
         { className: "addOEW", condition: [notSelf, isEnemyEW, sourceNotFlight], action: getAddOEW('OEW'), info: "Add OEW (right-click: max)", supportsMaxClick: true },
@@ -33,6 +53,9 @@ window.ShipTooltipInitialOrdersMenu = function () {
         { className: "removeBDEW", condition: [isSelf, isElint, notFlight, doesNotHaveOtherElintEWThanBDEW], action: removeBDEW, info: "Remove BDEW (right-click: clear)", supportsMaxClick: true },
         { className: "addDetectSEW", condition: [isSelf, isElint, notFlight, doesNotHaveBDEW, enemyStealth], action: addDetectSEW, info: "Add Detect Stealth (right-click: max)", supportsMaxClick: true },
         { className: "removeDetectSEW", condition: [isSelf, isElint, notFlight, doesNotHaveBDEW, enemyStealth], action: removeDetectSEW, info: "Remove Detect Stealth (right-click: clear)", supportsMaxClick: true },
+    ];
+
+    ShipTooltipInitialOrdersMenu.buttons = ShipTooltipInitialOrdersMenu.ewButtons.concat([
         { className: "removeAllEW", condition: [isSelf, notFlight, notMine], action: removeAllEW, info: "Remove All EW" },
         { className: "targetWeapons", condition: [isEnemy, hasShipWeaponsSelected], action: targetWeapons, info: "Target selected weapons on ship" },
         { className: "targetWeaponsHex", condition: [hasOrderSource, hasHexWeaponsSelected], action: targetHexagon, info: "Target selected weapons on hexagon" },
@@ -61,7 +84,7 @@ window.ShipTooltipInitialOrdersMenu = function () {
            same shape the two mutually-exclusive buttons above already have. */
         { className: "signalJumpGateArrival", condition: [isJumpGate, canSignalGateForArrival, noGateSignalYet], action: signalJumpGateForArrival, info: "Signal Gate for Arrival" },
         { className: "cancelJumpGateSignal", condition: [isJumpGate, hasGateSignal], action: cancelJumpGateSignal, info: "Cancel Gate Signal" }
-    ];
+    ]);
 
 
     ShipTooltipInitialOrdersMenu.prototype.getAllButtons = function () {

@@ -1141,6 +1141,7 @@ spl_autoload_register(
                 'ew' => '/server/handlers/EW.php',
                 'ewdefenselaser' => '/server/model/weapons/customEscalation.php',
                 'ewdefenselaser2' => '/server/model/weapons/customEscalation.php',
+                'ewdetector' => '/server/model/systems/baseSystems.php',
                 'ewduallaserbolt' => '/server/model/weapons/customEscalation.php',
                 'ewdualrocketlauncher' => '/server/model/weapons/customEscalation.php',
                 'ewearlyrailgun' => '/server/model/weapons/customEscalation.php',
