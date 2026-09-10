@@ -28,6 +28,8 @@ class Pathfinder extends MediumShip{
         $this->pivotcost = 2;
 		$this->iniativebonus = 14 *5;
 
+		$this->fighters = array("Mapmaker Probes"=>6);		
+
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');
 		

@@ -31,6 +31,8 @@ class Guideship extends MediumShip{
 
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');
+
+		$this->fighters = array("Mapmaker Probes"=>6);			
 		
          
 		$this->addPrimarySystem(new Reactor(6, 12, 0, 0));//armor, structure, power req, output
