@@ -1944,16 +1944,29 @@ window.gamedata = {
             var EWRestrictedIncorrect = [];//RestrictedEW critical circumvented
             var EWLCVIncorrect = [];//LCV set too many EW to tasks other than OEW
             for (var shipID in myShips) {
-                if (!myShips[shipID].flight) {
-                    if (ew.convertUnusedToDEW(myShips[shipID]) != true) {
-                        EWIncorrect.push(myShips[shipID]);
+                /* ⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12): a Mapmaker's
+                   unspent flight EW has to become DEW at the commit exactly as a ship's does -
+                   and the gate that stopped that was HERE, at the call site, not only inside
+                   convertUnusedToDEW. The other two checks stay ship-only: checkRestrictedEW is
+                   about a C&C critical no flight can have, and checkLCVSensors about an LCV
+                   trait no flight carries. */
+                if (myShips[shipID].flight) {
+                    if (ew.isFlightEwPool(myShips[shipID])) {
+                        if (ew.convertUnusedToDEW(myShips[shipID]) != true) {
+                            EWIncorrect.push(myShips[shipID]);
+                        }
                     }
-                    if (ew.checkRestrictedEW(myShips[shipID]) != true) {
-                        EWRestrictedIncorrect.push(myShips[shipID]);
-                    }
-                    if (ew.checkLCVSensors(myShips[shipID]) != true) {
-                        EWLCVIncorrect.push(myShips[shipID]);
-                    }
+                    continue;
+                }
+
+                if (ew.convertUnusedToDEW(myShips[shipID]) != true) {
+                    EWIncorrect.push(myShips[shipID]);
+                }
+                if (ew.checkRestrictedEW(myShips[shipID]) != true) {
+                    EWRestrictedIncorrect.push(myShips[shipID]);
+                }
+                if (ew.checkLCVSensors(myShips[shipID]) != true) {
+                    EWLCVIncorrect.push(myShips[shipID]);
                 }
             }
 

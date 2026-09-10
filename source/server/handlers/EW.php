@@ -74,6 +74,88 @@
 				
 		}
         
+		/* ==========================================================================================
+		   WALKERS OF SIGMA-957 - MAPMAKER ELECTRONIC WARFARE (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12)
+		   Client mirror: ew.getFlightEwCapacity / ew.getFlightEwLeft in public/client/ew.js.
+		   ⚠️ MIRROR SET - a change to any one of these is a change to its twin.
+
+		   ⭐⭐ WHY THIS IS NOT A BRANCH INSIDE getScannerOutput(), which is where the plan first put it.
+		   getScannerOutput() has three other callers and each of them would have inherited a meaning it
+		   was never asked for: getUnspentEw() would let the EW Detector's saved point be drawn out of a
+		   flight's OEW pool AND would count its "Detect Mines" entries (bought with Offensive Bonus,
+		   not with EW) as spending it; the Chameleon plausibility ceiling is about hulls; and
+		   JumpEngine::rollExitDeviation reads it as a SENSOR RATING, so a Mapmaker's jump-point exit
+		   scatter would silently change the day Stage 13 gives it a Jump Engine. A separate function
+		   with one caller has none of that reach, and the gate stays exactly one property read.
+		   ========================================================================================== */
+
+		/* THE POOL, or 0 for every flight in the game but MapmakerProbes - and 0 for every SHIP, which
+		   is deliberate: a ship's pool is its scanner output and is asked for elsewhere. */
+		public static function getFlightEwCapacity($ship){
+			if (!($ship instanceof FighterFlight)) return 0;
+
+			return max(0, (int)$ship->ewCapacity);
+		}
+
+		/* WHAT IS LEFT OF IT. Counts OEW rows only, mirroring the ship-side rule that DEW is the
+		   REMAINDER rather than an allocation (which is what makes convertUnusedToDEW idempotent).
+		   ⚠️ "Detect Mines" rows are NOT counted. They come out of the flight's Offensive Bonus, which
+		   is the other pool - see FighterFlight::$ewCapacity. */
+		public static function getFlightEwLeft($ship, $turn){
+			$capacity = self::getFlightEwCapacity($ship);
+			if ($capacity <= 0) return 0;
+
+			$used = 0;
+			foreach ($ship->EW as $entry){
+				if ($entry->turn != $turn) continue;
+				if ($entry->type !== "OEW") continue;
+				$used += (int)$entry->amount;
+			}
+
+			return $capacity - $used;
+		}
+
+		/* ⭐ THE ONLY THING STANDING BETWEEN A TAMPERED CLIENT AND UNLIMITED FIGHTER OEW (3.11 item 6).
+		   EW::validateEW() returns true unconditionally - the ship-side budget check was disabled years
+		   ago for Constrained ELINT hulls - so a flight-only clamp here is the whole of the server's
+		   enforcement. Called from InitialOrdersGamePhase::process immediately before submitEW(), on the
+		   POST-side ship, so what is clamped is what gets written.
+
+		   ⚠️ IT RUNS ON EVERY FLIGHT, NOT ONLY ON THE ONES WITH A POOL, and that is the point: an
+		   ORDINARY flight's capacity is 0, so every OEW/DEW row it carries is dropped. Gating on
+		   ewCapacity > 0 would have left the tamper hole open for exactly the 99% of flights that
+		   should never have had a row in the first place. A flight's EW array holds at most a couple of
+		   entries, so the loop is cheaper than the property read the plan budgeted for.
+
+		   ⚠️ POSTED ORDER IS SPEND ORDER, and it favours OEW by construction: the client pushes each
+		   OEW row as the player creates it and appends the DEW remainder last, at commit. So an
+		   over-budget array loses its DEW first, which is the same answer the client's own arithmetic
+		   would have given.
+
+		   ⚠️ EVERY OTHER TYPE IS LEFT ALONE. "Detect Mines" is the flight's Offensive Bonus being spent
+		   and has nothing to do with this pool; touching it here would break every ordinary flight's
+		   mine detection. */
+		public static function clampFlightEw($ship, $turn){
+			if (!($ship instanceof FighterFlight)) return;
+
+			$remaining = self::getFlightEwCapacity($ship);
+			$kept = array();
+
+			foreach ($ship->EW as $entry){
+				if ($entry->turn != $turn){ $kept[] = $entry; continue; }
+				if ($entry->type !== "OEW" && $entry->type !== "DEW"){ $kept[] = $entry; continue; }
+
+				$allowed = min(max(0, (int)$entry->amount), $remaining);
+				if ($allowed <= 0) continue;                 //dropped entirely - no zero rows in tac_ew
+
+				$entry->amount = $allowed;
+				$remaining -= $allowed;
+				$kept[] = $entry;
+			}
+
+			$ship->EW = $kept;
+		}
+
     public static function getBlanketDEW($gamedata, $target)
         {
             $FDEW = 0;
@@ -365,6 +447,11 @@
 				return max(0, (int)$entry->amount);      //committed row - authoritative
 			}
 
+			/* Stage 12: a FLIGHT's unspent EW is its flight pool, never getScannerOutput() - which
+			   returns 0 for a flight here and, if it ever stopped doing so, would be answering about
+			   the mine-detection allowance instead. ⚠️ MIRROR PAIR with ew.getUnspentEwLive (JS). */
+			if ($ship instanceof FighterFlight) return max(0, self::getFlightEwLeft($ship, $turn));
+
 			$output = (int)self::getScannerOutput($ship, $turn);
 			return max(0, $output - (int)$ship->getAllEWExceptDEW($turn));
 		}
@@ -394,6 +481,12 @@
 			if ($detectors === null) $detectors = self::collectEwDetectors($gamedata, $turn);
 			if (empty($detectors)) return 0;
 
+			/* ⭐ FLIGHTS ARE IN (user ruling 2026-09-10: "the effect applies to all Walker units").
+			   No test for one is needed and none is wanted: the ladder is a question about POSITION, and
+			   getSavedEwAllowance() then clamps it by what the unit actually has left to hold back. An
+			   ordinary flight has no EW pool at all, so that clamp answers 0 for it without this
+			   function ever having to know what a flight is - which is why the Mapmaker is the only
+			   flight in the game this reaches. */
 			if ($ship->isDestroyed()) return 0;
 			if ($ship->isReinforcement()) return 0;
 			if (!isset($ship->team)) return 0;

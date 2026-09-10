@@ -17,8 +17,16 @@ class MapmakerProbes extends FighterFlight{
 		/*Vorlons use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerFighter');
 
+		/* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - the ONE flight in the
+		   game with an EW pool. 3 points per FLIGHT per turn, split freely between OEW and DEW,
+		   exactly as a ship spends its scanner output (D11: "like a ship", and every EW path in FV
+		   spends one per-unit pool - a 6-craft flight does not get 18). Unspent points become DEW at
+		   the Initial Orders commit, again exactly as a ship's do.
+		   See FighterFlight::$ewCapacity for why this is the whole gate. */
+		$this->ewCapacity = 3;
+
 		$this->notes = "Does not require hangar space.";		
-		$this->notes .= "Can use EW.";
+		$this->notes .= "Can use up to 3 EW points per turn (OEW and/or DEW).";
 		
 		$this->forwardDefense = 5;
 		$this->sideDefense = 8;

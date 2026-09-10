@@ -49,6 +49,101 @@ window.ew = {
         return ret > 0 ? ret : 0;
     },
 
+    /* ==========================================================================================
+       WALKERS OF SIGMA-957 - MAPMAKER ELECTRONIC WARFARE (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12)
+       Server mirror: EW::getFlightEwCapacity / EW::getFlightEwLeft in server/handlers/EW.php.
+       ⚠️ MIRROR SET - a change to any one of these is a change to its twin.
+
+       ⭐⭐ TWO POOLS, AND THE NAME COLLISION THAT WOULD OTHERWISE BITE. getScannerOutput() ALREADY
+       has a flight branch, immediately above, and it answers a DIFFERENT QUESTION: floor(OB / 2)
+       (full OB for a minesweeper) as the MINE-DETECTION allowance, which assignEW then spends on
+       "Detect Mines" entries - and getEWLeft() is measured against it by every assign path.
+       Adding 3 to that one number would let an ordinary fighter spend its mine-detection allowance
+       on OEW AND let a Mapmaker spend its OEW pool on mine detection, in both directions and
+       silently. So getScannerOutput() is left exactly as it was and the OEW/DEW paths consult
+       these instead.
+       ========================================================================================== */
+
+    /* THE POOL. 0 for every flight in the game but the Mapmaker Sensor Probes, and 0 for every
+       ship (a ship's pool is its scanner output). ship.ewCapacity rides the STATIC BLUEPRINT - see
+       FighterFlight::$ewCapacity - so on a blueprint that predates Stage 12 it is undefined, and
+       undefined fails the > 0 test, which is the wanted answer. */
+    getFlightEwCapacity: function getFlightEwCapacity(ship) {
+        if (!ship || !ship.flight) return 0;
+
+        var capacity = parseInt(ship.ewCapacity, 10);
+        return capacity > 0 ? capacity : 0;
+    },
+
+    /* THE GATE, spelled as a predicate because it reads better at the sites that ask it. */
+    isFlightEwPool: function isFlightEwPool(ship) {
+        return ew.getFlightEwCapacity(ship) > 0;
+    },
+
+    /* Which EW types come out of the flight pool rather than out of the Offensive Bonus. Exactly
+       two: OEW is what a Mapmaker allocates, DEW is what the remainder becomes at commit.
+       "Detect Mines" is deliberately absent - it is the OTHER pool. */
+    isFlightEwType: function isFlightEwType(type) {
+        return type === 'OEW' || type === 'DEW';
+    },
+
+    /* WHAT IS LEFT OF THE POOL. Counts OEW rows only, mirroring the ship-side rule that DEW is the
+       REMAINDER rather than an allocation - which is what lets convertUnusedToDEW rewrite the DEW
+       row on every commit without the number drifting.
+       ⚠️ MIRROR PAIR with EW::getFlightEwLeft (PHP). */
+    getFlightEwLeft: function getFlightEwLeft(ship) {
+        var capacity = ew.getFlightEwCapacity(ship);
+        if (capacity <= 0) return 0;
+
+        var used = 0;
+        for (var i in ship.EW) {
+            var entry = ship.EW[i];
+            if (entry.turn != gamedata.turn) continue;
+            if (entry.type !== 'OEW') continue;
+            used += entry.amount;
+        }
+
+        return capacity - used;
+    },
+
+    /* THE ONE QUESTION EVERY ALLOCATION PATH ASKS: how much may this unit still spend on an entry
+       of this type? For a ship, and for a flight's mine detection, that is the long-standing
+       getEWLeft(). For a Mapmaker's OEW/DEW it is the flight pool, which is a different budget
+       entirely - see the block comment above. `type` is a string; the callers hold either a type
+       literal or an EW entry object, so they resolve it before calling.
+
+       ⚠️⚠️ THE FLIGHT TEST IS `ship.flight`, NOT `isFlightEwPool`, AND THAT IS THE WHOLE POINT.
+       On ANY flight, OEW and DEW come out of the flight pool - and an ordinary flight's pool is
+       0, so it can never allocate either. Asking isFlightEwPool here instead would fall through
+       to getEWLeft() for an ordinary flight, which answers with its MINE-DETECTION allowance, and
+       a Kotha would happily buy 2 points of OEW with the Offensive Bonus it was supposed to be
+       spending on mine detection. No button offers that today (sourceCanAllocateOEW refuses a
+       flight without a pool) and EW::clampFlightEw drops it server-side either way - but the
+       two-pool rule has to hold HERE, where the arithmetic is, not only at the two places that
+       currently happen to guard it. */
+    getEwLeftFor: function getEwLeftFor(ship, type) {
+        if (ship && ship.flight && ew.isFlightEwType(type)) return ew.getFlightEwLeft(ship);
+
+        return ew.getEWLeft(ship);
+    },
+
+    /* A FLIGHT'S DEFENSIVE EW, and the mirror of the server's FighterFlight::getDEW().
+
+       ⚠️ THE COMMITTED ROW WINS AND THE LIVE REMAINDER IS THE FALLBACK - the same two-step
+       ew.getSavedEwPool() uses, and for the same reason: convertUnusedToDEW writes the row inside
+       doCommit, so during Initial Orders there is nothing listed and the remainder IS the answer,
+       which is what makes the flight window's DEW figure track the player's clicking.
+       ⚠️ NOT getDefensiveEW(), which is an alias for getEWLeft() and would answer with the
+       flight's MINE-DETECTION allowance. */
+    getFlightDEW: function getFlightDEW(ship) {
+        if (!ew.isFlightEwPool(ship)) return 0;
+
+        var listed = ew.getListedDEW(ship);
+        if (listed === null || listed === undefined) return Math.max(0, ew.getFlightEwLeft(ship));
+
+        return Math.max(0, listed);
+    },
+
     isTargetDistByOtherElint: function isTargetDistByOtherElint(elint, target) {
         for (var i in gamedata.ships) {
             var ship = gamedata.ships[i];
@@ -178,10 +273,17 @@ window.ew = {
     },
 
     convertUnusedToDEW: function convertUnusedToDEW(ship) {
-        if (ship.flight) return false;
+        /* Stage 12 (3.11): a Mapmaker's unspent points become DEW the way a ship's do - which is
+           the whole of "3 OEW or DEW per turn, like a ship", since nothing allocates flight DEW
+           explicitly. Every OTHER flight is still refused outright, and that refusal is
+           load-bearing beyond this function: EW::hasCommittedDewRow() - the EW Detector's
+           saved-point gate - asks whether a unit has a DEW row at all. See the explicit flight
+           guard Stage 12 had to add to EW::getDetectorAllowance once one flight class started
+           getting one. */
+        if (ship.flight && !ew.isFlightEwPool(ship)) return false;
 
         //var dew = ew.getScannerOutput(ship) - ew.getUsedEW(ship);
-        var dew = ew.getEWLeft(ship);
+        var dew = ship.flight ? ew.getFlightEwLeft(ship) : ew.getEWLeft(ship);
         if (dew < 0) {
             //return flag that something is wrong with EW
             return false;
@@ -250,10 +352,18 @@ window.ew = {
 
     /*returns real amount of EW points free to allocate - by free to allocate DEW or unallocated are understood*/
     getEWLeft: function getEWLeft(ship) {
+        /* Stage 12 (3.11): on a Mapmaker this function still answers about the MINE-DETECTION
+           pool, so its OEW rows - spent out of the separate flight EW pool - must not count as
+           having used any of it. Without this, allocating OEW would silently shrink the flight's
+           mine-detection allowance, which is exactly the cross-contamination the two-pool split
+           exists to prevent. One property read on every other unit in the game. */
+        var isFlightEwUnit = ew.isFlightEwPool(ship);
+
         var usedEW = 0;
         for (var i in ship.EW) {
             var entry = ship.EW[i];
             if (entry.turn != gamedata.turn) continue;
+            if (isFlightEwUnit && ew.isFlightEwType(entry.type)) continue;
             if (entry.type != "DEW") {
                 usedEW += entry.amount;
             }
@@ -420,7 +530,10 @@ window.ew = {
             if (EWentry.type === type && EWentry.targetid === ship.id) return;
         }
         //var left = ew.getDefensiveEW(selected);
-        var left = ew.getEWLeft(selected);
+        //Stage 12 (3.11): a Mapmaker's OEW is budgeted against its 3-point flight pool, not
+        //against the mine-detection allowance getEWLeft() answers with for a flight. Every other
+        //unit in the game gets getEWLeft(), unchanged.
+        var left = ew.getEwLeftFor(selected, type);
 
         var mod = 0;
         if (shipManager.hasSpecialAbility(selected, "ConstrainedEW")) mod += 1;//Mindrider ships have less efficient ELINT abilities - DK 19.07.24.
@@ -435,7 +548,13 @@ window.ew = {
             return;
         }
 
-        if (!selected.osat) {
+        /* ⚠️ Stage 12 ADDED THE FLIGHT GUARD, and it is not caution. This path had never been
+           reachable for a flight (the OEW buttons all carried sourceNotFlight), and the else-if
+           below does hasCritical(getSystemByName(selected, "cnC"), ...) - which returns null on a
+           flight and then reads null.criticals, a TypeError. assignEW() has carried the same
+           !ship.flight guard for years for exactly this reason: the RestrictedEW critical lives on
+           a C&C, and no flight has one. */
+        if (!selected.osat && !selected.flight) {
             if (selected.base) {
                 var primary = shipManager.getPrimaryCnC(selected);
                 if (shipManager.criticals.hasCritical(primary, "RestrictedEW")) {
@@ -471,8 +590,14 @@ window.ew = {
     },
 
     assignEW: function assignEW(ship, entry) {
+        /* `entry` is a TYPE STRING for the self-EW types and an EW ENTRY OBJECT for the rest (the
+           increment paths), so the type has to be resolved defensively before it can be budgeted.
+           Stage 12 (3.11): on a Mapmaker an OEW/DEW increment is measured against the 3-point
+           flight pool and a "Detect Mines" increment against the Offensive Bonus, which is what
+           getEwLeftFor separates. Every other unit gets getEWLeft(), unchanged. */
+        var entryType = (typeof entry === 'string') ? entry : (entry && entry.type);
         //var left = ew.getDefensiveEW(ship);		
-        var left = ew.getEWLeft(ship);
+        var left = ew.getEwLeftFor(ship, entryType);
 
 
         if (left < 1) return;
@@ -924,6 +1049,12 @@ window.ew = {
         if (detectors === undefined || detectors === null) detectors = ew.collectEwDetectors();
         if (detectors.length === 0) return 0;
 
+        /* ⭐ FLIGHTS ARE IN (user ruling 2026-09-10: "the effect applies to all Walker units").
+           No test for one is needed and none is wanted: the ladder is a question about POSITION,
+           and getSavedEwAllowance() then clamps it by what the unit actually has left to hold
+           back. An ordinary flight has no EW pool at all, so that clamp answers 0 for it without
+           this function ever having to know what a flight is - which is why the Mapmaker is the
+           only flight in the game this reaches. */
         if (shipManager.isDestroyed(ship)) return 0;
         if (shipManager.getTurnDeployed(ship) > gamedata.turn) return 0;
         if (ship.team === undefined || ship.team === null) return 0;
@@ -959,11 +1090,23 @@ window.ew = {
        remainder IS the answer - which is what makes the panel's figure track their clicking in the
        phase where the user asked it to.
        ⚠️ MIRROR PAIR with EW::getUnspentEw (PHP), including that fallback. */
+    /* ⚠️ THE LIVE REMAINDER, FROM WHICHEVER POOL THIS UNIT ACTUALLY SPENDS (Stage 12).
+       For a ship that is getEWLeft() - scanner output minus everything not DEW. For a FLIGHT it
+       must be getFlightEwLeft(), because getEWLeft() answers about the flight's MINE-DETECTION
+       allowance, which has nothing to do with the EW a saved point is held back from. Every late
+       window sum below runs through here so the two can never drift apart. */
+    getUnspentEwLive: function getUnspentEwLive(ship) {
+        if (!ship) return 0;
+        if (ship.flight) return Math.max(0, ew.getFlightEwLeft(ship));
+
+        return Math.max(0, ew.getEWLeft(ship));
+    },
+
     getSavedEwPool: function getSavedEwPool(ship) {
         if (!ship) return 0;
 
         var listed = ew.getListedDEW(ship);
-        if (listed === null || listed === undefined) return Math.max(0, ew.getEWLeft(ship));
+        if (listed === null || listed === undefined) return ew.getUnspentEwLive(ship);
 
         return Math.max(0, listed);
     },
@@ -1011,7 +1154,9 @@ window.ew = {
     getLateEwSpent: function getLateEwSpent(ship) {
         if (!ship) return 0;
 
-        return Math.max(0, ew.getSavedEwPool(ship) - ew.getEWLeft(ship));
+        //getUnspentEwLive, not getEWLeft: on a flight the latter is the mine-detection pool and
+        //this subtraction would read a spend that never happened. See getUnspentEwLive.
+        return Math.max(0, ew.getSavedEwPool(ship) - ew.getUnspentEwLive(ship));
     },
 
     /* What is left of the allowance. */

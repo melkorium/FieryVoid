@@ -32,8 +32,12 @@ window.ShipTooltipInitialOrdersMenu = function () {
     ShipTooltipInitialOrdersMenu.ewButtons = [
         { className: "addCCEW", condition: [isSelf, notFlight, notMine], action: addCCEW, info: "Add CCEW (right-click: max)", supportsMaxClick: true },
         { className: "removeCCEW", condition: [isSelf, notFlight, notMine], action: removeCCEW, info: "Remove CCEW (right-click: clear)", supportsMaxClick: true },
-        { className: "addOEW", condition: [isTargetable, notSelf, isEnemyEW, sourceNotFlight], action: getAddOEW('OEW'), info: "Add OEW (right-click: max)", supportsMaxClick: true },
-        { className: "removeOEW", condition: [isTargetable,notSelf, isEnemyEW, sourceNotFlight], action: getRemoveOEW('OEW'), info: "Remove OEW (right-click: clear)", supportsMaxClick: true },
+        /* ⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12): sourceCanAllocateOEW
+           is sourceNotFlight PLUS the one flight class that has an EW pool. These are the only
+           two entries in the array that relax for a flight; DIST/SOEW/SDEW/BDEW/Detect Stealth
+           are ELINT functions and stay ship-only. */
+        { className: "addOEW", condition: [isTargetable, notSelf, isEnemyEW, sourceCanAllocateOEW], action: getAddOEW('OEW'), info: "Add OEW (right-click: max)", supportsMaxClick: true },
+        { className: "removeOEW", condition: [isTargetable,notSelf, isEnemyEW, sourceCanAllocateOEW], action: getRemoveOEW('OEW'), info: "Remove OEW (right-click: clear)", supportsMaxClick: true },
         { className: "addMDEW", condition: [isSelf, enemyMines], action: addMDEW, info: "Add Mine Detection (right-click: max)", supportsMaxClick: true },
         { className: "removeMDEW", condition: [isSelf, enemyMines], action: removeMDEW, info: "Remove Mine Detection (right-click: clear)", supportsMaxClick: true },
         { className: "addDIST", condition: [isTargetable,notSelf, isEnemyEW, isElint, notFlight, notMine, isInElintDistance(30), doesNotHaveBDEW, advSensorsCheck], action: getAddOEW('DIST'), info: "Add DIST (right-click: max)", supportsMaxClick: true },
@@ -150,18 +154,22 @@ window.ShipTooltipInitialOrdersMenu = function () {
         });
     }
 
+    /* Stage 12 (3.11): the max-click loops below spend until the POOL THIS TYPE COMES OUT OF is
+       empty, which on a Mapmaker is not the same pool for OEW as it is for mine detection.
+       ew.getEwLeftFor answers with getEWLeft() for every other unit in the game, so the two
+       loops are unchanged everywhere else. */
     function addSelfEW(ewType, isMaxClick) {
         do {
             var entry = ew.getEntryByTargetAndType(this.selectedShip, null, ewType, this.turn);
-            var before = ew.getEWLeft(this.selectedShip);
+            var before = ew.getEwLeftFor(this.selectedShip, ewType);
             if (!entry) {
                 ew.assignEW(this.selectedShip, ewType);
             } else {
                 ew.assignEW(this.selectedShip, entry);
             }
             if (!isMaxClick) return;
-            if (ew.getEWLeft(this.selectedShip) >= before) return;
-        } while (ew.getEWLeft(this.selectedShip) > 0);
+            if (ew.getEwLeftFor(this.selectedShip, ewType) >= before) return;
+        } while (ew.getEwLeftFor(this.selectedShip, ewType) > 0);
     }
 
     function removeSelfEW(ewType, isMaxClick) {
@@ -198,15 +206,15 @@ window.ShipTooltipInitialOrdersMenu = function () {
 
         do {
             var entry = ew.getEntryByTargetAndType(this.selectedShip, this.targetedShip, type, this.turn);
-            var before = ew.getEWLeft(this.selectedShip);
+            var before = ew.getEwLeftFor(this.selectedShip, type);
             if (!entry) {
                 ew.AssignOEW(this.selectedShip, this.targetedShip, type);
             } else {
                 ew.assignEW(this.selectedShip, entry);
             }
             if (!isMaxClick) return;
-            if (ew.getEWLeft(this.selectedShip) >= before) return;
-        } while (ew.getEWLeft(this.selectedShip) > 0);
+            if (ew.getEwLeftFor(this.selectedShip, type) >= before) return;
+        } while (ew.getEwLeftFor(this.selectedShip, type) > 0);
     }
 
     function getRemoveOEW(type) {
@@ -351,6 +359,23 @@ window.ShipTooltipInitialOrdersMenu = function () {
 
     function sourceNotFlight() {
         return (!this.selectedShip || !this.selectedShip.flight);
+    }
+
+    /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE ONE RELAXATION.
+       "Can use up to 3 OEW or DEW per turn, like a ship", for the Mapmaker Sensor Probes and
+       for nothing else in the game. ew.isFlightEwPool is one property read on the static
+       blueprint (ship.ewCapacity), so every other flight fails it as cheaply as sourceNotFlight
+       already did.
+
+       ⚠️ DO NOT REACH FOR notFlight() HERE, and do not relax that one. It refuses when the
+       TARGET is a flight as well, which is a separate and still-correct rule (you cannot point
+       an ELINT function at a fighter flight); this predicate is about the SOURCE only.
+
+       ⚠️ THERE IS NO DEW BUTTON, deliberately - there is none for a ship either. Unspent points
+       become DEW at the commit, in ew.convertUnusedToDEW, which Stage 12 opened to this one
+       flight class. */
+    function sourceCanAllocateOEW() {
+        return sourceNotFlight.call(this) || ew.isFlightEwPool(this.selectedShip);
     }
 
     function targetNotFlight() {

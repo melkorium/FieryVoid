@@ -50,6 +50,27 @@ class FighterFlight extends BaseShip
 		//dwell completes forfeits the regeneration entirely. See HangarOps::applyDockedRegeneration.
 	public $deploysInHangar = false; //Some fighters like HK's MUST deploy in Hangars
     public $minesweeper = false;
+	/* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - MAPMAKER ELECTRONIC WARFARE.
+	   "Can use up to 3 OEW or DEW per turn, like a ship. Mapmakers are the only fighter unit that
+	   need this, so we should make sure it has a simple gate to prevent unnecessary work for all
+	   other fighters."
+
+	   THE GATE IS THIS ONE PROPERTY, and it is 0 on every flight in the game but MapmakerProbes.
+	   Every branch Stage 12 adds - server and client - opens with a test on it, so an ordinary
+	   flight pays one falsy read per site and nothing else.
+
+	   Static blueprint property: it travels to the client on the static-ship JSON exactly as
+	   $minesweeper and $remoteControl do (the Ship constructor in model/ship.js copies every
+	   non-systems key of window.staticShips[faction][phpclass] onto the live unit), so it needs no
+	   stripForJson handling. Reachable as ship.ewCapacity in ew.js and weaponManager.
+
+	   TWO POOLS, NEVER ONE (3.11). A flight's OTHER EW number - the mine-detection allowance a
+	   fighter buys with its Offensive Bonus - is ew.getScannerOutput()/getOffensiveBonus and is
+	   deliberately untouched by this. Merging them would let an ordinary fighter spend mine
+	   detection on OEW and a Mapmaker spend its OEW pool on mine detection, in both directions and
+	   silently. EW::getFlightEwCapacity (handlers/EW.php) and ew.getFlightEwCapacity (ew.js) are
+	   the mirror pair that reads this one. */
+	public $ewCapacity = 0;
 	public $remoteControl = false; //true for remotely-controlled flights (Orieni Hunter-Killers); enables ELINT Jamming disruption.
 		//Static blueprint property: travels to client via static-ship JSON, no stripForJson handling needed.
 

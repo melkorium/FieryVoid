@@ -14,7 +14,7 @@ class Wanderer extends BaseShip{
         $this->shipSizeClass = 3; 
 		$this->factionAge = 3; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 		$this->occurence = 'Q'; //Unique
-		//$this->variantOf = "NONE";
+		$this->variantOf = "Traveler";
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  

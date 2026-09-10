@@ -38,6 +38,42 @@ import ShipInfo from "../system/ShipInfo";
   store blueprints open left, own-fleet ships right - the legacy lobby's
   userid == 0 split, resolved by ShipWindowManager.isLeftSide.*/
 
+/* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - the Mapmaker flight window's
+   two-column body: fighter icons on the left, the EW block top-right and OUTSIDE them, which is
+   where the user asked for it.
+
+   ⚠️ THE 400px CAP IS THE WHOLE POINT OF FlightFighterArea. FighterListContainer is
+   `width: 100%; flex-wrap: wrap`, so where it wraps is decided by whatever box it is given -
+   and it has always been given a 400px window. Capping the column at the same 400px (and
+   widening the WINDOW to make room for the panel instead) is what keeps a Mapmaker's icon grid
+   laid out identically to every other flight in the game rather than re-wrapping to fit.
+
+   ⚠️ `width: max-content` UNDER THAT CAP IS WHAT CLOSES THE GAP (user report 2026-09-10: "too
+   much margin to the left"). FighterListContainer is `justify-content: space-around`, so given a
+   flat 400px it SPREADS its icons across the whole of it - and a flight that does not fill the row
+   leaves dead space between its last icon and the EW panel. Sizing the column to its content first
+   and only then capping it gives space-around nothing to spread; a full row still wraps at exactly
+   400px, so nothing changes for a flight that fills it.
+
+   align-items: flex-start pins the panel to the TOP of the row - 'top-right' - rather than letting
+   it stretch down the height of the icon grid, and the body's padding is the small top and right
+   margin that keeps the panel off the window edge.*/
+const FLIGHT_MAX_WIDTH = 400;
+
+const FlightEwBody = styled.div`
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 4px 4px 0 0;
+`;
+
+const FlightFighterArea = styled.div`
+    flex: 0 1 auto;
+    min-width: 0;
+    width: max-content;
+    max-width: ${FLIGHT_MAX_WIDTH}px;
+`;
+
 const ShipWindowContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -51,11 +87,17 @@ const ShipWindowContainer = styled.div`
     }}
     width: ${props => {
         if (props.$variant === 'terrain') return '250px';
-        if (props.$variant === 'flight') return 'auto';
+        if (props.$variant === 'flight' || props.$variant === 'flightEw') return 'auto';
         return 'fit-content';
     }};
     max-width: ${props => {
         if (props.$variant === 'flight') return '400px';
+        /*WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12): the Mapmaker's flight
+          window carries an EW panel beside the icons. FLIGHT_MAX_WIDTH + the panel + the gap,
+          so the FighterList keeps the EXACT 400px it has always wrapped against - widening the
+          window rather than squeezing the icons is what keeps the fighter layout identical to
+          every other flight in the game.*/
+        if (props.$variant === 'flightEw') return '574px';
         if (props.$variant === 'flightLobby') return '620px'; /*FighterList + datasheet rail*/
         return 'unset';
     }};
@@ -102,6 +144,7 @@ const ShipWindowContainer = styled.div`
         width: ${props => props.$variant === 'terrain' ? '250px' : 'max-content'};
         max-width: ${props => {
         if (props.$variant === 'flight') return '400px';
+        if (props.$variant === 'flightEw') return '574px'; /*Stage 12 - see the desktop rule*/
         if (props.$variant === 'flightLobby') return '620px';
         return 'none';
     }};
@@ -1765,10 +1808,27 @@ class ShipWindow extends React.Component {
                     </ShipWindowContainer>
                 )
             }
+            /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12): the ONE flight
+               class in the game with an EW pool gets the ship EW block beside its icons. The
+               gate is a single static-blueprint property read (ship.ewCapacity), so every other
+               flight window renders byte-identically to before.
+               ⚠️ window.ew is guarded because this component ships in the LOBBY bundle too and
+               the lobby does not load ew.js. The lobby flight branch above returns before this
+               line today, so the guard is belt-and-braces - but it costs one property read and
+               it is what stops a future reshuffle of those two branches from throwing.*/
+            const withFlightEw = Boolean(window.ew && ew.isFlightEwPool(ship));
+
             return (
-                <ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant="flight">
+                <ShipWindowContainer ref={this.elementRef} onClick={shipWindowClicked} onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }} $isMyTeam={isMyTeam} $variant={withFlightEw ? "flightEw" : "flight"}>
                     {this.renderHeader(shipName, unitName, getHeaderTint(ship))}
-                    <FighterList ship={ship} />
+                    {withFlightEw
+                        ? (
+                            <FlightEwBody>
+                                <FlightFighterArea><FighterList ship={ship} /></FlightFighterArea>
+                                <ShipWindowEw ship={ship} flight />
+                            </FlightEwBody>
+                        )
+                        : <FighterList ship={ship} />}
                     {this.renderStatusStrip(ship)}
                 </ShipWindowContainer>
             )

@@ -5,9 +5,10 @@ second wave (Stages 11–19, added 2026-09-08) covering Mapmaker electronic warf
 Docking Bay and the two Walker jump drives. This document is the long-form record; update it as
 stages land.
 
-**Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06) and Stage 10 COMPLETE
+**Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06), Stage 10 COMPLETE
 (10A the EW Detector's allowance 2026-09-09, 10B late EW allocation 2026-09-10) - so the FIRST
-WAVE IS FINISHED. Stages 11–19 were added 2026-09-08 — housekeeping, the Mapmaker Sensor Probes' three abilities, the
+WAVE IS FINISHED - Stage 11 (housekeeping) COMPLETE, and STAGE 12 (Mapmaker Electronic Warfare)
+COMPLETE 2026-09-10, untested in play. Stages 13–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
 Traveler's Docking Bay / repair / power sharing, and the traveler and extra-dimensional jump
 drives.** Written 2026-09-02 after a full survey of the existing seams; re-surveyed 2026-09-08 for
 the second wave, whose rulings and control sheet arrived the same day (D11–D26; Q8–Q15 all answered).
@@ -3211,6 +3212,82 @@ ordinary fighter flight's mine-detection allowance is byte-identical before and 
 chance for a `useFlightEW` shot agrees server↔client across a differential corpus spanning
 OEW 0–3 × DEW 0–6; and the enemy sees none of it during Initial Orders.
 
+### 3.11a Stage 12 as BUILT (2026-09-10)
+
+Built as specified above, with **three deliberate departures** — each one a case where following
+the section as written would have changed behaviour it never meant to touch.
+
+**1. The server twin is NOT a branch in `EW::getScannerOutput`.** The section put it there; that
+function has three other callers and every one of them would have inherited a meaning nobody asked
+for. `EW::getUnspentEw` would let the EW Detector's saved point be drawn out of a flight's OEW pool
+*and* count its `"Detect Mines"` rows — bought with Offensive Bonus, not with EW — as spending it;
+the Chameleon plausibility ceiling (`getDisguisedDEWFor`) is a question about hulls; and
+`JumpEngine::rollExitDeviation` reads it as a **sensor rating**, so a Mapmaker's jump-point exit
+scatter would have silently changed the day Stage 13 gives it a Jump Engine. Instead:
+`EW::getFlightEwCapacity` / `EW::getFlightEwLeft`, one caller each, gate still one property read.
+
+**2. `getEWLeft` needed the split too, in BOTH other directions.** The section protects the
+mine-detection allowance from being spent on OEW; the two reverse leaks were not mentioned and are
+just as real.
+
+- `ew.getEWLeft` counts "everything that is not DEW" as used, so a Mapmaker holding 3 OEW would have
+  watched its mine-detection allowance fall from 4 to 1. One `continue` on the flight-EW types,
+  behind the same `ewCapacity` gate.
+- ⭐ **And `ew.getEwLeftFor` had to test `ship.flight`, not `isFlightEwPool`** — the Stage 12 client
+  harness caught this one. Falling through to `getEWLeft()` for an ordinary flight answers with its
+  MINE-DETECTION allowance, so `ew.AssignOEW(kotha, target, 'OEW')` cheerfully wrote 2 points of OEW
+  paid for out of the Offensive Bonus. No button offers that (`sourceCanAllocateOEW` refuses a
+  flight with no pool) and `EW::clampFlightEw` drops it server-side regardless — but the rule is
+  *OEW and DEW always come out of the flight pool, and an ordinary flight's pool is 0*, and it has
+  to hold where the arithmetic is rather than only at the two places that happen to guard it today.
+
+**3. ⚠️⚠️ THE EW DETECTOR HAD AN IMPLICIT FLIGHT GUARD, AND STAGE 12 REMOVED IT — then the user
+ruled that it SHOULD be gone.** Stage 10A/10B's saved-EW rule was never gated on `!flight`: it did
+not need to be, because `getSavedEwAllowance` is clamped by `getUnspentEw`, which wants a
+**committed DEW row**, and no flight had ever had one (`convertUnusedToDEW` returned early on every
+flight). A Mapmaker now has one, so the guard was gone by accident; it was reinstated explicitly,
+flagged, and then **removed again on the user's ruling the same day: *"the effect applies to all
+Walker units"* (2026-09-10).**
+
+⭐ **AND NOTHING TESTS FOR A FLIGHT ANYWHERE ON THAT PATH, which is the point.** The ladder
+(`getDetectorAllowance`) is a question about POSITION and answers for any unit in range;
+`getSavedEwAllowance` then clamps it by what the unit actually has left to hold back. An ordinary
+flight has no EW pool, so that clamp answers 0 for it — the Mapmaker is the only flight in the game
+this reaches, and it is reached by arithmetic rather than by a special case.
+
+The one thing that DID need writing is the pool the late window measures against. Stage 10B's
+`getSavedEwPool` / `getLateEwSpent` both derived from `getEWLeft`, which on a flight answers about
+the **mine-detection allowance** — so a Mapmaker holding 4 points of mine detection would have read
+as having already spent its saved point. One helper, `ew.getUnspentEwLive` (JS) and the matching
+`FighterFlight` branch in `EW::getUnspentEw` (PHP), is what both now go through. The flight window
+shares the ship's `Saved EW` row rather than copying it (`getSavedEwRow`).
+
+**And one trap the section could not have predicted.** `useFlightEW` is a public property on
+`Weapon`, and `MissileRack::stripForJson` **reflects every public property on `Weapon` onto every
+missile in every missile ship's payload** (`Ammo extends Weapon`). The replay corpus caught it
+immediately — game 4151, 36 differing paths, all `missileArray/*/useFlightEW: added (false)`. Fixed
+with a named `$unusedOnAmmo` exemption list on `MissileRack`, which is now the documented home for
+the next base-class flag that means nothing on a round. This is the same function
+`arch_public_static_on_weapon` warns about; the static case crashes, the instance case merely bloats.
+
+**Also built, and not in the section:** `weaponManager.computeBaseDefenceBreakdown` reads a
+**Mapmaker's own DEW** when a ship shoots at it (`if (!target.flight) dew = ...` answered 0 for every
+flight). The server has always read it — `$target->getDEW($turn)` works on a `FighterFlight` — so the
+two agreed only because no flight had ever had a DEW row. That is D12's other half, *"Mapmaker DEW
+works exactly the same as ship DEW"*, and without it a ship's preview disagrees with its own
+resolution. `computeBaseDefenceBreakdown` also now returns `defensiveEwBeforeWaiver`, because the
+fighter waiver zeroes DEW/BDEW/SDEW **before** `computeOEW` runs and the contested lock needs the
+pre-waiver total.
+
+**Harnesses.** `tests/replay/walkersStage12Harness.php` (26 assertions: the gate, the two pools, the
+server clamp incl. a tampered ordinary flight, what `getDEW`/`getOEW` then read, the detector guard)
+and `tests/replay/walkersStage12ClientHarness.js` (59 assertions, real `ew.js` + `weaponManager.js`
+in a VM: the same rules plus the **whole OEW 0–3 × DEW 0–6 lock-on grid** for both weapon kinds).
+Replay corpus back to its four known clean-tree failures (3676, 4249, 4297, 4325).
+
+**What Stage 14 now inherits.** `public $useFlightEW = false;` on `Weapon` and the two-row rule in
+`Weapon::calculateHitBase`; `MedLightningArrayFtr` sets the flag and nothing else.
+
 ### 3.12 The Mapmaker Jump Engine
 
 *"They also have their own Jump Engine system that works normally and has a recharge time of 10
@@ -3877,7 +3954,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **10A** ✅ | EW Detector, the allowance (§3.8) — **DONE 2026-09-09** | 77 server checks and 90 client checks green in a throwaway harness covering both ends, incl. a **41-count ladder differential** in which the JS reads back the table the PHP wrote (so both are compared over the same inputs, with the run asserting its own non-vacuity), the stage's 1/4/5/8/9 tuple on both sides, inclusive-at-exactly-range geometry, per-system ranges, and the ladder exercised **end to end through the real sweep** at 13 counts. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 123 passed / 4 failed, **byte-identical** to the same run on a tree with the three server files stashed (4325 is the known clean-tree failure; 3676 / 4249 / 4297 are pre-existing, moved by the *Elite crew* and *Kelly Phaser* commits and never re-recorded). ⭐⭐ **The one EW sweep in the game that is MIRRORED on the client**, because "in range both before and after movement" asks about a plotted, uncommitted position the server cannot have. ⭐ The ladder is counted in **quarters, as integers**, and the rounding rule collapses to `(quarters + 1) intdiv 4`. ⚠️ The allowance is **own-side only** in the UI, and per SHIP rather than a pooled fleet budget — see §3.8 for the reading. |
 | **10B** ✅ | EW Detector, late allocation (§3.8) — **DONE 2026-09-10** | **210 checks green across three throwaway harnesses** — 50 server, 135 client, 25 tooltip-menu — covering the pool and its two sources, the clamp, the phase window, the diff in all six refusal modes, `submitLateEw` end to end against a recording DBManager (budget clamp, all-or-nothing Disruption, idempotence, wrong phase, another player's ship, and the no-detector fast path proving it never loads gamedata at all), the derived-bookkeeping invariant, both gates with Initial Orders asserted unchanged, the real `AssignOEW`/`assignEW`/`deassignEW`/`removeEW` paths end to end, and the menu split proved lossless **by object identity** with the null-selection case asserted. `checkShipData.php` PASS, 0 new findings; replay harness 119 passed / 4 failed, **byte-identical with timings normalised** to the same run with the six server files stashed — zero drift on all five checks, `masking` and `snapshot` included. ⭐⭐ **User ruling R1 deleted the hard half of this stage**: "end of the movement segment" is the start of Pre-Firing (or of Firing), so there is nothing to DECLARE — the allowance is simply recomputed at the post-movement hex and a ship that drifted out of range finds it is zero. ⭐⭐ **The bookkeeping is one derived number and two bounds** — `spent = pool − getEWLeft()`, upper bound the budget, lower bound what stops an Initial Orders allocation being taken back — no snapshot, no per-entry marking. ⭐ **User ruling R2**: the point comes out of the unspent DEW pool alone, so the allowance is `min(ladder, pool)` and a ship that spent everything on non-DEW types saves nothing. ⚠️ The write is **additive by the shape of the diff**, raises existing rows rather than duplicating them (`getEWbyType` reads the first, `getOEW` sums), and is idempotent. ⚠️ The EW buttons are **reused verbatim** from the Initial Orders menu behind ONE menu-level gate. ⚠️ Masking verdict and its one residual (a deliberate mid-phase page reload) recorded in §3.8.
 | **11** ✅ | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged — **DONE 2026-09-10** | All five, each proved on its own: **54 checks green** across four throwaway harnesses (14 bracket, 15 SCT marker, 11 client + 14 server untargetable) plus the seeding demonstrated on real hulls both ways. `checkShipData.php` unchanged — 238 findings, 237 baselined, and the **1 new error is pre-existing on a stashed tree** (`Wanderer :: location 1, roll 9` names `"EW Detector"` where the class is `"Electronic Warfare Detector"`, so the system can never be hit; it came in with the hull and the fix is one string in [Wanderer.php:94](source/server/model/ships/walkers/Wanderer.php#L94)). Replay harness **119 passed / 4 failed**, exactly the documented clean-tree failures (3676, 4249, 4297, 4325), byte-identical to a stashed-tree run. ⚠️⚠️ **And the harness caught a real regression that every unit test of the feature missed**: §3.10e's hull list as a `public static` on `Weapon` broke every missile-armed ship in the game, because `MissileRack::stripForJson` walks its ammo with `ReflectionObject::getProperties(IS_PUBLIC)` — which lists public STATICS — and then reads each name as `$missile->$key`. It is a `const` now; see the head of §3.10. ⭐ Two smaller findings: **the fleet checker no longer exists twice** (the second copy is `checkChoices_LEGACY`, inside a block comment since the Item-5 simplification, and a test asserts it did not grow a 50% bracket), and **the untargetable flag is a ship PROPERTY declared only on the orb**, so it rides the static blueprint verbatim and the server method and client mirror read one fact. |
-| **12** | Mapmaker Electronic Warfare (§3.11) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
+| **12** ✅ | Mapmaker Electronic Warfare (§3.11, as built §3.11a; saved EW extended to Walker flights 2026-09-10) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
 | **13** | Mapmaker Jump Engine (§3.12) | One jump point per flight however many craft declare; the second declaration refused by the existing one-vortex-per-shooter rule; 10 turns of recharge read from `$delay`; the flight leaves through its own vortex and is recorded as jumped. |
 | **14** | `MedLightningArrayFtr` (§3.13) — **control sheet in hand (D24)** | 3 and 6 combine, 1/2/4/5 do not; damaged craft excluded; the two Mapmaker weapons cannot be mixed in one flight in one turn, refused on both sides of the wire; the Array locks on with flight EW while the Pulsar keeps its offensive bonus **plus** any OEW (D25); both stat profiles written out independently (the flat +12 does not double); `loadingtime = 4`, able to fire combined on turn 1; no flash collateral inside ANY Energy Draining Field, inherited free from Stage 4 (D26); and the combined shot counted as ONE discharge by `Firing::automateIntercept`. |
 | **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |

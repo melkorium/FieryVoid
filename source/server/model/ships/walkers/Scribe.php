@@ -9,7 +9,7 @@ class Scribe extends MediumShip{
         $this->phpclass = "Scribe";
         $this->shipClass = "Scribe";
         $this->imagePath = "img/ships/WalkerScribe.png";
-        $this->canvasSize = 150;
+        $this->canvasSize = 125;
 	    $this->isd = 'Ancient';
 		$this->factionAge = 4; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
 		//$this->variantOf = "NONE";

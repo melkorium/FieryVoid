@@ -247,7 +247,10 @@ class ShipCompactor
                       'canTargetAll','autoFireOnly','ignoreAllEW','uninterceptable',
                       'doNotIntercept','ignoresLoS','isModified','hidetarget','exclusive',
                       'noProjectile','hextarget','ballistic','excludeFromDefaultShuttles',
-                      'designedToRam','noLockPenalty','useOEW'];
+                      'designedToRam','noLockPenalty','useOEW',
+                      /* Stage 12 (WALKERS_OF_SIGMA_PLAN.md 3.11): the flight-EW lock-on flag. Read in
+                         exactly one client site, weaponManager.computeOEW, as a truthy test. */
+                      'useFlightEW'];
         foreach ($falseKeys as $key) {
             if (isset($system[$key]) && $system[$key] === false) {
                 unset($system[$key]);

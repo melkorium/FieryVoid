@@ -216,6 +216,16 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
             if ($ship->userid != $gameData->forPlayer)
                 continue;
 
+            /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE FLIGHT EW CAP,
+               and the only place the server enforces one. EW::validateEW() below returns true
+               unconditionally (the ship-side budget check was disabled years ago for Constrained
+               ELINT hulls), so without this a tampered client could post a fighter flight with any
+               amount of OEW it liked - including a flight class that is supposed to have none.
+               clampFlightEw() returns immediately for anything that is not a FighterFlight, so every
+               ship in every game pays one instanceof. See its comment for what it clamps and why it
+               deliberately runs on ordinary flights too. */
+            EW::clampFlightEw($ship, $gameData->turn);
+
             if (EW::validateEW($ship, $gd)){
                 $dbManager->submitEW($gameData->id, $ship->id, $ship->EW, $gameData->turn);
             }else{

@@ -310,6 +310,20 @@ class Weapon extends ShipSystem
 
     public $useOEW = true;
     public $useOEWArray = array();
+    /* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11/3.13, Stage 12) - A FIGHTER WEAPON THAT
+       LOCKS ON WITH THE FLIGHT'S EW INSTEAD OF ITS OFFENSIVE BONUS, and is contested by the
+       target's defensive EW down to (never below) the ordinary fighter-versus-profile chance.
+       The Mapmaker's Medium Lightning Array (Stage 14) is its only intended user; every other
+       fighter weapon in the game keeps offensive bonus PLUS any OEW the flight allocated (D25).
+       Read in exactly two places, which are a mirror pair: the FighterFlight branch of
+       Weapon::calculateHitBase below, and weaponManager.computeOEW in public/client/weaponManager.js.
+
+       ⚠️ AN ORDINARY INSTANCE PROPERTY, NOT A STATIC - see arch_public_static_on_weapon: a public
+       static on a base system class is read back as an instance property by MissileRack's
+       stripForJson and takes every missile ship's payload with it.
+       Stripped from the client payload when false (ShipCompactor::compactSystem $falseKeys), where
+       every read is a truthy test. */
+    public $useFlightEW = false;
     public $calledShotMod = -8;
 	public $calledShotModArray = array();     
 	public $factionAge = 1; //1 - Young, 2 - Middleborn, 3 - Ancient, 4 - Primordial
@@ -1815,11 +1829,43 @@ public function getFullStartLoading()
             //}
   
             if (!$this->ballistic) {
+                /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE FLIGHT'S
+                   OWN OEW, and the two ways a fighter weapon may use it.
+
+                   $oew currently holds getOEW($target) - DIST, floored at 0, computed by the
+                   useOEW block far above. For every flight in the game before Stage 12 that is 0,
+                   because nothing had ever written a flight OEW row - which is exactly what makes
+                   the added term free everywhere else. On a Mapmaker it is real.
+
+                     ordinary fighter weapon   offensive bonus PLUS any OEW the flight allocated,
+                                               defensive EW ignored entirely, as always (D25).
+                     $useFlightEW weapon       flight EW INSTEAD of the bonus, contested by the
+                                               target's DEW + BDEW + SDEW (D12, Q10: they are
+                                               separate EW functions and therefore stack).
+
+                   ⚠️ THE SUBTRACTION HAPPENS BEFORE THE ZEROING, and max(0, ...) is the whole rule:
+                   3 OEW against 5 DEW is 0, never -2. A fighter never SUFFERS defensive EW, so the
+                   enemy's can only cancel the Mapmaker's lock back down to the ordinary
+                   fighter-versus-profile chance and no further - which is what the zeroing below
+                   then guarantees.
+
+                   ⚠️ THE BALLISTIC BRANCH BELOW IS DELIBERATELY UNTOUCHED. Its $oew is not a lock
+                   at all but a CONDITIONAL GRANT of the offensive bonus (navigator, arc, LoS,
+                   skindancing), and no flight with an EW pool carries a ballistic.
+
+                   ⚠️ MIRROR PAIR with weaponManager.computeOEW (public/client/weaponManager.js),
+                   which has to read the pre-zeroing defensive EW out of computeBaseDefenceBreakdown
+                   to say the same thing. A preview/resolution disagreement on a weapon whose whole
+                   point is the lock is the worst possible place to have one. */
+                $flightOew = max(0, $oew);
+                $oew = $this->useFlightEW
+                     ? max(0, $flightOew - ($dew + $bdew + $sdew))
+                     : ($effectiveOB + $flightOew);
+
                 $dew = 0;
                 $dewFake = 0; //D3b: defensive EW does not apply to this shot at all, on either sheet
                 $bdew = 0;
                 $sdew = 0;
-                $oew = $effectiveOB;
                 //$soew = 0; //fighters CAN receive SOEW (fractional, SOEW calculation takes this into account)
             } else { //ballistics use of OB is more complicated
                 $oew = 0;

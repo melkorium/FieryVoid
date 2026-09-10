@@ -1863,12 +1863,31 @@ window.weaponManager = {
 
         if (!target.flight) {
             dew = ew.getDefensiveEW(target);
+        } else if (ew.isFlightEwPool(target)) {
+            /* ⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - A MAPMAKER'S OWN
+               DEW, which is the half of the rule that is easy to forget: "Mapmaker DEW works
+               exactly the same as ship DEW e.g. is ignored by fighters". The server has always
+               read it - $dew = $target->getDEW($turn) works on a FighterFlight - so before Stage
+               12 the two agreed only because no flight had ever had a DEW row. A ship shooting at
+               a Mapmaker that took DEW would otherwise preview a hit chance the resolution does
+               not honour.
+               ⚠️ ew.getFlightDEW, NOT ew.getDefensiveEW: the latter is an alias for getEWLeft()
+               and on a flight answers with the MINE-DETECTION allowance (see ew.js). */
+            dew = ew.getFlightDEW(target);
         }
 
         sdew = ew.getSupportedDEW(target);
         bdew = ew.getSupportedBDEW(target);
 
+        /* Stage 12: the total BEFORE the fighter waiver below, which is what a $useFlightEW shot
+           is contested by (D12/Q10 - the target's DEW, blanket and supported EW stack inside the
+           subtraction). computeOEW cannot re-derive it, because the waiver has zeroed all three by
+           the time it runs. 0 for every other shot in the game, since the waiver only fires for a
+           flight shooter. */
+        var defensiveEwBeforeWaiver = 0;
+
         if (shooter && shooter.flight && !weapon.ballistic) {
+            defensiveEwBeforeWaiver = dew + bdew + sdew;
             dew = 0;
             bdew = 0;
             sdew = 0;
@@ -1899,6 +1918,10 @@ window.weaponManager = {
             dew: dew,
             sdew: sdew,
             bdew: bdew,
+            //Stage 12: only computeOEW reads this, and only for a $useFlightEW weapon. It is NOT a
+            //modifier and must never join the goal - the three fields above are already 0 when it
+            //is non-zero, which is the fighter waiver saying the shot ignores defensive EW.
+            defensiveEwBeforeWaiver: defensiveEwBeforeWaiver,
             jinking: jink,
             halfPhase: halfphase,
             total: base - dew - jink - bdew - sdew - halfphase
@@ -1906,7 +1929,9 @@ window.weaponManager = {
     },
 
     // Returns shooter's offensive EW: { oew, soew }. Handles fighter offensive bonus path.
-    computeOEW: function computeOEW(shooter, target, weapon, sPosTarget) {
+    // defensiveEw: the target's DEW + BDEW + SDEW as they stood BEFORE the fighter waiver zeroed
+    // them (computeBaseDefenceBreakdown.defensiveEwBeforeWaiver). Stage 12 only; 0 otherwise.
+    computeOEW: function computeOEW(shooter, target, weapon, sPosTarget, defensiveEw) {
         var oew = 0;
         var soew = 0;
 
@@ -1923,9 +1948,42 @@ window.weaponManager = {
             var firstFighter = shooter.systems[1];
             var OBcrit = shipManager.criticals.hasCritical(firstFighter, "tmpsensordown");
             var mdew = ew.getDetectMEW(shooter);
-            oew = shooter.offensivebonus - OBcrit - (mdew * 2);
+            /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE FLIGHT'S OWN
+               OEW, and the two ways a fighter weapon may use it. MIRROR PAIR with the
+               `$shooter instanceof FighterFlight` branch of Weapon::calculateHitBase (PHP).
+
+               `oew` currently holds ew.getTargetingEW(shooter, target) - DIST, floored at 0, from
+               the useOEW block above; the line below USED TO THROW IT AWAY. For every flight in
+               the game before Stage 12 it was 0 anyway, because nothing had ever written a flight
+               OEW row - which is what makes the added term free everywhere else. On a Mapmaker it
+               is real.
+
+                 ordinary fighter weapon   offensive bonus PLUS any OEW the flight allocated,
+                                           defensive EW ignored entirely, as always (D25).
+                 useFlightEW weapon        flight EW INSTEAD of the bonus, contested by the
+                                           target's DEW + BDEW + SDEW (D12, Q10).
+
+               ⚠️ max(0, ...) IS THE WHOLE RULE: 3 OEW against 5 DEW is 0, never -2. A fighter
+               never SUFFERS defensive EW, so the enemy's can only cancel the Mapmaker's lock back
+               down to the ordinary fighter-versus-profile chance and no further.
+
+               ⚠️ getTargetingEW would add CCEW against a flight target, which the server's
+               FighterFlight::getOEW does not - harmless only because no flight can allocate CCEW
+               (addCCEW carries notFlight, and Stage 12 relaxed the OEW entries alone).
+
+               ⚠️ THE BALLISTIC BRANCH BELOW IS UNTOUCHED, matching the server: its `oew` is not a
+               lock at all but a CONDITIONAL GRANT of the offensive bonus (navigator, arc, LoS,
+               skindancing), and no flight with an EW pool carries a ballistic. */
+            var flightOew = Math.max(0, oew);
+            //max(0) here, not only on the sum below: the server clamps $effectiveOB before it is
+            //used, so a crit-suppressed bonus must not eat into the flight's own OEW.
+            var effectiveOB = Math.max(0, shooter.offensivebonus - OBcrit - (mdew * 2));
 
             if (weapon.ballistic) {
+                //A ballistic's bonus is a CONDITIONAL GRANT, not a lock, and flight OEW plays no
+                //part in it - the server sets $oew = 0 and then re-grants $effectiveOB alone.
+                oew = effectiveOB;
+
                 var shooterLoSBlocked = false;
                 var blockedLosHex = gamedata.blockedHexes;
                 if (blockedLosHex && blockedLosHex.length > 0) {
@@ -1939,6 +1997,10 @@ window.weaponManager = {
                     Object.values(shooter.skinDancing).includes("Failed")) {
                     oew = 0;
                 }
+            } else {
+                oew = weapon.useFlightEW
+                    ? Math.max(0, flightOew - (defensiveEw || 0))
+                    : (effectiveOB + flightOew);
             }
             oew = Math.max(0, oew);
             if (oew == 0) soew = 0;
@@ -2299,7 +2361,9 @@ window.weaponManager = {
 
         //Compute components via helpers
         var baseBreakdown = weaponManager.computeBaseDefenceBreakdown(shooter, target, weapon, defence);
-        var ewLock = weaponManager.computeOEW(shooter, target, weapon, sPosTarget);
+        //Stage 12: defensiveEwBeforeWaiver is what a useFlightEW shot is contested by. Every other
+        //shot gets 0 and computeOEW never looks at it.
+        var ewLock = weaponManager.computeOEW(shooter, target, weapon, sPosTarget, baseBreakdown.defensiveEwBeforeWaiver);
         var rangePenalty = weaponManager.calculateRangePenalty(distance, weapon, target, calledid, fireOrder);
         var jammer = weaponManager.computeJammerNoLock(shooter, target, weapon, ewLock.oew, distance, rangePenalty, calledid, fireOrder);
         if (jammer.oewSuppressed) { ewLock.oew = 0; ewLock.soew = 0; }
