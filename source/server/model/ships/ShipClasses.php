@@ -3245,6 +3245,33 @@ public function getAllEWExceptDEW($turn){
     }
 
 
+    /* ⭐ MAY A SHOOTER DELIBERATELY PICK THIS UNIT AS A TARGET? (WALKERS_OF_SIGMA_PLAN.md 3.10c.)
+     *
+     * Default true for everything. False on a unit that CANNOT USEFULLY BE SHOT AT - the Energy
+     * Draining Mine's orb is the first: its Structure is indestructible, its notes already say
+     * "Destroying this probe has no in-game effect", and offering it as a target only invites a
+     * wasted shot (user ruling 2026-09-08: "prevent people targeting it, since there's no point in
+     * destroying it"). Hiding it was the alternative and would have deleted the feature - the orb's
+     * icon IS the seven-hex field marker.
+     *
+     * ⚠️ THIS GOVERNS THE DELIBERATE SELECTION OF THIS UNIT AND NOTHING ELSE. It must not gate the
+     * FIELD (TacGamedata::setEdfHexes collects every EdfSource regardless), nor ramming, collateral
+     * or any area effect that happens to cover the orb's hex, and it must not hide the unit.
+     *
+     * The one fact is the $unTargetable property, declared only on the classes that opt out, so
+     * every other blueprint's payload is byte-identical to before and the CLIENT mirror
+     * (shipManager.isTargetable) reads the same field. empty() rather than a plain property read:
+     * the property does not exist on 2,556 of the 2,557 ship classes.
+     *
+     * ⚠️ CLIENT-ONLY ENFORCEMENT SO FAR. weaponManager consults the mirror at both of its sites
+     * (the tooltip line and the click), which is all a wasted shot needs; nothing on the server
+     * refuses such a fire order yet - see plan 3.17/Stage 18, where a real rule depends on it.
+     */
+    public function isTargetableBy($shooter = null, $turn = false){
+        return empty($this->unTargetable);
+    }
+
+
     public function isDestroyed($turn = false){
         //Hangar Ops Stage 7: a docked flight has $removed=true; treat as
         //destroyed for filtering purposes so the 379+ isDestroyed callsites

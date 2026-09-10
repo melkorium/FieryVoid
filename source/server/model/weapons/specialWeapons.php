@@ -12553,12 +12553,18 @@ class MediumLightningArray extends LightningArray {
     }
 
     /* "Does not begin the scenario fully charged" - it begins it with ONE turn of charge, i.e. one
-       discharge, which is what the control sheet's 1/2 means. Weapon::getStartLoading seeds the
+       discharge, which is what the control sheet's 1/2 means. Weapon::getFullStartLoading seeds the
        first slot with getNormalLoad() (2 here, fully charged); seeding 1 instead is the entire
        change, and onConstructed writes it straight into tac_systemdata.
        ⚠️ NOT 0: turnsloaded 0 is below getLoadingTime(), so the array would be UNABLE TO FIRE AT ALL
        on turn 1 and would read "0/2" in the ship window (user report, game 4329). Everything else is
-       copied from the parent so overloading and firing-mode seeding keep behaving identically. */
+       copied from the parent so overloading and firing-mode seeding keep behaving identically.
+       ⚠️ AND THE WANDERER IS EXEMPT (user ruling 2026-09-09, plan 3.10e): $seedsBelowFullCharge is
+       what tells Weapon::getStartLoadingForShip that this seed is a restriction it may lift for a
+       hull in Weapon::FULLY_CHARGED_HULL_CLASSES. This method itself never learns which hull it is on
+       - it has no ship to ask - so it must keep answering the restricted value. */
+    protected $seedsBelowFullCharge = true;
+
     public function getStartLoading(){
         $overloadTurns = $this->overloadturns;
         if ($overloadTurns === 0 && $this->overloadable) $overloadTurns = 1;

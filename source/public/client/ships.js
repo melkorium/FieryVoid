@@ -513,6 +513,24 @@ window.shipManager = {
         return primary;
     },
 
+    /* ⭐ MAY THIS UNIT BE DELIBERATELY PICKED AS A TARGET? Mirrors BaseShip::isTargetableBy
+       (WALKERS_OF_SIGMA_PLAN.md 3.10c) and reads the same one field, which rides the static
+       blueprint verbatim: `unTargetable` is declared only on the classes that opt out, so it is
+       ABSENT on every other hull and the test has to be a truthy one.
+
+       The Energy Draining Mine's orb is the first and only such unit: its Structure is
+       indestructible and its notes say "Destroying this probe has no in-game effect", so offering
+       it as a target only invites a wasted shot (user ruling 2026-09-08).
+
+       ⚠️ IT DOES NOT HIDE ANYTHING AND IT BLOCKS NOTHING ELSE. The orb's icon IS the seven-hex
+       field marker, so it stays on the map, keeps its window and its notes, and a blast that
+       happens to cover its hex still resolves there. Consulted only where a target is CHOSEN -
+       weaponManager's tooltip line and its targetShip click. */
+    isTargetable: function isTargetable(ship) {
+        if (!ship) return false;
+        return !ship.unTargetable;
+    },
+
     isDisabled: function isDisabled(ship) {
         if (ship.base) {
             var primary = shipManager.getPrimaryCnC(ship);

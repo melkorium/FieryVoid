@@ -1027,8 +1027,10 @@ window.gamedata = {
 		var totalPointsSpent = 0;
 		var units10 = 0;
 		var units33 = 0;
+		var units50 = 0;
 		var points10 = 0;
 		var points33 = 0;
+		var points50 = 0;
 		var totalU = 0;
 		var totalR = 0;
 		var jumpDrivePresent = false;
@@ -1104,6 +1106,10 @@ window.gamedata = {
 			if (lship.limited == 33) {
 				points33 += bracketBaseCost;
 				units33 += 1;
+			}
+			if (lship.limited == 50) {
+				points50 += bracketBaseCost;
+				units50 += 1;
 			}
 			totalEnhancementsValue += lship.pointCostEnh;
 			var vLetter = gamedata.variantLetter(lship);
@@ -1589,6 +1595,7 @@ window.gamedata = {
 
 		var limit10 = Math.floor(calcPoints * 0.1);
 		var limit33 = Math.floor(calcPoints * 0.33);
+		var limit50 = Math.floor(calcPoints * 0.5);
 		/*if (calcPoints == -1) { //If unlimited points, assess against points spent so far.
 			limit10 = totalPointsSpent;
 			limit33 = totalPointsSpent;
@@ -1598,7 +1605,7 @@ window.gamedata = {
 		//"one single ship is allowed to break limit" exception). The old
 		//oneOverAllowed flag that gated this was always false (its only writes
 		//are commented out, since Restricted/Limited pools are checked
-		//separately), so the units10/units33 == 1 test alone is the live rule.
+		//separately), so the units10/units33/units50 == 1 test alone is the live rule.
 		checkResult += "<br><u><b>Deployment restrictions:</b></u><br><br>";
 		checkResult += " - 10% bracket: " + points10 + "/" + limit10 + ": ";
 		if (points10 <= limit10) {
@@ -1623,6 +1630,20 @@ window.gamedata = {
 				problemFound = true;
 			}
 		}
+		checkResult += "<br>";
+		checkResult += " - 50% bracket: " + points50 + "/" + limit50 + ": ";
+		if (points50 <= limit50) {
+			checkResult += R_OK;
+		} else {
+			if (units50 == 1) { //only 1 unit - allowed to break limit
+				checkResult += "<span style='color: #33cc33;'>OK</span> (one single ship is allowed to break limit)";
+			} else {
+				checkResult += "<b><span style='color: red;'>FAILED!</span></b> (too many points in this deployment bracket)";
+				problemFound = true;
+			}
+		}
+		//The escort rule is a rule about RESTRICTED (10%) units only - it must not
+		//learn about the 33% or 50% brackets.
 		if (points10 > 0 && totalShips < 2) {
 			checkResult += "<br>Restricted (10%) ship present without escort! Such a rare ship needs to be accompanied by at least one other unit, unless it's Dargan or a Minbari ship.";
 			problemFound = true;

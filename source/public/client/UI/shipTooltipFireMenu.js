@@ -11,17 +11,15 @@ window.ShipTooltipFireMenu = function () {
     ShipTooltipFireMenu.prototype = Object.create(ShipTooltipMenu.prototype);
 
     ShipTooltipFireMenu.buttons = [
-		{ className: "targetWeapons", condition: [isEnemy, hasWeaponsSelected], action: targetWeapons, info: "Target Weapons" },
+		{ className: "targetWeapons", condition: [isTargetable, isEnemy, hasWeaponsSelected], action: targetWeapons, info: "Target Weapons" },
         { className: "targetWeaponsHex", condition: [hasOrderSource, hasHexWeaponsSelected], action: targetHexagon, info: hexButtonLabel },
-        { className: "targetSuppWeapons", condition: [hasOrderSource, isFriendly, hasWeaponsSelected, FFWeaponSelected, notSelf], action: targetWeapons, info: "Target Support Weapons" },//30 June 2024 - DK - Added for Ally targeting.
+        { className: "targetSuppWeapons", condition: [isTargetable, hasOrderSource, isFriendly, hasWeaponsSelected, FFWeaponSelected, notSelf], action: targetWeapons, info: "Target Support Weapons" },//30 June 2024 - DK - Added for Ally targeting.
         { className: "removeMultiOrder", condition: [isEnemy, hasWeaponsSelected, hasSplitWeaponFiringOrder], action: removeFiringOrderMulti, info: "Remove a Firing Order" },
         { className: "launchFighters", condition: [isMine, isFiringPhase, hasLaunchableHangar, isLaunchEnabledGame, carrierNotPivotingOrRolling], action: openHangarLaunch, info: "Launch Fighters" },
         { className: "recoverFlights", condition: [isMine, isFiringPhase, hasReceivableFlights, isLaunchEnabledGame, carrierNotPivotingOrRolling], action: openHangarRecover, info: "Recover Flights" },
         //"Enter Hangar" is reused for LCVs: isDockableUnit accepts a flight OR an
         //LCV, and openHangarDock routes an LCV through the LCV-rail dock dialog.
         { className: "dockFlight", condition: [isMine, isFiringPhase, isDockableUnit, isLaunchEnabledGame, hasEligibleCarrierInHex], action: openHangarDock, info: "Enter Hangar" }
-        //{ className: "targetSuppWeapons", condition: [isFriendly, hasWeaponsSelected, notSelf], action: targetWeapons, info: "Target support weapons" },//30 June 2024 - DK - Added for Ally targeting.
-        //{ className: "removeMultiOrder", condition: [hasWeaponsSelected, hasSplitWeaponFiringOrder], action: removeFiringOrderMulti, info: "Remove a Firing Order" }
 	];
 
     ShipTooltipFireMenu.prototype.getAllButtons = function () {
@@ -212,6 +210,10 @@ window.ShipTooltipFireMenu = function () {
     function notSelf() {//30 June 2024 - DK - Added for Ally targeting.
         return this.selectedShip !== this.targetedShip;
     }
+
+    function isTargetable() {
+        return shipManager.isTargetable(this.targetedShip);
+    }        
 
     function hasWeaponsSelected() {
         return gamedata.selectedSystems.some(function (system) {

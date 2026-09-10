@@ -814,7 +814,10 @@ window.weaponManager = {
                     value = weapon.firingModes[value];
                     var keys = Object.keys(weapon.firingModes);
 
-                    if (ship.Huge > 0 || attachedUnitHidden || attachedWeaponHidden || clawBlindSpot) { //Cannot Target larger terrain or POds that are attached to non-facing sides
+                    //!isTargetable: a unit there is no point in shooting at (the Energy Draining
+                    //Mine's orb - plan 3.10c). Same refusal as Huge terrain, and deliberately in
+                    //the same line: what the player needs is one "Cannot Target", not a new reason.
+                    if (ship.Huge > 0 || !shipManager.isTargetable(ship) || attachedUnitHidden || attachedWeaponHidden || clawBlindSpot) { //Cannot Target larger terrain or POds that are attached to non-facing sides
                         $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotTarget"> Cannot Target</span></div>').appendTo(f);
                     } else if (loSBlocked) {
                         // LOS is blocked - only display the blocked message
@@ -3569,6 +3572,7 @@ window.weaponManager = {
         if (shipManager.isDestroyed(selectedShip)) return;
         if (selectedShip.mine && ship.mine) return;  //Mine can't shoot mines.
         if (ship.Huge > 0) return; //Do not allow targeting of large muti-hex terrain.
+        if (!shipManager.isTargetable(ship)) return; //Nothing to gain by shooting it - see plan 3.10c.
         if (!selectedShip.flight && shipManager.isDisabled(selectedShip)) return;
         if (weaponManager.isHidden(selectedShip)) return; //Block invisible ships from firing where appropriate.
 

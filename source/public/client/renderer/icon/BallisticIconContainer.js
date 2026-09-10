@@ -566,10 +566,6 @@ window.BallisticIconContainer = function () {
 	   alpha to read at all over the map - hence SCT_FAN_DIM. */
 	const SCT_FAN_DIM = 2.2;
 
-	//A marker's word sits ON its green hex, so it is drawn in the same green - which is how every
-	//other coloured hex marker on this map pairs its tint with its label.
-	const SCT_MARKER_TEXT_COLOUR = '#00cc00';
-
 	/* EVERY scene-object key prefix this feature owns. refreshSensorChargeCourses marks and sweeps
 	   BY PREFIX, because it runs outside the consumeGamedata pass and that pass is the only thing
 	   that clears `used` on everything - so a prefix left out of this list is an overlay that never
@@ -647,9 +643,11 @@ window.BallisticIconContainer = function () {
 	}
 
 	/* The green hexes the course leaves behind it (user ruling 2026-09-06). BallisticSprites rather
-	   than one HexRegion blanket, for two reasons: they are scattered rather than contiguous, so a
-	   region would be one loop per hex anyway, and a sprite can carry TEXT - which is how a hex where
-	   the player named a unit says whose name it is.
+	   than one HexRegion blanket because they are scattered rather than contiguous, so a region would
+	   be one loop per hex anyway.
+	   ⚠️ THE HEX CARRIES NO WORD (user ruling 2026-09-08): the named unit used to be written on it in
+	   green, and a ship sprite standing in that hex covered it up. A plain green hex, which is still
+	   the confirmation that a choice was recorded there.
 	   ⚠️ destroy() frees the MATERIAL only. BallisticSprite's textures are shared statics cached by
 	   content (its TEXTURE_CACHE), so disposing one here would blank every other sprite using it. */
 	function buildCourseMarkers(markers) {
@@ -660,7 +658,7 @@ window.BallisticIconContainer = function () {
 
 		markers.forEach(marker => {
 			const position = this.coordinateConverter.fromHexToGame(new hexagon.Offset(marker.q, marker.r));
-			const sprite = new window.BallisticSprite(position, 'hexGreen', marker.text, SCT_MARKER_TEXT_COLOUR);
+			const sprite = new window.BallisticSprite(position, 'hexGreen');
 
 			sprites.push(sprite);
 			group.add(sprite.mesh);
@@ -750,10 +748,10 @@ window.BallisticIconContainer = function () {
 				//player has committed, and they have to stay readable while another ship is being
 				//given its orders.
 				if (plan.markers.length) {
-					//The text is part of the signature: naming a unit on a hex already marked changes
-					//the sprite without moving it.
+					//Hexes only: a marker has nothing but its position since the green name went
+					//(user ruling 2026-09-08), so the signature changes exactly when the SET does.
 					const markerSignature = plan.markers
-						.map(marker => `${marker.q},${marker.r}:${marker.text}`).join('|');
+						.map(marker => `${marker.q},${marker.r}`).join('|');
 
 					syncSceneObject.call(this, `sctmark:${ship.id}:${system.id}`, markerSignature,
 						() => buildCourseMarkers.call(this, plan.markers));

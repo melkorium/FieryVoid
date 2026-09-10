@@ -89,6 +89,13 @@ class Weapon extends ShipSystem
     public $overloadable = false;
 
     public $normalload = 0;
+    /* "This weapon deliberately opens the battle with LESS than getNormalLoad()" - set by the
+       classes that override getStartLoading() to seed a partial charge, and read only by
+       getStartLoadingForShip() below, which is what lets the Wanderer's copies ignore it (3.10e).
+       PROTECTED on purpose: json_encode drops protected properties, and a public flag here would
+       land on every one of the ~57,000 system objects in the static blueprint tree for nothing
+       (see ShipCompactor::annotateSystems for the trap a public flag walks into). */
+    protected $seedsBelowFullCharge = false;
     public $alwaysoverloading = false;
     public $autoFireOnly = false; //ture for weapons that should never be fired manually
     public $autoFireOnlyArray = array(); //per-mode override of autoFireOnly (applied in changeFiringMode)
@@ -1010,9 +1017,57 @@ class Weapon extends ShipSystem
 
     public function setInitialSystemData($ship)
     {
-        $data = $this->getStartLoading();
+        $data = $this->getStartLoadingForShip($ship);
         if ($data)
             SystemData::addDataForSystem($this->id, 0, $ship->id, $data->toJSON());
+    }
+
+    /* ⭐ THE ONE SEED THAT KNOWS WHAT IT IS MOUNTED ON (WALKERS_OF_SIGMA_PLAN.md 3.10e).
+     *
+     * User ruling 2026-09-09: "Unlike other Walker ships, the Wanderer phpclass ship's weapons DO
+     * start the battle fully charged." A Walker weapon that charges over turns seeds LESS than
+     * getNormalLoad() (MediumLightningArray, ChromaticPulseDriver), and the Wanderer is the
+     * exception to that - which is a fact about the HULL, not about the weapon.
+     *
+     * ⭐ getStartLoading() IS THE WRONG PLACE TO ASK, because it does not know its ship and other
+     * callers rely on that: HangarOps re-seeds launched craft through it in four places, and
+     * dualWeapon/duoWeapon call it on their sub-weapons. Its one caller that DOES have the hull is
+     * setInitialSystemData($ship), so the exception lives here and getStartLoading() keeps its
+     * no-argument signature everywhere.
+     *
+     * ⚠️⚠️ setInitialSystemData RUNS ONCE, AT SHIP CREATION (BuyingGamePhase), and writes
+     * straight into tac_systemdata. An existing game does not re-seed, so testing this needs a
+     * FRESH game rather than a reload, and any Wanderer already on a board keeps the charge it was
+     * created with.
+     */
+    public function getStartLoadingForShip($ship)
+    {
+        if ($this->seedsBelowFullCharge && self::hullStartsFullyCharged($ship)) {
+            return $this->getFullStartLoading();
+        }
+        return $this->getStartLoading();
+    }
+
+    /* Hulls whose weapons ignore a restricted seed and open the battle fully charged.
+     * ⚠️ KEYED ON phpclass, NEVER ON FACTION: every other Walker hull shares
+     * "Walkers of Sigma-957" and must keep the restricted seed.
+     *
+     * ⚠️⚠️ A CONST, NOT A PUBLIC STATIC PROPERTY, and the replay harness is what proved it has to
+     * be. MissileRack::stripForJson walks its ammo objects with
+     * ReflectionObject::getProperties(IS_PUBLIC) and then reads each one as `$missile->$key` -
+     * and reflection lists public STATICS alongside the instance properties, so a
+     * `public static` here threw "Accessing static property LightBallisticTorpedo::
+     * $fullyChargedHullClasses as non static" and took the whole gamedata payload of every
+     * missile-armed ship down with it (game 4151). The same trap in its other form is why
+     * ShipCompactor::annotateSystems reads protected flags through an accessor: a public
+     * property on Weapon lands on every ammo entry of every poll. A constant is neither
+     * iterated nor serialised. */
+    const FULLY_CHARGED_HULL_CLASSES = array('Wanderer');
+
+    public static function hullStartsFullyCharged($ship)
+    {
+        if (!$ship || !isset($ship->phpclass)) return false;
+        return in_array($ship->phpclass, self::FULLY_CHARGED_HULL_CLASSES, true);
     }
 /*
     public function getStartLoading()
@@ -1022,6 +1077,17 @@ class Weapon extends ShipSystem
     }
 */
 public function getStartLoading()
+{
+    return $this->getFullStartLoading();
+}
+
+/* THE UNRESTRICTED SEED - a weapon at getNormalLoad(), which is what every weapon that does not
+   override getStartLoading() opens the battle with. Split out of getStartLoading() so a class that
+   DOES override it (to seed less) can still reach the full one for the Wanderer exception above;
+   the body is otherwise the method it always was.
+   ⚠️ Never override THIS to restrict a seed - override getStartLoading(), or the exception has
+   nothing left to return. */
+public function getFullStartLoading()
 {
     $overloadTurns = $this->overloadturns;
 

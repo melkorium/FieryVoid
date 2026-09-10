@@ -2753,6 +2753,9 @@ each one.
   confirm it. Drawn as `BallisticSprite`s rather than one `HexRegion` blanket because they are
   scattered (a region would be one loop per hex anyway) and because a sprite can carry TEXT — which
   is how a named hex says whose name it is.
+  ⚠️ **THE TEXT IS GONE as of Stage 11** (§3.10b, user ruling 2026-09-08: obscured by ship sprites,
+  and unreadable where several charges cross one hex). The marker SET is unchanged — a named
+  straight-through hex still earns its green hex — but a marker is now `{q, r}` and nothing else.
 - **The budget**, two rows of figures at the head, SELECTED-only, in the LoS ruler's idiom
   (`mathlib.drawRuler`). Hexes and manoeuvres, each as **spent-of-total**. ⚠️ The totals are
   DERIVED (`used + left`), never the class constants: boost levels are bought in Initial Orders and
@@ -2818,12 +2821,58 @@ which lists the same six hexes in a different order. The order of that table is 
 of a direction index, so the wrong one gives the client a different compass and every leg but due
 east disagrees.
 
-### 3.10 Housekeeping — five corrections to shipped stages
+### 3.10 Housekeeping — five corrections to shipped stages — **BUILT 2026-09-10 (Stage 11)**
 
 Five unrelated small items, collected because none of them is worth a stage of its own and all five
 are cheap. They land together as Stage 11.
 
-#### 3.10a The 50% deployment bracket
+**As built.** All five, each provable on its own: 14 checks on the bracket arithmetic, 15 on the SCT
+markers, 11 + 14 on the untargetable pair (client and server), and the seeding demonstrated on real
+hulls both ways. `checkShipData.php` unchanged (238 findings / 237 baselined / **1 new error that
+is NOT ours** — see below); replay harness **119 passed, 4 failed**, exactly the four documented
+clean-tree failures (3676, 4249, 4297, 4325) and byte-identical to a stashed-tree run.
+
+⚠️⚠️ **AND THE HARNESS EARNED ITS KEEP ON A ONE-LINE CHANGE.** 3.10e's hull list started life as
+`public static $fullyChargedHullClasses` on `Weapon`, which broke **game 4151** outright:
+`MissileRack::stripForJson` walks its ammo objects with
+`ReflectionObject::getProperties(IS_PUBLIC)` and then reads each name as `$missile->$key`
+([missile.php:62](source/server/model/weapons/missile.php#L62)) — and **reflection lists public
+STATICS beside the instance properties**, so every missile-armed ship in the game threw
+*"Accessing static property LightBallisticTorpedo::$fullyChargedHullClasses as non static"* and
+lost its whole gamedata payload. ⭐ **A shared list on `Weapon` must be a `const` or `private
+static`, never a `public static`** — it is the same trap `ShipCompactor::annotateSystems` records
+in its other form ("a public property on Weapon lands on every ammo entry of every poll"), and a
+constant is neither iterated nor serialised. Nothing but the replay corpus would have found it:
+every unit test of the feature passed, on both trees.
+
+⚠️ **One pre-existing FAIL sits on top of this stage and is not part of it.** `checkShipData.php`
+reports `Wanderer :: location 1, roll 9 — no system named "EW Detector" on location 1`: the hull's
+front hit chart says `"EW Detector"` while `EWDetector::$displayName` is
+`"Electronic Warfare Detector"` (the Waymarker's chart, [Waymarker.php:114](source/server/model/ships/walkers/Waymarker.php#L114),
+spells it correctly). Every roll of 9 on the Wanderer's front chart is therefore silently rerouted
+to Structure and the EW Detector can never be hit. It fails identically on a stashed tree, so it
+came in with the hull; the fix is one string in
+[Wanderer.php:94](source/server/model/ships/walkers/Wanderer.php#L94).
+
+#### 3.10a The 50% deployment bracket — **BUILT 2026-09-10**
+
+**As built.** `units50 / points50 / limit50` beside the two existing sets, `limit50 = floor(calcPoints * 0.5)`,
+and a third report line with its own copy of the one-ship exception. The prose gained a fourth
+bracket in the availability list at [fleetchecker.php:164](source/public/fleetchecker.php#L164)
+("three categories" → four), and the "up to 33% ... on Limited units" sentence now says
+*Limited (33%)*, because with two Limited brackets "Limited" alone no longer names one.
+
+⭐ **THE "IT EXISTS TWICE" WARNING BELOW IS NOW STALE, AND THAT IS WORTH KNOWING BEFORE THE NEXT
+EDIT.** The second copy is `checkChoices_LEGACY`, and it is **inside a block comment** — `/*` at
+[gamelobby.js:4722](source/public/client/gamelobby.js#L4722) closing at
+[:5860](source/public/client/gamelobby.js#L5860), with a header that says it is kept verbatim and
+inert. So there is exactly ONE live fleet checker and it was the only one edited; a test asserts
+the archived copy did *not* grow a 50% bracket, which is the check that keeps the two from being
+confused again. The `oneOverAllowed` remark stands as a description of the archived copy.
+
+⚠️ Two rules stayed 10%-only, deliberately: the escort rule
+([gamelobby.js:1644](source/public/client/gamelobby.js#L1644)) is about Restricted units and now
+says so in a comment, and nothing else in the function learned about the new bracket.
 
 `Pathfinder` already carries `$this->limited = 50`
 ([Pathfinder.php:16](source/server/model/ships/walkers/Pathfinder.php#L16)), and the buy list
@@ -2852,7 +2901,18 @@ it knows exactly two brackets.
 BOTH the lobby's live check and the standalone Fleet Checker, and no existing 10%/33% verdict moves
 anywhere in the 2,500-hull corpus.
 
-#### 3.10b The Sensor Charge Transceiver's green name
+#### 3.10b The Sensor Charge Transceiver's green name — **BUILT 2026-09-10**
+
+**As built.** `getCourseMarkers` pushes `{q, r}` and nothing else — the `gamedata.getShip` lookup
+and the `text` key are both gone, so `add()` no longer takes a target id at all — and
+`buildCourseMarkers` calls `new BallisticSprite(position, 'hexGreen')` with no text argument, which
+falls through to the plain cached green-hex texture. `SCT_MARKER_TEXT_COLOUR` is deleted and the
+marker signature is hex-only.
+
+⭐ The marker SET is unchanged, and that is the half a test has to pin: a hex where the player named
+a unit while carrying straight on costs no manoeuvre and would otherwise have nothing on screen at
+all. 15 checks, run against the real method lifted out of `special.js`, with `gamedata.getShip`
+stubbed to **throw** — so a re-introduced name lookup fails loudly rather than quietly.
 
 User ruling 2026-09-08: *"somewhat useless, since it's obscured by ship sprites and would be hard to
 read if several SCT charges passed through the same hex."*
@@ -2874,7 +2934,27 @@ in `SCT_MARKER_TEXT_COLOUR`. Stop supplying the name; the green hex stays.
   correct — it changes whenever the marker SET changes, which is the only thing it has to do.
 - `SCT_MARKER_TEXT_COLOUR` becomes dead. Delete it rather than leaving a constant nothing reads.
 
-#### 3.10c The Energy Draining Mine cannot be shot at
+#### 3.10c The Energy Draining Mine cannot be shot at — **BUILT 2026-09-10**
+
+**As built**, as the section proposes: `BaseShip::isTargetableBy($shooter = null, $turn = false)`
+([ShipClasses.php:3248](source/server/model/ships/ShipClasses.php#L3248)) answering `empty($this->unTargetable)`,
+mirrored by `shipManager.isTargetable(ship)` ([ships.js:529](source/public/client/ships.js#L529))
+and consulted beside `Huge > 0` at **both** weaponManager sites — the tooltip line (which keeps
+saying just "Cannot Target", one refusal rather than a new reason) and the `targetShip` click.
+
+⭐ **ONE FACT, AND IT IS A SHIP PROPERTY RATHER THAN A METHOD OVERRIDE.** `public $unTargetable = true`
+is declared **only** on `SpawnEnergyDrainingMine`, so the server method and the client mirror read
+the same field and the 2,556 other hulls carry nothing new: the key rides the static blueprint
+verbatim (the generators `json_encode` the raw ship), which is how the client learns it without a
+`stripForJson` line, and its absence everywhere else is why the client test must be a **truthy**
+one. `empty()` rather than a plain property read, because on every other class the property does
+not exist. A ship-data corpus check confirms the compacted blueprint carries the key on the orb and
+on nothing else.
+
+⚠️ Verified NOT to touch the field: the orb still mounts its `EnergyDrainingField`, still answers
+`getEdfRadius`/`isEdfActive`, is still not `Enormous`, and still keeps its notes and its map disc.
+Ramming, collateral and area effects are untouched — nothing but the two deliberate-selection sites
+asks the question. Server-side refusal is still owed (Stage 18, §3.17).
 
 *"Can we hide the Energy Draining Mine from sight or at least prevent people targeting it (since
 there's no point in destroying it)"* — **prevent targeting, do not hide.**
@@ -2908,7 +2988,30 @@ weaponManager sites.
   cover its hex still resolves against everything else standing there. This flag governs the
   *deliberate selection of this unit as a target* and nothing else.
 
-#### 3.10d The faction entry in `factions-tiers.php`
+#### 3.10d The faction entry in `factions-tiers.php` — **BUILT 2026-09-10**
+
+**As built**, at [factions-tiers.php:1803](source/public/factions-tiers.php#L1803) with its TOC line
+at [:98](source/public/factions-tiers.php#L98), in the Torvalus block's shape: an intro, then one
+`<h5>` per system — Electromagnetic Weaponry, Lightning Array / Medium Lightning Array, Wide-Beam,
+Chromatic Pulse Driver, Energy Draining Field, Extended Draining Field, Energy Draining Mine,
+Energy Draining Net, EW Detector, Sensor Charge Transceiver, Gravitic Drives — plus the hangar
+exemption, a Fleet Composition block (the Ancient brackets, the Pathfinder's 50% and the Walkers'
+own short enhancement list) and the hull roster.
+
+Two things it does that the section did not ask for and that the standing obligation needs:
+
+- an italic line under the intro saying the entry describes **what is implemented today**, so a
+  reader knows the page is a moving record rather than a design document;
+- a closing list of **what is not implemented yet** (the Mapmakers' EW, their Medium Lightning
+  Array and jump engine, the Traveler's Docking Bay, repair and power sharing, and both jump
+  drives). ⭐ The alternative is worse than an omission: the Mapmaker hull is already **buyable**,
+  and its array and jump engine are commented out in `populate()` with `//STAGE` markers, so a
+  player reading a systems list would otherwise buy a flight expecting a weapon that is not there.
+
+⚠️ Every figure in it was read out of the code rather than out of this plan (the hull costs and
+system lists from a constructed instance of each of the seven hulls, the drain dice from
+`EdfExposure`'s constants, the refit prices from the registry) — which is the only way an entry
+like this stays true.
 
 A `<h4 id="walkers">WALKERS OF SIGMA-957</h4>` block, placed after `#vorlons`
 ([factions-tiers.php:1721](source/public/factions-tiers.php#L1721)) and before
@@ -2929,7 +3032,34 @@ with a hangar exemption to explain.
 entry as part of its own exit criterion. A faction page written once and never updated is worse than
 none: players read it as authoritative and it silently describes a game that no longer exists.
 
-#### 3.10e The Wanderer's weapons DO begin the game fully charged
+#### 3.10e The Wanderer's weapons DO begin the game fully charged — **BUILT 2026-09-10**
+
+**As built**, hung on `setInitialSystemData` exactly as the ⭐ below argues, in three parts:
+
+- `Weapon::getStartLoading()` now delegates to a new **`getFullStartLoading()`** carrying its old
+  body verbatim. That is what gives a class which overrides `getStartLoading()` (to seed less) a
+  way back to the unrestricted seed; nothing else changed for any of the ~2,500 weapons that do not.
+- `Weapon::setInitialSystemData($ship)` asks **`getStartLoadingForShip($ship)`**, which lifts the
+  restriction when `$this->seedsBelowFullCharge` **and** the hull is in
+  `Weapon::FULLY_CHARGED_HULL_CLASSES`. `getStartLoading()` keeps its no-argument signature for
+  HangarOps' four re-seeds and for `dualWeapon`/`duoWeapon`'s sub-weapons.
+- `protected $seedsBelowFullCharge = true` on **`MediumLightningArray`** and
+  **`ChromaticPulseDriver`** — the two classes that seed 1 instead of `normalload`. ⭐ One flag per
+  class rather than an override per class, so the exception logic is written once; and **protected**
+  because `json_encode` drops protected properties and a public flag would ride every one of the
+  ~57,000 system objects in the blueprint tree.
+
+⚠️ **The `EnergyDrainingMine` launcher is deliberately NOT in scope** and still opens the battle at
+1/3 on a Wanderer as on every other hull: it does not set the flag. The ruling and this section are
+about weapons that *charge*, and the launcher's seed is an ammunition count with a documented
+"turn 1 must not reload" rule of its own (§3.6). Flag it if the user wants 3/3 there too — it is one
+line.
+
+**Proven** on real hulls both ways: a Wanderer's three Chromatic Pulse Drivers seed 2/2 while a
+Traveler's and a Scribe's seed 1/2, and a Waymarker/Pathfinder Medium Lightning Array seeds 1/2
+until the same hull is asked with `phpclass` forced to `Wanderer`, when it seeds 2/2 — which also
+proves the mechanism reaches `MediumLightningArray`, a class no Wanderer currently mounts. See the
+public-static reflection trap at the head of §3.10 for the one thing that went wrong.
 
 User ruling 2026-09-09: *"Unlike other Walker ships, the Wanderer phpclass ship's weapons DO start
 the battle fully charged."*
@@ -3746,7 +3876,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **9** ✅ | Sensor Charge Transceiver — **DONE 2026-09-06** | 72 checks green in one harness covering both ends, plus a replay run of 127 passed / 1 failed that is **identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised, and `checkShipData.php` PASS with the same 3 pre-existing warnings. The harness proves four things nothing else would catch: a **1,080-case geometry differential** on the three new `mathlib` helpers, PHP against the JS mirror, with 495 of the pairs on a hex axis and turn costs 0–3 all present; the resolver over a **12-course corpus** written as (bearing, length) legs rather than hexes; `beforeFiringOrderResolution` end to end against a real `TacGamedata` with a stand-in DBManager — every shot claiming its own database id, the informational row at `rolled 1 / shots 0`, the receiver's `DamageEntry` filed against that row and visible to `isDamagedOnTurn`; and the client's `measureLeg` accepting **exactly** what the server's resolver accepts, over the same corpus. ⭐ Every group asserts its own non-vacuity. ⚠️⚠️ **The test found one real bug that no amount of reading would have**: `calculateLoading` asked `getChargeOutcome` AFTER `parent::calculateLoading`, which calls `setLoading()` and writes `turnsloaded` back to 0 — so `isReadyToFire()` read 0, every charge looked as though an unloaded transceiver had sent it, and the fast recharge could never fire. The outcome is now taken before the parent runs. ⚠️ The icon is a **placeholder** (a copy of `sensorSpike.png`) until real art lands. **Play-test revisions 2026-09-06 (§3.9):** the reachable fan is HEXES rather than six lines; the course carries direction chevrons and the waypoint orders are suppressed from the ballistic layer (they were drawing a red hex and a white arrow each); green markers at the manoeuvre points, the head and any hex where a unit was named; a two-row spent-of-total budget label at the head while the weapon is selected; and the **choice between units sharing a hex is now the player's**, carried as `SCT|w:<n>|t:<id>` from a "Target Ship" tooltip button, advisory-only at resolution, with a new opt-in `Weapon::$hideNotesFromEnemies` so `hidetarget` blanks the token along with the x/y it already blanked. 68 client + 47 server checks green in a throwaway harness covering both ends, and a replay-harness run of 127 passed / 1 failed that is **byte-identical to the same run on a stashed clean tree** (game 4325, the known clean-tree failure) with timings normalised; `checkShipData.php` 0 new errors, the same 3 pre-existing warnings. **Play-test revisions 2026-09-07 (§3.9), client-only:** a refused hex click is now **silent** — `isHexOnFiringArc` owns both geometry refusals (off-axis, and an off-arc launch), measured from the **head** rather than the origin, and `measureLeg` keeps them with `reason` null so a replayed course still truncates identically; and **contact with a receiver finishes the course**, unselecting the weapon and zeroing its shots read-out through one shared `isCourseFinished` predicate. 49 checks green in a throwaway harness, which **fails 11 of them on the pre-edit bodies** — all 11 exactly the changed behaviours, with the "ran out of hexes" branch passing both ways. No server change, no serialised field, so no replay-harness run. |
 | **10A** ✅ | EW Detector, the allowance (§3.8) — **DONE 2026-09-09** | 77 server checks and 90 client checks green in a throwaway harness covering both ends, incl. a **41-count ladder differential** in which the JS reads back the table the PHP wrote (so both are compared over the same inputs, with the run asserting its own non-vacuity), the stage's 1/4/5/8/9 tuple on both sides, inclusive-at-exactly-range geometry, per-system ranges, and the ladder exercised **end to end through the real sweep** at 13 counts. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 123 passed / 4 failed, **byte-identical** to the same run on a tree with the three server files stashed (4325 is the known clean-tree failure; 3676 / 4249 / 4297 are pre-existing, moved by the *Elite crew* and *Kelly Phaser* commits and never re-recorded). ⭐⭐ **The one EW sweep in the game that is MIRRORED on the client**, because "in range both before and after movement" asks about a plotted, uncommitted position the server cannot have. ⭐ The ladder is counted in **quarters, as integers**, and the rounding rule collapses to `(quarters + 1) intdiv 4`. ⚠️ The allowance is **own-side only** in the UI, and per SHIP rather than a pooled fleet budget — see §3.8 for the reading. |
 | **10B** ✅ | EW Detector, late allocation (§3.8) — **DONE 2026-09-10** | **210 checks green across three throwaway harnesses** — 50 server, 135 client, 25 tooltip-menu — covering the pool and its two sources, the clamp, the phase window, the diff in all six refusal modes, `submitLateEw` end to end against a recording DBManager (budget clamp, all-or-nothing Disruption, idempotence, wrong phase, another player's ship, and the no-detector fast path proving it never loads gamedata at all), the derived-bookkeeping invariant, both gates with Initial Orders asserted unchanged, the real `AssignOEW`/`assignEW`/`deassignEW`/`removeEW` paths end to end, and the menu split proved lossless **by object identity** with the null-selection case asserted. `checkShipData.php` PASS, 0 new findings; replay harness 119 passed / 4 failed, **byte-identical with timings normalised** to the same run with the six server files stashed — zero drift on all five checks, `masking` and `snapshot` included. ⭐⭐ **User ruling R1 deleted the hard half of this stage**: "end of the movement segment" is the start of Pre-Firing (or of Firing), so there is nothing to DECLARE — the allowance is simply recomputed at the post-movement hex and a ship that drifted out of range finds it is zero. ⭐⭐ **The bookkeeping is one derived number and two bounds** — `spent = pool − getEWLeft()`, upper bound the budget, lower bound what stops an Initial Orders allocation being taken back — no snapshot, no per-entry marking. ⭐ **User ruling R2**: the point comes out of the unspent DEW pool alone, so the allowance is `min(ladder, pool)` and a ship that spent everything on non-DEW types saves nothing. ⚠️ The write is **additive by the shape of the diff**, raises existing rows rather than duplicating them (`getEWbyType` reads the first, `getOEW` sums), and is idempotent. ⚠️ The EW buttons are **reused verbatim** from the Initial Orders menu behind ONE menu-level gate. ⚠️ Masking verdict and its one residual (a deliberate mid-phase page reload) recorded in §3.8.
-| **11** | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged | Five independent items, each provable on its own. A Pathfinder fleet passes/fails the 50% bracket at the right cap on **both** copies of the fleet check; no 10%/33% verdict moves across the hull corpus; the SCT course still marks its manoeuvre, head and named-unit hexes with no text; the EDM cannot be clicked as a target and its field, its overlay and every area effect over its hex are unchanged; the faction page renders with a TOC entry; and a freshly created Wanderer opens turn 1 with its Lightning Array and Chromatic Pulse Driver at full charge while a Traveler's do not (§3.10e). |
+| **11** ✅ | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged — **DONE 2026-09-10** | All five, each proved on its own: **54 checks green** across four throwaway harnesses (14 bracket, 15 SCT marker, 11 client + 14 server untargetable) plus the seeding demonstrated on real hulls both ways. `checkShipData.php` unchanged — 238 findings, 237 baselined, and the **1 new error is pre-existing on a stashed tree** (`Wanderer :: location 1, roll 9` names `"EW Detector"` where the class is `"Electronic Warfare Detector"`, so the system can never be hit; it came in with the hull and the fix is one string in [Wanderer.php:94](source/server/model/ships/walkers/Wanderer.php#L94)). Replay harness **119 passed / 4 failed**, exactly the documented clean-tree failures (3676, 4249, 4297, 4325), byte-identical to a stashed-tree run. ⚠️⚠️ **And the harness caught a real regression that every unit test of the feature missed**: §3.10e's hull list as a `public static` on `Weapon` broke every missile-armed ship in the game, because `MissileRack::stripForJson` walks its ammo with `ReflectionObject::getProperties(IS_PUBLIC)` — which lists public STATICS — and then reads each name as `$missile->$key`. It is a `const` now; see the head of §3.10. ⭐ Two smaller findings: **the fleet checker no longer exists twice** (the second copy is `checkChoices_LEGACY`, inside a block comment since the Item-5 simplification, and a test asserts it did not grow a 50% bracket), and **the untargetable flag is a ship PROPERTY declared only on the orb**, so it rides the static blueprint verbatim and the server method and client mirror read one fact. |
 | **12** | Mapmaker Electronic Warfare (§3.11) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
 | **13** | Mapmaker Jump Engine (§3.12) | One jump point per flight however many craft declare; the second declaration refused by the existing one-vortex-per-shooter rule; 10 turns of recharge read from `$delay`; the flight leaves through its own vortex and is recorded as jumped. |
 | **14** | `MedLightningArrayFtr` (§3.13) — **control sheet in hand (D24)** | 3 and 6 combine, 1/2/4/5 do not; damaged craft excluded; the two Mapmaker weapons cannot be mixed in one flight in one turn, refused on both sides of the wire; the Array locks on with flight EW while the Pulsar keeps its offensive bonus **plus** any OEW (D25); both stat profiles written out independently (the flat +12 does not double); `loadingtime = 4`, able to fire combined on turn 1; no flash collateral inside ANY Energy Draining Field, inherited free from Stage 4 (D26); and the combined shot counted as ONE discharge by `Firing::automateIntercept`. |
