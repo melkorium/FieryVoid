@@ -136,6 +136,40 @@ class Firing
         if ($gamedata->phase != 1) return;      //see above - only judge fresh declarations
         if ($fire->turn != $gamedata->turn) return;
 
+        /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - A FLIGHT'S DECLARATION IS NORMALISED ONTO
+           ITS ONE ENGINE, HERE, AND THIS IS THE ONLY PLACE THAT HAS TO KNOW.
+
+           Six Mapmakers carry six Jump Engines and the player clicks whichever craft's icon is
+           nearest the mouse - but "an entire flight opens 1 jump point, not one per fighter"
+           (user, D13), so the order is re-pointed at the SAMPLE fighter's engine before anything
+           judges it. Two things follow, and both of them are the rule rather than tidiness:
+
+             - THE CHARGE AND THE VORTEX ARE ASKED OF THE RIGHT ENGINE. Every test below reads
+               $weapon - hasOpenVortex, getVortexRechargeLoad, isDestroyed - and a sibling engine
+               that has never opened anything answers "fully charged, holding nothing" however
+               recently the flight jumped. Without this a flight could open a second jump point
+               next turn simply by declaring from a different craft.
+             - THE PERSISTED ORDER NAMES THE FLIGHT'S ENGINE. $fireOrders is the same array the
+               caller hands to submitFireorders, so rewriting weaponid here is what makes
+               JumpEngine::spawnDeclaredVortices - which asks getUnitJumpEngines, i.e. this engine
+               and no other - find the declaration at the end of Initial Orders.
+
+           ⚠️ A SECOND DECLARATION IS STILL REFUSED, and by the EXISTING rule: normalising both
+           orders onto one weaponid is exactly what the one-vortex-per-SHOOTER loop below already
+           catches (a fighter's shooterid is the FLIGHT's id), so the first survives and every later
+           one is dropped with the existing reason string. Nothing new was needed for D13.
+
+           ⚠️ NOT gated on damageclass: an exit declaration from a Mapmaker flight in hyperspace
+           takes getExitDeclarationBlock, whose own one-engine-per-unit rule wants the same
+           normalisation. */
+        if ($shooter instanceof FighterFlight){
+            $flightEngine = $shooter->getFlightJumpEngine();
+            if ($flightEngine){
+                $weapon = $flightEngine;
+                $fire->weaponid = $flightEngine->id;
+            }
+        }
+
         $reason = self::getVortexDeclarationBlock($fire, $weapon, $shooter, $gamedata, $fireOrders);
         if ($reason === null) return;           //legal - leave it alone
 
@@ -275,6 +309,17 @@ class Firing
          * $weapon is the engine from the REAL gamedata load (see the caller), so its vortex state
          * has been rebuilt from the notes and these two questions can actually be answered. */
         if ($mode === JumpEngine::MAINTAIN_MODE){
+            /* ⭐⭐ WALKERS §3.12 (Stage 13, user ruling 2026-09-10) - A FIGHTER FLIGHT HAS NO
+               MAINTAIN: "as fighters, Mapmakers cannot hold a jump point open for more than 1 turn".
+               The client never offers the control (JumpEngine.canMaintainVortex refuses a flight),
+               so only a tampered POST arrives here - but without this line a forged mode-7 order
+               would be ACCEPTED and persisted, because every test below it passes on a flight: the
+               vortex is open, it formed last turn, the hex matches. It would change nothing (the
+               closure sweep asks getMaintainDeclaration, which refuses a flight independently) and
+               that is exactly the problem - a stored order that silently means nothing. */
+            if ($shooter instanceof FighterFlight)
+                return "a fighter flight cannot maintain a jump point";
+
             if (!$weapon->hasOpenVortex($gamedata->turn))
                 return "no open vortex to maintain";
 

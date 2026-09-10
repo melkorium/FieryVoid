@@ -3348,6 +3348,116 @@ second declaration in the same turn is refused with the existing reason string; 
 turns of recharge from `$delay` on every craft; and the flight can fly out through its own vortex
 and is recorded as jumped, not killed.
 
+---
+
+### 3.12a As built — Stage 13, 2026-09-10
+
+Harnesses: `tests/replay/walkersStage13Harness.php` (59) and
+`tests/replay/walkersStage13ClientHarness.js` (35). Both **fatal on the pre-edit tree**.
+`checkShipData.php` PASS, 0 new findings (237 baselined). Replay harness 115/8, byte-identical to a
+`git stash push -- source/` run with timings normalised — the 8 are pre-existing on a clean tree
+(the four documented ones plus 3671/4256/4303/4328, which moved with the *ReducedRange crit for
+ballistics* and *Homing Missile* commits and have never been re-recorded).
+
+⭐⭐ **THE SECTION'S TWO HEADLINE CLAIMS WERE BOTH HALF-RIGHT, AND IT MATTERS WHICH HALF.**
+
+**"Only one jump point per flight is already the law and there is nothing to build for it."** The
+mechanism named is right — `Firing::getVortexDeclarationBlock`'s loop refuses a second declaration
+from the same **shooter**, and a fighter's `shooterid` really is the flight's id — but that loop
+tests `$shooter->getSystemById($other->weaponid) instanceof JumpEngine`, and it never gets the
+chance to speak unless the orders are *comparable*. The thing that makes D13 true is the
+**normalisation**: `validateVortexDeclaration` re-points `$fire->weaponid` at
+`FighterFlight::getFlightJumpEngine()` before the rule list runs. Two lines, and without them each
+craft's engine is judged on its own state — a fully charged engine holding no vortex — so a flight
+that jumped last turn could open a second doorway simply by clicking a different craft.
+
+**"The client has never declared a vortex from a flight. This is the whole stage."** It was the
+smaller half. Five SERVER sweeps walked `$ship->systems` looking for a `JumpEngine` and found
+nothing on a flight, because a flight's systems are *craft*: `spawnDeclaredVortices`,
+`closeExpiredVortices`, `hasVortexDeclaration`, the vortex-holder lookup and both reinforcement exit
+sweeps. The declaration would have validated, persisted, and then vanished — a commit that looks
+completely clean and does nothing. They all go through **`JumpEngine::getUnitJumpEngines($unit)`**
+now, which is the one place that answers "which engines speak for this unit" and which returns
+exactly ONE for a flight.
+
+⚠️ **THREE FINDINGS WORTH CARRYING.**
+
+1. **A FIGHTER SUBSYSTEM'S `this.ship` IS THE CRAFT, NOT THE FLIGHT — on the CLIENT.**
+   `SystemFactory` builds a hull's systems with `new window[name](args, ship)` but a fighter's with
+   `new window[name](args, fighter)`, so every `this.ship` in the client `JumpEngine` was reading an
+   object with a per-flight autoid for an id, no position, no team and no vortex. Every vortex
+   question — `getVortexHeldBy`, `isMyShip`, the range test — silently answered "no". The join back
+   is `flightid`, which `Fighter::stripForJson` has always published, and it is now one accessor,
+   `JumpEngine.prototype.getOwningUnit()`. **Any future per-unit behaviour on a fighter-mounted
+   system has this bug waiting for it.**
+
+2. **A NEW SHIP FLAG MUST BE A DECLARED PROPERTY, NOT A CONSTRUCTOR ASSIGNMENT.** `$this->noHangarRequired = true`
+   in the constructor is a *dynamic property*, deprecated since PHP 8.2 — one notice per Mapmaker
+   built, and the ship-data validator builds 2,580 of them. `public $noHangarRequired = true;` at
+   class level is the shape `SpawnEnergyDrainingMine::$unTargetable` already uses, and it rides the
+   static blueprint the same way. The exemption itself is **fleet-building only**: `HangarOps` is
+   deliberately not taught about it, because a Mapmaker still fills boxes the moment Stage 15's
+   Traveler bay carries one.
+
+3. **`BlueprintCache`'s SPAWNABLE-CLASS SCAN DOES NOT DESCEND INTO CRAFT EITHER.** It reads
+   `$system->spawnableClasses` off a hull's systems, which was free until a fighter-mounted weapon
+   could put a unit on the board. The Mapmaker's Jump Engine can, and without the descent the FIRST
+   jump point a Mapmaker flight ever opens has no blueprint to resolve against and draws as an empty
+   hex until the page is reloaded — exactly the failure `$spawnableClasses` exists to prevent.
+
+⭐ **WHAT MAKES "IF ONE HAS A fireOrder THEY ALL DO" TRUE ON SCREEN** is three small diverts, not a
+new concept: `JumpEngine::stripForJson` publishes the FLIGHT engine's charge and vortex counter on
+every craft (so six icons never disagree about one fact), and `weaponManager.hasFiringOrder` /
+`removeFiringOrder` ask the flight engine when the ship is a flight and the system is a `jumpEngine`
+(so all six read the one order, and the player can withdraw it from whichever icon they clicked).
+`targetHex` resolves to the flight engine before queuing and takes one declaration per pass.
+
+⭐⭐ **USER RULING 2026-09-10, AFTER PLAY TESTING — A FLIGHT HAS NO MAINTAIN AT ALL, AND ITS JUMP
+POINT IS OPEN FOR EXACTLY ONE TURN.** *"As fighters, Mapmakers cannot hold a jump point open for
+more than 1 turn, so we can default to showing 1/1 in their Jump engine output display on the turn
+the Jump Point is open, and don't have to check for maintaining power etc."*
+
+⚠️ **AND THE REASON IT NEEDED A RULE OF ITS OWN IS A VACUOUS PASS.** `getVortexPowerViolations`
+looks for systems drawing power, and a flight's are `Fighter` objects with `powerReq` 0 — so the
+all-systems-offline test that Maintain is built on **passes on a flight for free**. As first built,
+that read as "this unit satisfies the rule" when the truth is that the rule does not apply to it,
+and a Mapmaker could have held a doorway open for the full four turns at no cost. A test that
+cannot fail is not a test that passed.
+
+The rule is one predicate, `JumpEngine::isFlightMounted()` (mirrored on the client as
+`JumpEngine.prototype.isFlightMounted`, which asks the direct fact — `this.ship.fighter` — rather
+than resolving the flight, so it cannot be wrong when the lookup finds nothing), and four short
+consequences:
+
+- `getMaintainDeclaration()` refuses a flight outright, the same shape as its gate refusal. That
+  alone closes the vortex at the end of its first open turn.
+- `getVortexClosureReason()` gains a branch **for the log**, which is a persisted note and the only
+  explanation the player gets: *"a fighter flight cannot hold a jump point open"* rather than
+  *"not maintained"*, which reads like a mistake the player made.
+- `Firing::getVortexDeclarationBlock`'s Maintain branch refuses a flight at the wire — because
+  every test below it *passes* on one (the vortex is open, it formed last turn, the hex matches),
+  so a forged mode-7 order would otherwise be accepted and persisted while meaning nothing.
+- `stripForJson` sends `vortexMaxTurns = 1`, so the icon reads **1/1** rather than 1/4. The client's
+  fallback denominator is flight-aware too, so every path agrees.
+
+⭐ **And the client simply does not offer the control** (`canMaintainVortex` returns false for a
+flight), which is what makes "don't have to check for maintaining power" literally true: the power
+questions are never reached, rather than being answered specially. An earlier draft of this stage
+special-cased them instead — a `getFlightEngine()` accessor plus `ship.flight ? [] : …` guards in
+`doActivate`/`doDeactivate` — and all of it came back out under this ruling.
+
+⚠️ **THE FAILURE ROLL IS ALWAYS ZERO.** `openVortex` prices failure off `maxhealth - getRemainingHealth()`
+on the engine, and a fighter's SUBSYSTEMS are never damaged (a craft is destroyed as a whole), so a
+Mapmaker's drive can never fail. Same reason `getFlightJumpEngine` can safely answer the sample
+fighter's engine even when that craft is dead: the engine reads `isDestroyed()` false, which is what
+lets a flight with craft 1 gone still jump.
+
+⚠️ **THE POSITIONAL SYSTEM-ID TRAP FIRED, unavoidably.** Adding a system to each craft shifts every
+construction-order id after it — `Fighteradvsensors` 4→5, craft 2 5→6, and so on down the flight —
+so any game in progress with Mapmakers in it has stale per-system ids in `tac_critical` /
+`tac_systemdata`. Nothing can avoid that (a craft gaining a system shifts the next craft's id
+whatever the placement), and the only Mapmakers in existence are Stage 12's play tests.
+
 ### 3.13 Medium Lightning Array, fighter mount — `MedLightningArrayFtr`
 
 **THE CONTROL SHEET (D4, supplied 2026-09-08).** Read from the sheet, nothing inferred:
@@ -3955,7 +4065,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **10B** ✅ | EW Detector, late allocation (§3.8) — **DONE 2026-09-10** | **210 checks green across three throwaway harnesses** — 50 server, 135 client, 25 tooltip-menu — covering the pool and its two sources, the clamp, the phase window, the diff in all six refusal modes, `submitLateEw` end to end against a recording DBManager (budget clamp, all-or-nothing Disruption, idempotence, wrong phase, another player's ship, and the no-detector fast path proving it never loads gamedata at all), the derived-bookkeeping invariant, both gates with Initial Orders asserted unchanged, the real `AssignOEW`/`assignEW`/`deassignEW`/`removeEW` paths end to end, and the menu split proved lossless **by object identity** with the null-selection case asserted. `checkShipData.php` PASS, 0 new findings; replay harness 119 passed / 4 failed, **byte-identical with timings normalised** to the same run with the six server files stashed — zero drift on all five checks, `masking` and `snapshot` included. ⭐⭐ **User ruling R1 deleted the hard half of this stage**: "end of the movement segment" is the start of Pre-Firing (or of Firing), so there is nothing to DECLARE — the allowance is simply recomputed at the post-movement hex and a ship that drifted out of range finds it is zero. ⭐⭐ **The bookkeeping is one derived number and two bounds** — `spent = pool − getEWLeft()`, upper bound the budget, lower bound what stops an Initial Orders allocation being taken back — no snapshot, no per-entry marking. ⭐ **User ruling R2**: the point comes out of the unspent DEW pool alone, so the allowance is `min(ladder, pool)` and a ship that spent everything on non-DEW types saves nothing. ⚠️ The write is **additive by the shape of the diff**, raises existing rows rather than duplicating them (`getEWbyType` reads the first, `getOEW` sums), and is idempotent. ⚠️ The EW buttons are **reused verbatim** from the Initial Orders menu behind ONE menu-level gate. ⚠️ Masking verdict and its one residual (a deliberate mid-phase page reload) recorded in §3.8.
 | **11** ✅ | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged — **DONE 2026-09-10** | All five, each proved on its own: **54 checks green** across four throwaway harnesses (14 bracket, 15 SCT marker, 11 client + 14 server untargetable) plus the seeding demonstrated on real hulls both ways. `checkShipData.php` unchanged — 238 findings, 237 baselined, and the **1 new error is pre-existing on a stashed tree** (`Wanderer :: location 1, roll 9` names `"EW Detector"` where the class is `"Electronic Warfare Detector"`, so the system can never be hit; it came in with the hull and the fix is one string in [Wanderer.php:94](source/server/model/ships/walkers/Wanderer.php#L94)). Replay harness **119 passed / 4 failed**, exactly the documented clean-tree failures (3676, 4249, 4297, 4325), byte-identical to a stashed-tree run. ⚠️⚠️ **And the harness caught a real regression that every unit test of the feature missed**: §3.10e's hull list as a `public static` on `Weapon` broke every missile-armed ship in the game, because `MissileRack::stripForJson` walks its ammo with `ReflectionObject::getProperties(IS_PUBLIC)` — which lists public STATICS — and then reads each name as `$missile->$key`. It is a `const` now; see the head of §3.10. ⭐ Two smaller findings: **the fleet checker no longer exists twice** (the second copy is `checkChoices_LEGACY`, inside a block comment since the Item-5 simplification, and a test asserts it did not grow a 50% bracket), and **the untargetable flag is a ship PROPERTY declared only on the orb**, so it rides the static blueprint verbatim and the server method and client mirror read one fact. |
 | **12** ✅ | Mapmaker Electronic Warfare (§3.11, as built §3.11a; saved EW extended to Walker flights 2026-09-10) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
-| **13** | Mapmaker Jump Engine (§3.12) | One jump point per flight however many craft declare; the second declaration refused by the existing one-vortex-per-shooter rule; 10 turns of recharge read from `$delay`; the flight leaves through its own vortex and is recorded as jumped. |
+| **13** ✅ | Mapmaker Jump Engine (§3.12) + the Fleet Checker hangar exemption — **DONE 2026-09-10** | **94 checks green** across two throwaway harnesses — 59 server, 35 client — covering the 10-turn recharge read from `$delay`, the one-engine-per-flight accessor, the charge mirrored onto all six craft, the declaration normalised at the wire and the second one refused *with the existing reason string*, `hasVortexDeclaration` reaching a flight at all, and the blueprint scan; every group asserts its own non-vacuity and both harnesses **fatal on the pre-edit tree**. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 115 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed. ⭐⭐ **THE PLAN WAS RIGHT THAT "ONE JUMP POINT PER FLIGHT" NEEDED NO NEW RULE AND WRONG ABOUT WHY IT WORKED**: `Firing::getVortexDeclarationBlock`'s one-vortex-per-**shooter** loop does catch it — but only once both orders name the SAME engine, so the rule that makes D13 true is a two-line **weaponid normalisation** in `validateVortexDeclaration`, not the loop itself. ⭐⭐ **AND THE REAL WORK WAS NOT THE CLIENT** (§3.12 called it "the whole stage"): five server sweeps walked `$ship->systems` looking for a `JumpEngine` and found NOTHING on a flight, because a flight's systems are *craft*. They all go through the new `JumpEngine::getUnitJumpEngines()` now. ⚠️ Three findings worth carrying, all in §3.12. |
 | **14** | `MedLightningArrayFtr` (§3.13) — **control sheet in hand (D24)** | 3 and 6 combine, 1/2/4/5 do not; damaged craft excluded; the two Mapmaker weapons cannot be mixed in one flight in one turn, refused on both sides of the wire; the Array locks on with flight EW while the Pulsar keeps its offensive bonus **plus** any OEW (D25); both stat profiles written out independently (the flat +12 does not double); `loadingtime = 4`, able to fire combined on turn 1; no flash collateral inside ANY Energy Draining Field, inherited free from Stage 4 (D26); and the combined shot counted as ONE discharge by `Firing::automateIntercept`. |
 | **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
 | **16** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |

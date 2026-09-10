@@ -1975,6 +1975,21 @@ at short range versus long range.
             </li>
         </ul>
 
+    <h5>Mapmaker Sensor Probes</h5>
+        <ul>
+            <li>The Walkers' only small craft, and the only fighter flight in the game with an <b>EW allowance of its own</b>: <b>3 points per flight per turn</b>, split freely
+                between OEW and DEW exactly as a ship spends its scanner output, with anything unspent becoming DEW when Initial Orders are committed. It is 3 per <i>flight</i>,
+                not 3 per craft. Their own mine-detection allowance is a separate pool, bought as usual with the flight's Offensive Bonus.</li>
+            <li>They need <b>no hangar space at all</b> in the Fleet Checker, so a Walker fleet may take them whether or not it brings a carrier.</li>
+            <li>Every probe carries a <b>Jump Engine</b> with a 10-turn recharge. It projects a jump vortex up to 4 hexes away, the vortex forms at the end of the turn it is
+                declared and can be flown into from the next one, and the flight can leave the battle through it.</li>
+            <li><b>A flight's jump point is open for exactly ONE turn.</b> Maintaining a vortex means shutting the ship down, which a fighter cannot do, so there is no Maintain
+                control on a Mapmaker and the engine's counter reads <b>1/1</b> rather than counting up to four. Anything meaning to use the doorway has that one turn.</li>
+            <li><b>A flight opens ONE jump point, however many probes are in it.</b> The engines act as a single system: they all show the same charge, an order declared on any
+                one of them is the flight's order (and shows on all of them), and a second declaration in the same turn is refused. Opening a jump point spends the whole
+                flight's charge, not one craft's.</li>
+        </ul>
+
     <h5>Fleet Composition</h5>
         <ul>
             <li>The Walkers are an Ancient faction, so the Ancient brackets of the Fleet Checker apply: one capital ship per 15,000 points, one unit per hull per full 3,000
@@ -1997,12 +2012,11 @@ at short range versus long range.
             <li><b>Guideship</b> (medium, 2350) - an Energy Draining Field, a Medium Lightning Array, two Chromatic Pulse Drivers and a mine launcher.</li>
             <li><b>Scribe</b> (medium, 750) - the cheap Sensor Charge Transceiver platform, with an Energy Draining Net and two Chromatic Pulse Drivers.</li>
             <li><b>Mapmaker Sensor Probes</b> (heavy fighter flight, up to 6) - very fast gravitic probes with advanced armour and advanced sensors, carrying a Light Chromatic
-                Pulsar, and requiring no hangar space.</li>
+                Pulsar, an EW allowance and a Jump Engine, and requiring no hangar space.</li>
         </ul>
         <ul>
-            <li>Not implemented yet, and listed so the page is not read as promising them: the Mapmakers' own EW allowance, their Medium Lightning Array and their jump engine;
-                the Traveler's Docking Bay (docking Scribes, Pathfinders and Waymarkers, and repairing and powering them); and the Traveler's slow jump-out and its
-                Extra-Dimensional Jump Drive.</li>
+            <li>Not implemented yet, and listed so the page is not read as promising them: the Mapmakers' Medium Lightning Array; the Traveler's Docking Bay (docking Scribes,
+                Pathfinders and Waymarkers, and repairing and powering them); and the Traveler's slow jump-out and its Extra-Dimensional Jump Drive.</li>
         </ul>
 
     <a class="back-to-top" href="#top">↩ Back to Top</a>

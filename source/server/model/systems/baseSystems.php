@@ -5559,6 +5559,29 @@ class JumpEngine extends Weapon{
         return $this->legacyJump;
     }
 
+    /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - IS THIS ENGINE MOUNTED ON A FIGHTER FLIGHT?
+     *
+     * ONE PREDICATE, THREE RULES, and they are all the same rule seen from different ends
+     * (user ruling 2026-09-10: *"as fighters, Mapmakers cannot hold a jump point open for more
+     * than 1 turn"*):
+     *
+     *   1. NO MAINTAIN. getMaintainDeclaration refuses outright, so a flight's jump point closes at
+     *      the end of its first open turn whatever anybody declares - and a forged mode-7 order is
+     *      refused at the wire by Firing::getVortexDeclarationBlock as well.
+     *   2. THE COUNTER IS OUT OF 1, not out of MAX_VORTEX_TURNS - see stripForJson. A control that
+     *      reads "1/4" promises three turns the unit can never have.
+     *   3. AND THERE IS NOTHING TO ASK ABOUT POWER. The all-systems-offline half of Maintain is a
+     *      rule about a ship's power allocation; a flight has none, so the question never arises
+     *      rather than being answered vacuously (which is what it did before this ruling, and which
+     *      would have let a Mapmaker hold a doorway open for four turns for free).
+     *
+     * ⚠️ getUnit() is the FLIGHT for a fighter's subsystem - FighterFlight::addSystem calls
+     * setUnit($this) on the craft AND on each of its systems - not the craft. */
+    public function isFlightMounted()
+    {
+        return $this->getUnit() instanceof FighterFlight;
+    }
+
     /* ================= JUMP GATES (PHASE 2) - THE FIXED-GATE ENGINE ===============
      *
      * JUMP_GATES_PLAN.md section 3.2. A FLAG, not a subclass, for exactly the four reasons
@@ -5912,8 +5935,7 @@ class JumpEngine extends Weapon{
        illegal hexes anyway, and the only way to reach it is a tampered POST. */
     public static function hasVortexDeclaration($ship, $turn){
         if (!$ship || !is_array($ship->systems)) return false;
-        foreach ($ship->systems as $system){
-            if (!($system instanceof JumpEngine)) continue;
+        foreach (self::getUnitJumpEngines($ship) as $system){
             /* ⭐⭐ JUMP GATES (PHASE 2) - DO NOT "FIX" THIS METHOD TO COVER GATES. IT IS A RULING.
                (JUMP_GATES_PLAN.md sections 2.1 and 3.3, trap 5; user ruling 2026-08-23.)
 
@@ -5989,6 +6011,46 @@ class JumpEngine extends Weapon{
         return $notes;
     }
 
+    /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - EVERY JUMP ENGINE THAT SPEAKS FOR $unit.
+     *
+     * The one place in the codebase that answers "which engines does this unit have?", and it
+     * exists because a FIGHTER FLIGHT's engines are one level further down than every sweep in this
+     * file expected: $ship->systems on a flight is a list of Fighter objects, and their weapons are
+     * inside those. Every `foreach ($ship->systems as $system) if ($system instanceof JumpEngine)`
+     * loop therefore found NOTHING on a flight - the declaration would validate, persist, and then
+     * be silently dropped by the spawn sweep.
+     *
+     * ⭐ ON A FLIGHT IT ANSWERS EXACTLY ONE ENGINE - the sample fighter's - AND THAT IS THE RULE,
+     * not an optimisation: "only let an entire flight of Mapmakers open 1 jump point, not one per
+     * fighter" (user, D13). See FighterFlight::getFlightJumpEngine for why the sample fighter is
+     * the right anchor. A declaration made on ANY craft's engine is normalised onto this one at the
+     * wire by Firing::validateVortexDeclaration, so nothing downstream ever has to look at the
+     * siblings - and a stray order that somehow named one simply opens nothing, which is the safe
+     * failure rather than a vortex whose charge lives somewhere nobody reads.
+     *
+     * On everything else it is the plain loop it replaces, so every hull, gate and OSAT in the game
+     * gets a byte-identical answer.
+     *
+     * ⚠️ READ IT, DO NOT RE-WRITE THE LOOP. A new "find the jump engines" sweep that walks
+     * $ship->systems by hand is a sweep that does not work for flights, and the symptom - an order
+     * that commits cleanly and then does nothing at all - points nowhere near the loop. */
+    public static function getUnitJumpEngines($unit)
+    {
+        if (!$unit || !is_array($unit->systems)) return array();
+
+        if ($unit instanceof FighterFlight){
+            $engine = $unit->getFlightJumpEngine();
+            return $engine ? array($engine) : array();
+        }
+
+        $engines = array();
+        foreach ($unit->systems as $system){
+            if ($system instanceof JumpEngine) $engines[] = $system;
+        }
+
+        return $engines;
+    }
+
     /* ================= STAGE 3 - THE VORTEX UNIT ==================================
      *
      * THE SPAWN SWEEP. Every legal vortex declaration made this Initial Orders turns into a
@@ -6027,9 +6089,9 @@ class JumpEngine extends Weapon{
                future order shape cannot reintroduce the bug by accident. */
             if ($ship->isReinforcement()) continue;
 
-            foreach ($ship->systems as $system){
-                if (!($system instanceof JumpEngine)) continue;
-
+            //getUnitJumpEngines, not a bare loop over $ship->systems: a FIGHTER FLIGHT's engines sit
+            //one level down, inside its craft, and it answers the flight's ONE engine (Stage 13).
+            foreach (self::getUnitJumpEngines($ship) as $system){
                 $declaration = $system->getVortexDeclaration($gamedata->turn);
                 if (!$declaration) continue;
 
@@ -6329,9 +6391,7 @@ class JumpEngine extends Weapon{
             //Pre-battle damage can destroy a system, and in principle a whole unit, before turn 1.
             if ($ship->isDestroyed($turn)) continue;
 
-            foreach ($ship->systems as $system){
-                if (!($system instanceof JumpEngine)) continue;
-
+            foreach (self::getUnitJumpEngines($ship) as $system){
                 $declaration = $system->getExitDeclaration($turn);
                 if (!$declaration) continue;
 
@@ -6409,9 +6469,7 @@ class JumpEngine extends Weapon{
             if ($ship->isTerrain()) continue;            //gates are collectGateExits' half, below
             if (!$ship->isReinforcement()) continue;     //an opener rides its own doorway, so it is still in hyperspace
 
-            foreach ($ship->systems as $system){
-                if (!($system instanceof JumpEngine)) continue;
-
+            foreach (self::getUnitJumpEngines($ship) as $system){
                 /* THE SAME QUESTION THE GATE PASS ASKS, deliberately: is the jump point this engine
                    holds an EXIT, and will it still be open on the arrival turn. Stronger than the
                    bare hasOpenVortex the old combined sweep used - it also rejects an ENTRANCE,
@@ -6659,9 +6717,7 @@ class JumpEngine extends Weapon{
 
         if (!$opener || !is_array($opener->systems)) return null;
 
-        foreach ($opener->systems as $system){
-            if (!($system instanceof JumpEngine)) continue;
-
+        foreach (self::getUnitJumpEngines($opener) as $system){
             $scatter = $system->getVortexScatter();
             if ($scatter !== null) return $scatter;
         }
@@ -7321,6 +7377,17 @@ class JumpEngine extends Weapon{
            neither of which is a gate rule. */
         if ($this->gateJump) return null;
 
+        /* ⭐⭐ WALKERS §3.12 (Stage 13) - AND A FIGHTER FLIGHT HAS NO MAINTAIN EITHER (user ruling
+           2026-09-10): *"as fighters, Mapmakers cannot hold a jump point open for more than 1 turn"*.
+           The same shape as the gate refusal above and for a related reason - the rule Maintain is
+           built on is a SHIP's, and a flight cannot satisfy it.
+
+           ⚠️ IT MUST BE REFUSED, NOT LEFT TO FAIL NATURALLY. getVortexPowerViolations looks for
+           systems drawing power and a flight's craft draw none, so the all-systems-offline test
+           passes VACUOUSLY on one - which before this ruling would have let a Mapmaker hold a
+           doorway open for the full four turns at no cost at all. See isFlightMounted(). */
+        if ($this->isFlightMounted()) return null;
+
         foreach ($this->fireOrders as $fire){
             if ($fire->turn != $turn) continue;
             if (!empty($fire->rejected)) continue;
@@ -7351,6 +7418,15 @@ class JumpEngine extends Weapon{
     {
         $violations = array();
 
+        /* ⚠️⚠️ NEVER ASK THIS ABOUT A FIGHTER FLIGHT (Stage 13). It answers VACUOUSLY EMPTY on one -
+           a flight's systems are Fighter objects with powerReq 0, so there is nothing for the loop
+           below to find - which reads as "this unit satisfies the all-systems-offline rule" when the
+           truth is that the rule does not apply to it at all. That vacuous pass would have let a
+           Mapmaker hold a jump point open for four turns for free.
+           The rule is settled one level up instead: JumpEngine::isFlightMounted() refuses a flight's
+           Maintain outright (user ruling 2026-09-10), so this method is never reached for one.
+           Deliberately NOT routed through getUnitJumpEngines' flight descent either - this asks
+           about the SHIP's power draw, not about its engines. */
         foreach ($ship->systems as $system){
             if ($system instanceof JumpEngine) continue;
             if ($system instanceof Scanner) continue;
@@ -7431,8 +7507,7 @@ class JumpEngine extends Weapon{
         $holder = $gamedata->getShipById((int)$vortex->vortexHolderId);
         if (!$holder || !is_array($holder->systems)) return null;
 
-        foreach ($holder->systems as $system){
-            if (!($system instanceof JumpEngine)) continue;
+        foreach (self::getUnitJumpEngines($holder) as $system){
             if ($system->activeVortexId === null) continue;
             if ((int)$system->activeVortexId !== (int)$vortex->id) continue;
 
@@ -7752,9 +7827,9 @@ class JumpEngine extends Weapon{
         foreach ($gamedata->ships as $ship){
             if ($ship->isTerrain() && !self::holdsGateEngine($ship)) continue;
 
-            foreach ($ship->systems as $system){
-                if (!($system instanceof JumpEngine)) continue;
-
+            //Stage 13: a FIGHTER FLIGHT's engine is one level down, inside its craft, and only the
+            //sample fighter's speaks for the flight - see getUnitJumpEngines.
+            foreach (self::getUnitJumpEngines($ship) as $system){
                 $system->closeVortexIfDue($ship, $gamedata);
             }
         }
@@ -7887,6 +7962,15 @@ class JumpEngine extends Weapon{
         if ($distance > $this->range) return 'holder is ' . $distance . ' hexes away';
 
         if ($turn == $this->vortexOpenTurn) return null; //the turn it was declared - nothing more to ask
+
+        /* ⭐⭐ WALKERS §3.12 (Stage 13) - A FIGHTER FLIGHT'S JUMP POINT IS OPEN FOR EXACTLY ONE TURN
+           (user ruling 2026-09-10). getMaintainDeclaration already refuses a flight, so the line
+           below would close it anyway - this branch exists for the LOG, which is a persisted note
+           and the only explanation the player gets. "not maintained" reads like a mistake the
+           player made; this reads like the rule it is. Placed after the declaring-turn exemption so
+           the doorway still forms, and after destruction and range so those keep telling the better
+           story when they apply. */
+        if ($this->isFlightMounted()) return 'a fighter flight cannot hold a jump point open';
 
         if (!$this->getMaintainDeclaration($turn)) return 'not maintained';
 
@@ -8607,16 +8691,34 @@ class JumpEngine extends Weapon{
 
         $turn = (int)TacGamedata::$currentTurn;   //(int): mysqli hands the turn back as a STRING
 
-        $strippedSystem->turnsloaded = $this->getVortexRechargeLoad($turn);
+        /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - ON A FIGHTER FLIGHT, ALL SIX ENGINES SEND
+           THE FLIGHT'S ONE CHARGE. "If one Jump Engine has a fireOrder they all do" (user, D13), and
+           the charge is the visible half of that: the vortex state lives on the SAMPLE fighter's
+           engine alone (see FighterFlight::getFlightJumpEngine), so without this the craft that
+           opened the jump point would read 0/10 while its five siblings read 10/10 - six icons
+           disagreeing about one fact, and five of them inviting a declaration the server will refuse.
+
+           $source is $this on every hull, gate and OSAT in the game, so their payload is
+           byte-identical. It is also $this on the sample fighter itself.
+           ⚠️ getUnit() is the FLIGHT for a fighter's subsystem - FighterFlight::addSystem calls
+           setUnit($this) on the craft AND on each of its systems - not the craft. */
+        $source = $this;
+        $unit   = $this->getUnit();
+        if ($unit instanceof FighterFlight){
+            $flightEngine = $unit->getFlightJumpEngine();
+            if ($flightEngine) $source = $flightEngine;
+        }
+
+        $strippedSystem->turnsloaded = $source->getVortexRechargeLoad($turn);
         /* getVortexRechargeTime() rather than the raw max(1, (int)$this->delay) this used to send:
            the method IS that expression on a ship engine, so a ship's payload is byte-identical, and
            on a FIXED GATE it adds the reactor-damage term. Sending the undamaged number instead
            would leave the client's weaponManager.isLoaded test disagreeing with the server's own
            charge test in Firing::getGateSignalBlock - the Signal button would be offered and the
            claim then rejected, which is the worst of both. */
-        $strippedSystem->loadingtime = $this->getVortexRechargeTime();
+        $strippedSystem->loadingtime = $source->getVortexRechargeTime();
 
-        $age = $this->getVortexAge($turn);
+        $age = $source->getVortexAge($turn);
         if ($age !== null){
             $strippedSystem->vortexTurnsOpen = $age;
             /* ⭐ JUMP GATES (PHASE 2): a gate's jump point runs for the duration PROGRAMMED when it
@@ -8625,9 +8727,14 @@ class JumpEngine extends Weapon{
                ship-opened vortex, which is what keeps this byte-identical for Phase 1.
                ⚠️ Sent per instance from live state, never mirrored onto the system as a flag - two
                gates in one game must not read each other's hold (plan trap 9). */
-            $strippedSystem->vortexMaxTurns  = ($this->vortexHoldTurns !== null)
-                ? (int)$this->vortexHoldTurns
-                : self::MAX_VORTEX_TURNS;
+            /* ⭐⭐ WALKERS §3.12 (Stage 13) - AND A FIGHTER FLIGHT'S IS OUT OF 1 (user ruling
+               2026-09-10). A flight has no Maintain, so its jump point is open for exactly one turn
+               and the icon must say so: "1/1", not "1/4", which would promise three turns the unit
+               can never have. Read off the SOURCE engine like everything else in this block, so all
+               six craft agree. */
+            $strippedSystem->vortexMaxTurns  = ($source->vortexHoldTurns !== null)
+                ? (int)$source->vortexHoldTurns
+                : ($source->isFlightMounted() ? 1 : self::MAX_VORTEX_TURNS);
         }
 
         return $strippedSystem;

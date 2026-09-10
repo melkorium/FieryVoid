@@ -1487,9 +1487,11 @@ class TacGamedata {
         if (!isset($this->slots[$ship->slot])) return;
         if (!is_array($ship->systems)) return;
 
-        foreach ($ship->systems as $system){
-            if (!($system instanceof JumpEngine)) continue;
-
+        //getUnitJumpEngines, not a bare loop: a FIGHTER FLIGHT's engine is one level down, inside
+        //its craft, and only the sample fighter's speaks for the flight (WALKERS_OF_SIGMA_PLAN.md
+        //§3.12, Stage 13). A Mapmaker flight arriving as a reinforcement declares its exit like any
+        //other unit, and the forming marker has to reach the other side the same way.
+        foreach (JumpEngine::getUnitJumpEngines($ship) as $system){
             foreach ($system->fireOrders as $fire){
                 if ($fire->damageclass !== 'jumpexit') continue;
                 if ((int)$fire->turn !== (int)$this->turn) continue;

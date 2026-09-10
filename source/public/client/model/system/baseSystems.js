@@ -1116,9 +1116,29 @@ JumpEngine.prototype.hasMaxBoost = function () {
    system so only JumpEngineMenu's labelled row appears, the same exclusion powerCapacitor and
    GraviticAugmenter already carry. */
 
+/* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - THE UNIT THIS ENGINE BELONGS TO, which is NOT
+   always this.ship.
+
+   SystemFactory builds a hull's systems with `new window[name](args, ship)` but a FIGHTER's systems
+   with `new window[name](args, fighter)` - so on a Mapmaker the engine's `this.ship` is the CRAFT,
+   an object with a per-flight autoid for an id and no position, no team and no vortex. Every method
+   below asks about the flight: which vortex it holds (matched on the flight's ship id), where it is,
+   whether it is mine. Ask the craft and they all silently answer "no".
+
+   The join is `flightid`, which Fighter::stripForJson has always published. Falls back to this.ship
+   for every ship-mounted engine in the game, so their behaviour is unchanged. */
+JumpEngine.prototype.getOwningUnit = function () {
+	var host = this.ship;
+	if (host && host.fighter && host.flightid !== undefined && host.flightid !== null
+		&& window.gamedata && typeof gamedata.getShipById === 'function') {
+		return gamedata.getShipById(host.flightid) || host;
+	}
+	return host;
+};
+
 //The open vortex this ship is holding, or null. Also the source of the target hex.
 JumpEngine.prototype.getHeldVortex = function () {
-	return shipManager.movement.getVortexHeldBy(this.ship);
+	return shipManager.movement.getVortexHeldBy(this.getOwningUnit());
 };
 
 /* STAGE 6 - WHAT THE SYSTEM ICON SHOWS, when it should show something other than the ordinary
@@ -1143,8 +1163,12 @@ JumpEngine.prototype.getVortexIconLoad = function () {
 	   denominator, which on a FIXED JUMP GATE is the PROGRAMMED HOLD (1-4 turns, chosen when the
 	   gate was signalled) rather than the four turns a ship's vortex may be maintained to
 	   (JUMP_GATES_PLAN.md Stage 4). So a gate signalled for two turns reads 1/2 then 2/2 and closes,
-	   which is what the player asked for. */
-	var max = this.vortexMaxTurns || 4;
+	   which is what the player asked for.
+
+	   ⭐ AND ON A FIGHTER FLIGHT IT IS 1 (WALKERS §3.12, Stage 13, user ruling 2026-09-10): a flight
+	   has no Maintain, so its jump point is open for exactly one turn and the icon reads "1/1". The
+	   server sends that denominator too; this only decides what the FALLBACK below counts out of. */
+	var max = this.vortexMaxTurns || (this.isFlightMounted() ? 1 : 4);
 
 	if (this.vortexTurnsOpen !== undefined && this.vortexTurnsOpen !== null) {
 		return this.vortexTurnsOpen + "/" + max;
@@ -1157,6 +1181,14 @@ JumpEngine.prototype.getVortexIconLoad = function () {
 	if (age < 0) return null;
 
 	return Math.min(age, max) + "/" + max;
+};
+
+/* ⭐ Stage 13 - IS THIS ENGINE MOUNTED ON A FIGHTER CRAFT? The client mirror of
+   JumpEngine::isFlightMounted(), and it asks the DIRECT fact - SystemFactory hands a fighter's
+   systems the CRAFT as their `ship` - rather than going through getOwningUnit(), so it cannot be
+   wrong even when the flight lookup finds nothing (the lobby, a mid-poll payload). */
+JumpEngine.prototype.isFlightMounted = function () {
+	return Boolean(this.ship && this.ship.fighter);
 };
 
 //Does a Maintain declaration for THIS turn stand on this engine?
@@ -1203,10 +1235,21 @@ JumpEngine.prototype.canMaintainVortex = function () {
 	   reading the gate feature is to "let the owner keep their gate open", which is the opposite of
 	   the ruling. The server refuses it independently: JumpEngine::getMaintainDeclaration returns
 	   null outright for a gate engine, so a tampered mode-7 order cannot get there either. */
-	if (!gamedata.isMyShip(this.ship)) return false;
-	if (shipManager.isDestroyed(this.ship)) return false;
-	if (shipManager.systems.isDestroyed(this.ship, this)) return false;
-	if (shipManager.power.isOffline(this.ship, this)) return false;
+	//getOwningUnit, not this.ship - on a Mapmaker this.ship is the CRAFT (Stage 13).
+	var unit = this.getOwningUnit();
+
+	/* ⭐⭐ WALKERS §3.12 (Stage 13, user ruling 2026-09-10) - A FIGHTER FLIGHT HAS NO MAINTAIN:
+	   "as fighters, Mapmakers cannot hold a jump point open for more than 1 turn". So the control is
+	   not offered at all, which is also what stops every question below it being asked of a unit
+	   they do not fit - the all-systems-offline half of Maintain is a rule about a SHIP's power
+	   allocation and a flight has none. The server refuses it independently in
+	   JumpEngine::getMaintainDeclaration and at the wire in Firing::getVortexDeclarationBlock. */
+	if (this.isFlightMounted()) return false;
+
+	if (!gamedata.isMyShip(unit)) return false;
+	if (shipManager.isDestroyed(unit)) return false;
+	if (shipManager.systems.isDestroyed(unit, this)) return false;
+	if (shipManager.power.isOffline(unit, this)) return false;
 
 	var vortex = this.getHeldVortex();
 	if (!vortex) return false;
@@ -1215,7 +1258,7 @@ JumpEngine.prototype.canMaintainVortex = function () {
 
 	//Out of range NOW is refused by the server's declaration test too. (Straying out of range
 	//LATER, during Movement, closes the vortex at end of turn - that one is not preventable here.)
-	var distance = shipManager.getShipPosition(this.ship).distanceTo(shipManager.getShipPosition(vortex));
+	var distance = shipManager.getShipPosition(unit).distanceTo(shipManager.getShipPosition(vortex));
 	if (distance > this.range) return false;
 
 	return true;
@@ -1226,7 +1269,7 @@ JumpEngine.prototype.canActivate = function () {
 };
 
 JumpEngine.prototype.canDeactivate = function () {
-	return gamedata.gamephase === 1 && gamedata.isMyShip(this.ship) && this.isMaintainingVortex();
+	return gamedata.gamephase === 1 && gamedata.isMyShip(this.getOwningUnit()) && this.isMaintainingVortex();
 };
 
 /* Turn Maintain ON: make the declaration, and take the ship dark in the same click.
@@ -1238,7 +1281,7 @@ JumpEngine.prototype.canDeactivate = function () {
 JumpEngine.prototype.doActivate = function () {
 	if (!this.canActivate()) return;
 
-	var ship = this.ship;
+	var ship = this.getOwningUnit();
 	var vortex = this.getHeldVortex();
 	if (!vortex) return;
 
@@ -1291,7 +1334,7 @@ JumpEngine.prototype.doActivate = function () {
 JumpEngine.prototype.doDeactivate = function () {
 	if (!this.canDeactivate()) return;
 
-	var ship = this.ship;
+	var ship = this.getOwningUnit();
 	this.removeVortexMaintainOrder();
 
 	for (var i in ship.systems) {

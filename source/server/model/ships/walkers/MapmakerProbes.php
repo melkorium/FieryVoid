@@ -1,6 +1,6 @@
 <?php
 class MapmakerProbes extends FighterFlight{
-    
+
     function __construct($id, $userid, $name,  $slot){
         parent::__construct($id, $userid, $name,  $slot);
         
@@ -25,9 +25,10 @@ class MapmakerProbes extends FighterFlight{
 		   See FighterFlight::$ewCapacity for why this is the whole gate. */
 		$this->ewCapacity = 3;
 
-		$this->notes = "Does not require hangar space.";		
+		$this->notes = "Does not require hangar space.";
 		$this->notes .= "Can use up to 3 EW points per turn (OEW and/or DEW).";
-		
+		$this->notes .= "Carries a Jump Engine.";
+
 		$this->forwardDefense = 5;
 		$this->sideDefense = 8;
 		$this->freethrust = 15;
@@ -39,6 +40,7 @@ class MapmakerProbes extends FighterFlight{
 	    $this->advancedArmor = true; 
         $this->gravitic = true;
         $this->maxFlightSize = 6;//this is very powerful craft, let's not overdo on its durability, limit flight size to 6
+		$this->noHangarRequired = true;
 		
 		$this->iniativebonus = 20 *5;
 		$this->populate();
@@ -64,8 +66,19 @@ class MapmakerProbes extends FighterFlight{
 			
 			//ramming attack 			
 			$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack			
-       	    //Jump Engine
-            //$fighter->addAftSystem(new JumpEngine(0, 1, 0, 10)); //Placeholder line for Jump Engine system
+			/* Jump Engine (WALKERS_OF_SIGMA_PLAN.md 3.12, Stage 13). The 4th argument is $delay - the
+			   B5W jump delay, which the class turns into loadingtime/turnsloaded - so this IS the
+			   "recharge time of 10 turns" the rules ask for. ⚠️ A recharge rule must read $delay,
+			   never $loadingtime (JUMP_GATES finding, and it applies verbatim here). The 5th argument
+			   (vortex projection range) is left at the B5W standard 4.
+
+			   ⭐ EVERY CRAFT CARRIES ONE AND THE FLIGHT HAS EXACTLY ONE. The charge is per SYSTEM
+			   and the rule is per FLIGHT, so every read and write is routed through
+			   FighterFlight::getFlightJumpEngine() - the SAMPLE fighter's engine - and the siblings
+			   mirror its charge in JumpEngine::stripForJson. A second declaration in one turn is
+			   refused by Firing::getVortexDeclarationBlock's one-vortex-per-SHOOTER rule, and a
+			   fighter's shooter IS the flight. */
+            $fighter->addAftSystem(new JumpEngine(0, 1, 0, 10));
 			//Advanced Sensors w/ 3 EW
             $fighter->addAftSystem(new Fighteradvsensors(0, 1, 0));	//Need to modify this so it also provide the 3 EW Mapmakers have		
 			

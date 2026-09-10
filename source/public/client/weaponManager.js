@@ -4023,6 +4023,7 @@ window.weaponManager = {
         var toUnselect = Array();
         var splitTargeted = [];
         var linkedWarned = {}; //one firing-link warning per group, not per weapon
+        var vortexQueued = false; //Stage 13 - one vortex declaration per pass, however many engines are selected
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
 
@@ -4092,6 +4093,20 @@ window.weaponManager = {
             //otherwise drop the order without telling anyone. The weapon stays SELECTED so the
             //next right-click can try a different hex.
             if (weapon.name === 'jumpEngine') {
+                /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - A FLIGHT DECLARES WITH ONE ENGINE.
+                   The player clicks whichever craft's icon is under the mouse, but the declaration
+                   belongs to the FLIGHT ("only let an entire flight of Mapmakers open 1 jump point,
+                   not one per fighter" - user, D13), so the order is built on the flight's engine
+                   whichever one was selected. vortexQueued then makes "select all six and
+                   right-click" produce ONE facing dialog and ONE order rather than six of each.
+                   The server normalises the weaponid again at the wire, so this is the UX half of
+                   the rule, not the enforcement. */
+                if (selectedShip.flight) {
+                    if (vortexQueued) continue;
+                    var flightEngine = weaponManager.getFlightJumpEngine(selectedShip);
+                    if (flightEngine) weapon = flightEngine;
+                }
+
                 //STAGE 5 - one vortex per ship, across turns. Told rather than silently dropped:
                 //the server refuses a second opening (Firing::getVortexDeclarationBlock) and the
                 //player would otherwise watch the order vanish at commit with no explanation.
@@ -4195,6 +4210,7 @@ window.weaponManager = {
                         //createJumpPointOrder). Clicking away instead simply never calls it,
                         //which is what makes discarding cost nothing to clean up.
                         weaponManager.queueJumpPointOrder(selectedShip, weapon, hexpos, type);
+                        vortexQueued = true; //Stage 13 - a flight's other five engines must not raise a second dialog
                         continue;
                     } else if (weapon.name === 'ShadowFighterBomb') {
                         //Stage S (S-f): the Fighter Bomb launches a player-chosen
@@ -4395,6 +4411,17 @@ window.weaponManager = {
         });
 
         weaponManager.unSelectWeapon(ship, weapon);
+
+        /* Stage 13 - AND EVERY OTHER JUMP ENGINE THE PLAYER HAD SELECTED ON THIS UNIT. On a flight
+           the order was built on the flight's engine (see targetHex) rather than on whichever
+           craft's icon was clicked, so without this the clicked one stays lit with nothing to do.
+           A hull never has more than one selected here, so this is a no-op for every other unit.
+           Iterated backwards because unSelectWeapon splices the array it is walking. */
+        for (var u = gamedata.selectedSystems.length - 1; u >= 0; u--) {
+            var selected = gamedata.selectedSystems[u];
+            if (selected && selected.name === 'jumpEngine') weaponManager.unSelectWeapon(ship, selected);
+        }
+
         webglScene.customEvent('HexTargeted', { shooter: ship, hexagon: hexpos });
     },
 
@@ -4671,6 +4698,16 @@ window.weaponManager = {
     },
 
     removeFiringOrder: function removeFiringOrder(ship, system) {
+        /* Stage 13 - THE MIRROR OF hasFiringOrder's DIVERT, and it has to be here or the rule is a
+           trap: all six of a flight's Jump Engine icons report the declaration, so the player will
+           withdraw it from whichever one they are looking at - and on five of them the order is not
+           theirs to splice. Withdrawing from the flight's engine is what makes the icon they
+           clicked actually clear. */
+        if (ship && ship.flight && system && system.name === 'jumpEngine') {
+            var flightJumpEngine = weaponManager.getFlightJumpEngine(ship);
+            if (flightJumpEngine && flightJumpEngine !== system) system = flightJumpEngine;
+        }
+
         if (system.multiModeSplit) { //Divert to weapon function for these specific weapons.
             system.removeAllMultiModeSplit(ship);
             return;
@@ -4783,6 +4820,19 @@ window.weaponManager = {
 
 
     hasFiringOrder: function hasFiringOrder(ship, system) {
+        /* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - "IF ONE JUMP ENGINE HAS A fireOrder THEY
+           ALL DO" (user, D13), literally. A flight declares with its ONE engine (see
+           getFlightJumpEngine), so the other five craft would otherwise draw an un-ordered icon for
+           a declaration the flight has certainly made. Asking the flight engine here is the whole of
+           it: this is the single chokepoint the SCS icon, the select/unselect gate and
+           selectAllWeapons all read.
+           Narrow by construction - only a flight, only a jumpEngine - so nothing else in the game
+           sees a different answer. */
+        if (ship && ship.flight && system && system.name === 'jumpEngine') {
+            var flightEngine = weaponManager.getFlightJumpEngine(ship);
+            if (flightEngine && flightEngine !== system) system = flightEngine;
+        }
+
         for (var i in system.fireOrders) {
             var fire = system.fireOrders[i];
             if (weaponManager.isHomingReattack(fire)) continue; //in flight, not declared - see isHomingReattack
@@ -5413,6 +5463,39 @@ window.weaponManager = {
         }
 
         return shortLogTypes.includes(fire.damageclass);
+    },
+
+    /* ⭐⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - THE ONE JUMP ENGINE A FLIGHT HAS, or null.
+
+       The client mirror of FighterFlight::getFlightJumpEngine, and it exists for the same reason:
+       six Mapmakers carry six engines but "an entire flight opens 1 jump point, not one per
+       fighter" (user, D13). The SAMPLE fighter's is the flight's, and systems[1] is that craft on
+       both sides - a flight's system ids are construction order, so the first fighter is 1.
+
+       ⚠️ THE SERVER IS THE AUTHORITY, NOT THIS. Firing::validateVortexDeclaration re-points every
+       flight declaration at the flight engine's id whatever the client sent, so a mismatch here
+       could only ever cost a highlight, never a wrong vortex. The fallback scan is for exactly that
+       reason - answer something sensible rather than nothing.
+
+       Returns null for a hull (which does not need it - its engines are its own systems) and for
+       every flight in the game but a Mapmaker's. */
+    getFlightJumpEngine: function getFlightJumpEngine(ship) {
+        if (!ship || !ship.flight || !ship.systems) return null;
+
+        var craftList = ship.systems[1] ? [ship.systems[1]] : [];
+        for (var f in ship.systems) {
+            if (ship.systems[f] && ship.systems[f] !== craftList[0]) craftList.push(ship.systems[f]);
+        }
+
+        for (var c = 0; c < craftList.length; c++) {
+            var craft = craftList[c];
+            if (!craft || !craft.systems) continue;
+            for (var s in craft.systems) {
+                if (craft.systems[s] && craft.systems[s].name === 'jumpEngine') return craft.systems[s];
+            }
+        }
+
+        return null;
     },
 
     /* JUMP_POINTS_PLAN.md STAGE 2 - the client half of Firing::getVortexDeclarationBlock. Returns

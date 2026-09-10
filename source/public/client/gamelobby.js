@@ -1429,8 +1429,23 @@ window.gamedata = {
 				//them entirely; totalShips++ above still counts them as a unit present.
 				var isShadowFighterFlight = (lship.faction == "Shadow Association");
 
+				/* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - "They do not require hangars at all
+				   in Fleet Checker (so can be taken even if the fleet does not have enough hangar
+				   space)" (user, original rules text). Same shape as the Shadow skip above and for
+				   the same reason: the craft is still a UNIT PRESENT (totalShips++ ran above) and
+				   still counts for points, tiers and every other fleet rule - it simply never enters
+				   the hangar-space accounting, so a fleet with no carrier at all passes.
+
+				   ⚠️ noHangarRequired IS A FLEET-BUILDING FLAG AND NOTHING ELSE. It is declared on
+				   the hull (MapmakerProbes) and rides the static blueprint verbatim, exactly as
+				   Stage 11's unTargetable does. It does NOT make the craft hangar-less in play: a
+				   Mapmaker still fills boxes the moment a Traveler carries one, which is what
+				   Stage 15's docking bay depends on, so HangarOps is deliberately not taught about
+				   it. */
+				var noHangarRequired = Boolean(lship.noHangarRequired);
+
 				//now translate size into hangar space used...
-				if (smallCraftSize != '' && !isShadowFighterFlight) {
+				if (smallCraftSize != '' && !isShadowFighterFlight && !noHangarRequired) {
 					if (lship.customFtrName) {
 						specialFtrAmt = lship.flightSize / lship.unitSize;
 						specialFtrName = lship.customFtrName;
@@ -1473,6 +1488,19 @@ window.gamedata = {
 				for (var a in lship.systems) {
 					var sSystem = lship.systems[a];
 					if (sSystem.name == 'jumpEngine') jumpDrivePresent = true;
+
+					/* ⭐ A FLIGHT'S ENGINES ARE ONE LEVEL DOWN (WALKERS_OF_SIGMA_PLAN.md §3.12,
+					   Stage 13). lship.systems on a flight is a list of CRAFT and their systems are
+					   inside those, so this scan answered "no jump engine" for a fleet of Mapmakers
+					   - which each carry one and whose whole point is that they arrive under their
+					   own power. The fleet-wide "at least one is required" rule is the only reader,
+					   and it should be told the truth. Free for every other flight in the game:
+					   they have no jumpEngine to find. */
+					if (sSystem.fighter && sSystem.systems) {
+						for (var fs in sSystem.systems) {
+							if (sSystem.systems[fs].name == 'jumpEngine') jumpDrivePresent = true;
+						}
+					}
 				}
 			}
 			if (lship.shipSizeClass >= 3) capitalShips++;
