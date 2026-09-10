@@ -16,6 +16,7 @@ class Scribe extends MediumShip{
 				
         $this->gravitic = true;
 		$this->advancedArmor = true;  
+		$this->agile = true;
         
         $this->forwardDefense = 9;
         $this->sideDefense = 11;
