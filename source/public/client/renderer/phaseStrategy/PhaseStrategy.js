@@ -1594,8 +1594,8 @@ window.PhaseStrategy = function () {
         //ShipTooltip.refreshButtons).
         //
         //Both are unphased on purpose - they render whatever createForSingleShip would render
-        //right now, and hide themselves when nothing is selected - whereas the INCOMING rebuild
-        //below stays pinned to the Firing phase, where interception may be declared.
+        //right now, and hide themselves when nothing is selected - and so, now, is the INCOMING
+        //rebuild below, for the two phases in which that list can go stale under an open tooltip.
         if (this.shipTooltip && typeof this.shipTooltip.refreshTargeting === 'function') {
             this.shipTooltip.refreshTargeting();
         }
@@ -1604,7 +1604,20 @@ window.PhaseStrategy = function () {
             this.shipTooltip.refreshButtons();
         }
 
-        if (gamedata.gamephase === 3 && this.shipTooltip && this.shipTooltip.ballisticsMenu
+        /* The INCOMING list, for the two phases that can change it while a tooltip is open:
+           Firing (3), where interception is declared against these shots, and INITIAL ORDERS (1),
+           where the shots themselves are declared and withdrawn (user request 2026-09-10).
+           Withdrawing a ballistic order raises SystemDataChanged from removeFiringOrder /
+           removeFiringOrderMulti / removeFiringOrderAll, and the map icon already answers it via
+           ballisticIconContainer.consumeGamedata below - but the TARGET's open tooltip went on
+           listing a missile that no longer existed until the pointer left the ship and came back.
+           The event names the SHOOTER and the tooltip is usually the target's, so this deliberately
+           does not test the ship: the menu re-runs getAllBallisticsAgainst for whatever it is
+           showing, which is the only thing that can answer "is that shot still declared".
+           Still gated rather than unphased: this handler is one of the busiest in the file, and in
+           every other phase the list is a read-only record of shots already in the air. */
+        if ((gamedata.gamephase === 1 || gamedata.gamephase === 3)
+            && this.shipTooltip && this.shipTooltip.ballisticsMenu
             && typeof this.shipTooltip.ballisticsMenu.refresh === 'function') {
             this.shipTooltip.ballisticsMenu.refresh();
         }

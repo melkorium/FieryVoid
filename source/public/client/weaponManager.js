@@ -2804,6 +2804,50 @@ window.weaponManager = {
         return weapon[flagName];
     },
 
+    /* Put a weapon into the mode one of its fire orders was declared in, for a DISPLAY-ONLY read (a
+       hit-chance recalculation, a per-mode damage or range line), and hand back the mode it was in
+       so the caller can put it back with restoreFiringMode.
+
+       ⚠️⚠️ ALWAYS RESTORE IT. These are the LIVE system objects on the ship - the very objects a new
+       declaration reads `firingMode` off (every weapon model builds its order with
+       `firingMode: this.firingMode`) - so a display switch that is never undone silently re-arms the
+       player's weapon. A homing missile still in the air is a CURRENT-TURN ballistic order sitting in
+       'Homing' mode on a rack that is deliberately NOT counted as fired (isHomingReattack), so merely
+       rendering its row in the INCOMING list or the declarations panel flipped the rack to Homing and
+       the player's next launch went out as a homing missile they never chose (user report).
+
+       The cycle is bounded by the number of declared modes: changeFiringMode() wraps around, so an
+       order naming a mode this weapon does not have - the Chameleon fire-order remap can produce
+       exactly that - would otherwise spin forever and hang the tab. */
+    setModeForFireOrder: function setModeForFireOrder(weapon, fireOrder) {
+        if (!weapon || !fireOrder) return null;
+        var previous = weapon.firingMode;
+        //A multiModeSplit weapon holds orders in both modes at once - there is no single mode to
+        //switch it to, and the display paths already leave it alone.
+        if (weapon.multiModeSplit) return previous;
+
+        var wanted = fireOrder.firingMode;
+        var guard = weapon.firingModes ? Object.keys(weapon.firingModes).length : 1;
+        while (wanted != weapon.firingMode && guard-- > 0) {
+            weapon.changeFiringMode();
+        }
+        return previous;
+    },
+
+    /* Undo setModeForFireOrder - put the weapon back in the mode the PLAYER left it in. */
+    restoreFiringMode: function restoreFiringMode(weapon, mode) {
+        if (!weapon || mode === null || mode === undefined) return;
+        if (weapon.firingMode === mode) return;
+        if (typeof weapon.setFiringMode === 'function') {
+            weapon.setFiringMode(mode);
+            if (weapon.firingMode === mode) return;
+        }
+        //Fallback for a weapon whose only way round is changeFiringMode (a magazine-fed rack skips
+        //the modes it holds no ammo for) - same bound as above.
+        var guard = weapon.firingModes ? Object.keys(weapon.firingModes).length : 1;
+        while (weapon.firingMode !== mode && guard-- > 0) weapon.changeFiringMode();
+    },
+
     /* Where an incoming shot is bearing FROM, in hex coordinates.
        Ballistic: the launch hex - what the server's getFiringHex resolves to, and what the tooltip
        already recorded as ball.position. Non-ballistic (a Sweeping shot): the server bears on the
