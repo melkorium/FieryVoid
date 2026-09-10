@@ -681,24 +681,56 @@ class Weapon extends ShipSystem
             } */
         }
 
-        //range doesn't have to be an array, but may be
+        /* ReducedRange makes the shot fall off faster. A weapon that HAS a range penalty gets a
+           steeper one; a weapon with NO penalty has nothing to steepen, so it loses 20% of its
+           RANGE instead - that is the case the player sees on a Plasma Wave or any other ballistic.
+
+           ⚠️ Drive the per-mode walk from $firingModes, NOT from $rangePenaltyArray. Unlike the
+           damage arrays (which __construct fills in for every mode), the range arrays exist only
+           when a subclass declares them - so on a single-mode weapon the old foreach had nothing to
+           iterate and the whole critical did nothing at all, silently.
+
+           ⚠️ And judge each mode on ITS OWN penalty. The old inner test read the live scalar, so a
+           mode whose own penalty was 0 took the "steepen" branch and divided by zero - fatal on
+           PHP 8 (a Flak Array sitting in Offensive mode 500s the game on load). */
         while ($rp > 0) {
-            if ($this->rangePenalty >= 1) {
-                $this->rangePenalty += 1;
-            } else if ($this->rangePenalty > 0) {
-                $this->rangePenalty = 1 / (round(1 / $this->rangePenalty) - 1);
-            } else { //no range penalty - range itself will be reduced!
-                //no calculations needed
+            $baseline = $this->rangePenalty; //live value, used for any mode that carries no array entry
+            $modes = array_unique(array_merge(array_keys($this->firingModes), array_keys($this->rangePenaltyArray)));
+
+            /* A PARTIAL $rangeArray is a trap: changeFiringMode only overwrites $range for a mode
+               that HAS an entry, so a mode left out would keep whichever other mode's reduced range
+               was applied last. If any mode is about to lose range, give every mode an entry first -
+               $range is mode-independent for a weapon that declares no array. */
+            foreach ($modes as $dmgMode) {
+                $penalty = isset($this->rangePenaltyArray[$dmgMode]) ? $this->rangePenaltyArray[$dmgMode] : $baseline;
+                if ($penalty > 0) continue;
+                foreach ($modes as $seedMode) {
+                    if (!isset($this->rangeArray[$seedMode])) $this->rangeArray[$seedMode] = $this->range;
+                }
+                break;
             }
-            foreach ($this->rangePenaltyArray As $dmgMode => $penaltyV) {
-                if ($this->rangePenaltyArray[$dmgMode] >= 1) { //long range
-                    $this->rangePenaltyArray[$dmgMode] += 1;
-                } else if ($this->rangePenalty > 0) { //short range
-                    $this->rangePenaltyArray[$dmgMode] = 1 / (round(1 / $this->rangePenaltyArray[$dmgMode]) - 1);
-                } else { //no range penalty - affect range itself
-                    if (!isset($this->rangeArray[$dmgMode])) $this->rangeArray[$dmgMode] = $this->range;
+
+            foreach ($modes as $dmgMode) {
+                $hasEntry = isset($this->rangePenaltyArray[$dmgMode]);
+                $penalty = $hasEntry ? $this->rangePenaltyArray[$dmgMode] : $baseline;
+
+                if ($penalty >= 1) { //long range: -1 per hex becomes -2 per hex
+                    $penalty += 1;
+                } else if ($penalty > 0) { //short range: -1 per 3 hexes becomes -1 per 2 hexes
+                    $penalty = 1 / (round(1 / $penalty) - 1);
+                } else { //no range penalty - range itself will be reduced!
                     $this->rangeArray[$dmgMode] = floor($this->rangeArray[$dmgMode] * 0.8); //loss 20% range for very crit
                 }
+
+                if ($hasEntry) $this->rangePenaltyArray[$dmgMode] = $penalty;
+            }
+
+            //Live scalars, for a weapon that declares no arrays at all - changeFiringMode below
+            //re-reads the arrays for one that does.
+            if ($baseline >= 1) {
+                $this->rangePenalty += 1;
+            } else if ($baseline > 0) {
+                $this->rangePenalty = 1 / (round(1 / $baseline) - 1);
             }
             $rp--;
         }
