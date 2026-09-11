@@ -1067,6 +1067,18 @@ window.gamedata = {
 		var hangarConversionsAS = 0; //How many converted hangar slots TO Assault Shuttle slots.
 		var totalFtrOther = new Array();//total other small craft
 		var smallCraftUsed = new Array();//small craft sizes that happen to be present, whether as hangar space or actual craft
+		/* Small-craft categories whose craft may be taken WITHOUT hangar space, and whose declared
+		   capacity is therefore reported with a 50% MINIMUM and no maximum. Mapmaker Sensor Probes
+		   are the only one today.
+
+		   ⚠️ SEEDED FROM A DECLARED LIST, NOT DERIVED FROM THE FLEET ALONE. The half-full rule has to
+		   bite on an EMPTY carrier - a Traveler carrying no probes at all is exactly what "at least
+		   half full" exists to forbid - and a set built only from the craft actually bought is empty
+		   in precisely that case. The flights' own $noHangarRequired flag then ADDS to this below,
+		   which covers probes bought with no carrier in the fleet at all; the two must name the same
+		   category string, and MapmakerProbes::$hangarRequired is where that string comes from.
+		   See the small-craft report loop below, and WALKERS_OF_SIGMA_PLAN.md 3.13. */
+		var noHangarMaxCraftTypes = ['Mapmaker Probes'];
 		var totalShuttleCapacity = 0; //sum of default shuttle/flyer pool capacity across the fleet (excludes minesweeping shuttles)
 		var defaultShuttleKeyList = []; //distinct lship.fighters keys used by default shuttle pools (e.g. "shuttles", "minbari flyers")
 
@@ -1431,10 +1443,19 @@ window.gamedata = {
 
 				/* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.12 (Stage 13) - "They do not require hangars at all
 				   in Fleet Checker (so can be taken even if the fleet does not have enough hangar
-				   space)" (user, original rules text). Same shape as the Shadow skip above and for
-				   the same reason: the craft is still a UNIT PRESENT (totalShips++ ran above) and
-				   still counts for points, tiers and every other fleet rule - it simply never enters
-				   the hangar-space accounting, so a fleet with no carrier at all passes.
+				   space)" (user, original rules text). The craft is still a UNIT PRESENT
+				   (totalShips++ ran above) and still counts for points, tiers and every other fleet
+				   rule.
+
+				   ⭐⭐ IT LIFTS THE MAXIMUM, NOT THE ACCOUNTING (user ruling, 2026-09-10). The craft
+				   is still TALLIED against its own category - a Mapmaker sets $hangarRequired to
+				   'Mapmaker Probes', which is the same string the Walker hulls declare their capacity
+				   in - so that buying probes is what FILLS a Walker's hangar. What the flag removes
+				   is the "allowed up to N" ceiling, so a fleet with no carrier at all still passes.
+				   ⚠️ Before this the flag skipped the tally ENTIRELY (which is what the Shadow skip
+				   above still does), and the two halves of the rule never met: the Walker hulls
+				   declared Mapmaker Probes capacity that nothing could ever fill, so the 50%
+				   full-hangar rule was silently unenforceable on every one of them.
 
 				   ⚠️ noHangarRequired IS A FLEET-BUILDING FLAG AND NOTHING ELSE. It is declared on
 				   the hull (MapmakerProbes) and rides the static blueprint verbatim, exactly as
@@ -1443,9 +1464,12 @@ window.gamedata = {
 				   Stage 15's docking bay depends on, so HangarOps is deliberately not taught about
 				   it. */
 				var noHangarRequired = Boolean(lship.noHangarRequired);
+				if (noHangarRequired && smallCraftSize != '' && noHangarMaxCraftTypes.indexOf(smallCraftSize) === -1) {
+					noHangarMaxCraftTypes.push(smallCraftSize);
+				}
 
 				//now translate size into hangar space used...
-				if (smallCraftSize != '' && !isShadowFighterFlight && !noHangarRequired) {
+				if (smallCraftSize != '' && !isShadowFighterFlight) {
 					if (lship.customFtrName) {
 						specialFtrAmt = lship.flightSize / lship.unitSize;
 						specialFtrName = lship.customFtrName;
@@ -1976,17 +2000,39 @@ window.gamedata = {
 			//Title-case the slot key for display ("shuttles" → "Shuttles", "minesweeping
 			//shuttles" → "Minesweeping Shuttles"). Mirrors the pattern used in shipwindow.js.
 			var scLabel = scSize.split(' ').map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+			/* Two categories carry a MINIMUM as well as (or instead of) a maximum, and they are not the
+			   same rule:
+			     - 'Fighter Squadrons' are treated as fighters, so half the capacity must be filled. Kept
+			       EXACTLY as it was, unrounded halving included: those capacities are fractional (0.5 on
+			       several Star Wars hulls) and rounding them up would move existing verdicts.
+			     - a $noHangarRequired category (Mapmaker Probes) has NO maximum at all, and the same 50%
+			       minimum the ordinary fighter rule uses - Math.ceil, matching minFtrRequired above.
+			       Walker capacities are 6/18/36 so the rounding never bites; it is written this way
+			       because it IS the fighter rule, applied to a custom category.
+			   Every other custom category is unchanged: no minimum, "allowed up to N" (the Torvalus
+			   Stiletto and the rest). WALKERS_OF_SIGMA_PLAN.md 3.13. */
+			var scNoMaximum = (noHangarMaxCraftTypes.indexOf(scSize) !== -1);
+			var scMinRequired = 0;
+			if (scSize == 'Fighter Squadrons') {
+				scMinRequired = totalHangarCurr / 2;
+			} else if (scNoMaximum) {
+				scMinRequired = Math.ceil(totalHangarCurr / 2);
+			}
+
 			checkResult += " - " + scLabel + ": " + totalFtrCurr;
-			if (scSize != 'Fighter Squadrons') { //standard
+			if (scNoMaximum) {
+				checkResult += (scMinRequired > 0)
+					? " (at least " + scMinRequired + " required, no maximum)"
+					: " (no hangar space required)";
+			} else if (scSize != 'Fighter Squadrons') { //standard
 				checkResult += " (allowed up to " + totalHangarCurr + ")";
 			} else { //Fighter Squadrons get treated as fighters - eg. half are required
-				var halfH = totalHangarCurr / 2;
-				checkResult += " (allowed between " + halfH + " and " + totalHangarCurr + ")";
+				checkResult += " (allowed between " + scMinRequired + " and " + totalHangarCurr + ")";
 			}
-			if (totalFtrCurr > totalHangarCurr) { //small craft total is not within limits
+			if (!scNoMaximum && totalFtrCurr > totalHangarCurr) { //small craft total is not within limits
 				checkResult += R_TOOMANY;
 				problemFound = true;
-			} else if ((scSize == 'Fighter Squadrons') && (totalFtrCurr < totalHangarCurr / 2)) {
+			} else if (scMinRequired > 0 && totalFtrCurr < scMinRequired) {
 				checkResult += R_FAILURE;
 				problemFound = true;
 			} else {

@@ -1861,43 +1861,45 @@ public function getFullStartLoading()
             //}
   
             if (!$this->ballistic) {
-                /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE FLIGHT'S
-                   OWN OEW, and the two ways a fighter weapon may use it.
+                /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11/3.13c) - THE FLIGHT'S OWN
+                   OEW, and the two ways a fighter weapon may use it. CORRECTED 2026-09-11 from the
+                   rulebook text; the Stage 12 build had the DEW contest on the wrong weapon.
 
                    $oew currently holds getOEW($target) - DIST, floored at 0, computed by the
-                   useOEW block far above. For every flight in the game before Stage 12 that is 0,
-                   because nothing had ever written a flight OEW row - which is exactly what makes
-                   the added term free everywhere else. On a Mapmaker it is real.
+                   useOEW block far above. For every flight in the game except a Mapmaker that is 0,
+                   because nothing else can write a flight OEW row - which is exactly what makes
+                   both terms below free everywhere else.
 
-                     ordinary fighter weapon   offensive bonus PLUS any OEW the flight allocated,
-                                               defensive EW ignored entirely, as always (D25).
-                     $useFlightEW weapon       flight EW INSTEAD of the bonus, contested by the
-                                               target's DEW + BDEW + SDEW (D12, Q10: they are
-                                               separate EW functions and therefore stack).
+                     ordinary fighter weapon   offensive bonus PLUS (flight OEW - target DEW, min 0),
+                                               and defensive EW otherwise ignored, as always. The
+                                               target's DEW + BDEW + SDEW can cancel the OEW term
+                                               but never eat into the bonus ("an EW bonus of +0,
+                                               not -2").
+                     $useFlightEW weapon       SHIP RULES: flight OEW is the lock, the target's
+                                               DEW/BDEW/SDEW apply as they would against a ship,
+                                               no offensive bonus, and no OEW means the ordinary
+                                               no-lock penalty further down ("range penalties
+                                               doubled for lack of a lock-on as usual").
 
-                   ⚠️ THE SUBTRACTION HAPPENS BEFORE THE ZEROING, and max(0, ...) is the whole rule:
-                   3 OEW against 5 DEW is 0, never -2. A fighter never SUFFERS defensive EW, so the
-                   enemy's can only cancel the Mapmaker's lock back down to the ordinary
-                   fighter-versus-profile chance and no further - which is what the zeroing below
-                   then guarantees.
+                   ⚠️ FOR THE ORDINARY ROW THE SUBTRACTION MUST HAPPEN BEFORE THE ZEROING; it reads
+                   the three values the zeroing then throws away.
 
                    ⚠️ THE BALLISTIC BRANCH BELOW IS DELIBERATELY UNTOUCHED. Its $oew is not a lock
                    at all but a CONDITIONAL GRANT of the offensive bonus (navigator, arc, LoS,
                    skindancing), and no flight with an EW pool carries a ballistic.
 
-                   ⚠️ MIRROR PAIR with weaponManager.computeOEW (public/client/weaponManager.js),
-                   which has to read the pre-zeroing defensive EW out of computeBaseDefenceBreakdown
-                   to say the same thing. A preview/resolution disagreement on a weapon whose whole
-                   point is the lock is the worst possible place to have one. */
+                   ⚠️ MIRROR PAIR with weaponManager.computeBaseDefenceBreakdown (the waiver) and
+                   weaponManager.computeOEW (the lock) in public/client/weaponManager.js. */
                 $flightOew = max(0, $oew);
-                $oew = $this->useFlightEW
-                     ? max(0, $flightOew - ($dew + $bdew + $sdew))
-                     : ($effectiveOB + $flightOew);
-
-                $dew = 0;
-                $dewFake = 0; //D3b: defensive EW does not apply to this shot at all, on either sheet
-                $bdew = 0;
-                $sdew = 0;
+                if ($this->useFlightEW) {
+                    $oew = $flightOew; //defensive EW is NOT waived for this shot - it stays in $hitPenalties
+                } else {
+                    $oew = $effectiveOB + max(0, $flightOew - ($dew + $bdew + $sdew));
+                    $dew = 0;
+                    $dewFake = 0; //D3b: defensive EW does not apply to this shot at all, on either sheet
+                    $bdew = 0;
+                    $sdew = 0;
+                }
                 //$soew = 0; //fighters CAN receive SOEW (fractional, SOEW calculation takes this into account)
             } else { //ballistics use of OB is more complicated
                 $oew = 0;
@@ -1944,6 +1946,12 @@ public function getFullStartLoading()
 			$noLockPenalty = 0.5;
 		}
         if($shooter instanceof Mine) $noLockPenalty = 0; //A lock-on is assumed for Mines, but Jammer may still apply below.
+
+		/* WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.13c): a $useFlightEW shot takes this
+		   penalty exactly like a ship does - "range penalties doubled for lack of a lock-on as
+		   usual". Its $oew is the flight's allocated OEW, no longer cancelled by the target's DEW
+		   (that is a to-hit penalty now), so it lands below 1 only when no OEW was allocated.
+		   The Stage 14 exemption that used to sit here was a patch over the wrong DEW rule. */
 
 		//$noLockMod =  $rangePenalty * $noLockPenalty; //moved lower!
 			

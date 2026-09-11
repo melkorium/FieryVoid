@@ -7,8 +7,12 @@ stages land.
 
 **Status: Stages 0–9 COMPLETE (Stages 8 and 9 on 2026-09-06), Stage 10 COMPLETE
 (10A the EW Detector's allowance 2026-09-09, 10B late EW allocation 2026-09-10) - so the FIRST
-WAVE IS FINISHED - Stage 11 (housekeeping) COMPLETE, and STAGE 12 (Mapmaker Electronic Warfare)
-COMPLETE 2026-09-10, untested in play. Stages 13–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
+WAVE IS FINISHED - Stage 11 (housekeeping) COMPLETE, STAGE 12 (Mapmaker Electronic Warfare) and
+STAGE 13 (Mapmaker Jump Engine) COMPLETE 2026-09-10, and STAGE 14 (the Mapmakers' Medium Lightning
+Array + the Mapmaker hangar rule) COMPLETE 2026-09-11 after two play-test passes (§3.13b, and the
+EW rules corrected from the rulebook text in §3.13c). Stages 15–19 not started. ⚠️ Stages 12, 13
+and 14 all reshuffle `MapmakerProbes`'s positional system ids and MUST deploy together; append
+only after that. Stages 12–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
 Traveler's Docking Bay / repair / power sharing, and the traveler and extra-dimensional jump
 drives.** Written 2026-09-02 after a full survey of the existing seams; re-surveyed 2026-09-08 for
 the second wave, whose rulings and control sheet arrived the same day (D11–D26; Q8–Q15 all answered).
@@ -35,9 +39,10 @@ silent everywhere.
 | D9 | CPD adaptation vs Shading Field (2026-09-03) | Adaptation **may eat into the shaded bonus** — the Shading Field's whole defensive contribution, doubling included, is fair game. It has **no effect on the field's stealth/detection mechanics**. §3.4. |
 | D10 | CPD runtime cost (2026-09-03) | *"A rare weapon in the overall game"* — every process that makes it work sits **behind cheap gates**. One static boolean, `TacGamedata::$cpdAdaptationPresent`, and no autoload in a game without it. §3.4. |
 | D11 | Mapmaker EW pool size (2026-09-08) | **3 points per FLIGHT per turn**, not 3 per craft — *"like a ship"*, and every EW path in FV spends one per-unit pool. Confirmed 2026-09-08 (Q8). |
-| D12 | Mapmaker OEW vs enemy defensive EW (2026-09-08, extended after Q10) | `max(0, OEW − (DEW + BDEW + SDEW))`, and then all three are zeroed. *"BDEW and SDEW are separate EW functions so would stack with the fighter's own DEW."* A fighter never *suffers* defensive EW; the enemy's can only cancel the Mapmaker's own lock back down to the ordinary fighter-versus-profile chance and no further. §3.11. |
+| D12 | Mapmaker OEW vs enemy defensive EW (2026-09-08, extended after Q10; ⚠️ **CORRECTED 2026-09-11**) | The contest belongs to the **Light Chromatic Pulsar**: OB + `max(0, OEW − (DEW + BDEW + SDEW))`, then all three are zeroed - *"an EW bonus of +0 (not -2)"*. *"BDEW and SDEW are separate EW functions so would stack with the fighter's own DEW."* The **Medium Lightning Array** is NOT contested: it uses ship rules (D25). The first build had the contest on the Array; see §3.13c. §3.11. |
 | D13 | One jump point per Mapmaker flight (2026-09-08) | *"If one Jump Engine has a fireOrder they all do, but only generate ONE jump point."* ⭐ Already the law — `Firing::getVortexDeclarationBlock`'s one-vortex-per-**shooter** rule, and a fighter's shooter IS the flight. §3.12. |
-| D14 | Mapmakers need no hangars (2026-09-08) | A **custom hangar category**, `'Mapmaker Probes'`, exactly as the Torvalus Stiletto uses `'Stilettos'`. A custom category is reported "allowed up to N" with **no minimum**, so the 50% full-hangar rule cannot reach it. §3.10c. |
+| D14 | Mapmakers need no hangars (2026-09-08) | A **custom hangar category**, `'Mapmaker Probes'`, exactly as the Torvalus Stiletto uses `'Stilettos'`. ⚠️⚠️ **CORRECTED 2026-09-10 (D31) — the second half of this ruling was wrong.** §3.10c. |
+| D31 | The 50% full-hangar rule DOES reach Mapmakers (2026-09-10) | *"While they can correctly be bought without any hangar, Walker ships are not exempt from the need to fill 50% of their hangar capacity e.g. `$fighters` with Mapmakers. At the moment fleet checker does not seem to be enforcing this."* So `noHangarRequired` lifts the **maximum only**: a fleet with no carrier may buy probes, and a Walker hull that declares Mapmaker Probe capacity must still have half of it filled. ⚠️ It also revealed that the two halves of the rule **never met**: the flag skipped the tally entirely and the hull's `hangarRequired` was left at `'fighters'`, so the capacity the four Walker hulls declare could not be filled by anything. §3.13a. |
 | D15 | Medium Lightning Array (fighter) group sizes (2026-09-08) | **3 and 6 only, within one flight.** 4 or 5 declaring fire as a single 3-group and the surplus is wasted; 6 fires either two 3-groups or one 6-group, chosen as a **firing mode**. Damaged craft may not contribute. §3.13. |
 | D16 | Weapon exclusivity inside a flight (2026-09-08) | **Flight-wide, not per craft.** If any Mapmaker fires the array, no Mapmaker may fire its Light Chromatic Pulsar that turn. §3.13. |
 | D17 | The Traveler's aft bay (2026-09-08) | Relabelled **Docking Bay** as its own `Hangar` subclass (not just a `displayName`) — it needs a class allow-list, multi-class box costs and a per-turn type lock, none of which an ordinary hangar has. **One craft TYPE per turn**, launch or recover. §3.14. |
@@ -48,7 +53,7 @@ silent everywhere.
 | D22 | EDJD abduction is note-persisted (2026-09-08) | Power-turns accumulate in `tac_individual_notes`, keyed by target, and "consecutive" is *"is there a note for the previous turn?"*. **No schema change**, and a gap needs no cleanup sweep — the same discipline that gives the Energy Draining Mine its one-turn life. §3.18. |
 | D23 | The Waymarker's two-turn dock (2026-09-08) | A Waymarker fills the whole bay (24 boxes) **and takes two turns to dock or launch instead of one**. ⭐ **OPTIONAL within Stage 15** — the other three craft need nothing new, this one needs an intermediate state, and §3.14 proposes reusing `attached` for it. Ship the stage without it if the intermediate state turns out to cost more than it is worth. |
 | D24 | Medium Lightning Array (fighter) stats (2026-09-08) | **Read from the control sheet**, not inferred: Electromagnetic, **Flash** mode, 4d10+12 at −1/3 hexes and FC +2/+4/+6 for the 3-group, 8d10+12 at −1/4 hexes and FC +5/+5/+4 for the 6-group, **RoF 1 per 4 turns** (`loadingtime = 4` — the brief's "2 turns" was a slip, corrected by the user 2026-09-08), and it may fire combined on turn 1. §3.13. |
-| D25 | The two Mapmaker weapons lock on differently (2026-09-08) | Light Chromatic Pulsar = **Offensive Bonus + any OEW**, defensive EW ignored entirely, as every fighter weapon in the game. Medium Lightning Array = **flight EW instead of the bonus**, contested by DEW + BDEW + SDEW down to 0. *"Flight-level combat"* on the sheet is not an FV concept and means nothing beyond that. §3.11, §3.13. |
+| D25 | The two Mapmaker weapons lock on differently (2026-09-08; ⚠️ **CORRECTED 2026-09-11** from the rulebook text) | Light Chromatic Pulsar = **Offensive Bonus + max(0, OEW − target defensive EW)**, defensive EW otherwise ignored, and never a no-lock penalty. Medium Lightning Array = **ship rules**: flight OEW added, the target's DEW/BDEW/SDEW applied as the ordinary to-hit penalty, fire control used, no offensive bonus, and no OEW doubles the range penalty *"as usual"*. *"Flight-level combat"* on the sheet is not an FV concept and means nothing beyond that. §3.11, §3.13, §3.13c. |
 | D26 | Flash collateral inside an Energy Draining Field (2026-09-08) | *"Flash damage always loses its collateral damage (friend or foe) ... unless the Lightning Array is boosted by the Wide Beam enhancement."* ⭐ Already how Stage 4 built it — `isHexInEdfField()` is team-blind and `edfSuppressesCollateral()` defaults to true — so `MedLightningArrayFtr` inherits it for free, and Wide Beam is a ship refit Mapmakers cannot buy. §3.13. |
 | D27 | Where "the end of the movement segment" is (2026-09-09) | *"The 'End of movement' in FV is essentially the start of Pre-Firing phase (if there is one) or start of Firing phase. If we restrict the late EW allocation to these phases and don't worry too much about the Movement phase for now that's fine."* ⭐⭐ **This deleted the hard half of Stage 10B**: with the window opening AFTER movement there is nothing to *declare*, so "a point declared and then carried out of range is lost" needs no declaration and no reconciliation — the allowance is simply recomputed at the post-movement hex. Phases **5 and 3 both**, sharing one budget. §3.8. |
 | D28 | What a saved EW point is drawn from (2026-09-09) | *"If a ship spends all their EW on non-DEW EW types, then they are unable to save a point of EW ... DEW is the only pool of unspent EW that saved EW can be drawn from in Pre-Firing/Firing."* So the allowance is `min(ladder, unspent pool)`, and the ship-window figure has to track the player's own clicking during Initial Orders rather than promising a point they have already spent. §3.8. |
@@ -3540,7 +3545,7 @@ Six things the sheet settles or changes:
 Take NeutronBlaster's per-mode stat arrays and its "not enough partners, mark technical" branch, and
 reach for partners the way HyperplasmaMatrix does.
 
-**Group arithmetic (D15).** Modes `1 => "3-Probe Array"`, `2 => "6-Probe Array"`. Within one flight,
+**Group arithmetic (D15).** Modes `1 => "3-Probes"`, `2 => "6-Probes"` (shortened from "…Array" by the user after the first play test - the ids are what the code depends on). Within one flight,
 collect this turn's `normal` orders on `MedLightningArrayFtr` at the **same target and the same
 mode**; form `floor(n / needed)` complete groups; every leftover order becomes technical. A flight
 of six may fire two 3-groups (at the same or at different targets) or one 6-group; four or five
@@ -3590,6 +3595,220 @@ the Array locks on with flight EW while the Pulsar keeps its offensive bonus **p
 the weapon can fire combined on turn 1; a shot into ANY Energy Draining Field scores no collateral,
 own team's included (D26); and the combined shot presents as ONE discharge to the interception
 engine.
+
+### 3.13a As built — Stage 14, 2026-09-10
+
+**215 checks green** across four throwaway harnesses — 99 server, 62 client, 43 fleet-check and an 11-check live-game probe — and
+all three **fail on a stashed tree** (the two node ones exit 1, the PHP one fatals: the class does
+not exist there). `checkShipData.php` **PASS, 0 new findings** against the same 237 baseline; replay
+harness **114 passed / 8 failed, byte-identical with timings normalised** to the same run with
+`source/` stashed — zero drift on all five checks, `masking` and `snapshot` included. (8 is the
+clean-tree count on this corpus today, exactly as Stage 13 recorded it.)
+
+`MedLightningArrayFtr` is at the end of `specialWeapons.php`, beside `LightChromaticPulsar`; the
+mount is uncommented in `MapmakerProbes::populate()` at the placeholder position, so Stages 12, 13
+and 14 land in **one deploy** and the positional-id reshuffle happens once. ⚠️ Confirmed against
+`C:\FV_env\DouglasChanges`: the deployed tree still has *both* the array and the Jump Engine
+commented out, so nothing live has moved yet. Anything landing after that deploy must be **appended**.
+
+⭐ **THE STATS NEEDED NO CLIENT MIRROR AT ALL**, which is the single biggest departure from what
+§3.13 implies. Everything the two modes change — fire control, range penalty, damage span — already
+travels as the engine's own per-mode arrays (`$fireControlArray` / `$rangePenaltyArray` and the
+min/max damage arrays that `Weapon::setSystemDataWindow` fills), and `Weapon.prototype.changeFiringMode`
+in `shipSystem.js` reads all of them. So the client half is **not** a second copy of the control
+sheet the way `LightningArray`'s six hand-mirrored tables are: it is the group rule and nothing else,
+and the ONE number it duplicates (`craftRequired`) is re-derived server-side anyway, so a drift costs
+a wrong warning and never a wrong shot. A test reads the PHP `const` out of the file and compares.
+
+⭐⭐ **AND THE REAL WORK WAS THE EXCLUSIVITY, NOT THE COMBINING.** The combining is
+`HyperplasmaMatrix`'s pattern almost verbatim. D16 is the part with no precedent: **it is
+flight-wide, and every exclusivity mechanism the codebase had is per-CRAFT**.
+`weaponManager.checkConflictingFireOrder` narrows to `getFighterBySystem(ship, weapon.id)` before it
+looks — correct for the `$exclusive` flag it enforces, and useless here, because it would happily let
+probe #2 fire the pulsar while probe #1 fired the array. So D16 needed a new predicate on both
+sheets, keyed on a new `flightExclusiveGroup` string declared on the two Mapmaker classes only.
+
+⚠️ **FOUR FINDINGS WORTH CARRYING.**
+
+1. **`Firing::fireWeapons` DOES NOT CALL `changeFiringMode`** — only `prepareFiring` does, once per
+   order, in an earlier loop. So by the time the dice are rolled `$this->firingMode` is whatever the
+   LAST hit-chance pass left behind, and a per-mode `getDamage()` that reads it is one order away
+   from rolling the wrong profile. One order per mount makes it harmless here today;
+   `getDamage($fireOrder)` reads `$fireOrder->firingMode` so it stays harmless. **`NeutronBlaster`
+   has the same latent bug** and it will bite the first time one mount carries two orders in
+   different modes.
+
+2. **AN UNTOUCHED FIRE ORDER LOOKS EXACTLY LIKE A RESOLVED PRIMARY.** `FireOrder`'s constructor
+   defaults `$shots = 1`, which is also what a formed group's primary carries — so the harness's
+   first "last turn's orders are left alone" assertion passed vacuously in both directions. It has
+   to be a **before/after snapshot**, not a classification. The same shape of mistake would make any
+   "we did not touch it" test on a fire order meaningless.
+
+3. **THE 50% RULE HAD TO BE SEEDED, NOT DERIVED** (D31). Marking the no-maximum categories from the
+   craft actually bought is right for the maximum and useless for the minimum: the case the rule
+   exists to forbid — a Traveler with no probes at all — is exactly the case where that set is
+   empty. `noHangarMaxCraftTypes` is therefore declared as `['Mapmaker Probes']` and *grown* by the
+   `$noHangarRequired` flag, so both halves are one array and both cases are right.
+
+⚠️ **AND ONE MIRROR-PAIR TRAP THE FIRST DRAFT WALKED INTO.** `weaponManager.hasFiringOrder()` is the
+obvious predicate for "has this weapon already declared", and it is the wrong one for D16: it answers
+true for a manual `intercept` order and for a `selfIntercept` marker as well. The server's own test
+filters to `type == 'normal'`, so using it would have refused, client-side, a declaration the server
+then happily allowed — a probe that has committed its pulsar to INTERCEPTION has not fired it, and
+D16 is a rule about firing. `getFlightExclusivityBlock` counts offensive orders itself, both sheets
+are tested on the same three order types, and the client harness stubs `hasFiringOrder` to **throw**
+so a re-introduced call fails loudly.
+
+**The fleet-check half, in three edits** (`gamelobby.js`, live copy only — the second copy is
+`checkChoices_LEGACY` inside a block comment, and a test asserts it did not grow either change):
+
+- `MapmakerProbes::$hangarRequired = "Mapmaker Probes"`. ⚠️ **This was the actual bug.** The four
+  Walker hulls declare `$fighters = array("Mapmaker Probes" => N)`, but the flight left
+  `hangarRequired` at the `'fighters'` default and so classified itself off its jinking limit as an
+  ordinary **medium** fighter (8 is medium, not heavy — the bands are ≥10 light, ≥8 medium, ≥6
+  heavy). The capacity and the craft were in two different buckets that could never meet.
+- the tally gate drops `&& !noHangarRequired`, so the probes are counted; the flag now records the
+  category in `noHangarMaxCraftTypes` instead.
+- the small-craft report row grows `scNoMaximum` / `scMinRequired`. **`'Fighter Squadrons'` is kept
+  byte-identical, unrounded halving included** — those capacities are fractional (0.5 on several
+  Star Wars hulls) and `Math.ceil` would move existing verdicts. The Mapmaker minimum IS
+  `Math.ceil(cap / 2)`, matching `minFtrRequired`, because it is the fighter rule applied to a
+  custom category. Every other custom category (Stilettos, Vipers, ...) is untouched.
+
+**Not built, deliberately:** `HyperplasmaMatrix`'s self-immunity at range 0. That is a rule of that
+weapon; the control sheet grants this one nothing of the kind, so a Mapmaker flight sharing a hex
+with its target takes the ordinary 25% collateral — or none, if the hex is in a draining field.
+
+**Still open for the user:** the flight's `pointCost` is unchanged at `210*6`. It has gained a real
+weapon and the number is a balance call, not a mechanic.
+
+
+#### 3.13b Play-test fixes — game 4347, 2026-09-10
+
+Two bugs, both found on the first shot fired in anger, and **neither one reachable by any unit test
+of the weapon**: one is a payload shape the harness's own fixtures papered over, the other only
+exists once a real target with real EW is on the board. Both are now covered — 62 client checks and
+an 11-check probe that loads game 4347 through the production path and runs the real
+`Weapon::calculateHitBase`.
+
+⚠️⚠️ **1. THE ARRAY COULD NOT BE TARGETED AT ALL.** `MedLightningArrayFtr.isCraftEligible` asked
+`shipManager.systems.getRemainingHealth(craft)`, which reads `system.damage.length` — and
+`ShipCompactor` strips an EMPTY damage array out of the payload entirely (`$emptyArrayKeys`,
+trap 8). So `craft.damage` is `undefined` on every craft that has not been hit, which is every craft
+in a fresh game, and the click threw before it ever reached the arc test.
+
+- **The safe read is `damageManager.getDamage(ship, system)`**, a `for..in` rather than an indexed
+  loop. It is also what `FighterIcon.js` uses to draw a craft's health bar, so the weapon and the
+  UI now read one number.
+- ⭐ **THE HARNESS FIXTURE IS WHAT HID IT.** Every fixture craft carried `damage: []`, which is
+  exactly the shape the payload never has. A fixture must be built from what the WIRE sends, not
+  from what the constructor declares — the regression test now `delete`s the key.
+- ⚠️ This is trap 8 in its second form: the first is "is the key stripped?", the second is "does the
+  reader survive it being absent?". `getRemainingHealth` does not, and it is used all over the
+  client — safely, because everywhere else it is handed a SYSTEM, and a system's damage array is
+  rebuilt by `SystemFactory`. A CRAFT is not.
+
+⭐⭐ **2. A `useFlightEW` SHOT WAS TAKING A NO-LOCK PENALTY, AND D12 FORBIDS IT.** The user's report:
+*"Offensive Bonus is correctly not being used ... but it is not getting the benefit of any OEW used
+by the Mapmaker flight, and as a result is attracting a No Lock penalty as well."*
+
+- **The OEW lookup was NOT the bug.** The probe proves `FighterFlight::getOEW` returns exactly the
+  row the player allocated. What cancels it is the target's defensive EW, which is D12/Q10 working:
+  in game 4347 the flight had 1 OEW against a Thentus carrying **7 DEW**, so `max(0, 1 − 7) = 0`.
+- ⚠️ **AND THAT IS THE ORDINARY CASE, NOT AN EDGE ONE.** A Mapmaker flight's whole pool is 3 points
+  and enemy capitals in that game carried **7 to 16 DEW**. A `useFlightEW` shot's lock is therefore
+  0 against any real warship, every time. Stage 12 could not see this because no weapon carried the
+  flag yet.
+- **The penalty is the part that is wrong.** D12 says enemy EW may cancel the lock back to the
+  ordinary fighter-versus-profile chance *"and no further"*, and a no-lock penalty is further: it
+  made the array strictly WORSE than an ordinary fighter weapon against the same target. Measured
+  at −5% at range 3 and it scales with range, because the penalty is a multiplier on the range
+  penalty rather than a flat modifier.
+- ⭐ **THE EXEMPTION USED TO EXIST AND WAS LOST.** The commented-out block immediately above the
+  no-lock calculation in `weapon.php` reads
+  `if (($oew < 1) && (!($shooter instanceof FighterFlight)))` — flights were exempt outright before
+  partial locks came in. Nothing could reach `$oew < 1` on a flight afterwards, because every
+  fighter weapon folds the offensive bonus into `$oew`, so the loss was invisible for years.
+- ⚠️ **GATED ON THE WEAPON, NOT ON `$shooter instanceof FighterFlight`.** An ordinary flight CAN
+  still reach `$oew = 0` — a `tmpsensordown` crit, or mine detection eating the whole bonus — and
+  has always taken the penalty when it does. Widening the exemption to every flight would move
+  games in the replay corpus; gating on `$useFlightEW` is free by construction, and the corpus run
+  confirms it (byte-identical).
+- **Mirror pair**: `Weapon::calculateHitBase` and `weaponManager.computeJammerNoLock`.
+
+⭐ **What the fix leaves standing, deliberately:** with the lock at 0 the array is a
+*profile-only* shot. It is not worse than an ordinary fighter weapon — the probe measures both at
+**75%** against the same Thentus at range 3, the array's fire control (+4 vs a medium) buying back
+exactly what the missing offensive bonus cost. That is the trade the sheet describes, and it is now
+the trade the engine makes.
+
+⚠️ **Still open for the user:** whether a 3-point flight pool contested by 7–16 points of capital
+DEW is the intended reading of *"Uses EW for lock-on. Effected by DEW."* The rule as built (D12) is
+being followed exactly; what it means in play is that the array's OEW only ever helps against
+lightly-EW'd targets — fighters, small craft, and hulls that spent their EW offensively.
+
+**Also this session:** the firing-mode labels were shortened by the user to `"3-Probes"` /
+`"6-Probes"`. Nothing reads the wording — the ids are what the code and the client depend on — and
+the harness now asserts the SHAPE rather than the strings, so the next re-word does not fail a test.
+
+#### 3.13c ⚠️⚠️ The Mapmaker EW rules CORRECTED from the rulebook text — 2026-09-11
+
+The user supplied the rulebook's own text and worked examples, and **D12 had been built on the
+wrong weapon**. The DEW contest belongs to the Pulsar. The Array uses plain ship rules. §3.13b
+item 2 (the no-lock exemption) was a patch over that mistake, so **it is reverted**.
+
+- **Medium Lightning Array:** *"The flight may not use its offensive bonus. To-hit rolls are
+  calculated using the MLA's fire control and the flight's OEW (range penalties doubled for lack of
+  a lock-on as usual)."* Worked example: *"16 (defensive rating) −4 (DEW) +2 (OEW) −6 (range) +5
+  (fire control) = 13"*. So the flight's OEW is added, and the target's DEW is subtracted as it would
+  be against a ship.
+- **Light Chromatic Pulsar:** *"It gains the bonus of its OEW minus the target's DEW (minimum bonus
+  of 0), but never doubles the range for lack of a lock-on"*, on top of the offensive bonus. For
+  example, 3 OEW against 5 DEW gives *"+0 (not −2)"*.
+
+**As built.** One gated branch per weapon kind, in the same mirror pair as before:
+
+| | Server: `Weapon::calculateHitBase` fighter branch | Client (`weaponManager.js`) |
+|---|---|---|
+| Pulsar (any non-`useFlightEW` fighter weapon) | `$oew = OB + max(0, flightOEW − (DEW+BDEW+SDEW))`, then all three are zeroed | `computeOEW` uses `defensiveEwBeforeWaiver` |
+| Array (`useFlightEW`) | `$oew = flightOEW`, and DEW/BDEW/SDEW are **not** zeroed | `computeBaseDefenceBreakdown` skips the waiver |
+| No-lock exemption | removed | removed from `computeJammerNoLock` |
+
+The Pulsar's term costs nothing anywhere else, because every other flight in the game has OEW 0,
+and `max(0, 0 − x)` is 0. The Pulsar still can never take a no-lock penalty: the bonus keeps its
+`$oew` at 1 or above, as it does for every fighter.
+
+**Game 4347 through the real pipeline** (Thentus, 7 DEW, range 3, flight OEW 1):
+
+| Shot | Hit chance now | Before this fix |
+|---|---|---|
+| Array, with the OEW point | **45%** (OEW +1, DEW −7) | 75% |
+| Array, OEW withdrawn | **35%** (no-lock penalty 0.99 applied) | — |
+| Pulsar | **70%** (OB 8 + max(0, 1 − 7) = 8) | — |
+
+**⚠️ Two decisions kept, for the user to confirm:**
+- The Pulsar's subtraction still stacks BDEW and SDEW with the target's DEW (Q10). The rulebook
+  line says only "the target's DEW".
+- The fighter-only terms around the lock are untouched: the combat-pivot −1 and the range-0 jinking
+  rule.
+
+**Evidence:**
+- Both PHP files lint clean.
+- `tests/replay/walkersStage12ClientHarness.js`: 90/0. The OEW 0–3 × DEW 0–6 grid now asserts the
+  lock **and** the profile total for both weapons, plus the rulebook examples.
+- `tests/tmp/stage14_client.js`: 62/0. The no-lock group is inverted. One assertion was re-pointed
+  at the user's reworded shortfall warning in `special.js`.
+- `tests/tmp/stage14_server.php`: 99/0.
+- `tests/tmp/stage14_ew_probe.php`: 15/0. It is rewritten for the corrected rule and gained a
+  "withdraw the OEW row" pass.
+- Replay: 114 passed / 8 failed. That is the same count as the recorded clean-tree state, and the
+  four newer failures are snapshot-only critical/range diffs.
+- ⚠️ **No Mapmaker game is in the replay corpus.** 4345 and 4347 exist locally but were never
+  recorded. The corpus therefore proves only that nothing else moved, and the game-4347 probe is
+  the real coverage.
+
+The "still open" item at the end of §3.13b is closed by this. A 3-point pool against 7–16 DEW is a
+to-hit penalty now, not a cancelled lock.
 
 ### 3.14 The Traveler's Docking Bay
 
@@ -4066,7 +4285,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **11** ✅ | Housekeeping (§3.10) — 50% deployment bracket · SCT green name removed · Energy Draining Mine untargetable · the faction entry in `factions-tiers.php` · the Wanderer starts fully charged — **DONE 2026-09-10** | All five, each proved on its own: **54 checks green** across four throwaway harnesses (14 bracket, 15 SCT marker, 11 client + 14 server untargetable) plus the seeding demonstrated on real hulls both ways. `checkShipData.php` unchanged — 238 findings, 237 baselined, and the **1 new error is pre-existing on a stashed tree** (`Wanderer :: location 1, roll 9` names `"EW Detector"` where the class is `"Electronic Warfare Detector"`, so the system can never be hit; it came in with the hull and the fix is one string in [Wanderer.php:94](source/server/model/ships/walkers/Wanderer.php#L94)). Replay harness **119 passed / 4 failed**, exactly the documented clean-tree failures (3676, 4249, 4297, 4325), byte-identical to a stashed-tree run. ⚠️⚠️ **And the harness caught a real regression that every unit test of the feature missed**: §3.10e's hull list as a `public static` on `Weapon` broke every missile-armed ship in the game, because `MissileRack::stripForJson` walks its ammo with `ReflectionObject::getProperties(IS_PUBLIC)` — which lists public STATICS — and then reads each name as `$missile->$key`. It is a `const` now; see the head of §3.10. ⭐ Two smaller findings: **the fleet checker no longer exists twice** (the second copy is `checkChoices_LEGACY`, inside a block comment since the Item-5 simplification, and a test asserts it did not grow a 50% bracket), and **the untargetable flag is a ship PROPERTY declared only on the orb**, so it rides the static blueprint verbatim and the server method and client mirror read one fact. |
 | **12** ✅ | Mapmaker Electronic Warfare (§3.11, as built §3.11a; saved EW extended to Walker flights 2026-09-10) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
 | **13** ✅ | Mapmaker Jump Engine (§3.12) + the Fleet Checker hangar exemption — **DONE 2026-09-10** | **94 checks green** across two throwaway harnesses — 59 server, 35 client — covering the 10-turn recharge read from `$delay`, the one-engine-per-flight accessor, the charge mirrored onto all six craft, the declaration normalised at the wire and the second one refused *with the existing reason string*, `hasVortexDeclaration` reaching a flight at all, and the blueprint scan; every group asserts its own non-vacuity and both harnesses **fatal on the pre-edit tree**. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 115 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed. ⭐⭐ **THE PLAN WAS RIGHT THAT "ONE JUMP POINT PER FLIGHT" NEEDED NO NEW RULE AND WRONG ABOUT WHY IT WORKED**: `Firing::getVortexDeclarationBlock`'s one-vortex-per-**shooter** loop does catch it — but only once both orders name the SAME engine, so the rule that makes D13 true is a two-line **weaponid normalisation** in `validateVortexDeclaration`, not the loop itself. ⭐⭐ **AND THE REAL WORK WAS NOT THE CLIENT** (§3.12 called it "the whole stage"): five server sweeps walked `$ship->systems` looking for a `JumpEngine` and found NOTHING on a flight, because a flight's systems are *craft*. They all go through the new `JumpEngine::getUnitJumpEngines()` now. ⚠️ Three findings worth carrying, all in §3.12. |
-| **14** | `MedLightningArrayFtr` (§3.13) — **control sheet in hand (D24)** | 3 and 6 combine, 1/2/4/5 do not; damaged craft excluded; the two Mapmaker weapons cannot be mixed in one flight in one turn, refused on both sides of the wire; the Array locks on with flight EW while the Pulsar keeps its offensive bonus **plus** any OEW (D25); both stat profiles written out independently (the flat +12 does not double); `loadingtime = 4`, able to fire combined on turn 1; no flash collateral inside ANY Energy Draining Field, inherited free from Stage 4 (D26); and the combined shot counted as ONE discharge by `Firing::automateIntercept`. |
+| **14** ✅ | `MedLightningArrayFtr` (§3.13, as built §3.13a, play-test fixes §3.13b, EW rules corrected §3.13c) + the Mapmaker hangar rule (D31) — **COMPLETE 2026-09-11** (built 2026-09-10) | ⚠️⚠️ **2026-09-11: the Mapmaker EW rules were CORRECTED from the rulebook text (§3.13c)** — the Array uses plain ship EW rules (OEW added, target DEW/BDEW/SDEW as the ordinary to-hit penalty, no OB, no OEW = doubled range penalty as usual) and the Pulsar gets OB + max(0, OEW − defensive EW). That **reverted** the §3.13b no-lock exemption described below. Re-proved with the Stage 12 client grid (90/0), the Stage 14 client (62/0) and server (99/0) harnesses, and the game-4347 probe (15/0); replay 114 / 8, unchanged, though no Mapmaker game is in the corpus. | **215 checks green** across four throwaway harnesses — 99 server, 62 client, 43 fleet-check and an 11-check live-game probe — covering 3 and 6 combining while 1/2/4/5 go technical, two 3-groups at two targets, buckets split by target / called id / mode, a damaged probe excluded on `getRemainingHealth() >= maxhealth` (and asserted NOT destroyed, so the obvious shortcut is proved wrong), an uncharged array refused server-side, D16 resolved in both directions with the loser named in the log and proved to ignore intercept orders, the turn-1 full charge proved as an ABSENT override, `edfSuppressesCollateral` proved inherited (and `LightningArray`'s proved overridden, which is why this class must not extend it), and the fleet check driven through the REAL `gamelobby.js` slices for Mapmakers, Stilettos and Fighter Squadrons alike. Every harness fails on a stashed tree, and each play-test fix fails in isolation when its own line is reverted. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 114 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed — including after the `weapon.php` no-lock change, which every weapon in the game runs through. ⭐ **THE STATS NEEDED NO CLIENT MIRROR** — both modes differ only in fire control, range penalty and damage span, and all three already travel as the engine's generic per-mode arrays, so the client half is the group rule and nothing else. ⭐⭐ **THE REAL WORK WAS D16, NOT THE COMBINING**: the combining is `HyperplasmaMatrix`'s pattern, but every exclusivity mechanism in the tree is per-CRAFT (`checkConflictingFireOrder` narrows to `getFighterBySystem` before it looks), so flight-wide exclusivity needed a new predicate on both sheets keyed on a new `flightExclusiveGroup` string. ⚠️⚠️ **AND THE HANGAR FIX FOUND THAT THE TWO HALVES OF THE RULE HAD NEVER MET**: the four Walker hulls declare `"Mapmaker Probes"` capacity while the flight left `hangarRequired` at `'fighters'` and classified itself as an ordinary MEDIUM fighter, so nothing could ever fill it. ⚠️⚠️ **PLAY TEST 4347 THEN FOUND TWO MORE THAT NO UNIT TEST COULD**: an undamaged craft has NO `damage` key at all (ShipCompactor strips empty arrays) so `getRemainingHealth` threw and the weapon could not be targeted, and a `useFlightEW` shot was taking a no-lock penalty D12 forbids — see §3.13b. ⚠️ Four findings worth carrying in §3.13a, three more in §3.13b. |
 | **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
 | **16** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
 | **17** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
@@ -4191,11 +4410,16 @@ Collected from the survey; each one has bitten this codebase before.
     4754–5710, near-identical but not identical — the second copy still consults the dead
     `oneOverAllowed` flag. Any fleet-legality change has to land in both, or the lobby's live check
     and the standalone Fleet Checker disagree with nothing on screen to say why (§3.10a).
-27. ⚠️ **A CUSTOM HANGAR CATEGORY HAS NO MINIMUM, AND THAT IS THE FEATURE.** `totalFtrH/M/L` feed
-    `minFtrRequired = ceil(totalHangarAvailable / 2)` — the 50% full-hangar rule — while a craft
-    with its own `hangarRequired` string lands in `totalFtrOther` and is reported "allowed up to N".
-    That is how the Torvalus Stiletto is exempt, and it is how the Mapmaker is (D14, §3.10c).
-    Inventing a new size band instead of a new category would silently re-impose the rule.
+27. ⚠️ **A CUSTOM HANGAR CATEGORY HAS NO MINIMUM** — and for the Torvalus Stiletto that is still the
+    feature. `totalFtrH/M/L` feed `minFtrRequired = ceil(totalHangarAvailable / 2)` — the 50%
+    full-hangar rule — while a craft with its own `hangarRequired` string lands in `totalFtrOther`
+    and is reported "allowed up to N". Inventing a new size band instead of a new category would
+    silently re-impose the rule.
+    ⚠️⚠️ **BUT IT IS NO LONGER TRUE OF THE MAPMAKER (D31, 2026-09-10)**, and reading it that way is
+    what let the bug live: `'Mapmaker Probes'` now carries a 50% minimum *and* no maximum, and both
+    facts are read off one array, `noHangarMaxCraftTypes` (§3.13a). ⭐ **A MINIMUM SEEDED FROM A
+    DECLARED LIST, NOT DERIVED FROM THE FLEET** — the rule has to bite on an EMPTY carrier, which is
+    exactly the case where a set built from the craft actually bought is empty.
 28. ⚠️ **`ew.getScannerOutput()` ALREADY ANSWERS A DIFFERENT QUESTION FOR A FLIGHT.** It returns the
     MINE-DETECTION allowance (`floor(offensivebonus / 2)`), and `getEWLeft` — which every assign
     path measures against — is built on it. Adding a flight's OEW/DEW pool to that one number lets

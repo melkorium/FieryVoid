@@ -13366,8 +13366,26 @@ class SensorChargeTransceiver extends Weapon {
         public $fireControl = array(0, 0, 0); // fighters, <mediums, <capitals
         private $damagebonus = 0;
         
-        public $damageType = "Standard"; 
-        public $weaponClass = "Electromagnetic";         
+        public $damageType = "Standard";
+        public $weaponClass = "Electromagnetic";
+
+        /* D16 (WALKERS_OF_SIGMA_PLAN.md 3.13, Stage 14) - THE FLIGHT-WIDE EXCLUSIVITY GROUP. If any
+           craft in the flight fires its Medium Lightning Array, no craft may fire its pulsar this
+           turn, and the reverse. The whole rule lives in MedLightningArrayFtr::planFlightVolley -
+           this class carries the group name so the sweep can find it, and the two members below so
+           it can be told it lost. See that class for why the existing per-CRAFT $exclusive pair
+           cannot express a flight-wide rule. */
+        public $flightExclusiveGroup = 'MapmakerPrimary';
+
+        /* Orders MedLightningArrayFtr cancelled, id => reason. Written during
+           beforeFiringOrderResolution and read a moment later in calculateHitBase, both in the same
+           request on the same object graph - exactly how NeutronBlaster's $isCombined marker travels.
+           WARNING: protected, so an empty array never rides the static blueprint as JSON []. */
+        protected $flightExclusionCancelled = array();
+
+        public function cancelForFlightExclusion($fireOrder, $reason){
+            $this->flightExclusionCancelled[$fireOrder->id] = $reason;
+        }
 
         function __construct($startArc, $endArc){
             parent::__construct(0, 1, 0, $startArc, $endArc);
@@ -13375,11 +13393,488 @@ class SensorChargeTransceiver extends Weapon {
 
         public function setSystemDataWindow($turn){
             parent::setSystemDataWindow($turn);
+            if (!isset($this->data["Special"])) {
+                $this->data["Special"] = '';
+            } else {
+                $this->data["Special"] .= '<br>';
+            }
+            $this->data["Special"] .= "The flight cannot fire its Light Chromatic Pulsars and its"
+                                   . " Medium Lightning Arrays in the same turn.";
+        }
+
+        /* The losing half of D16. Marked technical rather than silently dropped: the player gets a
+           line saying why the shot did not happen, and letting the parent run would compute a fresh
+           ->needed and un-refuse it. */
+        public function calculateHitBase(TacGamedata $gamedata, FireOrder $fireOrder){
+            if (isset($this->flightExclusionCancelled[$fireOrder->id])){
+                MedLightningArrayFtr::markTechnical(
+                    $this, $fireOrder, $this->flightExclusionCancelled[$fireOrder->id]);
+                return;
+            }
+            parent::calculateHitBase($gamedata, $fireOrder);
         }
 
         public function getDamage($fireOrder){        return Dice::d(6, 2);   }
         public function setMinDamage(){     $this->minDamage = 2;      }
         public function setMaxDamage(){     $this->maxDamage = 12;      }
     } //endof LightChromaticPulsar
+
+/* MEDIUM LIGHTNING ARRAY, FIGHTER MOUNT - WALKERS_OF_SIGMA_PLAN.md 3.13 (Stage 14), D15/D16/D24/D25/D26.
+ *
+ * The Mapmaker Sensor Probes' heavy weapon. Three or six probes fire as ONE gun - the flight
+ * concentrates its arrays into a single bolt, and a lone probe's array does nothing at all.
+ *
+ * "Uses EW for lock-on. Effected by DEW. Does not use Flight-Level combat or Offensive Bonus.
+ *  Cannot fire MLA and LCP in same turn. May fire in combined mode on first turn."
+ *
+ * THE CONTROL SHEET (D24) - read from the sheet, nothing inferred:
+ *
+ *                     3-Probe group      6-Probe group
+ *   Guns              1 per 3 craft      1 per 6 craft
+ *   Damage            4d10+12 (16-52)    8d10+12 (20-92)
+ *   Range penalty     -1 per 3 hexes     -1 per 4 hexes
+ *   Fire control      +2 / +4 / +6       +5 / +5 / +4
+ *   Class             Electromagnetic    Electromagnetic
+ *   Mode              Flash              Flash
+ *   Rate of fire      1 per 4 turns      1 per 4 turns
+ *
+ * WARNING: THE FLAT +12 DOES NOT DOUBLE. 8d10+12 is not two lots of 4d10+12, so both profiles are
+ * written out in $damageProfile and neither is derived from the other - the same finding Stage 8
+ * recorded about the Wide Beam's 50% collateral.
+ *
+ * WARNING: THE 6-GROUP IS NOT A STRICT UPGRADE. Its fire control is BETTER against fighters (5 vs 2)
+ * and WORSE against capitals (4 vs 6), so the modes are a real choice. Any "bigger is better"
+ * shortcut in a mode hint, here or on the client, would be wrong.
+ *
+ * WARNING: THIS DOES NOT EXTEND LightningArray, deliberately. MediumLightningArray does (above), and
+ * inheriting that branch would hand a fighter weapon two things it must not have: an entry in the
+ * SYS_WBLA / SYS_WBMLA refit registry a fighter cannot buy from, and
+ * LightningArray::edfSuppressesCollateral(), which is the Wide Beam's exemption from the field rule
+ * below. If that is ever revisited, every `instanceof LightningArray` in the tree has to be re-read.
+ *
+ * FLASH COLLATERAL INSIDE AN ENERGY DRAINING FIELD COSTS THIS CLASS NO CODE AT ALL (D26).
+ * "Flash damage always loses its collateral damage (friend or foe) in Energy Draining Fields, unless
+ * the Lightning Array is boosted by the Wide Beam enhancement" - and that is exactly what Stage 4
+ * built: Weapon::edfSuppressesCollateral() defaults to true and TacGamedata::isHexInEdfField() is
+ * deliberately team-blind, because a field dampening an explosion is a property of the HEX. Wide
+ * Beam is a ship refit Mapmakers cannot buy, so this weapon simply inherits the default and is
+ * silenced in every field on the board, its own fleet's included.
+ *
+ * IT BEGINS THE GAME CHARGED, and that is the DEFAULT rather than an override:
+ * Weapon::getStartLoading() returns a full charge. "May fire in combined mode on first turn" is
+ * therefore the absence of the "does not begin the game fully charged" override, not the presence
+ * of anything.
+ *
+ * LOCK-ON IS THE FLIGHT'S EW ON SHIP RULES, NOT ITS OFFENSIVE BONUS (plan 3.13c, corrected
+ * 2026-09-11 from the rulebook text). One flag, $useFlightEW, built in Stage 12; this weapon is its
+ * only consumer. The flight's OEW is added as a ship's would be, the target's DEW/BDEW/SDEW apply as
+ * the ordinary to-hit penalty they are against a ship, and no OEW doubles the range penalty as usual.
+ * "Does not use Flight-Level combat or Offensive Bonus" is ONE exclusion - flight-level combat is not
+ * an FV concept (Q15). The Light Chromatic Pulsar on the same craft keeps offensive bonus PLUS the
+ * flight's OEW less the target's DEW (minimum 0), and otherwise ignores defensive EW.
+ *
+ * HOW A GROUP IS FORMED (D15). Within ONE flight, this turn's `normal` orders on this weapon are
+ * bucketed by target, called system and firing mode; each bucket forms floor(n / required) complete
+ * groups and every leftover order goes technical. So a flight of six may fire two 3-groups (at the
+ * same or at different targets) or one 6-group; four or five declaring in mode 1 fire one 3-group
+ * and waste the rest, which is the ruling exactly.
+ *
+ * The shape is NeutronBlaster's (per-mode stat arrays plus a "not enough partners, mark technical"
+ * branch) reaching for partners the way HyperplasmaMatrix does (walk the flight's craft, elect a
+ * primary, fully nullify the rest). Two things are NOT copied from those precedents:
+ *
+ *   WARNING: "Damaged craft cannot contribute" is NOT isDestroyed(). HyperplasmaMatrix's
+ *      getAliveFighterCount counts everything not destroyed; this weapon needs the craft at FULL
+ *      health. Copying the precedent's test is the obvious mistake and it is silent - a battered
+ *      flight would simply keep firing at full strength.
+ *
+ *   WARNING: NOTHING ON THE SERVER REFUSES AN OFFENSIVE ORDER FROM AN UNLOADED WEAPON (Stage 8's
+ *      finding), and a 4-turn reload makes that expensive. An order from an array that is not
+ *      charged goes technical here, which is the half a POST cannot edit out.
+ *
+ * $guns AND THE INTERCEPTION ENGINE (trap 11). One order carries the whole 3- or 6-craft discharge,
+ * and $guns stays at the default 1 - the combined shot is ONE order on ONE mount, so
+ * Firing::automateIntercept's `guns - orders` arithmetic already lands on the right number and there
+ * is nothing to pad. The Slicer's game-4306 bug was padding that had to skip manual 'intercept'
+ * orders; this weapon has no padding at all, and $intercept is 0, so it never presents itself as an
+ * interceptor either.
+ *
+ * NO SELF-IMMUNITY, deliberately. HyperplasmaMatrix exempts its own flight from its splash at range
+ * 0 because that is a rule of that weapon; the control sheet grants this one nothing of the kind, so
+ * a Mapmaker flight sharing a hex with its target takes the ordinary 25% collateral like anyone else
+ * - or none at all, if the hex is inside an Energy Draining Field.
+ */
+class MedLightningArrayFtr extends Weapon {
+
+    public $name        = "MedLightningArrayFtr";
+    public $displayName = "Medium Lightning Array";
+    public $iconPath    = "LightningArrayMed.png";
+
+    public $animation      = "bolt";
+    public $animationColor = array(140, 210, 255); //pale electric blue, as the ship-mounted arrays
+
+    public $damageType  = "Flash";
+    public $weaponClass = "Electromagnetic"; //all Walker weaponry is Electromagnetic
+    public $factionAge  = 3;                 //Ancient - matters to several to-hit and EDF rules
+
+    /* Mode ids are referenced from the client (special.js) too - keep the two in step. */
+    const MODE_THREE = 1;
+    const MODE_SIX   = 2;
+
+    public $firingMode  = 1;
+    public $firingModes = array(1 => "3-Probes", 2 => "6-Probes");
+
+    /* Craft that must declare together, at the same target and in the same mode, to form one shot
+       (D15). WARNING: a const rather than a public static - a public static on a weapon class is read
+       back as an instance property by MissileRack::stripForJson's reflection walk and takes every
+       missile ship's payload with it (Stage 11). A const is neither iterated nor serialised. */
+    const CRAFT_REQUIRED = array(1 => 3, 2 => 6);
+
+    public $loadingtime = 4;  //D24: rate of fire 1 per 4 turns. The brief's "2 turns" was a slip (Q14).
+    /* Matches the ship-mounted LightningArray family, whose own value is marked unconfirmed. It only
+       orders simultaneous shots against each other, so a re-stat costs nothing but a re-record. */
+    public $priority    = 6;
+    public $intercept   = 0;  //the sheet gives this mount no intercept rating: it never intercepts
+
+    /* WARNING: THESE TWO MUST EQUAL THE MODE_THREE ROW of the arrays below. They are what the generic
+       "Fire control" and "Range penalty" tooltip lines report before a mode is picked, and
+       changeFiringMode() overwrites them from the arrays on every mode change (both sheets). */
+    public $rangePenalty      = 0.33;                            // -1 per 3 hexes
+    public $rangePenaltyArray = array(1 => 0.33, 2 => 0.25);     // -1 per 3 hexes / per 4 hexes
+    public $fireControl       = array(2, 4, 6);                  // fighters, <=mediums, <=capitals
+    public $fireControlArray  = array(1 => array(2, 4, 6), 2 => array(5, 5, 4));
+
+    /* Plan 3.13c. Flight EW INSTEAD of the offensive bonus, on ship rules: the target's defensive
+       EW is not waived and no OEW means a no-lock penalty. Read in the FighterFlight branch of
+       Weapon::calculateHitBase, mirrored on the client by weaponManager.computeBaseDefenceBreakdown
+       (the waiver) and weaponManager.computeOEW (the lock). */
+    public $useFlightEW = true;
+
+    /* D16 - THE FLIGHT-WIDE EXCLUSIVITY GROUP. Weapons sharing this string on one FLIGHT may not both
+       be fired in one turn: if any craft fires the array, no craft may fire its Light Chromatic
+       Pulsar, and the reverse. WARNING: FLIGHT-WIDE, NOT PER CRAFT, which is why the existing
+       weaponManager.checkConflictingFireOrder / $exclusive pair cannot express it - that one asks the
+       CRAFT (getFighterBySystem) and would happily let probe #2 fire the pulsar while probe #1 fired
+       the array. Declared on the two Mapmaker weapons only, never on Weapon, so every read is a
+       truthy test and no other mount in the game grows a key. */
+    public $flightExclusiveGroup = 'MapmakerPrimary';
+
+    /* THE TWO DAMAGE PROFILES, keyed by firing mode. WARNING: written out independently - the flat
+       +12 is the same in both rows and does NOT double with the dice. */
+    protected $damageProfile = array(
+        1 => array('dice' => 4, 'add' => 12),   //4d10+12,  16-52
+        2 => array('dice' => 8, 'add' => 12),   //8d10+12,  20-92
+    );
+
+    /* What beforeFiringOrderResolution decided about each of THIS mount's orders, keyed by order id.
+       Either one of the two ROLE_ constants or a human-readable refusal. Rebuilt from scratch every
+       turn, never persisted, never serialised. */
+    protected $orderRoles = array();
+    const ROLE_PRIMARY     = '=primary';
+    const ROLE_SUBORDINATE = '=subordinate';
+
+    function __construct($startArc, $endArc){
+        parent::__construct(0, 1, 0, $startArc, $endArc);
+    }
+
+    /* Craft needed to form one shot in $mode. Falls back to the 3-probe requirement rather than to 1,
+       so an unknown mode can never be made to fire a group of one. */
+    public static function craftRequired($mode){
+        $mode = (int)$mode;
+        $table = self::CRAFT_REQUIRED;
+        return isset($table[$mode]) ? $table[$mode] : $table[self::MODE_THREE];
+    }
+
+    /* May this craft contribute to a group? WARNING: FULL HEALTH, not "not destroyed" - see the class
+       comment. A craft carrying so much as one point of damage is out. */
+    public static function isCraftUndamaged($craft){
+        if (!$craft) return false;
+        if ($craft->isDestroyed()) return false;
+        return $craft->getRemainingHealth() >= $craft->maxhealth;
+    }
+
+    /* ---------------------------------------------------------------- damage */
+
+    protected function getProfile($mode){
+        $mode = (int)$mode;
+        return isset($this->damageProfile[$mode])
+             ? $this->damageProfile[$mode]
+             : $this->damageProfile[self::MODE_THREE];
+    }
+
+    /* WARNING: READS THE ORDER'S MODE, NOT THE WEAPON'S. Firing::fireWeapons does NOT call
+       changeFiringMode before fire() - only prepareFiring does, once per order - so by the time the
+       dice are rolled $this->firingMode is whatever the LAST hit-chance pass left behind. One order
+       per mount makes that harmless today; reading the order makes it harmless for good. */
+    public function getDamage($fireOrder){
+        $row = $this->getProfile($fireOrder ? $fireOrder->firingMode : $this->firingMode);
+        return Dice::d(10, $row['dice']) + $row['add'];
+    }
+
+    /* WARNING: these two are called by Weapon::setSystemDataWindow inside a loop that walks
+       $firingModes and calls changeFiringMode() before each pair, filling
+       minDamageArray/maxDamageArray. So $this->firingMode IS the mode being described here - the one
+       place in this class where reading it rather than an order is correct. */
+    public function setMinDamage(){
+        $row = $this->getProfile($this->firingMode);
+        $this->minDamage = $row['dice'] + $row['add'];
+    }
+
+    public function setMaxDamage(){
+        $row = $this->getProfile($this->firingMode);
+        $this->maxDamage = ($row['dice'] * 10) + $row['add'];
+    }
+
+    /* ---------------------------------------------------------------- the flight's volley */
+
+    /* Is this mount able to shoot at all right now? The same test both intercept gates in firing.php
+       make, reused here because nothing on the server stops an UNLOADED weapon from resolving an
+       offensive order - the client's isLoaded is the only gate on that path (Stage 8's finding), and
+       a 4-turn reload that only the client enforced would not be a reload. */
+    protected function isReadyToFire(){
+        return $this->getTurnsloaded() >= $this->getLoadingTime();
+    }
+
+    /* Sort key that puts the EARLIEST-DECLARED order first. Fire order ids are the tac_fireorder
+       auto-increment, so a smaller id was inserted first; a server-made order carries -1 and has no
+       identity at all, and anything non-numeric sorts last rather than first. */
+    protected static function orderSortKey($order){
+        return is_numeric($order->id) ? (int)$order->id : PHP_INT_MAX;
+    }
+
+    /* Fully nullified: no log line, no animation, no missed-shot display. The exact quadruple
+       HyperplasmaMatrix uses, and calculateHitBase / fire below short-circuit on it. */
+    protected static function nullifyOrder($order){
+        $order->shots    = 0;
+        $order->shotshit = 0;
+        $order->needed   = 0;
+        $order->rolled   = 100;
+        $order->pubnotes = "";
+        $order->updated  = true;
+    }
+
+    /* Technical: the shot is not fired, but it stays in the log saying WHY - a wasted order on a
+       4-turn weapon is worth a line. NeutronBlaster's shape, and public because the Light Chromatic
+       Pulsar's own calculateHitBase uses it when the exclusivity contest goes the other way. */
+    public static function markTechnical($weapon, $order, $reason){
+        $order->chosenLocation = 0;
+        $order->needed         = 0;
+        $order->shots          = 0;
+        $order->notes          = "technical fire order - " . $reason;
+        $order->updated        = true;
+        $weapon->doNotIntercept = true;
+    }
+
+    /* THE WHOLE FLIGHT'S VOLLEY, decided from scratch and identically by every array in the flight.
+     * Returns orderId => ROLE_PRIMARY | ROLE_SUBORDINATE | refusal string, covering every array order
+     * in the flight - this mount then applies only its own rows.
+     *
+     * Every instance recomputing the same plan is the HyperplasmaMatrix pattern, and it is what makes
+     * the result independent of the order the hook happens to run in. */
+    protected function planFlightVolley($flight, $gamedata){
+        $plan        = array();
+        $arrayOrders = array();  //every array order in the flight, with its mount and craft
+        $otherKind   = array();  //the flight's OTHER exclusivity-group orders (the pulsars)
+        $arrayFirst  = null;
+        $otherFirst  = null;
+
+        foreach ($flight->systems as $craft){
+            if (!is_object($craft) || empty($craft->systems)) continue;
+            $undamaged = self::isCraftUndamaged($craft);
+
+            foreach ($craft->systems as $sys){
+                if (empty($sys->flightExclusiveGroup)) continue;
+                if ($sys->flightExclusiveGroup !== $this->flightExclusiveGroup) continue;
+                $isArray = ($sys instanceof MedLightningArrayFtr);
+
+                foreach ($sys->fireOrders as $order){
+                    if ($order->type != 'normal' || $order->turn != $gamedata->turn) continue;
+                    $key = self::orderSortKey($order);
+
+                    if ($isArray){
+                        if ($arrayFirst === null || $key < $arrayFirst) $arrayFirst = $key;
+                        $arrayOrders[] = array(
+                            'order' => $order, 'weapon' => $sys, 'craft' => $craft,
+                            'key' => $key, 'undamaged' => $undamaged,
+                        );
+                    } else {
+                        if ($otherFirst === null || $key < $otherFirst) $otherFirst = $key;
+                        $otherKind[] = array('order' => $order, 'weapon' => $sys);
+                    }
+                }
+            }
+        }
+
+        if (empty($arrayOrders)) return $plan;
+
+        /* D16, THE EXCLUSIVITY CONTEST. The kind declared LATER loses the whole turn. The client
+           refuses the second kind before the click lands, so this is only ever reached by a stale or
+           hand-edited POST - but it has to answer deterministically when it is, and "whichever was
+           declared first" is the least surprising answer to give a player. */
+        $arrayLoses = false;
+        if ($otherFirst !== null && $arrayFirst !== null){
+            if ($otherFirst < $arrayFirst){
+                $arrayLoses = true;
+            } else {
+                foreach ($otherKind as $entry){
+                    if (method_exists($entry['weapon'], 'cancelForFlightExclusion')){
+                        $entry['weapon']->cancelForFlightExclusion(
+                            $entry['order'],
+                            "flight is firing its Medium Lightning Arrays this turn"
+                        );
+                    }
+                }
+            }
+        }
+
+        //Deterministic: lowest order id first, ties broken by mount id, so the plan cannot depend on
+        //the order gamedata happened to hand back the craft.
+        usort($arrayOrders, function($a, $b){
+            if ($a['key'] !== $b['key']) return ($a['key'] < $b['key']) ? -1 : 1;
+            if ($a['weapon']->id == $b['weapon']->id) return 0;
+            return ($a['weapon']->id < $b['weapon']->id) ? -1 : 1;
+        });
+
+        //Bucket the eligible orders by what they are actually shooting at, in what mode. Everything
+        //refused for a reason of its own never reaches a bucket.
+        $buckets = array();
+        foreach ($arrayOrders as $entry){
+            $order = $entry['order'];
+
+            if ($arrayLoses){
+                $plan[$order->id] = "flight is firing its Light Chromatic Pulsars this turn";
+                continue;
+            }
+            if (!$entry['undamaged']){
+                $plan[$order->id] = "a damaged probe cannot contribute to a combined array";
+                continue;
+            }
+            if (!$entry['weapon']->isReadyToFire()){
+                $plan[$order->id] = "array not charged";
+                continue;
+            }
+
+            $bucketKey = $order->targetid . '|' . $order->calledid . '|' . (int)$order->firingMode;
+            if (!isset($buckets[$bucketKey])) $buckets[$bucketKey] = array();
+            $buckets[$bucketKey][] = $entry;
+        }
+
+        foreach ($buckets as $bucket){
+            $mode   = (int)$bucket[0]['order']->firingMode;
+            $label  = isset($this->firingModes[$mode]) ? $this->firingModes[$mode] : "combined array";
+            $needed = self::craftRequired($mode);
+            $count  = count($bucket);
+            $full   = (int)floor($count / $needed) * $needed;
+
+            for ($i = 0; $i < $count; $i++){
+                $order = $bucket[$i]['order'];
+                if ($i >= $full){
+                    $plan[$order->id] = "only " . ($count - $full) . " of the " . $needed
+                                      . " probes a " . $label . " needs declared this shot";
+                    continue;
+                }
+                //One primary per complete group; the rest of the group is silent.
+                $plan[$order->id] = (($i % $needed) === 0) ? self::ROLE_PRIMARY : self::ROLE_SUBORDINATE;
+            }
+        }
+
+        return $plan;
+    }
+
+    public function beforeFiringOrderResolution($gamedata){
+        $this->orderRoles = array();
+
+        $flight = $this->getUnit();
+        /* WARNING: A FLIGHT'S SYSTEMS ARE CRAFT and this weapon lives one level further down, so
+           there is no meaningful volley without the flight. A Mapmaker array mounted on a hull would
+           simply never combine - which is the safe failure, and no hull mounts one. */
+        if (!($flight instanceof FighterFlight)) return;
+
+        $plan = $this->planFlightVolley($flight, $gamedata);
+
+        foreach ($this->fireOrders as $order){
+            if ($order->type != 'normal' || $order->turn != $gamedata->turn) continue;
+
+            $role = isset($plan[$order->id]) ? $plan[$order->id] : "order not resolved";
+            $this->orderRoles[$order->id] = $role;
+
+            if ($role === self::ROLE_PRIMARY){
+                $order->shots = 1; //one shot carrying the whole group; the profile comes from the mode
+                continue;
+            }
+            if ($role === self::ROLE_SUBORDINATE){
+                self::nullifyOrder($order);
+                $this->doNotIntercept = true;
+                continue;
+            }
+            self::markTechnical($this, $order, $role);
+        }
+    }
+
+    /* Was this order fully nullified as a subordinate? The exact quadruple nullifyOrder writes -
+       matched rather than re-read from $orderRoles so a second pass cannot resurrect a shot the first
+       pass silenced. */
+    protected static function isNullified($fireOrder){
+        return $fireOrder->shots == 0 && $fireOrder->shotshit == 0
+            && $fireOrder->needed == 0 && $fireOrder->rolled == 100;
+    }
+
+    public function calculateHitBase(TacGamedata $gamedata, FireOrder $fireOrder){
+        if (self::isNullified($fireOrder)){
+            $fireOrder->pubnotes  = "";
+            $fireOrder->updated   = true;
+            $this->doNotIntercept = true;
+            return;
+        }
+        //A technical order has already had its reason written and its shot taken away; letting the
+        //parent run would compute a fresh ->needed and un-refuse it.
+        if (isset($this->orderRoles[$fireOrder->id])
+            && $this->orderRoles[$fireOrder->id] !== self::ROLE_PRIMARY){
+            return;
+        }
+
+        parent::calculateHitBase($gamedata, $fireOrder);
+
+        if ($fireOrder->needed <= 0) return; //the parent's auto-miss marker; do not annotate it
+
+        $needed = self::craftRequired($fireOrder->firingMode);
+        $row    = $this->getProfile($fireOrder->firingMode);
+        $fireOrder->pubnotes .= " [" . $needed . " probes combined, "
+                             . $row['dice'] . "d10+" . $row['add'] . "]";
+    }
+
+    public function fire($gamedata, $fireOrder){
+        if (self::isNullified($fireOrder)) return;
+        parent::fire($gamedata, $fireOrder);
+    }
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+        if (!isset($this->data["Special"])) {
+            $this->data["Special"] = '';
+        } else {
+            $this->data["Special"] .= '<br>';
+        }
+        $this->data["Special"] .= "Fires at Flight level: 3 or 6 probes fire their arrays"
+                               . " into one bolt, a lone array cannot fire at all.";
+        foreach ($this->firingModes as $mode => $label){
+            $row = $this->getProfile($mode);
+            $fc  = isset($this->fireControlArray[$mode]) ? $this->fireControlArray[$mode] : $this->fireControl;
+            $rp  = isset($this->rangePenaltyArray[$mode]) ? $this->rangePenaltyArray[$mode] : $this->rangePenalty;
+            $this->data["Special"] .= "<br> - " . $label . ": " . self::craftRequired($mode)
+                                   . " probes, " . $row['dice'] . "d10+" . $row['add']
+                                   . " (FC " . implode("/", $fc) . ")"
+                                   . " (range -" . number_format($rp * 5, 2) . "/hex)";
+        }
+        $this->data["Special"] .= "<br>Every contributing probe must declare at the SAME target in the"
+                               . " SAME mode.";
+        $this->data["Special"] .= "<br>A probe that has taken ANY damage cannot contribute.";
+        $this->data["Special"] .= "<br>The flight cannot fire its Medium Lightning Arrays and its"
+                               . " Light Chromatic Pulsars in the same turn.";
+        $this->data["Special"] .= "<br>Locks on with the flight's own EW instead of its offensive"
+                               . " bonus.";
+    }
+
+}//endof class MedLightningArrayFtr
 
 ?>

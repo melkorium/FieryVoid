@@ -104,7 +104,7 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
                 </ul>
             </li>
             <li>Most units of LCV size or smaller need to have hangars present (there are exceptions, especially for custom factions from other universes).</li>
-            <li>At least half of fighter hangars need to be filled (this rule is only relevant for regular fighters, not for other craft like assault shuttles, LCVs or even SHFs).</li>
+            <li>At least half of fighter hangars need to be filled (this rule is only relevant for regular fighters, not for other craft like assault shuttles, LCVs or even SHFs). A few craft that may be bought <i>without</i> any hangar space still fill their own hangar category, and that category is subject to the same half-full rule - Walker Mapmaker Sensor Probes are the example.</li>
             <li>At most 1 flight smaller than 6 craft (checked only for craft with maximum flight size of 6 or more).</li>
             <li>Variant restrictions observed (see below).</li>
             <li>Deployment restrictions observed (see below).</li>

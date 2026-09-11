@@ -169,6 +169,62 @@ window.weaponManager = {
         return false;
     },
 
+    /* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.13 (Stage 14), D16 - FLIGHT-WIDE WEAPON EXCLUSIVITY.
+       Weapons that share a `flightExclusiveGroup` string may not both be fired by one FLIGHT in one
+       turn: if any Mapmaker fires its Medium Lightning Array, no Mapmaker may fire its Light
+       Chromatic Pulsar, and the reverse.
+
+       ⚠️ WHY checkConflictingFireOrder ABOVE CANNOT EXPRESS THIS. That one narrows to the CRAFT
+       (getFighterBySystem) before it looks, which is right for the `exclusive` flag it enforces - a
+       fighter's own two mounts - and wrong here: it would happily let probe #2 fire the pulsar while
+       probe #1 fired the array, which is exactly the combination the rule forbids. So this walks the
+       flight's craft instead, and asks nothing of a non-flight.
+
+       Same kind never conflicts with same kind (six arrays firing together IS the weapon). Returns
+       null when the declaration is allowed, or an HTML reason string when it is blocked - the same
+       contract getLinkedFiringBlock uses, and it shares that caller's one-popup-per-click guard.
+
+       ⚠️ OFFENSIVE ORDERS ONLY, and hasFiringOrder() is therefore the wrong question: it answers
+       true for a manual 'intercept' order and for a selfIntercept marker as well. D16 is a rule
+       about FIRING - a probe that has committed its pulsar to interception has not fired it - and
+       the server's own test (MedLightningArrayFtr::planFlightVolley) filters to type 'normal'.
+       Asking the looser question here would refuse a declaration the server then allows.
+
+       Free for every other weapon in the game: `flightExclusiveGroup` is declared on the two
+       Mapmaker classes only, so the first line returns for everything else. */
+    getFlightExclusivityBlock: function getFlightExclusivityBlock(shooter, weapon) {
+        if (!weapon || !weapon.flightExclusiveGroup) return null;
+        if (!shooter || !shooter.flight) return null;
+
+        var hasOffensiveOrder = function (sys) {
+            for (var f in sys.fireOrders) {
+                var fire = sys.fireOrders[f];
+                if (fire.weaponid != sys.id || fire.turn != gamedata.turn || fire.rolled) continue;
+                if (fire.type === 'intercept' || fire.type === 'selfIntercept') continue;
+                if (weaponManager.isHomingReattack(fire)) continue; //in flight, not declared
+                return true;
+            }
+            return false;
+        };
+
+        for (var i in shooter.systems) {
+            var craft = shooter.systems[i];
+            if (!craft || !craft.systems) continue;
+
+            for (var a in craft.systems) {
+                var sys = craft.systems[a];
+                if (!sys || sys.id == weapon.id) continue;
+                if (sys.flightExclusiveGroup !== weapon.flightExclusiveGroup) continue;
+                if (sys.name === weapon.name) continue; //the same weapon on another craft - that is the point
+                if (!hasOffensiveOrder(sys)) continue;
+
+                return "This flight cannot fire its <b>" + weapon.displayName + "</b> and its <b>"
+                     + sys.displayName + "</b> in the same turn.";
+            }
+        }
+        return null;
+    },
+
     //Smallest angular separation (0-180 deg) between two units as seen from a common observer.
     //Used by the firing-link "within N degrees" rule (Vree linked primaries).
     getBearingSeparation: function getBearingSeparation(observer, unitA, unitB) {
@@ -1879,14 +1935,17 @@ window.weaponManager = {
         sdew = ew.getSupportedDEW(target);
         bdew = ew.getSupportedBDEW(target);
 
-        /* Stage 12: the total BEFORE the fighter waiver below, which is what a $useFlightEW shot
-           is contested by (D12/Q10 - the target's DEW, blanket and supported EW stack inside the
-           subtraction). computeOEW cannot re-derive it, because the waiver has zeroed all three by
-           the time it runs. 0 for every other shot in the game, since the waiver only fires for a
-           flight shooter. */
+        /* WALKERS_OF_SIGMA_PLAN.md 3.13c: the total BEFORE the fighter waiver below, which is
+           what cancels an ordinary fighter weapon's flight OEW (never its offensive bonus - the
+           target's DEW, blanket and supported EW stack inside the subtraction). computeOEW cannot
+           re-derive it, because the waiver has zeroed all three by the time it runs. 0 for every
+           shot the waiver does not fire on.
+           ⚠️ A useFlightEW weapon (the Mapmakers' Medium Lightning Array) is NOT waived: it uses
+           ship rules, so the target's DEW/BDEW/SDEW stay in the profile total as for a ship.
+           MIRROR PAIR with the FighterFlight branch of Weapon::calculateHitBase. */
         var defensiveEwBeforeWaiver = 0;
 
-        if (shooter && shooter.flight && !weapon.ballistic) {
+        if (shooter && shooter.flight && !weapon.ballistic && !weapon.useFlightEW) {
             defensiveEwBeforeWaiver = dew + bdew + sdew;
             dew = 0;
             bdew = 0;
@@ -1918,9 +1977,9 @@ window.weaponManager = {
             dew: dew,
             sdew: sdew,
             bdew: bdew,
-            //Stage 12: only computeOEW reads this, and only for a $useFlightEW weapon. It is NOT a
-            //modifier and must never join the goal - the three fields above are already 0 when it
-            //is non-zero, which is the fighter waiver saying the shot ignores defensive EW.
+            //Stage 12/3.13c: only computeOEW reads this, and only for an ORDINARY fighter weapon. It
+            //is NOT a modifier and must never join the goal - the three fields above are already 0
+            //when it is non-zero, which is the fighter waiver saying the shot ignores defensive EW.
             defensiveEwBeforeWaiver: defensiveEwBeforeWaiver,
             jinking: jink,
             halfPhase: halfphase,
@@ -1948,24 +2007,23 @@ window.weaponManager = {
             var firstFighter = shooter.systems[1];
             var OBcrit = shipManager.criticals.hasCritical(firstFighter, "tmpsensordown");
             var mdew = ew.getDetectMEW(shooter);
-            /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11, Stage 12) - THE FLIGHT'S OWN
+            /* ⭐⭐ WALKERS OF SIGMA-957 (WALKERS_OF_SIGMA_PLAN.md 3.11/3.13c) - THE FLIGHT'S OWN
                OEW, and the two ways a fighter weapon may use it. MIRROR PAIR with the
                `$shooter instanceof FighterFlight` branch of Weapon::calculateHitBase (PHP).
+               CORRECTED 2026-09-11 from the rulebook text: the DEW contest belongs to the Pulsar.
 
                `oew` currently holds ew.getTargetingEW(shooter, target) - DIST, floored at 0, from
-               the useOEW block above; the line below USED TO THROW IT AWAY. For every flight in
-               the game before Stage 12 it was 0 anyway, because nothing had ever written a flight
-               OEW row - which is what makes the added term free everywhere else. On a Mapmaker it
-               is real.
+               the useOEW block above. For every flight in the game except a Mapmaker it is 0,
+               because nothing else can write a flight OEW row - which is what makes both terms
+               below free everywhere else.
 
-                 ordinary fighter weapon   offensive bonus PLUS any OEW the flight allocated,
-                                           defensive EW ignored entirely, as always (D25).
-                 useFlightEW weapon        flight EW INSTEAD of the bonus, contested by the
-                                           target's DEW + BDEW + SDEW (D12, Q10).
-
-               ⚠️ max(0, ...) IS THE WHOLE RULE: 3 OEW against 5 DEW is 0, never -2. A fighter
-               never SUFFERS defensive EW, so the enemy's can only cancel the Mapmaker's lock back
-               down to the ordinary fighter-versus-profile chance and no further.
+                 ordinary fighter weapon   offensive bonus PLUS (flight OEW - target DEW, min 0).
+                                           The target's DEW + BDEW + SDEW can cancel the OEW term
+                                           but never eat into the bonus ("+0, not -2").
+                 useFlightEW weapon        SHIP RULES: flight OEW is the lock, no offensive bonus.
+                                           The target's defensive EW is NOT waived for it (see
+                                           computeBaseDefenceBreakdown), and no OEW means the
+                                           ordinary no-lock penalty in computeJammerNoLock.
 
                ⚠️ getTargetingEW would add CCEW against a flight target, which the server's
                FighterFlight::getOEW does not - harmless only because no flight can allocate CCEW
@@ -1999,8 +2057,8 @@ window.weaponManager = {
                 }
             } else {
                 oew = weapon.useFlightEW
-                    ? Math.max(0, flightOew - (defensiveEw || 0))
-                    : (effectiveOB + flightOew);
+                    ? flightOew
+                    : (effectiveOB + Math.max(0, flightOew - (defensiveEw || 0)));
             }
             oew = Math.max(0, oew);
             if (oew == 0) soew = 0;
@@ -2026,6 +2084,10 @@ window.weaponManager = {
         }
 
         if (shooter.mine) noLockPenalty = 0; //mines assume lock; jammer may still apply
+
+        /* WALKERS_OF_SIGMA_PLAN.md 3.13c: a useFlightEW shot takes this penalty exactly like a
+           ship - its oew is the allocated OEW, uncancelled by DEW, so it is < 1 only when no OEW
+           was allocated. MIRROR PAIR with the same comment in Weapon::calculateHitBase. */
 
         jammermod = ew.getJammerValueFromTo(shooter, target);
 
@@ -3707,8 +3769,14 @@ window.weaponManager = {
         var toUnselect = [];
         var splitTargeted = [];
         var linkedWarned = {}; //firing-link groups already warned about this click (one popup per group)
+        /* Weapons that want to look at the WHOLE declaration pass rather than at one order - see the
+           afterTargetingPass hook below the loop. Collected before any `continue` so a weapon that
+           declared nothing at all still gets to say why. */
+        var passHooks = [];
         for (var i in gamedata.selectedSystems) {
             var weapon = gamedata.selectedSystems[i];
+
+            if (typeof weapon.afterTargetingPass === 'function') passHooks.push(weapon);
 
             // Attachment firing restriction: Flights attached to anything, or non-flights targeting their host.
             if (selectedShip.attached && Object.keys(selectedShip.attached).length > 0) {
@@ -3797,6 +3865,30 @@ window.weaponManager = {
                     weaponManager.unSelectWeapon(selectedShip, sel_weapon);
                 }
                 return;
+            }
+
+            /* Flight-wide exclusivity (WALKERS_OF_SIGMA_PLAN.md §3.13, D16). Warned once per group
+               per click and the whole declaration abandoned - unlike the per-craft check above, this
+               one withdraws nothing that is already declared: the standing orders are the LEGAL half
+               of the pair and the click is what has to give way. The server refuses it as well, in
+               MedLightningArrayFtr::planFlightVolley, which is the half a POST cannot edit out. */
+            var flightBlock = weaponManager.getFlightExclusivityBlock(selectedShip, weapon);
+            if (flightBlock) {
+                if (!linkedWarned['fx:' + weapon.flightExclusiveGroup]) {
+                    linkedWarned['fx:' + weapon.flightExclusiveGroup] = true;
+                    confirm.warning(flightBlock);
+                }
+                continue;
+            }
+
+            /* WALKERS_OF_SIGMA_PLAN.md §3.13 (Stage 14): a probe that has taken ANY damage cannot
+               contribute to a combined array, and the server marks its order technical. Skipped
+               SILENTLY here, exactly as the destroyed/unloaded skips above are - with six craft
+               selected, one popup per damaged probe would be worse than the missing order, and the
+               shortfall it causes is what afterTargetingPass below speaks up about. */
+            if (typeof weapon.isCraftEligible === 'function' && !weapon.isCraftEligible(selectedShip)) {
+                debug && console.log("craft not eligible to contribute with this weapon");
+                continue;
             }
 
             if (ship.flight && weapon.fireControl[0] === null) {
@@ -3926,6 +4018,19 @@ window.weaponManager = {
                     //toUnselect.push(weapon);
                 }
             }
+        }
+
+        /* Weapons whose rule is about the WHOLE pass rather than one order get a look at it here -
+           the Mapmakers' Medium Lightning Array combines 3 or 6 craft into one shot, so "did enough
+           of you declare together?" is a question no single order can answer, and it is asked ONCE
+           per weapon KIND rather than once per mount. Runs before the unselect below so the hook
+           sees the selection as the player left it. */
+        var passHooksDone = {};
+        for (var ph = 0; ph < passHooks.length; ph++) {
+            var hookWeapon = passHooks[ph];
+            if (passHooksDone[hookWeapon.name]) continue;
+            passHooksDone[hookWeapon.name] = true;
+            hookWeapon.afterTargetingPass(selectedShip, ship);
         }
 
         for (var i in toUnselect) {

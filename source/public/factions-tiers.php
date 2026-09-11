@@ -1965,12 +1965,17 @@ at short range versus long range.
 
     <h5>Hangar Requirements</h5>
         <ul>
-            <li>Walker fighters are <b>Mapmaker Sensor Probes</b>, and they need no hangar space - they operate independently, exactly as the Torvalus Stiletto Drones do. They
-                occupy their own 'Mapmaker Probes' capacity category, so the normal 50% full-hangar requirement cannot reach them.</li>
-            <li>In scenarios where a certain percentage of fighters <i>is</i> required, use the following numbers as control/hangar capacity:
+            <li>Walker fighters are <b>Mapmaker Sensor Probes</b>, and they occupy their own 'Mapmaker Probes' capacity category. They may be bought with <b>no hangar
+                space at all</b> - a Walker fleet needs no carrier to field them, exactly as the Torvalus Stiletto Drones need none - so that category has <b>no upper limit</b>.</li>
+            <li><b>The 50% full-hangar rule still applies to the capacity a Walker hull declares.</b> Walker ships are not exempt from it: a hull carrying Mapmaker Probe
+                capacity must have at least half of it filled with probes, exactly like any other hangar in the game. A Traveler with no probes in the fleet fails the
+                Fleet Checker.</li>
+            <li>Mapmaker Probe capacity per hull, which is both the control/hangar figure and the basis of the half-full requirement:
             <ul class="circle-list">
-                <li>Traveler - 36 probes</li>
-                <li>Waymarker - 18 probes</li>
+                <li>Traveler - 36 probes (at least 18 required)</li>
+                <li>Waymarker - 18 probes (at least 9 required)</li>
+                <li>Pathfinder - 6 probes (at least 3 required)</li>
+                <li>Guideship - 6 probes (at least 3 required)</li>
             </ul>
             </li>
         </ul>
@@ -1980,7 +1985,32 @@ at short range versus long range.
             <li>The Walkers' only small craft, and the only fighter flight in the game with an <b>EW allowance of its own</b>: <b>3 points per flight per turn</b>, split freely
                 between OEW and DEW exactly as a ship spends its scanner output, with anything unspent becoming DEW when Initial Orders are committed. It is 3 per <i>flight</i>,
                 not 3 per craft. Their own mine-detection allowance is a separate pool, bought as usual with the flight's Offensive Bonus.</li>
-            <li>They need <b>no hangar space at all</b> in the Fleet Checker, so a Walker fleet may take them whether or not it brings a carrier.</li>
+            <li>They need <b>no hangar space at all</b> in the Fleet Checker, so a Walker fleet may take them whether or not it brings a carrier - but any Walker hull that
+                does declare Mapmaker Probe capacity must still have at least half of it filled. See Hangar Requirements above.</li>
+            <li>Every probe also carries a <b>Medium Lightning Array</b>, and it is the only weapon in the game that <b>several craft fire as one gun</b>. A lone array
+                cannot fire at all: three or six probes must declare together, at the same target and in the same firing mode, and the group resolves as a single shot.
+            <ul class="circle-list">
+                <li><b>3-Probes</b> - 4d10+12, fire control +2/+4/+6, -1 to hit per 3 hexes.</li>
+                <li><b>6-Probes</b> - 8d10+12, fire control +5/+5/+4, -1 to hit per 4 hexes. Note it is <i>better</i> against fighters and <i>worse</i> against
+                    capital ships than the 3-probe group: the two modes are a real choice, not an upgrade.</li>
+            </ul>
+            </li>
+            <li>A flight of six may therefore fire <b>two 3-probe groups</b> (at the same target or at two different ones) <b>or one 6-probe group</b>. Four or five
+                declaring in 3-probe mode fire one group and waste the rest, and the client warns before the click lands.</li>
+            <li><b>A probe that has taken ANY damage cannot contribute</b> to a group - not merely a destroyed one. A battered flight loses the weapon before it loses
+                the craft.</li>
+            <li>The array recharges over <b>4 turns</b>, but it does begin the battle fully charged, so a flight may fire a combined shot on turn 1. Unlike the ship-mounted
+                accelerators, it is not an accelerator: waiting longer buys nothing.</li>
+            <li><b>The flight cannot fire its Medium Lightning Arrays and its Light Chromatic Pulsars in the same turn</b> - the restriction is flight-wide, not per craft,
+                so one probe firing its pulsar locks the arrays out for every other probe as well.</li>
+            <li>The array locks on with the <b>flight's own EW, exactly as a ship would</b>: it does not use the Offensive Bonus, it uses its own fire control, the
+                flight's OEW on the target is added to the roll, and the target's defensive EW (DEW, plus any blanket or supported DEW) counts against it just as it would
+                against a ship's shot. With no OEW allocated to the target it has <b>no lock-on</b>, and its range penalty is doubled as usual.</li>
+            <li>The <b>Light Chromatic Pulsar</b> keeps the flight's Offensive Bonus and adds the flight's OEW on the target <b>less the target's defensive EW</b>, never
+                below +0 - so enemy DEW can cancel the OEW but never eats into the bonus, and the pulsar never suffers the no-lock penalty. Against a target with 5 DEW,
+                3 OEW adds nothing; against one with 2 DEW, it adds +1.</li>
+            <li>The array deals <b>Flash</b> damage, so it scores no collateral damage at all against a target standing inside <i>any</i> Energy Draining Field - the
+                Walkers' own included.</li>
             <li>Every probe carries a <b>Jump Engine</b> with a 10-turn recharge. It projects a jump vortex up to 4 hexes away, the vortex forms at the end of the turn it is
                 declared and can be flown into from the next one, and the flight can leave the battle through it.</li>
             <li><b>A flight's jump point is open for exactly ONE turn.</b> Maintaining a vortex means shutting the ship down, which a fighter cannot do, so there is no Maintain
@@ -2012,11 +2042,11 @@ at short range versus long range.
             <li><b>Guideship</b> (medium, 2350) - an Energy Draining Field, a Medium Lightning Array, two Chromatic Pulse Drivers and a mine launcher.</li>
             <li><b>Scribe</b> (medium, 750) - the cheap Sensor Charge Transceiver platform, with an Energy Draining Net and two Chromatic Pulse Drivers.</li>
             <li><b>Mapmaker Sensor Probes</b> (heavy fighter flight, up to 6) - very fast gravitic probes with advanced armour and advanced sensors, carrying a Light Chromatic
-                Pulsar, an EW allowance and a Jump Engine, and requiring no hangar space.</li>
+                Pulsar, a Medium Lightning Array that three or six of them fire as one gun, an EW allowance and a Jump Engine, and needing no hangar space of their own.</li>
         </ul>
         <ul>
-            <li>Not implemented yet, and listed so the page is not read as promising them: the Mapmakers' Medium Lightning Array; the Traveler's Docking Bay (docking Scribes,
-                Pathfinders and Waymarkers, and repairing and powering them); and the Traveler's slow jump-out and its Extra-Dimensional Jump Drive.</li>
+            <li>Not implemented yet, and listed so the page is not read as promising them: the Traveler's Docking Bay (docking Scribes, Pathfinders and Waymarkers, and
+                repairing and powering them); and the Traveler's slow jump-out and its Extra-Dimensional Jump Drive.</li>
         </ul>
 
     <a class="back-to-top" href="#top">↩ Back to Top</a>

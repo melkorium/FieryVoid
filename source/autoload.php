@@ -1921,6 +1921,7 @@ spl_autoload_register(
                 'mediumpulse' => '/server/model/weapons/pulse.php',
                 'mediumship' => '/server/model/ships/ShipClasses.php',
                 'mediumshipleftright' => '/server/model/ships/ShipClasses.php',
+                'medlightningarrayftr' => '/server/model/weapons/specialWeapons.php',
                 'medplasmacannonftr' => '/server/model/weapons/customNexus.php',
                 'medpowerlaser' => '/server/model/weapons/lasers.php',
                 'medviper' => '/server/model/ships/customs/medViper.php',
