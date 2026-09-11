@@ -56,7 +56,7 @@ class KirishiacKnightship extends HeavyCombatVessel{
         $this->addPrimarySystem(new SelfRepair(7, 8, 4)); //armor, structure, output
         $this->addPrimarySystem(new GraviticThruster(6, 15, 0, 6, 3));
         $this->addPrimarySystem(new GraviticThruster(6, 15, 0, 6, 4));
-		$this->addPrimarySystem(new JumpEngine(6, 20, 8, 9));
+		$this->addPrimarySystem((new JumpEngine(6, 20, 8, 9))->markAncient());
 
 		$orbitalA = new KirishiacOrbitalLight(5, 15, 'L', 'A', -7, $orbitalHitChart);
 		$beamA = new MedAntigravityBeam(5, 6, 2, 180, 360, 'A');

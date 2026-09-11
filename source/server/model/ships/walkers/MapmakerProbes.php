@@ -97,19 +97,19 @@ class MapmakerProbes extends FighterFlight{
 
 			//ramming attack 			
 			$fighter->addAftSystem(new RammingAttack(0, 0, 360, $fighter->getRammingFactor(), 0)); //ramming attack			
-			/* Jump Engine (WALKERS_OF_SIGMA_PLAN.md 3.12, Stage 13). The 4th argument is $delay - the
-			   B5W jump delay, which the class turns into loadingtime/turnsloaded - so this IS the
-			   "recharge time of 10 turns" the rules ask for. ⚠️ A recharge rule must read $delay,
-			   never $loadingtime (JUMP_GATES finding, and it applies verbatim here). The 5th argument
-			   (vortex projection range) is left at the B5W standard 4.
+			/* Jump Engine (WALKERS_OF_SIGMA_PLAN.md 3.12 Stage 13, REWORKED 2026-09-11). A WALKER JUMP
+			   DRIVE, like every Walker hull's - the Walkers form no jump points at all (user ruling
+			   2026-09-11) - so markWalker() puts it on the legacy boost-to-jump path with no vortex
+			   declaration, lets the flight fire on the turn it jumps, and gives it no chance of
+			   failure. The 4th argument is still $delay, the jump recharge. ⚠️ markWalker() is a flag
+			   set after construction, so it moves no positional system id (see above).
 
-			   ⭐ EVERY CRAFT CARRIES ONE AND THE FLIGHT HAS EXACTLY ONE. The charge is per SYSTEM
-			   and the rule is per FLIGHT, so every read and write is routed through
-			   FighterFlight::getFlightJumpEngine() - the SAMPLE fighter's engine - and the siblings
-			   mirror its charge in JumpEngine::stripForJson. A second declaration in one turn is
-			   refused by Firing::getVortexDeclarationBlock's one-vortex-per-SHOOTER rule, and a
-			   fighter's shooter IS the flight. */
-            $fighter->addAftSystem(new JumpEngine(0, 1, 0, 10));
+			   ⭐ EVERY CRAFT CARRIES ONE AND THE FLIGHT JUMPS AS ONE. "Jump to Hyperspace" set on ANY
+			   probe's drive takes the whole flight: JumpEngine::getUnitJumpingEngine descends into
+			   every craft, and doHyperspaceJump takes a flight out craft by craft. The Stage 13
+			   routing (FighterFlight::getFlightJumpEngine, the SAMPLE fighter's engine) is still what
+			   getUnitJumpEngines answers with. */
+            $fighter->addAftSystem((new JumpEngine(0, 1, 0, 10))->markWalker());
 			//Advanced Sensors w/ 3 EW
             $fighter->addAftSystem(new Fighteradvsensors(0, 1, 0));	//Need to modify this so it also provide the 3 EW Mapmakers have		
 			

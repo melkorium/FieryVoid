@@ -531,6 +531,12 @@ window.weaponManager = {
 
         if (weapon.autoFireOnly) return; //this is auto-fire only weapon, should not be fired manually!
 
+        //An Ancient ship jumping out this turn may not fire (JumpEngine::$ancientJump). Setting the
+        //jump already withdrew its orders (JumpEngine.onBoostIncrease); this stops new ones, and the
+        //server withdraws anything that gets past both (Firing::withdrawFireFromJumpingUnits). A ram
+        //is a collision, not firing, and the server lets it stand, so it is not refused here either.
+        if (!weapon.isRammingAttack && shipManager.movement.isJumpFireForbidden(ship)) return;
+
         //Spent & locked Gravitic Augmenter: already committed its order for the turn and is outside
         //that order's declaration phase — block re-selection from every path (icon click, select-all,
         //right-click) at this single chokepoint.

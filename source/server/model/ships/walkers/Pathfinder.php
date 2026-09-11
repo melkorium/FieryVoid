@@ -41,7 +41,9 @@ class Pathfinder extends MediumShip{
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(5, 15, 0, 10, 3));		
         $this->addPrimarySystem(new SelfRepair(6, 3, 2)); //armor, structure, output
-		$this->addPrimarySystem(new JumpEngine(6, 11, 9, 4));
+		$jumpEngine = new JumpEngine(6, 11, 9, 4);
+		$jumpEngine->markWalker(); //Stage 15: leaves at the END of the turn, untargetable while it waits, no failure roll
+		$this->addPrimarySystem($jumpEngine);
 		$this->addPrimarySystem(new GraviticThruster(6, 20, 0, 5, 3));
 		$this->addPrimarySystem(new GraviticThruster(6, 20, 0, 5, 4));		
 		

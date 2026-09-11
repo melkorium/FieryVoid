@@ -1129,9 +1129,14 @@ JumpEngine.prototype.hasMaxBoost = function () {
    for every ship-mounted engine in the game, so their behaviour is unchanged. */
 JumpEngine.prototype.getOwningUnit = function () {
 	var host = this.ship;
-	if (host && host.fighter && host.flightid !== undefined && host.flightid !== null
-		&& window.gamedata && typeof gamedata.getShipById === 'function') {
-		return gamedata.getShipById(host.flightid) || host;
+	if (host && host.fighter && host.flightid !== undefined && host.flightid !== null && window.gamedata) {
+		/* ⚠️ gamedata.getShip - THE CLIENT HAS NO getShipById (that is the SERVER's name). This used to
+		   ask for getShipById behind a typeof guard, so on every real client it silently fell back to the
+		   CRAFT, and every flight rule keyed off the owning unit answered "no" - which is why boosting one
+		   Mapmaker drive never boosted the others (user report 2026-09-11, game 4347). */
+		var lookup = (typeof gamedata.getShip === 'function') ? gamedata.getShip
+			: ((typeof gamedata.getShipById === 'function') ? gamedata.getShipById : null);
+		if (lookup) return lookup.call(gamedata, host.flightid) || host;
 	}
 	return host;
 };
@@ -1189,6 +1194,118 @@ JumpEngine.prototype.getVortexIconLoad = function () {
    wrong even when the flight lookup finds nothing (the lobby, a mid-poll payload). */
 JumpEngine.prototype.isFlightMounted = function () {
 	return Boolean(this.ship && this.ship.fighter);
+};
+
+/* ⭐ AN ANCIENT SPECIAL JUMP DRIVE (user ruling 2026-09-11) - mirror of JumpEngine::isAncientJump().
+   A legacy drive (no jump point; it jumps by the Initial Orders "Jump to Hyperspace" boost) whose
+   ship may NOT fire on the turn it jumps and which no Vortex Disruptor can touch. Shadows, Kirishiac,
+   Mindriders, Torvalus, Triad, Thirdspace and the Walkers carry one.
+   `ancientJump` / `walkerJump` ride the in-game payload (JumpEngine::stripForJson), sent only when
+   set, so both are absent - falsy - on every other engine in the game. */
+JumpEngine.prototype.isAncientJump = function () {
+	return Boolean(this.ancientJump);
+};
+
+/* WALKERS_OF_SIGMA_PLAN.md §3.17 - an Ancient drive whose ship MAY fire on its jump turn and which
+   has no chance of failure. Mirror of JumpEngine::isWalkerJump(). */
+JumpEngine.prototype.isWalkerJump = function () {
+	return Boolean(this.walkerJump);
+};
+
+//Mirror of JumpEngine::forbidsFireWhileJumping(): "except as noted, the ship may not fire weapons
+//while jumping" - and the Walkers are the note.
+JumpEngine.prototype.forbidsFireWhileJumping = function () {
+	return this.isAncientJump() && !this.isWalkerJump();
+};
+
+/* ⭐ SETTING "JUMP TO HYPERSPACE" ON AN ANCIENT DRIVE WITHDRAWS THIS TURN'S FIRE ORDERS - a ship
+   jumping out may not fire (Firing::withdrawFireFromJumpingUnits is the server's rule). Called by
+   shipManager.power.clickPlus straight after the boost is written, which is the choke point every
+   boost path goes through. Same one-click shape as Maintain's doActivate: the rule is all or
+   nothing, so withdraw the orders rather than make the player find each one - and after this,
+   weaponManager.selectWeapon refuses a new one (shipManager.movement.isJumpFireForbidden).
+   The drive itself holds no orders (a legacy engine is autoFireOnly), and on a flight
+   getOwningUnit is the flight, whose weapons are one level down on the craft. */
+JumpEngine.prototype.onBoostIncrease = function () {
+	this.mirrorFlightBoost(true);
+
+	if (!this.forbidsFireWhileJumping()) return;
+
+	var unit = this.getOwningUnit();
+	if (!unit || !unit.systems) return;
+
+	var weapons = [];
+	for (var i in unit.systems) {
+		var system = unit.systems[i];
+		if (!system) continue;
+		if (unit.flight) {
+			for (var j in system.systems) weapons.push(system.systems[j]);
+		} else {
+			weapons.push(system);
+		}
+	}
+
+	for (var w = 0; w < weapons.length; w++) {
+		var weapon = weapons[w];
+		if (!weapon || !weapon.weapon || weapon.name === 'jumpEngine') continue;
+		if (weapon.isRammingAttack) continue; //a collision, not firing - the server leaves rams alone too
+		if (!weaponManager.hasFiringOrder(unit, weapon)) continue;
+		weaponManager.removeFiringOrder(unit, weapon);
+	}
+};
+
+JumpEngine.prototype.onBoostDecrease = function () {
+	this.mirrorFlightBoost(false);
+};
+
+/* ⭐ A MAPMAKER FLIGHT JUMPS AS ONE, SO ITS DRIVES SHOW THE JUMP AS ONE (user report 2026-09-11,
+   game 4347: boosting one probe's drive left the others reading unboosted). Same shape as the Stiletto
+   Shading Field's doActivate - set one and they all go. The server needs none of it
+   (JumpEngine::getUnitJumpingEngine takes the whole flight off ANY boosted craft); this is so every
+   probe's icon and power row agree, and so "No" on any probe cancels the jump for the whole flight.
+   One real row per engine, written in the shape shipManager.power.setBoost writes, so each travels to
+   the server with the ordinary power submit. A hull-mounted engine has no siblings: no-op. */
+JumpEngine.prototype.mirrorFlightBoost = function (boosted) {
+	var flight = this.getOwningUnit();
+	var siblings = this.getFlightSiblingEngines();
+	if (!siblings.length) return;
+
+	for (var i = 0; i < siblings.length; i++) {
+		var sibling = siblings[i];
+		if (!Array.isArray(sibling.power)) sibling.power = [];
+
+		if (boosted) {
+			if (!shipManager.power.getBoost(sibling)) {
+				sibling.power.push({ id: null, shipid: flight.id, systemid: sibling.id, type: 2, turn: gamedata.turn, amount: 1 });
+			}
+		} else {
+			while (shipManager.power.getBoost(sibling) > 0) shipManager.power.unsetBoost(flight, sibling);
+		}
+		if (typeof sibling.initializationUpdate === 'function') sibling.initializationUpdate(); //the "JUMP" read-out
+	}
+
+	if (typeof webglScene !== 'undefined' && webglScene.customEvent) {
+		webglScene.customEvent('SystemDataChanged', { ship: flight, system: this });
+	}
+};
+
+//The OTHER jump engines of this engine's fighter flight, skipping destroyed craft - or [] on a hull.
+JumpEngine.prototype.getFlightSiblingEngines = function () {
+	if (!this.isFlightMounted()) return [];
+	var flight = this.getOwningUnit();
+	if (!flight || !flight.flight || !flight.systems) return [];
+
+	var siblings = [];
+	for (var i in flight.systems) {
+		var craft = flight.systems[i];
+		if (!craft || !craft.systems) continue;
+		if (shipManager.systems.isDestroyed(flight, craft)) continue;
+		for (var j in craft.systems) {
+			var system = craft.systems[j];
+			if (system && system !== this && system.name === 'jumpEngine') siblings.push(system);
+		}
+	}
+	return siblings;
 };
 
 //Does a Maintain declaration for THIS turn stand on this engine?

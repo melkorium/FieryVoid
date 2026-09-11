@@ -40,7 +40,9 @@ class Waymarker extends HeavyCombatVessel{
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(7, 20, 0, 12, 4));
         $this->addPrimarySystem(new SelfRepair(6, 15, 5)); //armor, structure, output
-		$this->addPrimarySystem(new JumpEngine(7, 15, 8, 6));
+		$jumpEngine = new JumpEngine(7, 15, 8, 6);
+		$jumpEngine->markWalker(); //Stage 15: leaves at the END of the turn, untargetable while it waits, no failure roll
+		$this->addPrimarySystem($jumpEngine);
 		//STAGE 7: Energy Draining Net. Args are (armour, maxhealth, powerReq);
 		//0 for health/power takes the CONTROL SHEET values in baseSystems.php - health 12, power 4.
 		//⚠️ ONE Net alone can only field its own hex: linking needs a SECOND Net within 3 hexes,

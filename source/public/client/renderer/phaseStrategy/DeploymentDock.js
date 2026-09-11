@@ -91,12 +91,14 @@ window.DeploymentDock = (function () {
     // boxes (accounting for current usage AND already-queued deploy starts).
     // $reclaimFlightId (optional): that flight's own reservations are treated as
     // reclaimable (for re-planning an already-queued flight).
-    function collectUsableHangars(ship, reclaimFlightId) {
+    // $extraReserved (optional): {hangarId: boxes} already promised to other flights by a PLAN that has
+    // not been queued - see planFlightsIntoCarrier.
+    function collectUsableHangars(ship, reclaimFlightId, extraReserved) {
         var out = [];
         ship.systems.forEach(function (sys) {
             if (!sys || !isDockHangar(sys)) return;
             if (shipManager.systems.isDestroyed(ship, sys)) return;
-            var free = hangarFreeBoxes(sys, reclaimFlightId);
+            var free = hangarFreeBoxes(sys, reclaimFlightId) - ((extraReserved && extraReserved[sys.id]) || 0);
             if (free > 0) out.push({ hangar: sys, free: free });
         });
         return out;
@@ -189,6 +191,8 @@ window.DeploymentDock = (function () {
 
             //If queued on a DIFFERENT carrier, don't show — player can re-edit there.
             if (s.pendingDeployDock && s.pendingDeployDock.carrierId !== carrier.id) continue;
+            //Docked in its legacy opener by rule, not by choice: nothing to amend, so not offered.
+            if (s.forcedDeployDock) continue;
 
             //Same-hex check: flight must visually share the carrier's hex (or be
             //already queued on this carrier — in which case its icon is hidden
@@ -226,7 +230,7 @@ window.DeploymentDock = (function () {
     // capacity is floor(free / perCraftBoxes) — which is 2 craft per box for Zorth.
     // $reclaimFlightId (optional): re-planning an already-queued flight — its own
     // existing reservations are reclaimed so the plan sees true free capacity.
-    function distributeFlightAcrossHangars(carrier, flight, reclaimFlightId) {
+    function distributeFlightAcrossHangars(carrier, flight, reclaimFlightId, extraReserved) {
         var cat = categoryForFlight(flight);
         var perCraft = craftBoxesInHangar(null, 1, flight.unitSize); //boxes per single craft (catapult-agnostic here; rails/hangars are non-catapult)
         if (perCraft <= 0) perCraft = 1;   //don't clamp to >=1: ultralights are 0.5 box/craft
@@ -252,7 +256,7 @@ window.DeploymentDock = (function () {
             if (ftrCap < remaining) return [];   //carrier isn't outfitted for this custom fighter
         }
 
-        var hangars = collectUsableHangars(carrier, reclaimFlightId).filter(function (h) {
+        var hangars = collectUsableHangars(carrier, reclaimFlightId, extraReserved).filter(function (h) {
             //Stage S: integrated-fighter bays accept only their own integrated
             //fighters (see eligibleHangarsForFlight — same gate).
             if (h.hangar.isShadowHangar && String(flight.phpclass) !== 'ShadowMediumFighterFlight') return false;
@@ -285,6 +289,31 @@ window.DeploymentDock = (function () {
         }
         if (remaining > 0) return [];   //combined capacity insufficient
         return plan;
+    }
+
+    // ⭐ WHICH OF $flights FIT IN $carrier TOGETHER, in list order - their ids (user ruling 2026-09-11:
+    // a legacy-drive opener's manifest may hold only fighters its hangars can take, and they arrive
+    // docked). The same packer queueDeployStartDock uses, run once per flight against a SCRATCH map of
+    // the boxes the earlier flights would take - so nothing is queued and no hangar is touched. A
+    // flight that does not fit is skipped and the next one is still tried.
+    function planFlightsIntoCarrier(carrier, flights) {
+        var reserved = {};
+        var fits = [];
+        if (!carrier || !Array.isArray(carrier.systems)) return fits;
+
+        (flights || []).forEach(function (flight) {
+            if (!flight || !flight.flight) return;
+            var plan = distributeFlightAcrossHangars(carrier, flight, null, reserved);
+            if (plan.length === 0) return;
+
+            plan.forEach(function (slot) {
+                var isCat = !!(slot.hangar.isCatapult || slot.hangar.name === 'catapult');
+                var boxes = isCat ? slot.count : craftBoxesInHangar(slot.hangar, slot.count, flight.unitSize);
+                reserved[slot.hangar.id] = (reserved[slot.hangar.id] || 0) + boxes;
+            });
+            fits.push(parseInt(flight.id, 10));
+        });
+        return fits;
     }
 
     // Queue $flight for deployment-dock onto $carrier, auto-distributing across
@@ -326,6 +355,9 @@ window.DeploymentDock = (function () {
     // its stale pre-dock hex.
     function unqueueDeployStartDock(flight) {
         if (!flight) return;
+        //A fighter riding a legacy drive has no hex to be put back on - it arrives in the hangar or not at
+        //all (DeploymentPhaseStrategy.autoPlaceArrivingReinforcements, user ruling 2026-09-11).
+        if (flight.forcedDeployDock) return;
         var flightId = parseInt(flight.id, 10);
 
         //Capture the host carrier BEFORE deleting pendingDeployDock — the
@@ -375,6 +407,7 @@ window.DeploymentDock = (function () {
     // the flight (caller should keep the deploy option visible in that case).
     function autoQueueDockOnCarrier(carrier, flight) {
         if (!carrier || !flight) return null;
+        if (flight.forcedDeployDock) return null;   //aboard its legacy opener by rule - not re-routable
         if (flight.pendingDeployDock) {
             //Already queued somewhere — re-route by un-queueing first so the old
             //hangar releases its reservation, then re-queue here.
@@ -670,7 +703,8 @@ window.DeploymentDock = (function () {
         autoQueueDockOnCarrier:       autoQueueDockOnCarrier,
         unqueueDeployStartDock:       unqueueDeployStartDock,
         hangarFreeBoxes:              hangarFreeBoxes,
-        distributeFlightAcrossHangars: distributeFlightAcrossHangars
+        distributeFlightAcrossHangars: distributeFlightAcrossHangars,
+        planFlightsIntoCarrier:       planFlightsIntoCarrier
     };
 })();
 

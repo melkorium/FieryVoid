@@ -46,7 +46,7 @@ class kirishiacConqueror extends SixSidedHCV{
         $this->addPrimarySystem(new SelfRepair(7, 6, 3)); //armor, structure, output
         $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 3));
         $this->addPrimarySystem(new GraviticThruster(7, 20, 0, 7, 4));
-		$this->addPrimarySystem(new JumpEngine(6, 16, 6, 12));
+		$this->addPrimarySystem((new JumpEngine(6, 16, 6, 12))->markAncient());
 
 		//Orbitals dock to the FRONT/AFT structure blocks but are DISPLAYED on the left/right
 		//sections (ship-window declutter): setStructureHome keeps destruction, docked merge,

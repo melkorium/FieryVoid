@@ -888,8 +888,11 @@ class Firing
         $allInterceptWeapons = array();
         $allIncomingShots = array();
         foreach ($gamedata->ships as $ship) {
-            if($ship->getTurnDeployed($gamedata) > $gamedata->turn)	continue; //Ship not deployed yet. Remove to avoid problems.            
-            $interceptWeapons = self::getUnassignedInterceptors($gamedata, $ship);
+            if($ship->getTurnDeployed($gamedata) > $gamedata->turn)	continue; //Ship not deployed yet. Remove to avoid problems.
+            //An Ancient ship jumping out this turn may not fire, and that includes interception
+            //(JumpEngine::$ancientJump). Its own orders were withdrawn in prepareFiring, which runs
+            //first; this is the half that would otherwise hand it fresh ones.
+            $interceptWeapons = self::isJumpingUnarmed($ship, $gamedata->turn) ? array() : self::getUnassignedInterceptors($gamedata, $ship);
             $allInterceptWeapons = array_merge($allInterceptWeapons, $interceptWeapons);
             $incomingShots = $ship->getAllFireOrders($gamedata->turn);
             $allIncomingShots = array_merge($allIncomingShots, $incomingShots);
@@ -1482,6 +1485,9 @@ class Firing
         //flight having any criticals at all, which is free for every ordinary flight.
         self::withdrawGroundedFighterFireOrders($gamedata);
 
+        //An Ancient ship jumping out this turn may not fire (JumpEngine::$ancientJump) - see the method.
+        self::withdrawFireFromJumpingUnits($gamedata);
+
         $ambiguousFireOrders  = array();
         foreach ($gamedata->ships as $ship){
             foreach($ship->getAllFireOrders($gamedata->turn) as $fire){
@@ -1725,6 +1731,10 @@ public static function firePreFiringWeapons($gamedata){
         //flight having any criticals at all, which is free for every ordinary flight.
         self::withdrawGroundedFighterFireOrders($gamedata);
 
+        //An Ancient ship jumping out this turn may not fire (JumpEngine::$ancientJump). This is also
+        //what catches a ballistic it declared in Initial Orders alongside its jump.
+        self::withdrawFireFromJumpingUnits($gamedata);
+
         //Uncontrolled Hunter-Killers that ended movement co-located with an enemy ram it
         //(no player to submit the ram order). Done before ram orders are gathered below.
         //$dbManager is threaded through so each automated ram FireOrder is persisted
@@ -1915,6 +1925,50 @@ public static function firePreFiringWeapons($gamedata){
        ⚠️ EdfFighterGrounded is a `oneturn` critical, so hasCritical() reports it exactly on the
        turn AFTER it was rolled - which is the rules' "will not be able to shoot the next turn"
        with no date arithmetic here. */
+    /* ⭐ AN ANCIENT SHIP JUMPING OUT MAY NOT FIRE (user ruling 2026-09-11, JumpEngine::$ancientJump):
+       "except as noted, the ship may not fire weapons while jumping into/out of a scenario" - and
+       the Walkers are the note (forbidsFireWhileJumping answers false for their drive).
+
+       The jump is a Jump-to-Hyperspace BOOST committed in Initial Orders, and the unit leaves at the
+       end of Firing (the boost sweep at the end of fireWeapons). So every order it holds this turn is
+       withdrawn here, before anything resolves - direct fire, a ballistic launched in Initial Orders,
+       a manual interception - and automateIntercept, which runs after prepareFiring, assigns it no
+       interception of its own (isJumpingUnarmed). It can still be SHOT, which is the rule too.
+
+       Left alone: rams (a collision, not the firing of a weapon), log-only orders, and the
+       selfIntercept consent marker, as every other withdrawal path in this file leaves it - with no
+       interception assigned it grants nothing.
+
+       ⚠️ ON THE ADVANCE PATH, NOT IN validateFireOrders. The boost and the orders arrive in the SAME
+       Initial Orders POST, and validateFireOrders judges them against the DB's copy of the ship
+       (arch_post_side_ship_reconstruction), which does not have this turn's power rows yet. The
+       client refuses the selection and drops existing orders when the boost is set
+       (JumpEngine.onBoostIncrease); this is what makes it a rule rather than a courtesy. */
+    private static function withdrawFireFromJumpingUnits($gamedata)
+    {
+        foreach ($gamedata->ships as $ship) {
+            if (!self::isJumpingUnarmed($ship, $gamedata->turn)) continue;
+
+            foreach ($ship->getAllFireOrders($gamedata->turn) as $fire) {
+                if ($fire->type === 'selfIntercept') continue;
+                if (self::isHyperspaceLogOrder($fire)) continue;
+                $weapon = $ship->getSystemById($fire->weaponid);
+                if ($weapon && !empty($weapon->isRammingAttack)) continue;
+
+                $fire->rejected = true;
+                self::detachFireOrder($ship, $fire);
+            }
+        }
+    }
+
+    /* Is $ship being taken out of the battle this turn by a drive that forbids it to fire? Empty in
+       virtually every game: one power scan of the unit's jump engines, and nothing more. */
+    private static function isJumpingUnarmed($ship, $turn)
+    {
+        $engine = JumpEngine::getUnitJumpingEngine($ship, $turn);
+        return $engine !== null && $engine->forbidsFireWhileJumping();
+    }
+
     private static function withdrawGroundedFighterFireOrders($gamedata)
     {
         foreach ($gamedata->ships as $ship) {
@@ -2149,18 +2203,15 @@ public static function firePreFiringWeapons($gamedata){
 
            isDestroyed() restates the filter getSystemsByName applied for free. doHyperspaceJump
            re-checks the engine's health and its host section itself, but a destroyed engine should
-           not reach it at all. */
-        foreach ($gamedata->ships as $ship) {
+           not reach it at all.
 
-            if (!is_array($ship->systems)) continue;
-            foreach($ship->systems as $jumpEngine){
-                if (!($jumpEngine instanceof JumpEngine)) continue;
-                if ($jumpEngine->isDestroyed()) continue;
-                //is it overloading?...
-                if( $jumpEngine->isOverloading($gamedata->turn) ){ //primed for entering hyperspace!
-                    $jumpEngine->doHyperspaceJump($ship, $gamedata); //Actually create damage entry to destroy ship.
-                }
-            }
+           ⭐ ONE ENGINE PER UNIT, FOUND BY JumpEngine::getUnitJumpingEngine (2026-09-11) - the same
+           reader Firing::withdrawFireFromJumpingUnits uses, so "who is leaving" and "who may not
+           fire" cannot disagree. It also descends into a FIGHTER FLIGHT's craft: a flight's systems
+           are craft, so the per-system loop this used to be never saw a Mapmaker probe's drive. */
+        foreach ($gamedata->ships as $ship) {
+            $jumpEngine = JumpEngine::getUnitJumpingEngine($ship, $gamedata->turn); //primed for entering hyperspace!
+            if ($jumpEngine) $jumpEngine->doHyperspaceJump($ship, $gamedata); //Actually create damage entry to destroy ship.
         }
 
     } //endof method fireWeapons

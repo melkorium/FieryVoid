@@ -147,6 +147,7 @@ window.DeploymentPhaseStrategy = function () {
      * fail to arrive, so it must stay open. */
     DeploymentPhaseStrategy.prototype.autoPlaceArrivingReinforcements = function () {
         var placed = [];
+        var dockedAny = false;
 
         for (var i in gamedata.ships) {
             var ship = gamedata.ships[i];
@@ -158,6 +159,21 @@ window.DeploymentPhaseStrategy = function () {
             if (ship.pendingDeployDock || ship.pendingLcvDeployDock) continue;
             if (ship.deploymove) continue;                //already placed in this page load
             if (hasDeployMoveThisTurn(ship)) continue;    //...or on a load after the commit
+
+            /* ⭐ A FIGHTER RIDING A LEGACY DRIVE ARRIVES IN ITS HANGAR (user ruling 2026-09-11). The
+               drive phased its own ship in and opened no jump point, so there is no hex for anything
+               else to come out of - the flight is aboard. Queued with the ordinary deploy-start dock,
+               the same one the "Deploy Flights in Hangar" dialog writes, and flagged so neither that
+               dialog nor the map DOCK button can take it back out (DeploymentDock). If it does not fit
+               it is left unplaced, which the server reads as "stays in hyperspace", nothing spent. */
+            var legacyHost = shipManager.movement.getLegacyRideHost(ship);
+            if (legacyHost) {
+                if (window.DeploymentDock && window.DeploymentDock.queueDeployStartDock(legacyHost, ship)) {
+                    ship.forcedDeployDock = true;
+                    dockedAny = true;
+                }
+                continue;
+            }
 
             var vortex = shipManager.movement.getArrivalVortex(ship);
             if (!vortex) continue;
@@ -175,6 +191,9 @@ window.DeploymentPhaseStrategy = function () {
                 this.onShipMovementChanged({ ship: ship });
             }
         }
+
+        //The carriers' "Carrying" lines have to show the fighters that just went aboard.
+        if (dockedAny && typeof window.refreshAllHangarTooltips === 'function') window.refreshAllHangarTooltips();
 
         return placed;
     };

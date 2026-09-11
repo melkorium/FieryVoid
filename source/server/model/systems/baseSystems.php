@@ -5402,6 +5402,42 @@ class JumpEngine extends Weapon{
      * stripForJson sends). */
     protected $hasJumpRecharge = true;
 
+    /* ⭐⭐ AN ANCIENT "SPECIAL JUMP DRIVE" (user ruling 2026-09-11, from the B5W rules):
+     *
+     *   "Each Ancient One has its own method for traveling into hyperspace, but these are all listed
+     *    on the control sheet as a 'special jump drive' for consistency. The drive affects only the
+     *    Ancient's ship and nothing else. As with a phasing drive, the jump drive is initiated at the
+     *    start of the turn and takes the ship out of (or into) the scenario by the turn's end, though
+     *    the vessel will be vulnerable to weapons fire in the interim. Except as noted, the ship may
+     *    not fire weapons while jumping into/out of a scenario. If the jump drive itself is damaged
+     *    while the ship is departing/arriving, it has only half the usual chance of detonating.
+     *    Ancient jump drives cannot be affected by vortex disruptors."
+     *
+     * Set by markAncient(), which is markLegacy() PLUS this flag: an Ancient drive forms no jump
+     * point, so it is the legacy boost-to-jump engine. What this flag adds on top:
+     *   1. no fire on the turn it jumps out - Firing::withdrawFireFromJumpingUnits, and
+     *      Firing::automateIntercept assigns it no interception (forbidsFireWhileJumping);
+     *   2. the Vortex Disruptor cannot touch it - VortexDisruptor::hasAncientJumpDrive.
+     * The half-chance rule is keyed off factionAge at all three failure sites, as it always was.
+     *
+     * WHO CARRIES ONE: Shadows (PhasingDrive's constructor), Kirishiac, Mindriders, Torvalus, Triad,
+     * Thirdspace and the Walkers (markWalker). NOT the Vorlons and NOT The System, which keep ordinary
+     * vortex-opening engines - and so are the only factionAge 3+ units a Vortex Disruptor still
+     * reaches, through rollAncientEscape.
+     *
+     * ⚠️ PROTECTED, like $legacyJump and $gateJump: json_encode takes public properties only, so no
+     * static blueprint grows a key. The client learns it from stripForJson. */
+    protected $ancientJump = false;
+
+    /* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.17 (Stage 15) - A WALKER JUMP DRIVE: an Ancient drive (above)
+     * with the Walkers' two exceptions (user ruling 2026-09-11):
+     *   - the ship MAY fire on the turn it jumps (forbidsFireWhileJumping answers false);
+     *   - it has NO chance of being destroyed by the drive failing (isJumpFailureImmune).
+     * Set by markWalker() on every Walker of Sigma-957 hull and on every Mapmaker probe, in the same
+     * way a Scanner is marked Advanced (D32): a flag, not a subclass, for the four reasons
+     * markLegacy() gives above. Protected for the same reason as $ancientJump. */
+    protected $walkerJump = false;
+
 	//JumpEngine tactically  is not important at all!
 	public $repairPriority = 6;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
 
@@ -5580,6 +5616,122 @@ class JumpEngine extends Weapon{
     public function isFlightMounted()
     {
         return $this->getUnit() instanceof FighterFlight;
+    }
+
+    /* ⭐⭐ MARK THIS ENGINE AS AN ANCIENT SPECIAL JUMP DRIVE - see $ancientJump for the rule and who
+     * carries one.
+     *
+     * markLegacy() PLUS the Ancient flag. The drive forms no jump point, so it jumps the old way -
+     * boosted in Initial Orders ("Jump to Hyperspace"), gone at the end of that turn - and the flag
+     * adds the no-fire rule and the Vortex Disruptor immunity. Called from a ship file straight after
+     * the engine is built, in the one-liner form markLegacy() established:
+     *
+     *     $this->addPrimarySystem((new JumpEngine(8, 25, 6, 8))->markAncient());
+     *
+     * ⚠️ AFTER construction, never before, for the reason markLegacy() gives: it prunes the
+     * per-firing-mode arrays Weapon::__construct has already built. Returns $this. */
+    public function markAncient()
+    {
+        $this->markLegacy();
+        $this->ancientJump = true;
+        return $this;
+    }
+
+    /* Is this an Ancient special jump drive? True on a Walker drive too. See $ancientJump. */
+    public function isAncientJump()
+    {
+        return $this->ancientJump;
+    }
+
+    /* ⭐ WALKERS_OF_SIGMA_PLAN.md §3.17 (Stage 15) - MARK THIS ENGINE AS A WALKER JUMP DRIVE: an Ancient
+     * drive with the Walkers' two exceptions (see $walkerJump). Called from a ship file straight after
+     * the engine is built, exactly as a Scanner is marked Advanced:
+     *
+     *     $jumpEngine = new JumpEngine(7, 30, 12, 6);
+     *     $jumpEngine->markWalker();
+     *     $this->addPrimarySystem($jumpEngine);
+     *
+     * "This operates as another advanced jump drive, except that the ship is permitted to fire
+     * weapons on the same turn that it departs the map." Every Walker hull carries one (D32) and so
+     * does every Mapmaker probe (user ruling 2026-09-11: the Walkers form no jump points at all).
+     * Returns $this so the one-liner form works too. */
+    public function markWalker()
+    {
+        $this->markAncient();
+        $this->walkerJump = true;
+        return $this;
+    }
+
+    /* Is this a Walker jump drive? See markWalker(). */
+    public function isWalkerJump()
+    {
+        return $this->walkerJump;
+    }
+
+    /* ⭐ MAY THE UNIT NOT FIRE ON A TURN THIS DRIVE IS TAKING IT OUT? "Except as noted, the ship may
+     * not fire weapons while jumping into/out of a scenario" - and the Walkers are the note. Read by
+     * Firing::withdrawFireFromJumpingUnits and Firing::automateIntercept, and mirrored on the client
+     * by JumpEngine.forbidsFireWhileJumping. */
+    public function forbidsFireWhileJumping()
+    {
+        return $this->ancientJump && !$this->walkerJump;
+    }
+
+    /* ⭐ THE ENGINE TAKING $unit OUT OF THE BATTLE AT THE END OF $turn, or null: the first one with a
+     * Jump-to-Hyperspace boost committed for that turn (isOverloading reads power type 2, which
+     * despite the name is the BOOST record). ONE reader for the end-of-Fire sweep that performs the
+     * jump and for the Firing withdrawal that enforces the no-fire rule, so the two cannot disagree
+     * about which units are leaving.
+     *
+     * ⚠️⚠️ ON A FIGHTER FLIGHT IT DESCENDS INTO EVERY CRAFT - deliberately NOT getUnitJumpEngines'
+     * sample-fighter-only answer. The boost is a power row on whichever craft's engine the player set
+     * "Jump to Hyperspace" on, and nothing routes it to the sample fighter, so any craft's boost takes
+     * the whole flight. (The loop the sweep used to run - `$ship->systems` + instanceof - found
+     * nothing at all on a flight: its systems are craft.)
+     *
+     * A ship's destroyed engine is skipped - the sweep's long-standing filter, no-argument
+     * isDestroyed() and all. A craft's is not: a fighter's subsystem is never destroyed on its own,
+     * and doHyperspaceJump asks whether the FLIGHT is still flying. */
+    public static function getUnitJumpingEngine($unit, $turn)
+    {
+        if (!$unit || !is_array($unit->systems)) return null;
+
+        if ($unit instanceof FighterFlight){
+            foreach ($unit->systems as $craft){
+                if (!is_array($craft->systems)) continue;
+                foreach ($craft->systems as $system){
+                    if ($system instanceof JumpEngine && $system->isOverloading($turn)) return $system;
+                }
+            }
+            return null;
+        }
+
+        foreach ($unit->systems as $system){
+            if (!($system instanceof JumpEngine)) continue;
+            if ($system->isDestroyed()) continue;
+            if ($system->isOverloading($turn)) return $system;
+        }
+
+        return null;
+    }
+
+    /* ⭐ §3.17 - DOES THIS DRIVE CARRY NO CHANCE OF DESTROYING ITS SHIP? True on a Walker drive (user
+     * ruling 2026-09-11: "zero chance of being destroyed by Jump Engine failures"), false everywhere
+     * else.
+     *
+     * ⚠️⚠️ ASKED AT ALL THREE FAILURE SITES (plan trap 33): doHyperspaceJump - the one a Walker drive
+     * really uses, now that it is a legacy drive - plus rollVortexJumpFailure and openVortex, which a
+     * legacy drive can still reach through a phase-in doorway of its own (Reinforcements Stage 9).
+     * Each one ZEROES its percentage rather than returning early, so every d100 those methods ever
+     * drew is still drawn (trap 34) and the log reports the 0% that actually applied.
+     *
+     * ⚠️⚠️ THE EXTRA-DIMENSIONAL JUMP DRIVE (§3.18, Stage 19) MUST OVERRIDE THIS to answer false
+     * while an abduction is running - "the EDJD must check for jump engine detonation as any other
+     * damaged jump drive would ... every turn that the EDJD is active". Protected, and handed the
+     * ship and gamedata, for exactly that override. */
+    protected function isJumpFailureImmune($ship, $gamedata)
+    {
+        return $this->walkerJump;
     }
 
     /* ================= JUMP GATES (PHASE 2) - THE FIXED-GATE ENGINE ===============
@@ -6637,6 +6789,34 @@ class JumpEngine extends Weapon{
         }
     }
 
+    /* ⭐ REINFORCEMENTS - DOES $unit OPEN ITS WAY IN WITH A LEGACY DRIVE? (user ruling 2026-09-11.)
+     *
+     * An Ancient special jump drive, the Shadow Phasing Drive or a BSG / Star Wars / Trek drive phases its
+     * own ship in through a doorway nobody else can use - it opens no jump point - so its manifest may
+     * hold only FIGHTERS its hangars can take, and those arrive DOCKED inside it
+     * (InitialOrdersGamePhase::legacyBerthFits at the manifest, DeploymentGamePhase at arrival). A gate
+     * is never one. Goes through getUnitJumpEngines, so a Mapmaker flight's drive is found on its craft.
+     * Client mirror: shipManager.movement.isLegacyOpener. */
+    public static function isLegacyOpener($unit)
+    {
+        if (!$unit || $unit->isTerrain()) return false;
+        foreach (self::getUnitJumpEngines($unit) as $engine){
+            if ($engine->isLegacyJump()) return true;
+        }
+        return false;
+    }
+
+    /* The legacy-drive opener this FIGHTER FLIGHT is booked to arrive inside, or null. Its own doorway
+     * (arrivalVia == its own id) is not a ride. Client mirror: shipManager.movement.getLegacyRideHost. */
+    public static function getLegacyRideHost($unit, $gamedata)
+    {
+        if (!($unit instanceof FighterFlight)) return null;
+        if ($unit->arrivalVia === null || (int)$unit->arrivalVia === (int)$unit->id) return null;
+
+        $opener = $gamedata->getShipById((int)$unit->arrivalVia);
+        return self::isLegacyOpener($opener) ? $opener : null;
+    }
+
     /* ================= REINFORCEMENTS STAGE 7 - THE DOORWAY A UNIT ARRIVES THROUGH ==============
      *
      * ⭐ THE ONE QUESTION STAGE 7 ASKS, and both sides ask it: WHICH hex may this unit be placed in
@@ -7547,6 +7727,10 @@ class JumpEngine extends Weapon{
 		//Ancients have half the normal chance of Jump Engine failure. 
 		if($ship->factionAge >= 3) $missingHealthPercentage = round($missingHealthPercentage / 2);		
 
+        //WALKERS §3.17 rule 3 (plan trap 33) - the log line must quote the 0% a Walker drive
+        //actually carries, or it contradicts rollVortexJumpFailure's outcome.
+        if ($this->isJumpFailureImmune($ship, $gamedata)) $missingHealthPercentage = 0;
+
         $distance = $ship->getHexPos()->distanceTo($vortex->getHexPos());
         self::writeVortexLogOrder($ship, $gamedata,
             " opens a jump point " . $distance . ($distance == 1 ? " hex" : " hexes")
@@ -8178,13 +8362,22 @@ class JumpEngine extends Weapon{
 
 	public function doHyperspaceJump($ship, $gamedata)
 	{
-		$reactorList = $ship->getSystemsByName('Reactor', true);
-		foreach($reactorList as $reactorCurr){     //Don't do Hyperspace jump for ships that have blown their own reactors!
-			if($reactorCurr->isDestroyed()) return;
-		}
+		/* ⭐ A FIGHTER FLIGHT CAN JUMP THIS WAY NOW - the Mapmaker probes' Walker drive (user ruling
+		   2026-09-11) - and it has neither anchor below: no reactor, and no primary structure
+		   (getStructureSystem returns null, so the unguarded ->isDestroyed() would be a fatal). A
+		   flight is gone when every craft is. The ship path is unchanged. */
+		$isFlight = ($ship instanceof FighterFlight);
+		if ($isFlight){
+			if ($ship->isDestroyed($gamedata->turn)) return;
+		}else{
+			$reactorList = $ship->getSystemsByName('Reactor', true);
+			foreach($reactorList as $reactorCurr){     //Don't do Hyperspace jump for ships that have blown their own reactors!
+				if($reactorCurr->isDestroyed()) return;
+			}
 
-		$primaryStruct = $ship->getStructureSystem(0); //If ship is otherwise destroyed also don't jump.
-		if($primaryStruct->isDestroyed()) return;
+			$primaryStruct = $ship->getStructureSystem(0); //If ship is otherwise destroyed also don't jump.
+			if($primaryStruct->isDestroyed()) return;
+		}
 
 		//The Jump Engine itself (and the section it sits on) must still be intact THIS turn.
 		//getSystemsByName's isDestroyed() filter only treats a section-mounted system as gone the
@@ -8202,6 +8395,17 @@ class JumpEngine extends Weapon{
 	
 		// Calculate the percentage of health missing
 		$missingHealthPercentage = round(($healthDiff / $maxhealth) * 100);
+
+		/* Ancients have half the normal chance of Jump Engine failure - "if the jump drive itself is
+		   damaged while the ship is departing/arriving, it has only half the usual chance of
+		   detonating" (user ruling 2026-09-11). openVortex and rollVortexJumpFailure have always
+		   carried this line; this site - the one an Ancient special jump drive actually jumps
+		   through - never did. */
+		if($ship->factionAge >= 3) $missingHealthPercentage = round($missingHealthPercentage / 2);
+
+		//WALKERS §3.17 - a Walker drive carries no chance of failure. ZEROED, not an early return,
+		//so the d100 below is still drawn (plan trap 34) and the log reports 0%.
+		if ($this->isJumpFailureImmune($ship, $gamedata)) $missingHealthPercentage = 0;
 
 		// Roll a D100
 		$d100Roll = Dice::d(100);
@@ -8245,8 +8449,36 @@ class JumpEngine extends Weapon{
 			$notekey = 'jumped';
 			$noteHuman = 'jumped';
 			$noteValue = $ship->calculateCombatValue();
-			$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$this->id,$notekey,$noteHuman,$noteValue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
-		}		
+			if ($isFlight){
+				//A flight's CV note lives on its SAMPLE fighter - FighterFlight::getCVBeforeJump reads it
+				//from there (Fighter::onIndividualNotesLoaded). Movement::applyJumpOut's convention.
+				$sample = $ship->getSampleFighter();
+				if ($sample) $sample->addIndividualNote(new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$sample->id,$notekey,$noteHuman,$noteValue));
+			}else{
+				$this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$this->id,$notekey,$noteHuman,$noteValue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
+			}
+		}
+
+		if ($isFlight){
+			/* No primary structure to destroy: the flight goes CRAFT BY CRAFT, exactly as
+			   Movement::applyJumpOut takes one out, which is what FighterFlight::isDestroyed and
+			   FighterFlight::hasJumpedToHyperspace read back. */
+			foreach ($ship->systems as $craft){
+				if ($craft->isDestroyed($gamedata->turn)) continue; //already lost - nothing left to take
+				$damageEntry = new DamageEntry(
+					-1, $ship->id, -1, $gamedata->turn,
+					$craft->id, $craft->getRemainingHealth(), 0, 0, -1, true, false,
+					"", $fireOrderType
+				);
+				$damageEntry->updated = true;
+				if ($rammingSystem) { //so submitDamages can find the fire order this belongs to
+					$damageEntry->shooterid = $ship->id;
+					$damageEntry->weaponid = $rammingSystem->id;
+				}
+				$craft->damage[] = $damageEntry;
+			}
+			return;
+		}
 
 		// Destroy the primary structure in either event
 		$primaryStruct = $this->unit->getStructureSystem(0);
@@ -8453,6 +8685,11 @@ class JumpEngine extends Weapon{
 		//Ancieents have half the normal chance of Jump Engine failure. 
 		if($ship->factionAge >= 3) $missingHealthPercentage = round($missingHealthPercentage / 2);
 
+		/* WALKERS §3.17 rule 3 - no chance of destruction while a Walker drive is in use. ZEROED
+		   rather than returned early: the d100 below is then still drawn exactly when it always was
+		   (plan trap 34), and a roll of 1-100 against 0 always holds. */
+		if ($this->isJumpFailureImmune($ship, $gamedata)) $missingHealthPercentage = 0;
+
 		if (Dice::d(100) > $missingHealthPercentage) return; //held
 
 		//try to make an actual attack to show in the log - use the Ramming Attack system, exactly
@@ -8529,6 +8766,22 @@ class JumpEngine extends Weapon{
            own Weapon constructor sets data["Weapon type"] from $weaponClass on load, so no caller
            that reads it can find it undefined. */
         if ($this->legacyJump){
+            if ($this->ancientJump){
+                /* An Ancient special jump drive ($ancientJump). Rules only - this text rides the STATIC
+                   blueprint (see setGateSystemDataWindow for why no live numbers belong in here). */
+                $this->data["Special"]  = "<br><b>Ancient jump drive</b> - forms no jump point. Boost it in Initial Orders (Jump to Hyperspace) and the ship leaves the battle at the END of that turn, and can be fired on until it goes.";
+                if ($this->walkerJump){
+                    $this->data["Special"] .= "<br><b>Walker jump drive:</b> the ship MAY fire normally on the turn it jumps, and the drive has NO chance of failure however damaged.";
+                }else{
+                    $this->data["Special"] .= "<br>The ship may NOT fire on the turn it jumps - no interception either.";
+                    $this->data["Special"] .= "<br>If the drive is damaged, the ship has HALF the usual chance of being destroyed as it jumps (the % of drive boxes lost, halved).";
+                }
+                $this->data["Special"] .= "<br>Cannot be affected by a Vortex Disruptor.";
+                $this->data["Special"] .= "<br>WARNING - Jumping to hyperspace REMOVES ship from rest of the battle.";
+                $this->data["Special"] .= "<br>SHOULD NOT be shut down for power (unless damaged >50% or if Desperate rules apply).";
+                ShipSystem::setSystemDataWindow($turn);
+                return;
+            }
             $this->data["Special"]  = "<br>Boost in Initial Orders to jump to hyperspace at end of turn.";
             $this->data["Special"] .= "<br>WARNING - Jumping to hyperspace REMOVES ship from rest of the battle.";
             $this->data["Special"] .= "<br>If Jump Engine is damaged, ship has a % chance of being destroyed opening jump point.";
@@ -8674,6 +8927,15 @@ class JumpEngine extends Weapon{
      *    Emitted only when there is a vortex, so every other load is a byte-for-byte no-change. */
     public function stripForJson(){
         $strippedSystem = parent::stripForJson();
+
+        /* ⭐ THE ANCIENT AND WALKER FLAGS ($ancientJump / $walkerJump). The client needs both: a unit
+           whose Ancient drive is boosted to jump this turn may not pick a weapon
+           (shipManager.movement.isJumpFireForbidden), and setting the boost withdraws the fire
+           orders it already has (JumpEngine.onBoostIncrease) - unless it is a Walker drive. Sent
+           ONLY when set, so every other jump engine's payload is byte-identical, and above the Trek
+           early return so nothing can skip them. Public information: the tooltip says the same. */
+        if ($this->ancientJump) $strippedSystem->ancientJump = true;
+        if ($this->walkerJump)  $strippedSystem->walkerJump = true;
 
         /* ⭐ THE ONE ENGINE THAT SENDS THE ORDINARY WEAPON PAYLOAD AND NOTHING ELSE IS THE TREK
            NACELLE (user ruling 2026-08-29 - see $hasJumpRecharge). Its 4th constructor argument is
@@ -12209,7 +12471,9 @@ class PhasingDrive extends JumpEngine{
      * effect, which is the same answer forwarding it would have given. */
     function __construct($armour, $maxhealth, $powerReq, $delay){
         parent::__construct($armour, $maxhealth, $powerReq, $delay);
-        $this->markLegacy();
+        //markAncient() since 2026-09-11: markLegacy() plus the Ancient special-jump-drive rules - no
+        //fire on the turn it jumps, and no Vortex Disruptor can touch it (see JumpEngine::$ancientJump).
+        $this->markAncient();
     }
 
     public function setSystemDataWindow($turn){

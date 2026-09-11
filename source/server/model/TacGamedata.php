@@ -1609,8 +1609,15 @@ class TacGamedata {
                 $fire = $system->fireOrders[$i];
                 $weapon = $ship->getSystemById($fire->weaponid);
                 
-                if ($fire->turn == $this->turn && !$weapon->ballistic && $this->phase == 3 && !$weapon->preFires){
-                    if($fire->damageclass != 'TerrainCrash' && $fire->damageclass != 'TerrainCollision' && $fire->damageclass != 'AutoRam'){ //RammingAttack isn't PreFire, but we want THESE fireorders to be passed to Front End for Replay.                         
+                /* ⚠️ 'jumpexit' IS EXEMPT (user report 2026-09-11). A LEGACY drive's exit declaration
+                   (Shadows and every Ancient special jump drive, arriving through a phase-in doorway)
+                   sits on an engine markLegacy() has set $ballistic = false on, so this Firing-phase
+                   sweep took it for a direct-fire order and stripped it - the owner's blue marker
+                   vanished for the last phase of the formation turn while an ordinary exit's, on a
+                   still-ballistic engine, kept showing. It is a declaration, never a shot. */
+                if ($fire->turn == $this->turn && !$weapon->ballistic && $this->phase == 3 && !$weapon->preFires
+                    && $fire->damageclass !== 'jumpexit'){
+                    if($fire->damageclass != 'TerrainCrash' && $fire->damageclass != 'TerrainCollision' && $fire->damageclass != 'AutoRam'){ //RammingAttack isn't PreFire, but we want THESE fireorders to be passed to Front End for Replay.
                         unset($system->fireOrders[$i]);
                     }    
                 }

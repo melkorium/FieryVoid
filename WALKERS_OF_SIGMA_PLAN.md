@@ -10,7 +10,9 @@ stages land.
 WAVE IS FINISHED - Stage 11 (housekeeping) COMPLETE, STAGE 12 (Mapmaker Electronic Warfare) and
 STAGE 13 (Mapmaker Jump Engine) COMPLETE 2026-09-10, and STAGE 14 (the Mapmakers' Medium Lightning
 Array + the Mapmaker hangar rule) COMPLETE 2026-09-11 after two play-test passes (§3.13b, and the
-EW rules corrected from the rulebook text in §3.13c). Stages 15–19 not started. ⚠️ Stages 12, 13
+EW rules corrected from the rulebook text in §3.13c), and STAGE 15 (the Walker jump drive - promoted from
+Stage 18 on 2026-09-11, D32) COMPLETE 2026-09-11 and then REWORKED the same day (§3.17b - Ancient drives
+are legacy drives; the first build's deferred departure is gone). Stages 16–19 not started. ⚠️ Stages 12, 13
 and 14 all reshuffle `MapmakerProbes`'s positional system ids and MUST deploy together; append
 only after that. Stages 12–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
 Traveler's Docking Bay / repair / power sharing, and the traveler and extra-dimensional jump
@@ -49,16 +51,17 @@ silent everywhere.
 | D18 | Multi-box docking costs (2026-09-08, corrected after Q11) | Reuse `unitSize`, which already means "craft per box": Pathfinder `1/12`, Scribe `1/4`, Mapmaker `1`, Waymarker `1/24`. `HangarOps::boxesPerCraftForClass` turns those into 12 / 4 / 1 / 24 boxes with **no new arithmetic**, and all four fill the Traveler's 24-box bay exactly. §3.14. |
 | D19 | Traveler Self Repair serves docked units (2026-09-08) | One new gate property on `SelfRepair`, in the shape the Kirishiac orbital's `repairRestrictedTo` / `linkedOrbital` already established. Structure, C&C, critical effects and Self Repair systems — the last of which is an explicit exception to this class's own standing rule. §3.15. |
 | D20 | Docked power sharing rate (2026-09-08) | Every docked **ship's** reactor surplus is summed (never a flight's), divided by 4, floored, and added to the carrier's available power. Managing a docked ship's power during Initial Orders is a prerequisite and is the same stage. §3.16. |
-| D21 | Traveler jump drives fire on the way out (2026-09-08) | The unit does **not** leave when it enters the vortex; it stays until the end of the turn, shoots normally, and **cannot be targeted** during Pre-Firing or Firing. Its drive also suffers **no destruction roll** while in use. §3.17. |
+| D21 | Traveler jump drives fire on the way out (2026-09-08) | The unit does **not** leave when it enters the vortex; it stays until the end of the turn, shoots normally, and **cannot be targeted** during Pre-Firing or Firing. Its drive also suffers **no destruction roll** while in use. §3.17. **Every Walker hull, not only the Traveler** (D32). Built at Stage 15, §3.17a. |
 | D22 | EDJD abduction is note-persisted (2026-09-08) | Power-turns accumulate in `tac_individual_notes`, keyed by target, and "consecutive" is *"is there a note for the previous turn?"*. **No schema change**, and a gap needs no cleanup sweep — the same discipline that gives the Energy Draining Mine its one-turn life. §3.18. |
-| D23 | The Waymarker's two-turn dock (2026-09-08) | A Waymarker fills the whole bay (24 boxes) **and takes two turns to dock or launch instead of one**. ⭐ **OPTIONAL within Stage 15** — the other three craft need nothing new, this one needs an intermediate state, and §3.14 proposes reusing `attached` for it. Ship the stage without it if the intermediate state turns out to cost more than it is worth. |
+| D23 | The Waymarker's two-turn dock (2026-09-08) | A Waymarker fills the whole bay (24 boxes) **and takes two turns to dock or launch instead of one**. ⭐ **OPTIONAL within Stage 16** — the other three craft need nothing new, this one needs an intermediate state, and §3.14 proposes reusing `attached` for it. Ship the stage without it if the intermediate state turns out to cost more than it is worth. |
 | D24 | Medium Lightning Array (fighter) stats (2026-09-08) | **Read from the control sheet**, not inferred: Electromagnetic, **Flash** mode, 4d10+12 at −1/3 hexes and FC +2/+4/+6 for the 3-group, 8d10+12 at −1/4 hexes and FC +5/+5/+4 for the 6-group, **RoF 1 per 4 turns** (`loadingtime = 4` — the brief's "2 turns" was a slip, corrected by the user 2026-09-08), and it may fire combined on turn 1. §3.13. |
 | D25 | The two Mapmaker weapons lock on differently (2026-09-08; ⚠️ **CORRECTED 2026-09-11** from the rulebook text) | Light Chromatic Pulsar = **Offensive Bonus + max(0, OEW − target defensive EW)**, defensive EW otherwise ignored, and never a no-lock penalty. Medium Lightning Array = **ship rules**: flight OEW added, the target's DEW/BDEW/SDEW applied as the ordinary to-hit penalty, fire control used, no offensive bonus, and no OEW doubles the range penalty *"as usual"*. *"Flight-level combat"* on the sheet is not an FV concept and means nothing beyond that. §3.11, §3.13, §3.13c. |
 | D26 | Flash collateral inside an Energy Draining Field (2026-09-08) | *"Flash damage always loses its collateral damage (friend or foe) ... unless the Lightning Array is boosted by the Wide Beam enhancement."* ⭐ Already how Stage 4 built it — `isHexInEdfField()` is team-blind and `edfSuppressesCollateral()` defaults to true — so `MedLightningArrayFtr` inherits it for free, and Wide Beam is a ship refit Mapmakers cannot buy. §3.13. |
 | D27 | Where "the end of the movement segment" is (2026-09-09) | *"The 'End of movement' in FV is essentially the start of Pre-Firing phase (if there is one) or start of Firing phase. If we restrict the late EW allocation to these phases and don't worry too much about the Movement phase for now that's fine."* ⭐⭐ **This deleted the hard half of Stage 10B**: with the window opening AFTER movement there is nothing to *declare*, so "a point declared and then carried out of range is lost" needs no declaration and no reconciliation — the allowance is simply recomputed at the post-movement hex. Phases **5 and 3 both**, sharing one budget. §3.8. |
 | D28 | What a saved EW point is drawn from (2026-09-09) | *"If a ship spends all their EW on non-DEW EW types, then they are unable to save a point of EW ... DEW is the only pool of unspent EW that saved EW can be drawn from in Pre-Firing/Firing."* So the allowance is `min(ladder, unspent pool)`, and the ship-window figure has to track the player's own clicking during Initial Orders rather than promising a point they have already spent. §3.8. |
 | D29 | The Wanderer's weapons begin charged (2026-09-09) | *"Unlike other Walker ships, the Wanderer phpclass ship's weapons DO start the battle fully charged."* An exception keyed on **phpclass**, hung on `Weapon::setInitialSystemData($ship)` rather than on `getStartLoading()`, which does not know its ship. §3.10e, Stage 11. |
-| D30 | Docked craft must be placeable on the Traveler's hex (2026-09-09) | *"Scribes, Waymarker and Pathfinders are all ships, which means they will not be eligible to stack on Traveler hex during Deployment at present. So we may need to loosen that restriction."* Loosened through the **existing** deploy-dock exemption in `getShipsInSameHex` (`pendingDeployDock` / `pendingLcvDeployDock`), never by weakening hull-versus-hull occupancy for everyone. §3.14, Stage 15. |
+| D30 | Docked craft must be placeable on the Traveler's hex (2026-09-09) | *"Scribes, Waymarker and Pathfinders are all ships, which means they will not be eligible to stack on Traveler hex during Deployment at present. So we may need to loosen that restriction."* Loosened through the **existing** deploy-dock exemption in `getShipsInSameHex` (`pendingDeployDock` / `pendingLcvDeployDock`), never by weakening hull-versus-hull occupancy for everyone. §3.14, Stage 16. |
+| D32 | Every Walker jump drive leaves slowly, and it is a MARK (2026-09-11) | *"All Walker ships possess this ability, not just Traveler. So the best approach seems to be to mark the Jump Engine as Walker (in the same way we mark Scanner as 'Advanced')."* `JumpEngine::markWalker()` on the six Walker hulls - a flag, not the `TravelerJumpDrive` class §3.17 first proposed, so no autoload change and no system id moves. The Mapmaker flight's engine stays unmarked (§3.12: it *"works normally"*). The targeting rule reuses the Energy Draining Mine's untargetable mechanism (§3.10c) and gives it its server half at last. Promoted from Stage 18 to Stage 15 the same day. §3.17a. |
 
 Everything below assumes these.
 
@@ -2960,7 +2963,8 @@ on nothing else.
 ⚠️ Verified NOT to touch the field: the orb still mounts its `EnergyDrainingField`, still answers
 `getEdfRadius`/`isEdfActive`, is still not `Enormous`, and still keeps its notes and its map disc.
 Ramming, collateral and area effects are untouched — nothing but the two deliberate-selection sites
-asks the question. Server-side refusal is still owed (Stage 18, §3.17).
+asks the question. The server-side refusal was built at Stage 15 (§3.17a): `Firing::validateFireOrders`
+now refuses a POSTed shot at the orb too.
 
 *"Can we hide the Energy Draining Mine from sight or at least prevent people targeting it (since
 there's no point in destroying it)"* — **prevent targeting, do not hide.**
@@ -2979,7 +2983,7 @@ itself at [3571](source/public/client/weaponManager.js#L3571). ⚠️ **It is cl
 the server refuses a fire order at a Huge unit at all, which is tolerable for a wasted shot and is
 *not* tolerable for §3.17, where a real rule depends on the refusal.
 
-So introduce the pair now and give it its server half in Stage 18:
+So introduce the pair now and give it its server half in Stage 15 (**built 2026-09-11**, §3.17a):
 
 ```php
 BaseShip::isTargetableBy($shooter, $turn)   // default true; false on the EDM orb
@@ -3401,7 +3405,7 @@ exactly ONE for a flight.
    built, and the ship-data validator builds 2,580 of them. `public $noHangarRequired = true;` at
    class level is the shape `SpawnEnergyDrainingMine::$unTargetable` already uses, and it rides the
    static blueprint the same way. The exemption itself is **fleet-building only**: `HangarOps` is
-   deliberately not taught about it, because a Mapmaker still fills boxes the moment Stage 15's
+   deliberately not taught about it, because a Mapmaker still fills boxes the moment Stage 16's
    Traveler bay carries one.
 
 3. **`BlueprintCache`'s SPAWNABLE-CLASS SCAN DOES NOT DESCEND INTO CRAFT EITHER.** It reads
@@ -3923,7 +3927,7 @@ marker, **not** by weakening the hull-versus-hull occupancy rule for everyone.
 - ⚠️ The terrain branch must stay intact — a queued craft still cannot be dropped onto terrain, and
   the Huge/`hexOffsets` collision arms of the same function are untouched.
 
-#### 3.14a The Waymarker's two-turn procedure — **OPTIONAL within Stage 15 (D23)**
+#### 3.14a The Waymarker's two-turn procedure — **OPTIONAL within Stage 16 (D23)**
 
 Everything above is one-turn docking, which is what the bay already does and what the other three
 craft need. The Waymarker needs an **intermediate state**: a turn in which it is neither on the
@@ -4073,15 +4077,23 @@ persists across the commit; four points of docked surplus give the Traveler one 
 none; a docked **flight** contributes nothing; and the figure recomputes live as the docked ship's
 allocation changes.
 
-### 3.17 The Traveler jump drive — leaving slowly
+### 3.17 The Walker jump drive — leaving slowly — **BUILT 2026-09-11 (Stage 15), rules 1 and 2 WITHDRAWN the same day — see §3.17b**
+
+*(Written 2026-09-08 as the "Traveler" drive and Stage 18. Promoted to Stage 15 on 2026-09-11 and
+widened to every Walker hull by D32. The design below is what was built, except where §3.17a says
+otherwise.)*
 
 > *"Some jump drives are even more advanced. In addition to the effects of advanced jump drives,
 > traveler drives deliver a coruscating field of crackling lightning, fading away into the center of
 > the resulting jump point. This operates as another advanced jump drive, except that the ship is
 > permitted to fire weapons on the same turn that it departs the map."*
 
-`class TravelerJumpDrive extends JumpEngine`. ⚠️ A **new phpclass**, never a flag on `JumpEngine` —
-system ids are construction order and a variant needs its own class (trap 7).
+~~`class TravelerJumpDrive extends JumpEngine`. A new phpclass, never a flag on `JumpEngine` — system
+ids are construction order and a variant needs its own class (trap 7).~~ **SUPERSEDED by D32
+(2026-09-11): a flag, `JumpEngine::markWalker()`, on every Walker hull's engine**, the way a Scanner
+is marked Advanced. The trap-7 worry was misplaced: trap 7 is about REORDERING a constructor, and a
+flag set after construction reorders nothing, so no system id moves. `markLegacy()` and `markGate()`
+had already set the precedent. See §3.17a.
 
 Three rules, and each has exactly one seam.
 
@@ -4156,9 +4168,237 @@ refused on both sides of the wire; its drive rolls no failure while in use but a
 destroyed drive still cancels the jump; the d100 is drawn either way; and the replay corpus is
 byte-identical on games without a Walker.
 
+### 3.17b REWORKED — Stage 15, 2026-09-11 (supersedes §3.17 rules 1–2 and all of §3.17a)
+
+The user found the first build rested on a misreading of the Ancient jump rules. The rule as it
+actually stands (B5W):
+
+> *"Each Ancient One has its own method for traveling into hyperspace, but these are all listed on the
+> control sheet as a 'special jump drive' for consistency. The drive affects only the Ancient's ship
+> and nothing else (unless otherwise noted). As with a phasing drive, the jump drive is initiated at the
+> start of the turn and takes the ship out of (or into) the scenario by the turn's end, though the
+> vessel will be vulnerable to weapons fire in the interim. Except as noted, the ship may not fire
+> weapons while jumping into/out of a scenario. If the jump drive itself is damaged while the ship is
+> departing/arriving, it has only half the usual chance of detonating. Ancient jump drives cannot be
+> affected by vortex disruptors."*
+
+User rulings (2026-09-11): Kirishiac, Mindriders, Torvalus, Triad, **Thirdspace** and Walkers get
+legacy drives like the Shadow Phasing Drive, since they form no jump points; all of them (and the
+Shadows) are immune to the Vortex Disruptor, which now reaches only the **Vorlons and The System**; none
+may fire on the turn they jump — **except the Walkers, whose whole benefit is that they CAN, plus zero
+chance of drive failure**. The **Mapmaker probes go legacy too** (reversing §3.12's "works normally").
+There is no deferred departure and no untargetability: a jumping Ancient is on the board, and can be
+shot, until it leaves at the end of Firing like any boost-jumper.
+
+**REVERTED** (backup patch in the session scratchpad, `stage15_backup/stage15_full.patch`):
+`Movement::getDeferredJumpOutVortex` / `isOutOfReach` / `resolveDeferredJumpOuts` / `departWithAttached`
+/ `writeCancelledJumpOutLog`, the `resolveJumpOuts` skip, `JumpEngine::getUnitWalkerDrive`,
+`BaseShip::isTargetableBy`'s third argument, `Firing::isOrderAtUntargetableUnit` /
+`withdrawFireAtDepartingUnits` (⚠️ which also takes the Energy Draining Mine orb's server-side refusal
+back to client-only, as it was before Stage 15), the Disruptor's "waiting Walker" branch,
+`TacGamedata::hasLeftThroughVortex`'s Walker exemption, and every client twin (`carriesWalkerJumpDrive`,
+`isDeferredJumpOut`, the shooter-aware `isTargetable`, and the fleet-list / ajaxInterface / banner /
+`shouldBeHidden` sites). A committed `jumpout` row means "gone at the end of Movement" again.
+
+**BUILT:**
+
+- **`JumpEngine::markAncient()`** = `markLegacy()` + protected `$ancientJump`. One-liner
+  `(new JumpEngine(..))->markAncient()` in 36 ship files (Kirishiac 7, Mindriders 4, Torvalus 6, Triad
+  11, Thirdspace 8); `PhasingDrive`'s constructor calls it instead of `markLegacy()`. **`markWalker()`**
+  now = `markAncient()` + `$walkerJump`, on the six hulls and on every Mapmaker probe. A flag set after
+  construction moves no positional system id. `stripForJson` sends `ancientJump` / `walkerJump` only
+  when set; the legacy tooltip gained Ancient and Walker variants.
+- **No fire on the jump turn** (`JumpEngine::forbidsFireWhileJumping` = Ancient and not Walker).
+  Enforced at RESOLUTION by `Firing::withdrawFireFromJumpingUnits` (preparePreFiring + prepareFiring)
+  and an `isJumpingUnarmed` skip in `automateIntercept`, which runs after prepareFiring. ⚠️ Not in
+  `validateFireOrders`: the boost and the orders arrive in the same Initial Orders POST, and that path
+  judges them against the DB copy, which has no power rows for this turn yet. Rams, log orders and the
+  selfIntercept marker are left alone. Client: `JumpEngine.onBoostIncrease` (called by
+  `power.clickPlus`) withdraws the unit's orders when the jump is set, and `weaponManager.selectWeapon`
+  refuses new ones via `shipManager.movement.isJumpFireForbidden`.
+- ⭐ **`JumpEngine::getUnitJumpingEngine($unit, $turn)`** — the one "who is boosting to jump" reader,
+  shared by the end-of-Fire boost sweep and the withdrawal, and it **descends into every craft of a
+  flight** (the boost sits on whichever probe the player clicked). The sweep used to walk
+  `$ship->systems` and never saw a flight at all.
+- **`doHyperspaceJump` on a flight** — it had a null-structure fatal; now a flight leaves craft by craft
+  (Movement::applyJumpOut's shape) with the CV note on the sample fighter.
+- ⚠️ **The half-chance was missing on the boost path.** `openVortex` and `rollVortexJumpFailure` have
+  always halved for factionAge 3+; `doHyperspaceJump` never did. It does now, before the Walker zeroing
+  and with no return before the d100. This also changes the % a Shadow boost-jump quotes, which is the rule.
+- **Vortex Disruptor:** `isImmuneToDisruption` = carries an Ancient drive, or is factionAge 3+ and not in
+  `DISRUPTABLE_ANCIENT_FACTIONS` ('Vorlon Empire', 'The System'). Spared before the escape roll (no die
+  drawn). A doorway an Ancient drive holds does not collapse; a phase-in one reads as an empty-hex shot
+  so the log cannot confirm a hidden arrival.
+
+Harnesses rewritten: `tests/replay/walkersStage15Harness.php` (73) and
+`walkersStage15ClientHarness.js` (24), each group with a control that fails the other way. Gate:
+autoload current (no new class), `checkShipData.php` PASS with 0 new findings (237 baselined). Replay
+harness 80 passed / 42 failed: 34 of them differ ONLY by `ancientJump: added (true)` on an Ancient
+drive's payload - the intended additive key - and the other 8 (3671, 3676, 4249, 4256, 4297, 4303,
+4325, 4328) fail IDENTICALLY with `source/` stashed once those lines are removed, so they are
+pre-existing drift, not this change.
+
+**Open for the user:** arriving is also "jumping into a scenario", and whether an arriving Ancient may
+fire on its arrival turn was not touched. The Initial Orders commit summary lists ships jumping to
+hyperspace but still skips flights, so a jumping Mapmaker flight is not named there.
+
+#### 3.17c Refinements after play (2026-09-11, games 4347 and 4348)
+
+1. **A Mapmaker flight's drives boost as one** (4347: one probe boosted, the others read unboosted).
+   Client `JumpEngine.onBoostIncrease` / `onBoostDecrease` → `mirrorFlightBoost`, the Stiletto Shading
+   Field's "set one, set all" shape: a real type-2 power row on every live sibling engine, so each
+   travels with the ordinary submit, and "No" on any probe clears all of them. The server needed
+   nothing - `getUnitJumpingEngine` already takes the flight off any boosted craft.
+2. **A jumping non-Walker Ancient's Initial Orders are never written.**
+   `InitialOrdersGamePhase::dropFireOfJumpingShip` filters them out of `process()` before
+   `validateFireOrders`, reading the POST-side ship's own boost rows (the DB copy has none yet). So no
+   ballistic shows through Movement and Firing. Rams, log orders and older turns are kept;
+   `withdrawFireFromJumpingUnits` stays as the resolution-time backstop.
+3. **The Energy Draining Field no longer drains terrain** - a `isTerrain()` skip in
+   `EdfExposure::resolve`, the only site that acts on the unit standing in the field (the hit penalty
+   and the dampened-explosion rules are properties of the HEX).
+4. ⭐ **A legacy exit declaration vanished in the Firing phase** - `TacGamedata::hideSystemFireOrders`
+   strips every current-turn phase-3 order whose weapon has `$ballistic == false`, and `markLegacy()`
+   sets exactly that on every Shadow / Ancient / BSG / Star Wars drive, so the owner's `jumpexit` order
+   was taken for a direct-fire order. `jumpexit` is now exempt. (An ordinary exit survived only because
+   its engine is still `ballistic`.) The enemy's copy was never affected: `republishFormingExits` runs
+   before the strip.
+5. **One blue "Jump Point" per hex.** The exit marker says "Jump Point" in blue for every drive (no
+   more "Jump Point Forming" / "Reinforcements"), the pre-placed wave's marker is blue text too, and
+   `generateExitHexes` and `generateReinforcementHexes` share ONE claim set with the exit sweep first,
+   so a replay no longer stacks two labels on one hex. `formingExits[].phase` is still published but
+   nothing reads it.
+6. **"Jumping to Hyperspace"** tooltip line and ship-window banner now also show for any LEGACY drive set
+   to jump this turn (`shipManager.isJumpingToHyperspace`, via `getJumpingOutEngine` +
+   `isLegacyJumpEngine`), until the ship has gone. No leak: an enemy's power rows are stripped during
+   Initial Orders and public from Movement on.
+
+Harnesses: server 81, client 37 (both extended for all six). Existing harnesses green: reinforcements
+6/7/8/9 (server and client), legacy recharge, Vortex Disruptor (both), Stage 6.
+
+7. ⚠️ **Item 1 was still broken in play (4347), by TWO bugs, neither in the mirror itself.**
+   (a) Client `JumpEngine.getOwningUnit` asked for `gamedata.getShipById` behind a typeof guard - the
+   CLIENT HAS NO SUCH METHOD (only `getShip`; `getShipById` is the server's name) - so it fell back to
+   the craft on every real client, and every flight rule keyed off the owning unit, Stage 13's included,
+   answered "no". The Stage 15 client harness had stubbed `getShipById`, which is what hid it; it now
+   stubs `getShip` only. (b) `Manager::getShipsFromJSON` handed each FIGHTER system its whole power LIST
+   as one `setPower()` entry, in a duplicated block, so a POST-side fighter's `$power` held nested arrays.
+   `DBManager::submitPower` flattened them quietly; `dropFireOfJumpingShip` → `isOverloading` fataled
+   ("property turn on array"). Now one entry per call.
+8. **A legacy-drive opener's manifest** (Ancient drives, Phasing Drive, BSG / Star Wars / Trek drives -
+   they open no jump point, so nothing rides THROUGH them) **holds only fighter flights that fit its
+   hangars, and they arrive docked** (user ruling 2026-09-11).
+   - Client: `shipManager.movement.isLegacyOpener` / `getLegacyRideHost`;
+     `DeploymentDock.planFlightsIntoCarrier` (the real packer, non-mutating, via an `extraReserved` box
+     map); the manifest dialog lists only fighters that fit and greys rows as the hangars fill;
+     `autoPlaceArrivingReinforcements` queues the deploy-start dock instead of placing, and
+     `forcedDeployDock` stops the dock dialog, the DOCK button and un-queue undoing it.
+   - Server: `JumpEngine::isLegacyOpener` / `getLegacyRideHost`; `InitialOrdersGamePhase::legacyBerthFits`
+     (cumulative across the pass, same bay rules as HangarOps) in `persistManifest`; and
+     `validateReinforcementArrival` refuses a map position for such a flight. The Deployment dock is still
+     the authority - a flight that fails it stays unplaced and goes back to hyperspace, nothing spent.
+   - ⚠️ Harness trap: `ReflectionMethod::invoke` passes by VALUE, so a `&$reserved` argument never filled
+     and "20 flights fit in 36 boxes"; use `invokeArgs` with a real reference.
+
+Harnesses after 7-8: server 92, client 49. Replay 134/1 (4347 only, identical on a clean tree).
+
+### 3.17a As built — Stage 15, 2026-09-11 — ⚠️ SUPERSEDED by §3.17b; kept as the record of the first build
+
+Harnesses: `tests/replay/walkersStage15Harness.php` (73) and
+`tests/replay/walkersStage15ClientHarness.js` (34), both **fatal on the pre-edit tree**.
+`checkShipData.php` PASS, 0 new findings (237 baselined), identical to a stashed tree; autoload
+unchanged (no new class). Replay harness 114 passed / 8 failed, **byte-identical with timings
+normalised** to the same run with `source/` stashed. The 8 are the Stage 14 set, and the corpus holds
+no Walker jump-out, so that run proves only that nothing ELSE moved.
+
+**THE MARK (D32).** `JumpEngine::markWalker()` sets a protected `$walkerJump`, called in the six Walker
+hull files straight after construction (Traveler, Wanderer, Waymarker, Pathfinder, Guideship, Scribe),
+exactly as `$scanner->markAdvanced()` is two lines above it. Protected, so no static blueprint grows a
+key; `stripForJson` sends `walkerJump: true` on a Walker drive only; `setSystemDataWindow` swaps the
+failure sentence for the Walker rule. **The Mapmaker flight is NOT marked** - §3.12's ruling is that its
+engine *"works normally"* - but every helper below goes through `getUnitJumpEngines` (and the client's
+walks descend into craft), so marking it later is one line in `MapmakerProbes::populate()`.
+
+**ONE PREDICATE, AND NO STORED STATE.** `Movement::getDeferredJumpOutVortex($ship, $gamedata)` - "this
+unit entered a jump point this turn, legally, carrying a working Walker drive" - mirrored by
+`shipManager.movement.isDeferredJumpOut(ship)`. No note and no flag: the persisted `jumpout` movement
+order IS the record, so the answer is re-derived identically on every load, across the double gamedata
+load and in replay. "Working" is `JumpEngine::getUnitWalkerDrive()`, read off CURRENT state on purpose:
+- a Walker whose drive was lost on an EARLIER turn is not deferred - it leaves at the end of Movement
+  like any engineless ship (§2.5 of the jump-points plan: any unit may use any open vortex);
+- one whose drive is destroyed WHILE it waits stops answering, becomes an ordinary target for the rest
+  of the turn, and has its jump cancelled at the end of Firing - *"cancelled if the drive is completely
+  destroyed as normal"*.
+
+**RULE 1 - THE DEFERRAL.** `Movement::resolveJumpOuts` skips a unit `getUnitWalkerDrive` answers for, so
+it keeps its dummy `end` move, its post-move checks and its Pre-Firing slot. `Movement::resolveDeferredJumpOuts`
+runs at the end of `Firing::fireWeapons` (after `createFailedAttachRamOrders`, before the boost sweep)
+and takes it out through the same `applyJumpOut` - shared with its attached units through the new
+`departWithAttached` - so the records are the same three: the `HyperspaceJump` log order, the `jumped`
+CV note, the structure destroyed as a jump. It runs before `Criticals::setCriticals`, so a departed
+unit rolls no criticals and no jump failure. A cancelled jump writes a `JumpVortex` log line.
+
+**RULE 2 - THE REFUSAL, ON BOTH SIDES OF THE WIRE.** `BaseShip::isTargetableBy($shooter, $turn, $gamedata)`
+gained the third argument; given the board it asks `Movement::isOutOfReach`, which refuses the ENEMY
+only - the Walker's own side may still support it - and treats "no shooter" as refused.
+- **Submit:** `Firing::validateFireOrders` rejects and detaches any order naming an untargetable unit,
+  which also closes §3.10c's owed server half for the Energy Draining Mine orb.
+- **Resolution:** `Firing::withdrawFireAtDepartingUnits`, from `preparePreFiring` and `prepareFiring`. It
+  catches what the submit path cannot see coming - a ballistic declared in Initial Orders, before
+  anyone knew the unit would be in a jump point - and wastes it, exactly as a ballistic at any departed
+  ship is wasted. Gated on a departing set built from one movement scan per ship, empty in virtually
+  every game.
+- **Exempt everywhere:** intercept orders (their `targetid` names a fire order), hex-targeted orders
+  (area effects on the hex stand), log-only orders, and RAMS - §3.17's *"collisions reach whatever is in
+  the hex"*. ⚠️ The client refuses a deliberate ram CLICK like any other targeting, because
+  `weaponManager.targetShip` asks before it knows the weapon; the server lets ram orders through so
+  automatic collisions still resolve.
+- **Client:** `shipManager.isTargetable(ship, shooter)` at all four call sites - weaponManager's tooltip
+  line and `targetShip`, and both tooltip menus (the EW one is also the late-EW window).
+
+**RULE 3 - NO FAILURE ROLL.** `JumpEngine::isJumpFailureImmune($ship, $gamedata)` (protected, answers
+`$walkerJump`) at all three sites - `doHyperspaceJump`, `rollVortexJumpFailure`, `openVortex` (trap 33).
+Each ZEROES its percentage rather than returning, so the log quotes the 0% that applied and every d100
+is still drawn (trap 34; trap 35 for how that was proved). A roll of 1-100 against 0 always holds.
+⚠️ The EDJD must override the hook (§3.18).
+
+⚠️ **FOUR FINDINGS WORTH CARRYING.**
+
+1. **A COMMITTED JUMP-OUT MEANT "GONE" TO FOUR CLIENT SITES** (trap 36): `shouldBeHidden`, the fleet row,
+   `getJumpedDockedFlightIds` and ajaxInterface's docked-LCV walk - plus their SERVER twin,
+   `TacGamedata::hasLeftThroughVortex`, which would have painted a waiting Walker carrier's docked
+   flights `jumpedWithCarrier`. Left alone, the enemy would have stared at an empty hex that was
+   still shooting at them. ⭐ The fix is TWO predicates, not one:
+   `carriesWalkerJumpDrive` (any Walker drive, working or not) for everything PRESENTATIONAL, because
+   the server keeps such a unit on the board after its commit either way - waiting, or cancelled - and
+   `isDeferredJumpOut` (committed + working drive) for TARGETING and the banner. With one predicate, a
+   drive destroyed mid-turn would have hidden a ship the server was keeping.
+2. **THE VORTEX DISRUPTOR WOULD HAVE BEEN DODGED.** `getDeparturesThrough` searched wreckage only
+   (`isDestroyed && hasJumpedToHyperspace`), and a waiting Walker is neither - so the collapse would
+   have skipped it and it would then have left anyway at the end of Firing, immune to the one weapon
+   built to stop a jump. `hasLeftThroughVortex` now counts a deferred departer as inside the rift, and
+   its attached units with it. The Ancient escape roll applies as to anyone.
+3. **TRAP 34's "SAME RANDOM SEQUENCE" IS NOT THIS CODEBASE'S DICE** (trap 35): `Dice::d` is `random_int`.
+   The draw is kept by construction and asserted by the shape of the two method bodies.
+4. **THE TRAP-7 OBJECTION TO A FLAG WAS WRONG** - a flag set after construction reorders nothing - so
+   the user's mark-it-like-a-Scanner instinct was also the cheaper build: no class, no autoload
+   regeneration (which on live needs the maintenance gate), no id shift, and `phpclass` stays
+   `JumpEngine` for every game already in flight.
+
+**Rulings taken without asking, to confirm:** the Mapmaker stays unmarked; an Initial Orders ballistic
+at a departing Walker is wasted; a deliberate ram click at one is refused while server-side ram orders
+pass.
+
+**§3.18's "plain traveler drive" (the ½ power-turn contributor that may not initiate) now means ANY
+Walker drive** - `isWalkerJump()` - since D32 made that the whole population.
+
+---
+
 ### 3.18 Extra-Dimensional Jump Drive — abduction
 
-`class ExtraDimensionalJumpDrive extends TravelerJumpDrive`. Every §3.17 rule applies unchanged,
+`class ExtraDimensionalJumpDrive extends JumpEngine`, calling `markWalker()` in its constructor (D32 -
+there is no `TravelerJumpDrive` to extend, and a subclass is right here because the EDJD genuinely adds
+behaviour, not just a flag). Every §3.17 rule applies unchanged,
 plus the ability to drag an enemy unit into hyperspace over several consecutive turns. **This is the
 largest single item left in the plan** and it should land last.
 
@@ -4251,8 +4491,9 @@ power-turns, no chain.
 
 A Traveler drive suffers **no** destruction chance while in use (§3.17 rule 3). An EDJD suffers one
 **every turn** it is active. So `isJumpFailureImmune()` must return **false** while an abduction is
-running, and that is the single most important interaction between the two stages — build §3.18's
-override in the same edit that adds the hook, or the drive that is supposed to be riskiest becomes
+running, and that is the single most important interaction between the two stages — the hook,
+`JumpEngine::isJumpFailureImmune()`, landed at Stage 15 answering `$walkerJump` - so §3.18's override is
+owed the day the EDJD is built, or the drive that is supposed to be riskiest becomes
 the safest in the game.
 
 **Exit criterion:** an abduction accumulates only while both conditions hold, resets on a gap,
@@ -4286,10 +4527,10 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **12** ✅ | Mapmaker Electronic Warfare (§3.11, as built §3.11a; saved EW extended to Walker flights 2026-09-10) | 3 points per flight across OEW and DEW and no more; an ordinary flight's mine-detection allowance byte-identical before and after; hit chance agreeing server↔client over an OEW 0–3 × DEW 0–6 differential; enemy allocation invisible during Initial Orders; flight-window EW block rendering without breaking the scale-to-fit budget or the resize grip. |
 | **13** ✅ | Mapmaker Jump Engine (§3.12) + the Fleet Checker hangar exemption — **DONE 2026-09-10** | **94 checks green** across two throwaway harnesses — 59 server, 35 client — covering the 10-turn recharge read from `$delay`, the one-engine-per-flight accessor, the charge mirrored onto all six craft, the declaration normalised at the wire and the second one refused *with the existing reason string*, `hasVortexDeclaration` reaching a flight at all, and the blueprint scan; every group asserts its own non-vacuity and both harnesses **fatal on the pre-edit tree**. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 115 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed. ⭐⭐ **THE PLAN WAS RIGHT THAT "ONE JUMP POINT PER FLIGHT" NEEDED NO NEW RULE AND WRONG ABOUT WHY IT WORKED**: `Firing::getVortexDeclarationBlock`'s one-vortex-per-**shooter** loop does catch it — but only once both orders name the SAME engine, so the rule that makes D13 true is a two-line **weaponid normalisation** in `validateVortexDeclaration`, not the loop itself. ⭐⭐ **AND THE REAL WORK WAS NOT THE CLIENT** (§3.12 called it "the whole stage"): five server sweeps walked `$ship->systems` looking for a `JumpEngine` and found NOTHING on a flight, because a flight's systems are *craft*. They all go through the new `JumpEngine::getUnitJumpEngines()` now. ⚠️ Three findings worth carrying, all in §3.12. |
 | **14** ✅ | `MedLightningArrayFtr` (§3.13, as built §3.13a, play-test fixes §3.13b, EW rules corrected §3.13c) + the Mapmaker hangar rule (D31) — **COMPLETE 2026-09-11** (built 2026-09-10) | ⚠️⚠️ **2026-09-11: the Mapmaker EW rules were CORRECTED from the rulebook text (§3.13c)** — the Array uses plain ship EW rules (OEW added, target DEW/BDEW/SDEW as the ordinary to-hit penalty, no OB, no OEW = doubled range penalty as usual) and the Pulsar gets OB + max(0, OEW − defensive EW). That **reverted** the §3.13b no-lock exemption described below. Re-proved with the Stage 12 client grid (90/0), the Stage 14 client (62/0) and server (99/0) harnesses, and the game-4347 probe (15/0); replay 114 / 8, unchanged, though no Mapmaker game is in the corpus. | **215 checks green** across four throwaway harnesses — 99 server, 62 client, 43 fleet-check and an 11-check live-game probe — covering 3 and 6 combining while 1/2/4/5 go technical, two 3-groups at two targets, buckets split by target / called id / mode, a damaged probe excluded on `getRemainingHealth() >= maxhealth` (and asserted NOT destroyed, so the obvious shortcut is proved wrong), an uncharged array refused server-side, D16 resolved in both directions with the loser named in the log and proved to ignore intercept orders, the turn-1 full charge proved as an ABSENT override, `edfSuppressesCollateral` proved inherited (and `LightningArray`'s proved overridden, which is why this class must not extend it), and the fleet check driven through the REAL `gamelobby.js` slices for Mapmakers, Stilettos and Fighter Squadrons alike. Every harness fails on a stashed tree, and each play-test fix fails in isolation when its own line is reverted. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 114 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed — including after the `weapon.php` no-lock change, which every weapon in the game runs through. ⭐ **THE STATS NEEDED NO CLIENT MIRROR** — both modes differ only in fire control, range penalty and damage span, and all three already travel as the engine's generic per-mode arrays, so the client half is the group rule and nothing else. ⭐⭐ **THE REAL WORK WAS D16, NOT THE COMBINING**: the combining is `HyperplasmaMatrix`'s pattern, but every exclusivity mechanism in the tree is per-CRAFT (`checkConflictingFireOrder` narrows to `getFighterBySystem` before it looks), so flight-wide exclusivity needed a new predicate on both sheets keyed on a new `flightExclusiveGroup` string. ⚠️⚠️ **AND THE HANGAR FIX FOUND THAT THE TWO HALVES OF THE RULE HAD NEVER MET**: the four Walker hulls declare `"Mapmaker Probes"` capacity while the flight left `hangarRequired` at `'fighters'` and classified itself as an ordinary MEDIUM fighter, so nothing could ever fill it. ⚠️⚠️ **PLAY TEST 4347 THEN FOUND TWO MORE THAT NO UNIT TEST COULD**: an undamaged craft has NO `damage` key at all (ShipCompactor strips empty arrays) so `getRemainingHealth` threw and the weapon could not be targeted, and a `useFlightEW` shot was taking a no-lock penalty D12 forbids — see §3.13b. ⚠️ Four findings worth carrying in §3.13a, three more in §3.13b. |
-| **15** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
-| **16** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
-| **17** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
-| **18** | Traveler jump drive (§3.17) | The unit still on the board through Pre-Firing and Firing, firing normally, gone at end of turn; every enemy order naming it refused **server-side**; no failure roll while in use but a completely destroyed drive still cancelling; the d100 still drawn; replay corpus byte-identical on games without a Walker. |
+| **15** ✅ | Walker jump drive (§3.17, as built §3.17a) — **DONE 2026-09-11**, promoted from Stage 18 the same day; a `markWalker()` flag on every Walker hull (D32) | **107 checks green** across two harnesses — 73 server, 34 client — both fatal on the pre-edit tree: the mark on all six hulls and on nothing else; the deferral at the end of Movement, against an ordinary hull on the identical legal path which still leaves; the refusal at submit and at resolution (which also withdraws an Initial Orders ballistic), with the identical orders accepted at a Walker that is not leaving, and all four client call sites passing the shooter; departure at the end of Firing with its attached unit, and a cancellation when the drive dies while it waits; zero failures in 300 rolls from an engine that fails at once with the flag off; and the Vortex Disruptor catching the waiting Walker. `checkShipData.php` PASS, 0 new against 237; autoload unchanged; replay 114 / 8 **byte-identical with timings normalised** to a stashed tree. ⚠️ Four findings in §3.17a, and traps 35–36. |
+| **16** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
+| **17** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
+| **18** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
 | **19** | Extra-Dimensional Jump Drive (§3.18) | Power-turns accumulating only while both conditions hold and resetting on a gap; the cost locked at the first turn; completion routed through `Movement::applyJumpOut`; contributors and the half-power-turn plain drive; a friendly jumped on one EW point; ⭐⭐ and a damaged EDJD rolling for detonation every active turn while the same hull's ordinary jump-out does not. |
 
 **Every stage:** run `fvbuild.ps1 -Check` (ship-data validator + replay harness). ⚠️ The baseline
@@ -4308,10 +4549,10 @@ should be read as "any stage that touches a shared path", not as a fixed list.
 authoritative and it silently describes a game that no longer exists.
 
 ⚠️ **The second wave is unusually shared-path heavy.** Stage 12 changes EW for a unit class that has
-never had it, Stage 15 changes `unitSize` and hangar accounting for hulls that have never used
-either, Stage 17 touches the power balance, and Stage 18 changes when a unit leaves the board.
+never had it, Stage 16 changes `unitSize` and hangar accounting for hulls that have never used
+either, Stage 18 touches the power balance, and Stage 15 (built) changed when a unit leaves the board.
 Every one of those is "any stage that touches a shared path", so the harness `check` is mandatory on
-all of them — plus a `masking` pass on Stage 12 and a 2,500-hull corpus differential on Stage 15.
+all of them — plus a `masking` pass on Stage 12 and a 2,500-hull corpus differential on Stage 16.
 
 **Each stage opens on a control sheet (D4)** — the user lands a Walker hull carrying a basic version
 of that stage's system, and the stats are read out of the hull file. Stages **0 and 1 need nothing**:
@@ -4453,6 +4694,17 @@ Collected from the survey; each one has bitten this codebase before.
     and skipping one makes otherwise-identical games diverge. Every new "this unit never fails"
     rule inherits that constraint, or it breaks the replay harness on games that have nothing to do
     with the feature (§3.17).
+35. ⭐ **TRAP 34'S RATIONALE IS WEAKER THAN IT READS, SO PROVE IT BY SHAPE.** `Dice::d` is `random_int`,
+    unseeded, so live play has no reproducible sequence to protect; the replay harness declares its
+    OWN seeded `Dice` ahead of autoload and re-seeds at fixed points. Keep the draw anyway (it is
+    free), but no test can show "the die is still drawn" by replaying a sequence. Assert instead that
+    the immunity only ZEROES the percentage and that no `return` sits between it and the draw (§3.17a).
+36. ⚠️⚠️ **A COMMITTED JUMP-OUT NO LONGER MEANS "GONE AT THE END OF MOVEMENT".** A Walker drive keeps
+    its unit on the board until the end of Firing (§3.17). Every site that read a committed
+    `jumpout` order as "it has left" had to learn otherwise: the client's sprite, fleet row,
+    docked-flight walk and docked-LCV walk (`carriesWalkerJumpDrive`), and the Vortex Disruptor,
+    which searched only wreckage. A new "has it left?" test must ask the REMOVAL (`isDestroyed` +
+    `hasJumpedToHyperspace`), or ask both questions.
 
 ---
 
@@ -4506,7 +4758,7 @@ from it. §3.11.
 A Waymarker costs **24 boxes**, and the bay also holds **2 Pathfinders** at 12 each — which the
 first statement of the brief omitted. Every load now fills the 24-box bay exactly and no per-type
 cap is needed at all. The Waymarker's real condition is a **two-turn** dock/launch procedure (D23,
-§3.14a), optional within Stage 15.
+§3.14a), optional within Stage 16.
 
 **Q12 — Is an abduction's cost locked or live? (asked 2026-09-08). → ANSWERED: locked.** Fixed at the
 first power-turn and carried in the note, so a target that is abducted *and* shot does not get

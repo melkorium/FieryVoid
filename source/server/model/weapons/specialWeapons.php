@@ -3642,8 +3642,11 @@ $fireOrder->updated = true;
  *          getDeparturesThrough for how "left the battle" is turned back into "died");
  *        - a BLUE EXIT killed the reinforcements riding it, who are still in hyperspace waiting to
  *          come through on a later turn.
- *   5. An ANCIENT hull (factionAge 3+, whose drives were redesigned in answer to this weapon) rolls
- *      to slip through the collapsing rift first - see rollAncientEscape.
+ *   5. "ANCIENT JUMP DRIVES CANNOT BE AFFECTED BY VORTEX DISRUPTORS" (user ruling 2026-09-11). A
+ *      doorway an Ancient special jump drive holds (JumpEngine::$ancientJump) does not collapse, and
+ *      an Ancient unit inside any other doorway is spared without a roll - see isImmuneToDisruption.
+ *      The Vorlons and The System, which keep ordinary vortex-opening engines, are the exception.
+ *   6. Those two roll to slip through the collapsing rift first - see rollAncientEscape.
  *
  * ⚠️ ALL OF THIS LIVES IN fire(), NOT IN beforeFiringOrderResolution(). The hook runs from
  * Firing::prepareFiring, which calls it BEFORE calculateHitBase - so at that point the order has
@@ -3707,8 +3710,15 @@ class VortexDisruptor extends Weapon{
 
 	/* THE AGE AT WHICH A DRIVE CAN OUTRUN THE COLLAPSE. "factionAge 3+ ships use a slightly
 	   advanced form of jump engine, developed in response to the vortex disruptor" - the same
-	   threshold JumpEngine::openVortex already uses to halve an Ancient's jump-failure chance. */
+	   threshold JumpEngine::openVortex already uses to halve an Ancient's jump-failure chance.
+	   ⚠️ Since 2026-09-11 almost every Ancient is spared outright before this is asked
+	   (isImmuneToDisruption), so the escape roll is only ever reached by the factions below. */
 	const ANCIENT_FACTION_AGE = 3;
+
+	/* THE ANCIENT FACTIONS A VORTEX DISRUPTOR STILL REACHES (user ruling 2026-09-11): the only
+	   factionAge 3+ factions whose engines still open B5 jump points. Every other Ancient is immune -
+	   "Ancient jump drives cannot be affected by vortex disruptors". Matched against $unit->faction. */
+	const DISRUPTABLE_ANCIENT_FACTIONS = array('Vorlon Empire', 'The System');
 
 
 	//in pickup play it's essentially a power source - and Shadows don't have all that much use for extra power. Very low repair priority,although maybe above Hangars ;)
@@ -3719,7 +3729,8 @@ class VortexDisruptor extends Weapon{
 		parent::setSystemDataWindow($turn);
 		$this->data["Special"] = "Fired into a jump point - either an open ENTRANCE (yellow, units leaving) or an EXIT (blue, reinforcements arriving), including one that is still forming.";
 		$this->data["Special"] .= "<br>On a hit collapses the jump point at end of turn, destroying anything transitting the jump point at the time.";
-		$this->data["Special"] .= "<br>Ancient hulls may escape: roll 1d100 against the shot's to-hit margin plus the distance*5 ship travelled this turn, escaping on equal or higher.";
+		$this->data["Special"] .= "<br>Ancient jump drives are unaffected: a jump point one holds cannot be collapsed, and Ancient units (Shadows, Kirishiac, Mindriders, Torvalus, Triad, Thirdspace, Walkers) inside any jump point are spared.";
+		$this->data["Special"] .= "<br>Vorlon and System hulls may escape: roll 1d100 against the shot's to-hit margin plus the distance*5 ship travelled this turn, escaping on equal or higher.";
 		$this->data["Special"] .= "<br>A miss has no effect at all and cannot fired while half-phased.";
 	}
 
@@ -3793,6 +3804,20 @@ class VortexDisruptor extends Weapon{
 		$isExit = ($vortex instanceof SpawnJumpPointExit);
 		$engine = JumpEngine::getHoldingEngine($vortex, $gamedata);
 
+		/* ⭐ "ANCIENT JUMP DRIVES CANNOT BE AFFECTED BY VORTEX DISRUPTORS" (user ruling 2026-09-11). A
+		   doorway an Ancient drive holds does not collapse, and nothing riding it is touched. Asked
+		   before the "already collapsing" test, because it never can be.
+		   ⚠️ A PHASE-IN doorway - the only kind an Ancient drive opens, being a legacy drive - is never
+		   drawn for anybody, so the log must not confirm that one is there: it reads exactly as a shot
+		   into an empty hex. A VISIBLE one (opened before its drive became Ancient, in a game that spans
+		   the deploy) says why nothing happened. */
+		if ($engine && $engine->isAncientJump()){
+			$fireOrder->pubnotes .= ($vortex instanceof SpawnJumpPointPhaseIn)
+				? " HIT - but there was no jump point in the target hex, so nothing happened. "
+				: " HIT - but the jump point is held by an Ancient jump drive, which a Vortex Disruptor cannot affect. ";
+			return;
+		}
+
 		//A SECOND SHOT INTO THE SAME COLLAPSING DOORWAY disrupts nothing further, and more
 		//importantly must not kill the same units twice - so it reports and stops. Same-turn only:
 		//once the closure is recorded the jump point fails getDisruptableVortexInHex's window on
@@ -3828,12 +3853,20 @@ class VortexDisruptor extends Weapon{
 
 		$killed  = array();
 		$escaped = array();
+		$spared  = array();
 
 		foreach ($victims as $group){
 			//THE GROUP'S FATE IS THE HOST'S. An attached pod mirrors its host's movement and was
 			//carried into hyperspace by it (Movement::resolveJumpOuts), so it cannot roll for
 			//itself - it goes wherever the hull it is bolted to goes, whatever its own faction age.
 			$host = $group[0];
+
+			//"Ancient jump drives cannot be affected by vortex disruptors" - spared outright, with no
+			//roll and no die drawn. See isImmuneToDisruption.
+			if (self::isImmuneToDisruption($host)){
+				$spared[] = $host->name;
+				continue;
+			}
 
 			$distance = $isExit
 				? 0   //still in hyperspace - it moved no distance to reach the doorway
@@ -3871,9 +3904,13 @@ class VortexDisruptor extends Weapon{
 			if (!empty($escaped)){
 				$fireOrder->pubnotes .= " " . count($escaped) . " slipped clear before it closed.";
 			}
+			if (!empty($spared)){
+				$fireOrder->pubnotes .= " " . count($spared) . " unaffected - Ancient jump drive" . (count($spared) == 1 ? "." : "s.");
+			}
 		}else{
 			if (!empty($killed))  $fireOrder->pubnotes .= " Destroyed in the rift: " . implode(", ", $killed) . ".";
 			if (!empty($escaped)) $fireOrder->pubnotes .= " Slipped through before it closed: " . implode(", ", $escaped) . ".";
+			if (!empty($spared))  $fireOrder->pubnotes .= " Unaffected (Ancient jump drive): " . implode(", ", $spared) . ".";
 		}
 		$fireOrder->pubnotes .= " ";
 	}
@@ -4004,6 +4041,31 @@ class VortexDisruptor extends Weapon{
 		}
 
 		return $groups;
+	}
+
+
+	/* ⭐ IS $unit OUT OF THE DISRUPTOR'S REACH ALTOGETHER? (user ruling 2026-09-11.)
+	 *
+	 * "Ancient jump drives cannot be affected by vortex disruptors" - and the Vorlons and The System,
+	 * whose engines still open B5 jump points, are the only factionAge 3+ factions it still reaches.
+	 * Either test is enough:
+	 *   1. the unit CARRIES an Ancient special jump drive (JumpEngine::$ancientJump), destroyed or not -
+	 *      found through getUnitJumpEngines, so a Mapmaker flight's is found one level down;
+	 *   2. it is an Ancient of any faction but those two - which is what covers the drive-less units
+	 *      of the Ancient-drive factions (a Torvalus Stiletto, a Triad Imp, a Kirishiac Warrior)
+	 *      caught riding somebody else's doorway.
+	 * Everything else goes on to rollAncientEscape exactly as before, which answers false at once for
+	 * anything under factionAge 3. */
+	protected static function isImmuneToDisruption($unit)
+	{
+		if (!$unit) return false;
+
+		foreach (JumpEngine::getUnitJumpEngines($unit) as $engine){
+			if ($engine->isAncientJump()) return true;
+		}
+
+		if ((int)$unit->factionAge < self::ANCIENT_FACTION_AGE) return false;
+		return !in_array($unit->faction, self::DISRUPTABLE_ANCIENT_FACTIONS, true);
 	}
 
 

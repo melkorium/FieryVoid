@@ -39,7 +39,9 @@ class Scribe extends MediumShip{
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(6, 12, 0, 10, 2));
         $this->addPrimarySystem(new SelfRepair(5, 3, 2)); //armor, structure, output
-		$this->addPrimarySystem(new JumpEngine(6, 9, 8, 8));
+		$jumpEngine = new JumpEngine(6, 9, 8, 8);
+		$jumpEngine->markWalker(); //Stage 15: leaves at the END of the turn, untargetable while it waits, no failure roll
+		$this->addPrimarySystem($jumpEngine);
 		$this->addPrimarySystem(new GraviticThruster(6, 13, 0, 5, 3));
 		$this->addPrimarySystem(new GraviticThruster(6, 13, 0, 5, 4));		
 		

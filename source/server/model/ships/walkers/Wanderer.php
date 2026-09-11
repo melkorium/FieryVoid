@@ -46,7 +46,9 @@ class Wanderer extends BaseShip{
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(7, 28, 0, 17, 4));
         $this->addPrimarySystem(new SelfRepair(7, 36, 15)); //armor, structure, output
-		$this->addPrimarySystem(new JumpEngine(7, 30, 12, 4));		
+		$jumpEngine = new JumpEngine(7, 30, 12, 4);
+		$jumpEngine->markWalker(); //Stage 15: leaves at the END of the turn, untargetable while it waits, no failure roll
+		$this->addPrimarySystem($jumpEngine);		
 		
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));
         $this->addFrontSystem(new GraviticThruster(6, 20, 0, 5, 1));			       

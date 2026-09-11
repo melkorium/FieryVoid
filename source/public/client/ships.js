@@ -578,6 +578,18 @@ window.shipManager = {
         if (gamedata.gamephase === -2) return false;   //lobby
 
         if (shipManager.movement.hasJumpedOut(ship) && !shipManager.movement.hasCommittedJumpOut(ship)) return true;
+
+        /* ⭐ 3. A LEGACY DRIVE SET TO "JUMP TO HYPERSPACE" THIS TURN (user request 2026-09-11) - every
+           Ancient special jump drive, the Shadow Phasing Drive and the BSG / Star Wars / Trek drives:
+           the ship leaves at the END of the turn, so it is on its way out for the whole of it.
+           Not a leak: an enemy's power rows are stripped from the payload while Initial Orders are
+           open (TacGamedata::deleteHiddenData) and are public from Movement on, the same moment
+           every other jump declaration becomes public. The destroyed test stops the banner outliving
+           the jump itself (the boost row is still there for the rest of that turn). */
+        if (!shipManager.isDestroyed(ship)) {
+            var jumpingEngine = shipManager.movement.getJumpingOutEngine(ship);
+            if (jumpingEngine && shipManager.movement.isLegacyJumpEngine(jumpingEngine)) return true;
+        }
         /*
         if (typeof weaponManager === 'undefined') return false;
 

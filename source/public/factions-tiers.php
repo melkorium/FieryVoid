@@ -1034,7 +1034,17 @@ if (!isset($_SESSION["user"]) || $_SESSION["user"] == false) {
             Cost of critical repair has been changed in places (in particular C&C criticals aren't that costly to fix), and there's no partial repair of crits.  
             If a Self-Repair system is destroyed or damaged, unused repair points are not lost.</li>
     </ul>
-<a class="back-to-top" href="#top">↩ Back to Top</a> 
+<h5>Ancient Jump Drives</h5>
+        <ul>
+<li>Each Ancient race has its own way into hyperspace, listed on the control sheet as a special jump drive. The <b>Shadows, Kirishiac, Mindriders, Torvalus, Triad, Thirdspace and Walkers</b>
+            jump to hyperspace directly and <b>do not open jump points</b>: set <b>Jump to Hyperspace</b> on the drive in Initial Orders and the ship leaves the battle at the
+            <b>end of that turn</b>. It can still be fired on until it goes.</li>
+<li>A ship jumping out <b>may not fire</b> that turn, and that includes interception - setting the jump withdraws any fire orders it already has. The Walkers are the
+            exception: their ships fire normally on the turn they jump.</li>
+<li>If the drive is damaged, the chance of it destroying the ship as it jumps is <b>halved</b>. The Walkers' drives have no chance of failure at all.</li>
+<li>Ancient jump drives <b>cannot be affected by a Vortex Disruptor</b>. The Vorlon Empire (and The System) use jump engines that open ordinary jump points, and remain vulnerable to it.</li>
+    </ul>
+<a class="back-to-top" href="#top">↩ Back to Top</a>
 
 
 
@@ -1963,6 +1973,14 @@ at short range versus long range.
             <li>Every Walker unit carries Advanced Armour, and every Walker ship mounts Self Repair.</li>
         </ul>
 
+    <h5>Walker Jump Drives</h5>
+        <ul>
+            <li>Every Walker ship and every Mapmaker probe carries a <b>Walker jump drive</b> - an Ancient jump drive (see Ancient Factions above), so it opens no jump points
+                and jumps to hyperspace at the end of the turn it is set to - with two differences: a Walker unit <b>may fire normally</b> on the turn it jumps, and its drive
+                has <b>no chance of failure</b>, however badly damaged.</li>
+            <li>A Mapmaker flight jumps as one: set Jump to Hyperspace on any probe's drive and the whole flight leaves at the end of the turn.</li>
+        </ul>
+
     <h5>Hangar Requirements</h5>
         <ul>
             <li>Walker fighters are <b>Mapmaker Sensor Probes</b>, and they occupy their own 'Mapmaker Probes' capacity category. They may be bought with <b>no hangar
@@ -2011,13 +2029,8 @@ at short range versus long range.
                 3 OEW adds nothing; against one with 2 DEW, it adds +1.</li>
             <li>The array deals <b>Flash</b> damage, so it scores no collateral damage at all against a target standing inside <i>any</i> Energy Draining Field - the
                 Walkers' own included.</li>
-            <li>Every probe carries a <b>Jump Engine</b> with a 10-turn recharge. It projects a jump vortex up to 4 hexes away, the vortex forms at the end of the turn it is
-                declared and can be flown into from the next one, and the flight can leave the battle through it.</li>
-            <li><b>A flight's jump point is open for exactly ONE turn.</b> Maintaining a vortex means shutting the ship down, which a fighter cannot do, so there is no Maintain
-                control on a Mapmaker and the engine's counter reads <b>1/1</b> rather than counting up to four. Anything meaning to use the doorway has that one turn.</li>
-            <li><b>A flight opens ONE jump point, however many probes are in it.</b> The engines act as a single system: they all show the same charge, an order declared on any
-                one of them is the flight's order (and shows on all of them), and a second declaration in the same turn is refused. Opening a jump point spends the whole
-                flight's charge, not one craft's.</li>
+            <li>Every probe carries a <b>Walker jump drive</b> - see Walker Jump Drives above. The flight opens no jump points; it jumps to hyperspace as one, at the end of any
+                turn Jump to Hyperspace is set on one probe's drive, and may fire that turn.</li>
         </ul>
 
     <h5>Fleet Composition</h5>
@@ -2042,11 +2055,11 @@ at short range versus long range.
             <li><b>Guideship</b> (medium, 2350) - an Energy Draining Field, a Medium Lightning Array, two Chromatic Pulse Drivers and a mine launcher.</li>
             <li><b>Scribe</b> (medium, 750) - the cheap Sensor Charge Transceiver platform, with an Energy Draining Net and two Chromatic Pulse Drivers.</li>
             <li><b>Mapmaker Sensor Probes</b> (heavy fighter flight, up to 6) - very fast gravitic probes with advanced armour and advanced sensors, carrying a Light Chromatic
-                Pulsar, a Medium Lightning Array that three or six of them fire as one gun, an EW allowance and a Jump Engine, and needing no hangar space of their own.</li>
+                Pulsar, a Medium Lightning Array that three or six of them fire as one gun, an EW allowance and a Walker jump drive, and needing no hangar space of their own.</li>
         </ul>
         <ul>
             <li>Not implemented yet, and listed so the page is not read as promising them: the Traveler's Docking Bay (docking Scribes, Pathfinders and Waymarkers, and
-                repairing and powering them); and the Traveler's slow jump-out and its Extra-Dimensional Jump Drive.</li>
+                repairing and powering them); and the Traveler's Extra-Dimensional Jump Drive.</li>
         </ul>
 
     <a class="back-to-top" href="#top">↩ Back to Top</a>
