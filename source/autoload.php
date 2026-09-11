@@ -1021,6 +1021,7 @@ spl_autoload_register(
                 'discordnotifier' => '/server/lib/DiscordNotifier.php',
                 'disengagedfighter' => '/server/model/cricialClasses.php',
                 'dockedfighter' => '/server/model/cricialClasses.php',
+                'dockingbay' => '/server/model/systems/baseSystems.php',
                 'dockingcollar' => '/server/model/systems/baseSystems.php',
                 'dorono' => '/server/model/ships/hurr/dorono.php',
                 'doublev' => '/server/model/ships/raiders/doubleV.php',

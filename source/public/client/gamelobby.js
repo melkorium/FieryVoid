@@ -1079,6 +1079,18 @@ window.gamedata = {
 		   category string, and MapmakerProbes::$hangarRequired is where that string comes from.
 		   See the small-craft report loop below, and WALKERS_OF_SIGMA_PLAN.md 3.13. */
 		var noHangarMaxCraftTypes = ['Mapmaker Probes'];
+		/* WALKERS_OF_SIGMA_PLAN.md 3.14 (Stage 16) - DOCKED SHIPS COUNT TOWARD A DOCKING BAY'S CATEGORY
+		   (user, 2026-09-11): "purchasing Waymarker (24), Pathfinder/Guideships (12) and Scribes (4) can
+		   help meet Traveler hangar capacity in Fleet Checker, along with Mapmaker fighters as usual.
+		   Since 24 of its 36 fighter slots are associated with its Aft Docking Bay system."
+		   So every bought ship a Docking Bay in the fleet can take adds its BOX cost to that bay's
+		   category ($fleetCheckCategory), CAPPED at the fleet's total Docking Bay boxes - a ship only
+		   fills the slots it could physically sit in, so a lone Pathfinder cannot satisfy its own
+		   6-probe minimum, and a second Traveler's worth of ships adds nothing without a second
+		   Traveler. The Waymarker counts although it cannot dock in play yet (3.14a deferred). */
+		var dockingBayPools = {};     //category -> {capacity, classes: {phpclass: true}}
+		var fleetShipsForBays = [];   //every non-flight unit's {phpclass, unitSize}
+		var dockedShipBoxesByCategory = {};   //category -> boxes the report credits to docked ships
 		var totalShuttleCapacity = 0; //sum of default shuttle/flyer pool capacity across the fleet (excludes minesweeping shuttles)
 		var defaultShuttleKeyList = []; //distinct lship.fighters keys used by default shuttle pools (e.g. "shuttles", "minbari flyers")
 
@@ -1096,6 +1108,20 @@ window.gamedata = {
 			//rowPointCost, not pointCost: a bulk row (mines, OSATs) is N units, and this
 			//figure is what stands in for the fleet limit when the fleet has none.
 			totalPointsSpent += gamedata.rowPointCost(lship);
+
+			//Docking Bays and the ships that could fill them (see dockingBayPools above) - credited
+			//to the bay's category in the small-craft report below.
+			if (!lship.flight) {
+				fleetShipsForBays.push({ phpclass: String(lship.phpclass), unitSize: lship.unitSize });
+				for (var dbk in lship.systems) {
+					var dbSys = lship.systems[dbk];
+					if (!dbSys || !dbSys.isDockingBay || !dbSys.fleetCheckCategory) continue;
+					var dbPool = dockingBayPools[dbSys.fleetCheckCategory]
+						|| (dockingBayPools[dbSys.fleetCheckCategory] = { capacity: 0, classes: {} });
+					dbPool.capacity += parseInt(dbSys.maxhealth || 0, 10);
+					(dbSys.dockableShipClasses || []).forEach(function (cls) { dbPool.classes[cls] = true; });
+				}
+			}
 
 			// 10%/33% deployment brackets use the BASE ship cost only (no ammo, no
 			// enhancements). lship.pointCost is overwritten at purchase to the post-
@@ -2011,6 +2037,20 @@ window.gamedata = {
 			       because it IS the fighter rule, applied to a custom category.
 			   Every other custom category is unchanged: no minimum, "allowed up to N" (the Torvalus
 			   Stiletto and the rest). WALKERS_OF_SIGMA_PLAN.md 3.13. */
+			//Docking Bays (3.14): credit this category with the box cost of every bought ship its
+			//bays could take, capped at the boxes those bays actually have.
+			if (dockingBayPools[scSize]) {
+				var dbp = dockingBayPools[scSize];
+				var bayShipBoxTotal = 0;
+				fleetShipsForBays.forEach(function (fs) {
+					if (dbp.classes[fs.phpclass]) bayShipBoxTotal += window.HangarShared.shipBoxesForUnitSize(fs.unitSize);
+				});
+				var credited = Math.min(bayShipBoxTotal, dbp.capacity);
+				if (credited > 0) {
+					totalFtrCurr += credited;
+					dockedShipBoxesByCategory[scSize] = credited;
+				}
+			}
 			var scNoMaximum = (noHangarMaxCraftTypes.indexOf(scSize) !== -1);
 			var scMinRequired = 0;
 			if (scSize == 'Fighter Squadrons') {
@@ -2020,6 +2060,9 @@ window.gamedata = {
 			}
 
 			checkResult += " - " + scLabel + ": " + totalFtrCurr;
+			if (dockedShipBoxesByCategory[scSize]) {
+				checkResult += " (incl. " + dockedShipBoxesByCategory[scSize] + " Docking Bay boxes of ships)";
+			}
 			if (scNoMaximum) {
 				checkResult += (scMinRequired > 0)
 					? " (at least " + scMinRequired + " required, no maximum)"

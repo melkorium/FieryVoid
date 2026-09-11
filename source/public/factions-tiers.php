@@ -1996,6 +1996,30 @@ at short range versus long range.
                 <li>Guideship - 6 probes (at least 3 required)</li>
             </ul>
             </li>
+            <li><b>Ships count toward a Traveler's capacity too.</b> 24 of the Traveler's 36 boxes are its <b>Docking Bay</b> (see below), so every Waymarker (24 boxes),
+                Pathfinder or Guideship (12) and Scribe (4) in the fleet counts its boxes toward the Mapmaker Probe requirement - up to 24 boxes for each Traveler in the
+                fleet, because a ship only counts for a bay it could actually sit in. A Pathfinder or Waymarker cannot meet its own probe capacity that way. Example: a
+                Traveler and three Scribes (12 boxes) need only 6 more probes to reach the 18 required.</li>
+        </ul>
+
+    <h5>The Traveler's Docking Bay</h5>
+        <ul>
+            <li>The Traveler's aft hangar is a <b>Docking Bay</b>: 24 boxes that take Mapmaker Probes exactly like an ordinary hangar, and also <b>whole ships</b> -
+                <b>Scribes</b> (4 boxes each), <b>Pathfinders</b> and <b>Guideships</b> (12 each). Probes and ships share the one pool, so the bay holds 24 probes,
+                or 6 Scribes, or 2 Pathfinders, or any mix that adds up to 24.</li>
+            <li><b>Only one type of craft may launch or be recovered through it per turn</b> - on a turn the Scribes use it the probes cannot, and the other way round.
+                Its launch rate is <b>12 Mapmakers, or 2 Scribes, or 1 Pathfinder or Guideship</b> per turn, launches and recoveries together. Mapmakers auto-fill
+                the Traveler's two side hangars before the Docking Bay, which is the only one that can hold a ship.</li>
+            <li>To dock, a ship must end its movement in the Traveler's hex, on the Traveler's heading, with at least 1 thrust unspent, while the Traveler is at speed 0 -
+                the same conditions as an LCV docking on a rail. A docked ship is off the board. It launches at the Traveler's position, heading and speed, takes the
+                usual launch initiative penalty that turn, and cannot launch on the turn it docked.</li>
+            <li>Ships may also <b>start the battle aboard</b>: during Deployment, select the ship and click the Traveler to dock it straight into the bay. A Traveler
+                arriving as a reinforcement can bring Scribes, Pathfinders and Guideships in its Docking Bay as well as its probes, and they arrive docked.</li>
+            <li>A docked ship's weapons keep recharging while it is aboard, exactly as on the board; an Energy Draining Mine launcher restocks up to its usual 3.</li>
+            <li>Damage to the bay never forces a ship out - probes are evicted first as boxes are lost. If the Docking Bay or the Traveler is destroyed, every docked
+                ship is forced out and takes the bay's damage plus 2d10 to its Structure.</li>
+            <li>The <b>Waymarker</b> (24 boxes) cannot use the bay yet: its dock and launch take two turns, which is not implemented. It already counts toward the
+                Traveler's probe requirement in the Fleet Checker.</li>
         </ul>
 
     <h5>Mapmaker Sensor Probes</h5>
@@ -2045,7 +2069,7 @@ at short range versus long range.
 
     <h5>The Hulls</h5>
         <ul>
-            <li><b>Traveler</b> (capital, 5400) - the core of the fleet: a full Lightning Array, three Chromatic Pulse Drivers, an Energy Draining Field and three hangars.</li>
+            <li><b>Traveler</b> (capital, 5400) - the core of the fleet: a full Lightning Array, three Chromatic Pulse Drivers, an Energy Draining Field, a Docking Bay and two hangars.</li>
             <li><b>The Wanderer</b> (capital, 8750, Unique) - an Elite Crew hull carrying a Lightning Array, three Chromatic Pulse Drivers, two Energy Draining Mine launchers, an
                 Energy Draining Field and an EW Detector. Alone among Walker ships, <b>its weapons begin the battle fully charged</b>.</li>
             <li><b>Waymarker</b> (heavy combat vessel, 2575) - the net-layer: an Energy Draining Net, four Energy Draining Mine launchers, two Medium Lightning Arrays, three
@@ -2058,8 +2082,8 @@ at short range versus long range.
                 Pulsar, a Medium Lightning Array that three or six of them fire as one gun, an EW allowance and a Walker jump drive, and needing no hangar space of their own.</li>
         </ul>
         <ul>
-            <li>Not implemented yet, and listed so the page is not read as promising them: the Traveler's Docking Bay (docking Scribes, Pathfinders and Waymarkers, and
-                repairing and powering them); and the Traveler's Extra-Dimensional Jump Drive.</li>
+            <li>Not implemented yet, and listed so the page is not read as promising them: the Waymarker's two-turn dock and launch through the Docking Bay; the
+                Traveler repairing and powering the ships it carries; and the Traveler's Extra-Dimensional Jump Drive.</li>
         </ul>
 
     <a class="back-to-top" href="#top">↩ Back to Top</a>

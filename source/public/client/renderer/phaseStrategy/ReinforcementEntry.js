@@ -255,8 +255,9 @@ window.ReinforcementEntry = (function () {
         return myHyperspaceUnits().filter(function (ship) {
             if (ship.id == opener.id) return false;
             if (!(ship.arrivalVia === null || ship.arrivalVia === undefined || ship.arrivalVia == opener.id)) return false;
-            //A legacy opener takes only fighters, and only ones that fit its hangars - see isLegacyOpener.
-            if (legacy) return !!ship.flight && legacyFits(opener, [ship]).length === 1;
+            //A legacy opener takes only fighters that fit its hangars and ships its Docking Bay can
+            //hold - see isLegacyOpener. legacyFits answers both, and nothing else.
+            if (legacy) return legacyFits(opener, [ship]).length === 1;
             return true;
         });
     }
@@ -265,15 +266,17 @@ window.ReinforcementEntry = (function () {
        2026-09-11). An Ancient special jump drive, a Shadow Phasing Drive or a BSG / Star Wars / Trek drive
        phases its own ship in and opens no jump point, so nothing can "ride through" it - only be carried
        aboard. The riders arrive docked (DeploymentPhaseStrategy.autoPlaceArrivingReinforcements). A gate
-       is never one. Server twins: JumpEngine::isLegacyOpener + InitialOrdersGamePhase::legacyBerthFits. */
+       is never one. Server twins: JumpEngine::isLegacyOpener + InitialOrdersGamePhase::legacyBerthFits.
+       ⭐ AND THE SHIPS A DOCKING BAY TAKES (WALKERS_OF_SIGMA_PLAN.md 3.14b, user 2026-09-11) - a Traveler
+       brings Scribes, Pathfinders and Guideships in its Docking Bay beside its Mapmakers. */
     function isLegacyOpener(opener) {
         if (!opener || gamedata.isJumpGate(opener)) return false;
         //Guarded: this module is also driven by harnesses that stub shipManager.movement.
         return typeof shipManager.movement.isLegacyOpener === 'function' && shipManager.movement.isLegacyOpener(opener);
     }
 
-    //Which of $flights fit in $opener's hangars TOGETHER, in order - the same packer the Deployment
-    //phase will dock them with, so the manifest cannot promise a berth the dock would refuse.
+    //Which of $flights (and Docking Bay ships) fit in $opener TOGETHER, in order - the same packer the
+    //Deployment phase will dock them with, so the manifest cannot promise a berth the dock would refuse.
     function legacyFits(opener, flights) {
         if (!window.DeploymentDock || typeof DeploymentDock.planFlightsIntoCarrier !== 'function') return [];
         return DeploymentDock.planFlightsIntoCarrier(opener, flights);
@@ -1186,7 +1189,8 @@ window.ReinforcementEntry = (function () {
                   + "every turn it holds the doorway."
                 : (legacy
                     ? opener.name + " jumps in through its own drive and opens no jump point. Only fighters "
-                      + "that fit in its hangars can come with it, and they arrive docked in them."
+                      + "that fit in its hangars, and ships its Docking Bay can hold, can come with it - "
+                      + "and they arrive docked."
                     : opener.name + " arrives through this jump point. Which others ride with it?"),
             rows, "Confirm");
 

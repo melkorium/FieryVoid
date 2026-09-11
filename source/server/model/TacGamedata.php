@@ -1265,6 +1265,20 @@ class TacGamedata {
                     if (!empty($system->lcvDocked['shipId'])) $dockedIds[] = (int)$system->lcvDocked['shipId'];
                     $system->lcvDocked = null;
                 }
+
+                //A Docking Bay (WALKERS_OF_SIGMA_PLAN.md 3.14) holds a LIST of whole ships, each
+                //entry carrying its own dock turn.
+                if (!empty($system->isDockingBay) && is_array($system->shipsDocked) && !empty($system->shipsDocked)){
+                    $keptShips = array();
+                    foreach ($system->shipsDocked as $entry){
+                        if ((int)($entry['dockTurn'] ?? 0) === (int)$this->turn){
+                            if (!empty($entry['shipId'])) $dockedIds[] = (int)$entry['shipId'];
+                            continue;
+                        }
+                        $keptShips[] = $entry;
+                    }
+                    $system->shipsDocked = $keptShips;
+                }
             }
         }
 
@@ -1540,6 +1554,17 @@ class TacGamedata {
             }
 
             $this->hideDeploymentDocks();
+
+            /* ⚠️ AND THE FIELD MAP HAS TO FORGET THEM TOO (user request 2026-09-11). setEdfHexes() ran
+               in onConstructed, on the UNMASKED ships, so the published edfHexes / edfNetHexes still
+               held the Nets and discs of Walkers an opponent had already committed this phase -
+               nothing drew them, but the payload carried their positions. Rebuilt from the masked
+               ships, where such a unit is back on its off-map 'start' row (or un-docked onto it) and
+               setEdfHexes skips it. This viewer's payload only: prepareForPlayer is the payload
+               builder, and nothing resolves a rule from this object afterwards. Gated on there
+               being a field at all, so an ordinary game pays nothing - masking removes sources,
+               it never adds one. */
+            if ($this->edfHexes !== null) $this->setEdfHexes();
         }
 
         if ($this->phase == 1){
@@ -2228,6 +2253,25 @@ if ($ship->Enormous && !($ship instanceof spawnMeteoroid) && !($ship instanceof 
 
                 if ($ship->isDestroyed()) continue;
                 if ($ship->isReinforcement()) continue;   //still in hyperspace - projects nothing, reveals nothing
+
+                /* NOT PLACED YET - projects nothing either (user report 2026-09-11). A unit whose only
+                   row is the off-map 'start' marker its slot gave it - turn 1, a late slot, a
+                   reinforcement on its arrival turn, each until its deploy row is written - drew its
+                   Energy Draining Net at that marker, off the edge of the map. 'start' rows are only
+                   ever a unit's FIRST row (DBManager::submitMovement never writes one), so the LAST row
+                   being 'start' means there is nothing else. Generated Terrain (userid -5) is placed BY
+                   its 'start' row - the exemption getLastTurnMovement makes. Client twin:
+                   PhaseStrategy.isOffBoardForEdf. */
+                $lastMove = $ship->getLastMovement();
+                if ($lastMove && $lastMove->type == 'start' && $ship->userid != -5) continue;
+
+                /* NOT ARRIVED YET - projects nothing (user request 2026-09-11). A late-slot unit places
+                   its entry hex the turn BEFORE it arrives (getTurnPlaced), so for that whole turn it
+                   has a real deploy row at the hex its blue Jump Point marker shows - and drained
+                   whatever stood there a turn early. getTurnDeployed is the "is it on the board" test
+                   every other gate uses; it also answers 999 for a surrendered slot, whose fleet has
+                   left the game. */
+                if ($ship->getTurnDeployed($this) > $this->turn) continue;
 
                 $team = isset($ship->team) ? (int)$ship->team : null;
                 if ($team === null) continue;

@@ -703,10 +703,12 @@ shipManager.movement = {
         return false;
     },
 
-    /* The legacy-drive opener this FLIGHT is booked to arrive INSIDE, or null. Mirror of
-       JumpEngine::getLegacyRideHost. Its own doorway (arrivalVia == its own id) is not a ride. */
+    /* The legacy-drive opener this unit is booked to arrive INSIDE, or null - a flight, or a ship its
+       Docking Bay takes (WALKERS_OF_SIGMA_PLAN.md 3.14b); the manifest admits nothing else onto a legacy
+       opener. Mirror of JumpEngine::getLegacyRideHost. Its own doorway (arrivalVia == its own id) is
+       not a ride. */
     getLegacyRideHost: function getLegacyRideHost(ship) {
-        if (!ship || !ship.flight) return null;
+        if (!ship) return null;
         var via = ship.arrivalVia;
         if (via === null || via === undefined || via == ship.id) return null;
 

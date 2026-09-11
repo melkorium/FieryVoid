@@ -27,6 +27,9 @@ class Scribe extends MediumShip{
         $this->rollcost = 1;
         $this->pivotcost = 2;
 		$this->iniativebonus = 14 *5;
+		//Docking Bay box cost (WALKERS_OF_SIGMA_PLAN.md 3.14, D18): 4 boxes. Inert everywhere else - the
+		//fleet check reads a HULL's unitSize only when it sets hangarRequired, which this one does not.
+		$this->unitSize = 1/4;
 
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');

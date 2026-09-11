@@ -52,7 +52,13 @@ class Traveler extends BaseShip{
 
 
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
-        $this->addAftSystem(new Hangar(6, 24, 12));
+		//STAGE 16: the aft bay is the Docking Bay (WALKERS_OF_SIGMA_PLAN.md 3.14). Mapmaker Probes use it
+		//as an ordinary hangar; it also docks whole ships - Scribe 4 boxes, Pathfinder/Guideship 12,
+		//Waymarker 24 (its two-turn procedure is deferred, so it counts in the Fleet Checker only).
+		//Same position as the Hangar it replaces, so no system id moves. Args: armour, boxes, fighter
+		//launch rate, launch direction, dockable ship class => ships per turn, the $fighters category
+		//its boxes belong to. Rates: "12 Mapmakers OR 2 Scribes OR 1 Pathfinder" (user, 2026-09-11).
+        $this->addAftSystem(new DockingBay(6, 24, 12, 0, array('Scribe' => 2, 'Pathfinder' => 1, 'Guideship' => 1, 'Waymarker' => 1), 'Mapmaker Probes'));
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
 		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
 
@@ -95,7 +101,7 @@ class Traveler extends BaseShip{
 			2=> array( //Aft
 				6 => "Thruster",
 				9 => "Energy Draining Field",
-				11 => "Hangar",
+				11 => "Docking Bay",
 				18 => "Structure",
 				20 => "Primary",
 			),

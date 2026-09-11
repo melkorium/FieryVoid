@@ -168,7 +168,12 @@ window.DeploymentPhaseStrategy = function () {
                it is left unplaced, which the server reads as "stays in hyperspace", nothing spent. */
             var legacyHost = shipManager.movement.getLegacyRideHost(ship);
             if (legacyHost) {
-                if (window.DeploymentDock && window.DeploymentDock.queueDeployStartDock(legacyHost, ship)) {
+                //A SHIP rides in its host's Docking Bay (WALKERS_OF_SIGMA_PLAN.md 3.14b) - the same
+                //deploy-start dock the map's DOCK button queues.
+                var aboard = window.DeploymentDock && (ship.flight
+                    ? window.DeploymentDock.queueDeployStartDock(legacyHost, ship)
+                    : window.DeploymentDock.queueBayShipDeployDock(legacyHost, ship));
+                if (aboard) {
                     ship.forcedDeployDock = true;
                     dockedAny = true;
                 }
@@ -192,8 +197,17 @@ window.DeploymentPhaseStrategy = function () {
             }
         }
 
-        //The carriers' "Carrying" lines have to show the fighters that just went aboard.
-        if (dockedAny && typeof window.refreshAllHangarTooltips === 'function') window.refreshAllHangarTooltips();
+        if (dockedAny) {
+            /* ⚠️ AND WHAT WENT ABOARD HAS TO LEAVE THE MAP (user report 2026-09-11, game 4350). activate()
+               ran consumeGamedata - the only thing that applies shouldBeHidden to the icons - BEFORE
+               this, so a unit docked just now kept the icon it had a moment earlier, standing on its
+               off-map 'start' marker, for the whole phase. Re-run it, and the two field overlays. */
+            this.consumeGamedata();
+            this.syncAllEdfFields();
+            this.syncEdfNetPreview();
+            //The carriers' "Carrying" lines have to show the craft that just went aboard.
+            if (typeof window.refreshAllHangarTooltips === 'function') window.refreshAllHangarTooltips();
+        }
 
         return placed;
     };
@@ -249,11 +263,10 @@ window.DeploymentPhaseStrategy = function () {
                 return gamedata.isTerrain(s.shipSizeClass, s.userid) || (s.Huge > 0 && s.Huge <= 3);
             });
 
-            //LCVs are the smallest vessels and must be able to share the carrier's
-            //hex to dock, so they're exempt from the "no two ships in one hex" block
-            //(like mines/fighters). Terrain still blocks them.
-            var selIsLcvUnit = !this.selectedShip.flight && !this.selectedShip.mine
-                && String(this.selectedShip.hangarRequired || '').toLowerCase() === 'lcvs';
+            //⚠️ LCVs are NOT exempt from the "no two ships in one hex" block any more (revised
+            //2026-09-11, user request, to match the Traveler's Docking Bay): an LCV that is to start
+            //the battle aboard docks straight onto a rail from the popup's DOCK button and is never
+            //placed on its carrier's hex. Mines and fighters still stack.
 
             /* REINFORCEMENTS_PLAN.md STAGE 7 - AN ARRIVAL BYPASSES BOTH BLOCKS, and it is not an
                optional nicety either way (plan §2.4).
@@ -270,7 +283,7 @@ window.DeploymentPhaseStrategy = function () {
                 isBlocked = false;
             } else if (hasTerrain) {
                 isBlocked = true;
-            } else if (!(this.selectedShip.mine || this.selectedShip.flight || selIsLcvUnit)) {
+            } else if (!(this.selectedShip.mine || this.selectedShip.flight)) {
                 isBlocked = shipsInHex.some(function (s) { return !(s.mine || s.flight); });
             }
 
@@ -356,6 +369,19 @@ window.DeploymentPhaseStrategy = function () {
             return;
         }
 
+        // WALKERS_OF_SIGMA_PLAN.md 3.14 (D30) - the Docking Bay twin of the branch above. A Scribe,
+        // Pathfinder or Guideship selected over a friendly carrier with room in its Docking Bay gets
+        // the popup and its DOCK button. The ship is never PLACED on the carrier's hex - two hulls
+        // still may not share one - it goes straight into the bay.
+        if (this.selectedShip && this.selectedShip.id !== ship.id
+            && !this.selectedShip.flight && !this.selectedShip.mine
+            && window.DeploymentDock
+            && typeof window.DeploymentDock.carrierAcceptsBayShipDeployDock === 'function'
+            && window.DeploymentDock.carrierAcceptsBayShipDeployDock(ship, this.selectedShip)) {
+            this.showSelectFromShips([ship], payload);
+            return;
+        }
+
         // If we have a selected ship actively ready to deploy, and we click a valid DIFFERENT ship that is already placed on the map
         if (this.selectedShip && this.selectedShip.id !== ship.id) {
             var isPlacedOnMap = false;
@@ -363,14 +389,9 @@ window.DeploymentPhaseStrategy = function () {
                 isPlacedOnMap = ship.movement[0].commit === true;
             }
 
-            //LCVs are the smallest vessels: like mines/fighters they may share a hex,
-            //so a click on a hex already holding a ship must still surface the
-            //SelectFromShips popup (which offers DEPLOY LCV HERE + the cyan DOCK
-            //button when a valid LCV carrier shares the hex). Without this the LCV
-            //falls through to plain ship-selection and the player can never reach
-            //the popup over an occupied hex.
-            var selIsLcvUnit = !this.selectedShip.flight && !this.selectedShip.mine
-                && String(this.selectedShip.hangarRequired || '').toLowerCase() === 'lcvs';
+            //(LCVs used to be listed beside mines/fighters here, so they could be dropped onto an
+            //occupied hex. Removed 2026-09-11: an LCV reaches its carrier's DOCK button through the
+            //dedicated branch above, and may no longer share a hex with another ship.)
 
             /* REINFORCEMENTS_PLAN.md STAGE 7 - AND AN ARRIVAL, for the reason the LCV is here.
                A wave shares one hex, so from the SECOND unit onward every click on the doorway
@@ -380,7 +401,7 @@ window.DeploymentPhaseStrategy = function () {
             var selIsArrival = shipManager.isArrivingReinforcement(this.selectedShip);
 
             var isTerrain = gamedata.isTerrain(ship.shipSizeClass, ship.userid) || (ship.Huge > 0 && ship.Huge <= 3);
-            if (!isTerrain && isPlacedOnMap && (this.selectedShip.mine || this.selectedShip.flight || ship.mine || ship.flight || selIsLcvUnit || selIsArrival)) {
+            if (!isTerrain && isPlacedOnMap && (this.selectedShip.mine || this.selectedShip.flight || ship.mine || ship.flight || selIsArrival)) {
                 // Ensure we only ever show the deployment stacking pop-up if the clicked location is actually 
                 // a valid, legal deployment drop for our CURRENTLY selected piece.
                 // This implicitly strips the pop-up out of the "deployment bay" clicking interaction.

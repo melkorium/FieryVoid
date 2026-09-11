@@ -28,6 +28,8 @@ class Guideship extends MediumShip{
         $this->rollcost = 1;
         $this->pivotcost = 2;
 		$this->iniativebonus = 14 *5;
+		//Docking Bay box cost (WALKERS_OF_SIGMA_PLAN.md 3.14, D18): 12 boxes, as the Pathfinder.
+		$this->unitSize = 1/12;
 
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');

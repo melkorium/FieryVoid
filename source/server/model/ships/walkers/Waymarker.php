@@ -26,6 +26,9 @@ class Waymarker extends HeavyCombatVessel{
         $this->rollcost = 1;
         $this->pivotcost = 5;
 		$this->iniativebonus = 10 *5;
+		//Docking Bay box cost (WALKERS_OF_SIGMA_PLAN.md 3.14, D18): the whole 24-box bay. Counted by the
+		//Fleet Checker today; the two-turn dock/launch itself (3.14a) is deferred.
+		$this->unitSize = 1/24;
 
 		$this->fighters = array("Mapmaker Probes"=>18);
 

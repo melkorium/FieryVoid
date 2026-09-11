@@ -309,7 +309,7 @@ window.PhaseStrategy = function () {
         var changed = false;
 
         this.shipIconContainer.getArray().forEach(function (icon) {
-            var radius = anyField ? PhaseStrategy.getEdfRadiusForShip(icon.ship) : 0;
+            var radius = (anyField && !PhaseStrategy.isOffBoardForEdf(icon)) ? PhaseStrategy.getEdfRadiusForShip(icon.ship) : 0;
 
             /* ⚠️ `changed` is what the icon REPORTS, not "we called it". showEdfField rebuilds
                nothing when the disc it would draw is the one already on screen, and a standing
@@ -322,6 +322,27 @@ window.PhaseStrategy = function () {
         }, this);
 
         if (changed && window.webglScene && window.webglScene.requestRender) window.webglScene.requestRender();
+    };
+
+    /* IS THIS UNIT OFF THE BOARD, as far as its fields go (user report 2026-09-11)? Not placed yet -
+       its only row is the off-map 'start' marker its slot gave it (turn 1, a late slot, a
+       reinforcement on its arrival turn) - or queued into a hangar or Docking Bay during Deployment.
+       Either way it projects nothing, so neither its disc nor its Net is drawn; before this a Walker
+       waiting to deploy drew both at that marker, off the edge of the map. Mirrors the test in
+       TacGamedata::setEdfHexes. 'start' rows are only ever a unit's FIRST row (submitMovement never
+       writes one), so the last row being 'start' means it has no other; Generated Terrain (userid
+       -5) is placed BY its 'start' row, the exemption getLastTurnMovement makes. */
+    PhaseStrategy.isOffBoardForEdf = function (icon) {
+        var ship = icon && icon.ship;
+        if (!ship) return true;
+        if (ship.pendingDeployDock || ship.pendingLcvDeployDock) return true;
+        //Placed but not ARRIVED: a late-slot unit stands at its entry hex the turn before it comes in
+        //(user request 2026-09-11). Its icon is hidden in later phases, but the Net preview walks
+        //hidden icons too, so without this it linked a Net that is not on the board yet.
+        if (window.shipManager && window.gamedata && shipManager.getTurnDeployed(ship) > gamedata.turn) return true;
+        if (ship.userid == -5) return false;
+        var move = icon.getLastMovement();
+        return !!(move && move.type === 'start');
     };
 
     /* The largest active field this unit projects, or 0. effectiveRadius is published by
@@ -476,6 +497,8 @@ window.PhaseStrategy = function () {
             map[key][team] = (map[key][team] || 0) + value;
         };
 
+        var sawOffBoardNet = false;
+
         iconContainer.getArray().forEach(function (icon) {
             var ship = icon.ship;
             if (!ship || ship.team === undefined || ship.team === null) return;
@@ -483,6 +506,19 @@ window.PhaseStrategy = function () {
 
             var move = icon.getLastMovement();
             if (!move || !move.position) return;
+
+            /* NOT ON THE BOARD (user request 2026-09-11): a unit queued into a hangar or Docking Bay
+               during Deployment (either deploy-dock marker), or not placed at all yet - still on its
+               slot's off-map `start` row - projects no field. So a Net aboard a Traveler, or one still
+               waiting to be put down, draws nothing until the ship is on the map. It still counts as
+               "there is a Net", so the preview answers EMPTY below rather than falling back to the
+               server's map, which can still hold it at the position it had before it docked. */
+            if (PhaseStrategy.isOffBoardForEdf(icon)) {
+                for (var n in ship.systems) {
+                    if (ship.systems[n] && ship.systems[n].name === 'EnergyDrainingNet') { sawOffBoardNet = true; break; }
+                }
+                return;
+            }
 
             var pos = { q: move.position.q, r: move.position.r };
             var team = parseInt(ship.team, 10);
@@ -526,7 +562,9 @@ window.PhaseStrategy = function () {
             }
         });
 
-        if (!nets.length) return null;   //no Net on the board: the server's answer stands
+        //No Net anywhere: the server's answer stands. Nets that exist but are all off the board
+        //(docked, unplaced): nothing is drawn - an empty preview, not the server's stale one.
+        if (!nets.length) return sawOffBoardNet ? [] : null;
 
         var hexes = ownHexes.map(function (hex) { return { q: hex.q, r: hex.r }; });
 
@@ -1389,6 +1427,9 @@ window.PhaseStrategy = function () {
            ⚠️ Gated on there being a Net on the board at all: this is one of the busiest handlers in
            the client (every hex of every plotted move) and buildEdfNetPreview walks every icon. */
         if (PhaseStrategy.anyEdfNetPresent()) this.syncEdfNetPreview();
+        //...and in Deployment, a unit stepping off its off-map marker onto the board starts drawing
+        //its field disc (isOffBoardForEdf). Deployment only: no other phase has a unit on a 'start' row.
+        if (this.gamedata && this.gamedata.gamephase == -1) this.syncAllEdfFields();
 
         // Mirror movement to attached units (e.g. pods) - DK 04/26
         if (ship.hasAttached && Object.keys(ship.hasAttached).length > 0) {

@@ -1749,6 +1749,321 @@ class HangarOps {
 		}
 	}
 
+	/* ===================================================================== *
+	 * DOCKING BAY (WALKERS_OF_SIGMA_PLAN.md 3.14, Stage 16)                  *
+	 *                                                                       *
+	 * The LCV rail's whole-ship dock above, with a LIST instead of one slot  *
+	 * and a box cost per ship. Rulings (user, 2026-09-11): a ship docks on   *
+	 * the LCV-rail conditions; each class has its own per-turn launch rate   *
+	 * (2 Scribes, 1 Pathfinder or Guideship - launches and recoveries        *
+	 * together); partial bay damage never removes a docked ship, while a bay or *
+	 * carrier destroyed forces each one out with the bay's damage + 2d10.    *
+	 * The Waymarker's two-turn procedure (3.14a) is deferred.                *
+	 *                                                                       *
+	 * ⚠️ A relaunched ship is NOT re-initialised the way performLCVLaunch    *
+	 * re-inits an LCV. System data loads as the latest row at or before the  *
+	 * turn, so a docked ship keeps exactly the state it docked with - and    *
+	 * the re-init tops every Weapon to loadingtime, which on a Walker hull   *
+	 * would reset an Energy Draining Mine's STORE (its turnsloaded is the    *
+	 * mine count, WALKERS_OF_SIGMA_PLAN.md Stage 6).                         *
+	 * ===================================================================== */
+
+	/* Boxes the whole ships docked in $bay occupy. 0 for anything that is not a Docking Bay. */
+	public static function dockedShipBoxes($bay){
+		if (empty($bay->isDockingBay) || !is_array($bay->shipsDocked)) return 0;
+		$n = 0;
+		foreach ($bay->shipsDocked as $entry) $n += (int)($entry['boxes'] ?? 0);
+		return $n;
+	}
+
+	/* Boxes one ship of this class costs - its unitSize, exactly as for a superheavy fighter (D18). */
+	public static function bayShipBoxes($ship){
+		return (int)ceil(self::boxesPerCraftForClass((string)$ship->phpclass));
+	}
+
+	/* May $bay take a ship of $phpclass at all? */
+	public static function bayDocksShipClass($bay, $phpclass, &$reason = null){
+		if (empty($bay->isDockingBay) || !in_array($phpclass, $bay->dockableShipClasses, true)) {
+			$reason = 'not dockable in this bay'; return false;
+		}
+		if (in_array($phpclass, DockingBay::DEFERRED_SHIP_CLASSES, true)) {
+			$reason = 'two-turn docking procedure not yet available'; return false;
+		}
+		return true;
+	}
+
+	/* Free boxes a SHIP could use: remaining health, less the ships already aboard and every
+	 * fighter box (occupiedBoxes, which also counts sibling bays' occupancy placed here). */
+	public static function bayFreeBoxesForShips($bay, $carrier){
+		return max(0, (int)$bay->getRemainingHealth() - self::dockedShipBoxes($bay) - self::occupiedBoxes($bay, $carrier));
+	}
+
+	/* Ships of $phpclass that may still launch or be recovered this turn, launches and recoveries
+	 * together. The type lock keeps a turn to one class, so a single counter serves. */
+	public static function bayShipRateLeft($bay, $phpclass){
+		$rate = isset($bay->shipLaunchRates[$phpclass]) ? (int)$bay->shipLaunchRates[$phpclass] : 0;
+		return max(0, $rate - (int)$bay->shipsMovedThisTurn);
+	}
+
+	public static function findBayShipEntry($bay, $shipId){
+		if (!is_array($bay->shipsDocked)) return null;
+		foreach ($bay->shipsDocked as $i => $entry) {
+			if ((int)($entry['shipId'] ?? 0) === (int)$shipId) return $i;
+		}
+		return null;
+	}
+
+	/* The DB-loaded twin of a POST-side bay, or null. Deployment resolves on the POST side, whose
+	 * systems never loaded their notes. */
+	public static function dbCounterpartBay($bay, $carrier, $gamedata){
+		$dbShip = $gamedata->getShipById($carrier->id);
+		if (!$dbShip || !is_array($dbShip->systems)) return null;
+		foreach ($dbShip->systems as $sys) {
+			if ((int)$sys->id === (int)$bay->id && !empty($sys->isDockingBay)) return $sys;
+		}
+		return null;
+	}
+
+	/* May $docker dock into $bay RIGHT NOW? The LCV-rail conditions (canLCVDock) plus the box
+	 * arithmetic, the box-priced launch rate and the one-type-per-turn lock. */
+	public static function canBayShipDock($bay, $carrier, $docker, $clientThrustLeft, $gamedata, &$reason = null){
+		if (empty($bay->isDockingBay))                     { $reason = 'not a docking bay'; return false; }
+		if ($bay->isDestroyed())                           { $reason = 'bay destroyed'; return false; }
+		if ($docker instanceof FighterFlight)              { $reason = 'not a ship'; return false; }
+		if ((int)$docker->id === (int)$carrier->id)        { $reason = 'cannot dock into itself'; return false; }
+		if (!self::bayDocksShipClass($bay, $docker->phpclass, $reason)) return false;
+		if ($docker->isDestroyed())                        { $reason = 'ship destroyed or already docked'; return false; }
+		if ((int)$docker->team !== (int)$carrier->team)    { $reason = 'not a friendly carrier'; return false; }
+		if ($bay->shipTypeThisTurn !== null && $bay->shipTypeThisTurn !== $docker->phpclass) {
+			$reason = 'bay already used by another craft type this turn'; return false;
+		}
+		$boxes = self::bayShipBoxes($docker);
+		if (self::bayShipRateLeft($bay, (string)$docker->phpclass) < 1) { $reason = 'launch rate exceeded'; return false; }
+
+		$carrierMove = $carrier->getLastMovement();
+		$dockerMove  = $docker->getLastMovement();
+		if (!$carrierMove || !$dockerMove)                 { $reason = 'no movement'; return false; }
+		if ((int)$carrierMove->speed !== 0)                { $reason = 'carrier not stationary'; return false; }
+		if (!($carrierMove->position instanceof OffsetCoordinate)
+			|| !($dockerMove->position instanceof OffsetCoordinate)
+			|| !$dockerMove->position->equals($carrierMove->position)) {
+			$reason = 'ship not in carrier hex'; return false;
+		}
+		if ((int)$dockerMove->heading !== (int)$carrierMove->heading) { $reason = 'heading mismatch'; return false; }
+		//Both the client's figure and the server backstop must clear, as for an LCV.
+		if ((int)$clientThrustLeft < 1 || self::lcvRemainingThrust($docker, $gamedata) < 1) {
+			$reason = 'no thrust left to dock'; return false;
+		}
+		if ($boxes > self::bayFreeBoxesForShips($bay, $carrier)) { $reason = 'bay full'; return false; }
+		return true;
+	}
+
+	public static function performBayShipDock($bay, $carrier, $docker, $gamedata){
+		$boxes = self::bayShipBoxes($docker);
+		$docker->removed = true;
+		$docker->removedTurn = $gamedata->turn;
+		$bay->shipsDocked[] = array(
+			'shipId'   => (int)$docker->id,
+			'phpclass' => (string)$docker->phpclass,
+			'boxes'    => $boxes,
+			'dockTurn' => (int)$gamedata->turn,
+		);
+		$bay->shipsMovedThisTurn++;
+		$bay->shipTypeThisTurn = (string)$docker->phpclass;
+		self::applyHangarOperationsCrit($carrier, $gamedata);
+		Manager::insertIndividualNote(new IndividualNote(
+			-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+			'hangarDockEvent', 'Docking bay received ship', $docker->id . ':SHIP:1'
+		));
+	}
+
+	/* End of turn: every queued ship dock, each validated on its own - a bay holds a list. */
+	public static function processBayShipDockOrders($bay, $carrier, $gamedata){
+		if (empty($bay->pendingBayShipDockOrder)) return;
+		if (!self::isFlowEnabled($gamedata->id)) { $bay->pendingBayShipDockOrder = null; return; }
+		foreach ($bay->pendingBayShipDockOrder as $order) {
+			$shipId = (int)($order['shipId'] ?? 0);
+			if ($shipId <= 0) continue;
+			$docker = $gamedata->getShipById($shipId);
+			$reason = null;
+			if (!$docker || !self::canBayShipDock($bay, $carrier, $docker, (int)($order['thrustLeft'] ?? 0), $gamedata, $reason)) {
+				Manager::insertIndividualNote(new IndividualNote(
+					-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+					'hangarDockEvent', 'Docking bay ship dock failed', 'fail:' . $shipId . ':' . ($reason ?? 'unknown')
+				));
+				continue;
+			}
+			self::performBayShipDock($bay, $carrier, $docker, $gamedata);
+		}
+		$bay->pendingBayShipDockOrder = null;   //consumed (the type lock is latched separately)
+	}
+
+	public static function canBayShipLaunch($bay, $carrier, $shipId, $gamedata, &$reason = null){
+		if ($bay->isDestroyed()) { $reason = 'bay destroyed'; return false; }
+		$idx = self::findBayShipEntry($bay, $shipId);
+		if ($idx === null) { $reason = 'not aboard'; return false; }
+		$entry = $bay->shipsDocked[$idx];
+		//Never out the turn it came in: a Firing-phase dock resolves in this same pass, just ahead of
+		//the launches. A DEPLOYMENT dock carries the turn number too but happened before this turn's
+		//Firing phase - the ship started the battle aboard - so it is exempt.
+		if ((int)($entry['dockTurn'] ?? 0) >= (int)$gamedata->turn && empty($entry['deploy'])) {
+			$reason = 'docked this turn'; return false;
+		}
+		$cls = (string)($entry['phpclass'] ?? '');
+		if (in_array($cls, DockingBay::DEFERRED_SHIP_CLASSES, true)) { $reason = 'two-turn launch procedure not yet available'; return false; }
+		if ($bay->shipTypeThisTurn !== null && $bay->shipTypeThisTurn !== $cls) {
+			$reason = 'bay already used by another craft type this turn'; return false;
+		}
+		if (self::bayShipRateLeft($bay, $cls) < 1) { $reason = 'launch rate exceeded'; return false; }
+		return true;
+	}
+
+	/* Resurrect a docked ship at the carrier's hex, heading, facing and speed - performLCVLaunch's
+	 * placement. See the section note for why it is not re-initialised. */
+	private static function resurrectAtCarrier($docker, $carrier, $gamedata){
+		$lastMove = $carrier->getLastMovement();
+		if (!$lastMove) return false;
+		$docker->removed = false;
+		$docker->removedTurn = null;
+		$docker->spawned = $gamedata->turn;
+		$deployMove = new MovementOrder(null, "deploy", $lastMove->position, 0, 0,
+			(int)$lastMove->speed, (int)$lastMove->heading, (int)$lastMove->facing, false, $gamedata->turn, 0, 0);
+		Manager::insertSingleMovement($gamedata->id, $docker->id, $deployMove);
+		return true;
+	}
+
+	public static function performBayShipLaunch($bay, $carrier, $shipId, $gamedata){
+		$idx = self::findBayShipEntry($bay, $shipId);
+		if ($idx === null) return null;
+		$entry = $bay->shipsDocked[$idx];
+		$docker = $gamedata->getShipById($shipId);
+		if (!$docker) { array_splice($bay->shipsDocked, $idx, 1); return null; }
+		if (!self::resurrectAtCarrier($docker, $carrier, $gamedata)) return null;
+		array_splice($bay->shipsDocked, $idx, 1);
+		$bay->shipsMovedThisTurn++;
+		$bay->shipTypeThisTurn = (string)($entry['phpclass'] ?? $docker->phpclass);
+		self::applyLCVLaunchCrit($docker, $gamedata);   //-50 initiative the turn it launches
+		Manager::insertIndividualNote(new IndividualNote(
+			-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+			'hangarLaunchEvent', 'Docking bay launched ship', $docker->id . ':SHIP:1'
+		));
+		return $docker->id;
+	}
+
+	public static function processBayShipLaunchOrders($bay, $carrier, $gamedata){
+		if (empty($bay->pendingBayShipLaunchOrder)) return;
+		if (!self::isFlowEnabled($gamedata->id)) { $bay->pendingBayShipLaunchOrder = null; return; }
+		foreach ($bay->pendingBayShipLaunchOrder as $order) {
+			$shipId = (int)($order['shipId'] ?? 0);
+			if ($shipId <= 0) continue;
+			$reason = null;
+			if (!self::canBayShipLaunch($bay, $carrier, $shipId, $gamedata, $reason)) {
+				Manager::insertIndividualNote(new IndividualNote(
+					-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+					'hangarLaunchEvent', 'Docking bay ship launch failed', 'fail:' . $shipId . ':' . ($reason ?? 'unknown')
+				));
+				continue;
+			}
+			self::performBayShipLaunch($bay, $carrier, $shipId, $gamedata);
+		}
+		$bay->pendingBayShipLaunchOrder = null;
+	}
+
+	/* Deployment: ships that START the game aboard. Resolved immediately, on the POST-side bay
+	 * (already seeded with the DB bay's ships by DockingBay::generateIndividualNotes). No launch
+	 * rate and no type lock - a deploy-dock is neither a launch nor a recovery. The fighter half of
+	 * the bay is read off the DB twin, because the POST-side bay's hangarUsage is still empty here.
+	 * Same-slot and same-arrival-turn, as the fighter path (validateDeployBayOrders) requires. */
+	public static function processBayShipDeployStartTransfer($bay, $carrier, $gamedata, $orders){
+		if (empty($bay->isDockingBay) || !is_array($orders)) return;
+		$dbShip = $gamedata->getShipById($carrier->id);
+		$dbBay  = self::dbCounterpartBay($bay, $carrier, $gamedata);
+		$turnShip = $dbShip ? $dbShip : $carrier;   //the POST-side carrier has no $arrivalTurn (REINFORCEMENTS trap 3)
+		$remaining    = (int)($dbBay ? $dbBay->getRemainingHealth() : $bay->getRemainingHealth());
+		$fighterBoxes = $dbBay ? self::occupiedBoxes($dbBay, $dbShip) : 0;
+
+		foreach ($orders as $order) {
+			$shipId = (int)($order['shipId'] ?? 0);
+			if ($shipId <= 0) continue;
+			$docker = $gamedata->getShipById($shipId);
+			$reason = null;
+			if (!$docker || $docker instanceof FighterFlight) {
+				$reason = 'not a ship';
+			} else if (!self::bayDocksShipClass($bay, $docker->phpclass, $reason)) {
+				//reason set
+			} else if ((int)$docker->slot !== (int)$turnShip->slot || (int)$docker->userid !== (int)$turnShip->userid) {
+				$reason = 'not the same fleet';
+			} else if ($docker->getTurnDeployed($gamedata) != $turnShip->getTurnDeployed($gamedata)) {
+				$reason = 'does not arrive with the carrier';
+			} else if (self::findBayShipEntry($bay, $shipId) !== null) {
+				$reason = 'already aboard';
+			} else if (self::bayShipBoxes($docker) > $remaining - self::dockedShipBoxes($bay) - $fighterBoxes) {
+				$reason = 'bay full';
+			}
+			if ($reason !== null) {
+				Manager::insertIndividualNote(new IndividualNote(
+					-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+					'hangarDeployStartEvent', 'Docking bay deploy-dock failed', 'fail:' . $shipId . ':' . $reason
+				));
+				continue;
+			}
+			$docker->removed = true;
+			$docker->removedTurn = $gamedata->turn;
+			$bay->shipsDocked[] = array(
+				'shipId'   => (int)$docker->id,
+				'phpclass' => (string)$docker->phpclass,
+				'boxes'    => self::bayShipBoxes($docker),
+				'dockTurn' => (int)$gamedata->turn,
+				'deploy'   => true,   //started aboard - may launch this very turn (canBayShipLaunch)
+			);
+			Manager::insertIndividualNote(new IndividualNote(
+				-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+				'hangarDeployStartEvent', 'Docking bay deploy-docked ship', $docker->id . ':SHIP:1'
+			));
+		}
+	}
+
+	/* Put one docked ship back on the board with the bay's damage + 2d10 to Structure and the -50
+	 * launch initiative - the LCV rail's destroyed-rail / destroyed-carrier rule (user ruling). The
+	 * 2d10 is replay-safe for the same reason the rail's is: the list is cleared and persisted the
+	 * first time, so a later sweep never finds the ship aboard to roll for again. */
+	private static function forceBayShipOut($bay, $carrier, $entry, $gamedata, $why){
+		$docker = $gamedata->getShipById((int)($entry['shipId'] ?? 0));
+		if (!$docker) return;
+		$bayDmg = max(0, (int)$bay->maxhealth - (int)$bay->getRemainingHealth());
+		$frag = self::loadOrRollLCVFrag($docker, $gamedata);
+		if (self::resurrectAtCarrier($docker, $carrier, $gamedata)) self::applyLCVLaunchCrit($docker, $gamedata);
+		self::applyLCVStructureDamage($docker, $bayDmg + $frag, 'LCVRailFragments', $gamedata);
+		Manager::insertIndividualNote(new IndividualNote(
+			-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $carrier->id, $bay->id,
+			'hangarLaunchEvent', $why, $docker->id . ':SHIP:1:bayDmg=' . $bayDmg . ':frag=' . $frag
+		));
+	}
+
+	/* A bay destroyed this turn forces every ship it holds out. Returns true if any were aboard. */
+	public static function onDockingBayDestroyed($bay, $carrier, $gamedata){
+		if (empty($bay->isDockingBay) || !$bay->isDestroyed() || empty($bay->shipsDocked)) return false;
+		foreach ($bay->shipsDocked as $entry) self::forceBayShipOut($bay, $carrier, $entry, $gamedata, 'Ship forced out (docking bay destroyed)');
+		$bay->shipsDocked = array();
+		return true;
+	}
+
+	/* Pass 3 sibling of processLCVCarrierDestruction. ⚠️ A carrier that LEFT through hyperspace is
+	 * also "destroyed" (it is removed) - its ships leave WITH it, so it is skipped exactly as
+	 * processCarrierDestructionEscapes skips it. */
+	public static function processDockingBayCarrierDestruction($gamedata){
+		foreach ($gamedata->ships as $carrier) {
+			if (!($carrier instanceof BaseShip) || $carrier instanceof FighterFlight) continue;
+			if (!$carrier->isDestroyed()) continue;
+			if ($carrier->hasJumpedToHyperspace()) continue;
+			foreach ($carrier->systems as $bay) {
+				if (empty($bay->isDockingBay) || empty($bay->shipsDocked)) continue;
+				foreach ($bay->shipsDocked as $entry) self::forceBayShipOut($bay, $carrier, $entry, $gamedata, 'Ship escaped destroyed carrier');
+				$bay->shipsDocked = array();
+			}
+		}
+	}
+
 	/* Hangar boxes a single craft of $phpclass occupies. Per B5W §10.1 craft come
 	 * in two non-standard sizes:
 	 *   - unitSize < 1 (Vorlon Assault Fighter, Drakh Heavy Raider, Nausicaan
@@ -2188,6 +2503,10 @@ class HangarOps {
 		}
 
 		$remaining = (int)$hangar->getRemainingHealth();
+		//A Docking Bay's ships are never evicted by partial damage (user ruling 2026-09-11); the
+		//fighters make room around them. Boxes only - NOT effectiveCapacity, which also carries the
+		//type lock and would read a bay claimed by a Scribe order as zero.
+		if (!empty($hangar->isDockingBay)) $remaining = max(0, $remaining - self::dockedShipBoxes($hangar));
 		//Occupied boxes round UP (ultralights leave fractional usage): a half-filled
 		//box still needs a whole box to live in, so it's lost when capacity drops to it.
 		$stored = self::occupiedBoxes($hangar);
@@ -4558,6 +4877,14 @@ class HangarOps {
 	 * Ordinary hangars use remaining (undamaged) health. (Stage 16.) */
 	public static function effectiveCapacity($hangar){
 		if (!empty($hangar->isCatapult)) return 1;
+		//WALKERS_OF_SIGMA_PLAN.md 3.14: a Docking Bay's docked SHIPS sit in the same boxes, and a
+		//bay the ships have claimed this turn (one craft type per turn) takes no fighters at all.
+		//⚠️ Dock gates only - onHangarCriticalPhase's EVICTION must not see the type lock, or a
+		//Scribe ordered to dock would evict every Mapmaker already aboard.
+		if (!empty($hangar->isDockingBay)) {
+			if ($hangar->hasShipOrdersThisTurn()) return 0;
+			return max(0, (int)$hangar->getRemainingHealth() - self::dockedShipBoxes($hangar));
+		}
 		return (int)$hangar->getRemainingHealth();
 	}
 
@@ -4727,13 +5054,18 @@ class HangarOps {
 	 * order within each group. Operates on a plain list of Hangar objects. */
 	public static function sortBaysReservedFirst($bays, $flight){
 		if (!is_array($bays) || count($bays) < 2) return $bays;
-		$reserved = array();
-		$other = array();
-		foreach ($bays as $h){
-			if (self::bayReservesFlight($h, $flight)) $reserved[] = $h;
-			else $other[] = $h;
-		}
-		return array_merge($reserved, $other);
+		$ranked = array(array(), array(), array());
+		foreach ($bays as $h) $ranked[self::bayFillRank($h, $flight)][] = $h;
+		return array_merge($ranked[0], $ranked[1], $ranked[2]);
+	}
+
+	/* Auto-fill order for a FIGHTER flight: bays reserved for it (bayReservesFlight) first, ordinary
+	 * bays next, and a Docking Bay LAST (WALKERS_OF_SIGMA_PLAN.md 3.14b, user 2026-09-11) - its boxes
+	 * are the only ones a ship can use, so fighters leave them free while any other bay has room.
+	 * Ordering only, never eligibility. Client mirror: HangarShared.bayFillRank. */
+	public static function bayFillRank($hangar, $flight){
+		if (self::bayReservesFlight($hangar, $flight)) return 0;
+		return !empty($hangar->isDockingBay) ? 2 : 1;
 	}
 
 	/* Stage 10.6.2: per-ship customFighter cap remaining for $name on $carrier.
@@ -4880,14 +5212,11 @@ class HangarOps {
 		//ultralight flight auto-lands in the Qoricc's dedicated 'ultralight' bay, before
 		//consuming the universal primary. Stable partition preserves the exact-match-
 		//then-hierarchy ordering within each group.
+		//...and a Docking Bay LAST (bayFillRank): its boxes are the only ones a ship can use.
 		if (count($out) > 1){
-			$reservedOut = array();
-			$otherOut = array();
-			foreach ($out as $entry){
-				if (self::bayReservesFlight($entry['hangar'], $flight)) $reservedOut[] = $entry;
-				else $otherOut[] = $entry;
-			}
-			$out = array_merge($reservedOut, $otherOut);
+			$ranked = array(array(), array(), array());
+			foreach ($out as $entry) $ranked[self::bayFillRank($entry['hangar'], $flight)][] = $entry;
+			$out = array_merge($ranked[0], $ranked[1], $ranked[2]);
 		}
 
 		//Stage 10.6.2: clamp aggregate capacity to the carrier's remaining
@@ -6032,6 +6361,10 @@ class HangarOps {
 					foreach ($sys->pendingLcvDeployStartTransfer as $entry) {
 						if (isset($entry['shipId'])) $ids[(int)$entry['shipId']] = true;
 					}
+				}
+				//Docking Bay (WALKERS_OF_SIGMA_PLAN.md 3.14): so does a ship starting aboard one.
+				if (!empty($sys->isDockingBay)) {
+					foreach ($sys->getQueuedDeployDockShipIds() as $shipId) $ids[(int)$shipId] = true;
 				}
 			}
 		}

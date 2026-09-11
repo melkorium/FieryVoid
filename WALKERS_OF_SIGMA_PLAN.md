@@ -12,7 +12,9 @@ STAGE 13 (Mapmaker Jump Engine) COMPLETE 2026-09-10, and STAGE 14 (the Mapmakers
 Array + the Mapmaker hangar rule) COMPLETE 2026-09-11 after two play-test passes (§3.13b, and the
 EW rules corrected from the rulebook text in §3.13c), and STAGE 15 (the Walker jump drive - promoted from
 Stage 18 on 2026-09-11, D32) COMPLETE 2026-09-11 and then REWORKED the same day (§3.17b - Ancient drives
-are legacy drives; the first build's deferred departure is gone). Stages 16–19 not started. ⚠️ Stages 12, 13
+are legacy drives; the first build's deferred departure is gone), and STAGE 16 (the Traveler's Docking Bay) COMPLETE
+2026-09-11 with the Waymarker's two-turn procedure (§3.14a) deferred by the user (D35) - §3.14b. Stages 17–19 not
+started. ⚠️ Stages 12, 13
 and 14 all reshuffle `MapmakerProbes`'s positional system ids and MUST deploy together; append
 only after that. Stages 12–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
 Traveler's Docking Bay / repair / power sharing, and the traveler and extra-dimensional jump
@@ -62,6 +64,14 @@ silent everywhere.
 | D29 | The Wanderer's weapons begin charged (2026-09-09) | *"Unlike other Walker ships, the Wanderer phpclass ship's weapons DO start the battle fully charged."* An exception keyed on **phpclass**, hung on `Weapon::setInitialSystemData($ship)` rather than on `getStartLoading()`, which does not know its ship. §3.10e, Stage 11. |
 | D30 | Docked craft must be placeable on the Traveler's hex (2026-09-09) | *"Scribes, Waymarker and Pathfinders are all ships, which means they will not be eligible to stack on Traveler hex during Deployment at present. So we may need to loosen that restriction."* Loosened through the **existing** deploy-dock exemption in `getShipsInSameHex` (`pendingDeployDock` / `pendingLcvDeployDock`), never by weakening hull-versus-hull occupancy for everyone. §3.14, Stage 16. |
 | D32 | Every Walker jump drive leaves slowly, and it is a MARK (2026-09-11) | *"All Walker ships possess this ability, not just Traveler. So the best approach seems to be to mark the Jump Engine as Walker (in the same way we mark Scanner as 'Advanced')."* `JumpEngine::markWalker()` on the six Walker hulls - a flag, not the `TravelerJumpDrive` class §3.17 first proposed, so no autoload change and no system id moves. The Mapmaker flight's engine stays unmarked (§3.12: it *"works normally"*). The targeting rule reuses the Energy Draining Mine's untargetable mechanism (§3.10c) and gives it its server half at last. Promoted from Stage 18 to Stage 15 the same day. §3.17a. |
+| D33 | How a SHIP docks, and what damage does to it (2026-09-11) | **The LCV-rail rules, both halves.** Docking: the Traveler at speed 0, the ship ending its move in the Traveler's hex on the Traveler's heading with at least 1 thrust unspent - `canLCVDock`'s conditions, with its client-and-server thrust backstop. Damage: partial bay damage never removes a docked ship (probes are evicted first, as ever); the bay or the Traveler destroyed forces every docked ship out with the bay's damage + 2d10 to Structure and the launch initiative penalty. No landing damage. §3.14b. |
+| D34 | What a ship costs against the launch rate (2026-09-11) — ⚠️ **SUPERSEDED by D37 the same day** | **Its box cost**, not 1 per ship: the bay's 12 a turn is paid in boxes by a ship, so one Pathfinder uses a whole turn and three Scribes fill it. With it the one-type-per-turn rule (D17) mostly follows from arithmetic - any two ship classes together exceed 12 - leaving Scribes against Mapmakers as the case the lock actually decides. §3.14b. |
+| D35 | The Waymarker's two-turn procedure (2026-09-11) | **Deferred**, as §3.14a suggested: the bay is built and proved with Scribes, Pathfinders/Guideships and Mapmakers. The Waymarker is in the bay's class list and costs 24 boxes, so it counts in the Fleet Checker (D36), but `DockingBay::DEFERRED_SHIP_CLASSES` keeps it out of every dock, launch and deploy-dock until §3.14a lands. |
+| D36 | Docked ships count toward the Traveler's hangar requirement (2026-09-11) | *"Purchasing Waymarker (24), Pathfinder/Guideships (12) and Scribes (4) can help meet Traveler hangar capacity in Fleet Checker, along with Mapmaker fighters as usual. Since 24 of its 36 fighters slots are associated with its Aft Docking Bay system."* Every bought ship a Docking Bay in the fleet lists adds its box cost to that bay's `$fleetCheckCategory`, **capped at the fleet's total Docking Bay boxes** - a ship only counts for a bay it could sit in, so a lone Pathfinder cannot meet its own 6-probe minimum and three Pathfinders count 24, not 36, behind one Traveler. §3.14b. |
+| D37 | The Docking Bay's launch rate, corrected (2026-09-11, review of Stage 16) | *"It should be 12 Mapmakers OR 2 Scribes OR 1 Pathfinder."* A **per-class count**, launches and recoveries together, in `DockingBay::$shipLaunchRates` (Scribe 2, Pathfinder / Guideship / Waymarker 1); the Mapmakers keep `$output`. Replaces D34's box pricing, which gave three Scribes. §3.14b "Revisions". |
+| D38 | Fighters fill the side hangars first (2026-09-11) | *"Mapmakers should prioritise side hangars, since only the aft docking bay can store larger units."* `HangarOps::bayFillRank` / `HangarShared.bayFillRank`: reserved bays, then ordinary, then a Docking Bay, at every auto-fill and default-pick site. Also: docked weapons **recharge** as normal and an Energy Draining Mine restocks to its usual 3 - which the code already did; Stage 16's write-up had claimed otherwise without checking. |
+| D39 | LCV deploy-docking works the Docking Bay way (2026-09-11) | *"I prefer the way we dock ships to the Traveler MORE than the current implementation of LCV hangars where we have had to allow them to stack in a hex."* The LCV same-hex exemption and the un-dock snap are removed; an LCV deploy-docks from its carrier's DOCK button and is never placed on the carrier's hex. |
+| D40 | A reinforcement Traveler brings its ships aboard (2026-09-11) | *"Travelers brought into the game via 'Manage Reinforcements' cannot select Pathfinder, Guideship, Scribe ... only Mapmakers."* A legacy-drive opener's manifest now admits the ships its Docking Bay takes, packed with the fighters in one pass on both sides, and they arrive docked. |
 
 Everything below assumes these.
 
@@ -3814,7 +3824,7 @@ and `max(0, 0 − x)` is 0. The Pulsar still can never take a no-lock penalty: t
 The "still open" item at the end of §3.13b is closed by this. A 3-point pool against 7–16 DEW is a
 to-hit penalty now, not a cancelled lock.
 
-### 3.14 The Traveler's Docking Bay
+### 3.14 The Traveler's Docking Bay — **BUILT 2026-09-11 (Stage 16), §3.14a deferred (D35) — as built in §3.14b**
 
 *"Aft hangar on the Traveler only should be relabelled as Docking Bay ... it can hold 2 Pathfinders
 (12 spaces each), 6 Scribes (4 spaces) and/or up to 24 Mapmakers (1 space). It can also dock a
@@ -3927,7 +3937,7 @@ marker, **not** by weakening the hull-versus-hull occupancy rule for everyone.
 - ⚠️ The terrain branch must stay intact — a queued craft still cannot be dropped onto terrain, and
   the Huge/`hexOffsets` collision arms of the same function are untouched.
 
-#### 3.14a The Waymarker's two-turn procedure — **OPTIONAL within Stage 16 (D23)**
+#### 3.14a The Waymarker's two-turn procedure — **OPTIONAL within Stage 16 (D23) — DEFERRED by the user 2026-09-11 (D35)**
 
 Everything above is one-turn docking, which is what the bay already does and what the other three
 craft need. The Waymarker needs an **intermediate state**: a turn in which it is neither on the
@@ -3977,6 +3987,163 @@ the aft hit-chart row still finds the renamed system; the hull corpus differenti
 ship's hangar accounting moving. **If 3.14a is built:** a Waymarker rides attached for exactly one
 turn each way, its boxes are reserved from declaration, and it moves with the Traveler while
 attached.
+
+#### 3.14b As built — Stage 16, 2026-09-11
+
+Four rulings opened the stage (D33–D35) and one arrived with it (D36): ships dock and suffer damage on
+the LCV-rail rules, a ship pays its BOXES against the launch rate, the Waymarker's two-turn procedure
+is deferred, and bought ships count toward the Traveler's hangar requirement.
+
+**The class.** `DockingBay extends Hangar` ([baseSystems.php](source/server/model/systems/baseSystems.php),
+after `DockingCollar`). ⭐ **`$name` stays `'hangar'`** (trap 37): twenty-nine client sites gate the
+fighter UI on the name and `SystemFactory` builds the client object from it, so the Mapmakers keep
+every fighter path and the client carries the bay as a plain `Hangar` with `isDockingBay` set. The
+hit chart matches `$displayName`, `"Docking Bay"`, and the Traveler's aft row moved with it. Constructor
+`(armour, boxes, rate, direction, dockableShipClasses, fleetCheckCategory)`; the Traveler mounts
+`new DockingBay(6, 24, 12, 0, ['Scribe','Pathfinder','Guideship','Waymarker'], 'Mapmaker Probes')` in
+the Hangar's own position, and every system id is proved unchanged against the committed hull.
+`hangarType` stays universal `'fighters'`: a typed bay would *reserve* the Mapmakers
+(`bayReservesFlight`) and pull them in ahead of the side bays.
+
+**The ship half is the LCV rail with a list**, in `HangarOps::*BayShip*` beside the LCV functions:
+`$shipsDocked` `[{shipId, phpclass, boxes, dockTurn, deploy?}]`, one change-detected `bayShipsDocked`
+note, `$removed` re-derived on every load; `bayShipDockOrder` / `bayShipLaunchOrder` notes resolved in
+the crit phase, deploy-docks resolved at commit. Box costs are the hulls' `unitSize` (D18: 1/4, 1/12,
+1/12, 1/24), inert everywhere else because the lobby reads a HULL's `unitSize` only when it sets
+`hangarRequired` - proved on all four, and `ceil(1/(1/12))` is exactly 12 in PHP and in JS after a
+JSON round trip.
+
+**One pool.** Fighters see the ships through `HangarOps::effectiveCapacity` and
+`HangarShared.effectiveHangarBoxes` - the two choke points - and two client dialog sites that had
+recomputed `maxhealth` inline now call the latter (trap 38). Ships see the fighters through
+`occupiedBoxes` / `hangarUsedBoxesOnBay`. Deploy-docks seed the POST-side bay from its DB twin and
+resolve ships BEFORE the parent's fighter packer, so a Mapmaker flight packed in the same commit finds
+the ships' boxes taken.
+
+**One type per turn (D17), decided from the orders when the notes load** (trap 40). The bay's own
+fighter orders win - *"it refuses a Scribe on a turn a Mapmaker moved"* - and the refused ship orders
+are logged at resolution. Otherwise ship orders claim the bay and `effectiveCapacity` reads 0 for it
+all turn, which is what keeps the carrier-level coalescer from routing Mapmakers in from a sibling bay;
+the claim is LATCHED because the orders are consumed as they resolve. Damage eviction subtracts the
+ships' boxes and never sees the lock. Between ship classes the lock is almost always the rate (D34).
+
+**Dock, launch, lose.** `canBayShipDock` is `canLCVDock` plus box room, the box-priced rate and the
+lock; `performBayShipLaunch` is `performLCVLaunch`'s placement and -50 initiative crit **without** its
+re-init (trap 41). A ship cannot launch on the turn a Firing-phase dock brought it in; a deploy-dock
+carries `deploy` and may. A destroyed bay or carrier forces every ship out with the bay's damage +
+2d10 (`LCVRailFragments`, the rail's replay-safe clear-and-persist); a carrier that jumped away is
+skipped, so its ships leave with it.
+
+**Deployment (D30).** A queued ship carries the LCV marker, `pendingLcvDeployDock` with `bay: true`,
+so every "inside a carrier, not on the board" test in the client applies unchanged - `getShipsInSameHex`
+first among them - and `unqueueLcvDeployDock` hands a bay ship to its own release, which does not snap
+it onto the carrier's hex the way an LCV is snapped. The server exempts it from the movement check via
+`collectQueuedDeployStartFlightIds`. DOCK is offered from `SelectFromShips` and
+`DeploymentPhaseStrategy.onShipClicked`; DEPLOY over an occupied hex stays refused.
+
+**The rest of the wiring.** The bay's payload keys are stripped before the ordinary hangar parser runs
+(trap 39); `shipsDocked` and the queued ship orders follow the enclosed-bay own-team mask, and
+`hideDeploymentDocks` un-removes a same-turn deploy-docked ship for everyone else; the fleet list's
+`isDepartedWithCarrier` walk knows a bay. UI: "Enter Hangar" on the ship (`confirm.bayShipDock`), and
+Docking Bay sections in the carrier's Recover, Launch and Deploy dialogs, each refusing fighters and
+ships through one bay in the same dialog.
+
+**The Fleet Checker (D36).** Credit per category = min(box cost of every bought ship some bay in the
+fleet lists, the fleet's total Docking Bay boxes), added in the live small-craft report loop and named in
+the row ("incl. N Docking Bay boxes of ships"). Anchored on live-only lines: the archived
+`checkChoices_LEGACY` block duplicates every other candidate.
+
+**Verification.** 111 server checks (`tests/replay/walkersStage16Harness.php`) and 98 client checks
+(`walkersStage16ClientHarness.js`, the real files under `vm`, the Walker blueprints read out of the
+regenerated statics, the Fleet Checker driven through its live slices), plus the Stage 14 fleet-check
+harness's 43 re-run as a regression - both new harnesses fail on the pre-stage tree. `checkShipData.php`
+PASS, 0 new against 237; autoload +1 line. **Hull differential over 2,727 classes, 2,675 hangars, 7,090
+facts: exactly five moved** - the four dockable hulls' box cost and the Traveler's aft system class -
+and no capacity did. **Replay:** the corpus is 133/1 on a clean tree (4347, pre-existing); with the
+stage the ten Traveler games (4329, 4331–4337, 4340, 4345) differ ONLY by four additive keys on the bay
+- `isDockingBay`, `dockableShipClasses`, `deferredShipClasses`, `shipsDocked` - and need re-recording.
+
+**Exit criterion.** 24 Mapmakers / 6 Scribes / 2 Pathfinders, and the 25th / 7th / 3rd refused ✓; the
+Waymarker's 1-of-1 is deferred (D35); a mixed load is exactly 24 ✓; a Scribe refused on a turn a
+Mapmaker moved ✓; the list and the removal round-trip a reload ✓ - the ship's own damage, power and
+notes live in ship-keyed rows the dock never touches, which the user's live reload should confirm; the
+renamed chart row ✓; no other hull's hangar accounting moved ✓; a queued ship placeable into the
+Traveler's hex while two hulls still refuse to share one ✓.
+
+**Not built, open for the user:** the Waymarker (§3.14a); a docked ship's weapons neither recharge nor
+reset while it is aboard (the LCV re-init was not reused - trap 41); a ship launches on the Traveler's
+own facing, not the bay's; and a dock order into a TEAMMATE's carrier sits on a system the player does
+not submit - the LCV and fighter dialogs share that, so it is unchanged here.
+
+**Revisions after review, 2026-09-11 (D37–D40).** ⚠️ The paragraph above about weapons was WRONG and
+was never checked: `Manager`'s turn-advance sweep calls `onAdvancingGamedata` on every system of
+every ship with no removed-ship filter, and `calculateLoadingFromLastTurn` tests only the weapon's own
+destruction - so a docked ship's weapons always recharged, and an Energy Draining Mine restocks on its
+cadence up to 3, exactly as the user asked. Proved now, not changed.
+- **Rate (D37).** `$shipLaunchRates` (constructor map `class => per turn`), `$shipsMovedThisTurn`,
+  `HangarOps::bayShipRateLeft` / `window.bayShipRateLeft`. Ships no longer touch the fighters'
+  `launchedThisTurn` / `landedThisTurn`. `bayBudgetLeft` is gone from both sides.
+- **Fill order (D38).** `bayFillRank` ranks reserved 0, ordinary 1, Docking Bay 2 - in
+  `sortBaysReservedFirst`, `eligibleHangarsForLanding`, `legacyBerthFits`, `distributeFlightAcrossHangars`,
+  `eligibleHangarsForFlight` and both fire-menu receiving-hangar lists. Every non-bay bay keeps the
+  rank it had, so no other hull's order moves.
+- **LCVs (D39).** `selIsLcvUnit` removed from `DeploymentPhaseStrategy` (both sites) and
+  `SelectFromShips`; `unqueueLcvDeployDock` no longer snaps. FAQ updated.
+- **Reinforcements (D40).** `JumpEngine::getLegacyRideHost` and its client mirror answer for any unit;
+  `legacyBerthFits` fits a ship into a Docking Bay beside the fighters' promised boxes;
+  `DeploymentDock.planFlightsIntoCarrier` packs ships and flights into one scratch map;
+  `autoPlaceArrivingReinforcements` queues a ship's bay dock and flags it `forcedDeployDock`, which the
+  bay's release path and un-dock section now honour.
+- **Net preview.** `PhaseStrategy.buildEdfNetPreview` skips a unit on a deploy-dock marker or still on
+  its `start` row, and answers an EMPTY preview (not `null`, which would fall back to the server's
+  stale map) when Nets exist but none is on the board; `refreshDeploymentUIForDeployStart` re-syncs it
+  on every dock and un-dock.
+- Verified: server harness 131, client 118, Stage 14 fleet check 43, all 0 failed. Full `-Check`:
+  autoload current, validator 0 new, replay 122 passed / 11 failed - the same ten Traveler games plus
+  the pre-existing 4347, and outside 4347 the only differences are FIVE additive keys on the bay (the
+  four above plus `shipLaunchRates`). 3676 skipped (the local game advanced a turn between runs).
+
+**Revisions after the second review, 2026-09-11.**
+- **Riders left on the map (game 4350).** `autoPlaceArrivingReinforcements` docks a legacy opener's
+  riders AFTER `activate()` has run `consumeGamedata` - the only pass that applies `shouldBeHidden` to
+  the icons - so they stood on their off-map `start` markers for the whole phase. It now re-runs
+  `consumeGamedata`, `syncAllEdfFields` and `syncEdfNetPreview` when anything went aboard. Mapmaker
+  riders had the same fault since Stage 15.
+- **Fields drawn at start markers.** `TacGamedata::setEdfHexes` skips a unit whose LAST movement row is
+  `start` - never placed; Generated Terrain (userid -5) exempt. It had been publishing Nets, and field
+  hexes into the map the rules read, at the off-map markers of turn-1, late-slot and arriving units.
+  Client twin `PhaseStrategy.isOffBoardForEdf` gates both overlays: the per-icon disc
+  (`syncAllEdfFields`, now re-synced on every Deployment placement and dock) and the Net preview. The
+  test is sound because a `start` row is only ever a unit's FIRST row: `submitMovement` never writes
+  one, and the DB holds none after turn 1.
+- **Greying instead of refusing (user request).** `confirm.bayShipBayProblem` is the one verdict -
+  fighter claim, type, room, rate - behind both `refitBayShipRows` (greys each unticked row that could
+  not be added, with a note after its label) and the OK-time guard. In the launch dialog a ticked ship
+  caps every fighter row at the craft drained from its OTHER bays first (`refitBayConflicts`), and the
+  fighters' live charges grey the ship rows. The recover dialog routes an auto-distributed flight round
+  a ship-held bay, drops that bay from pick-lists, and greys what is left (`refitRecoverConflicts`).
+  Queued fighter LAUNCHES no longer hide the bay's ships (`bayLaunchableShips`), and queued ship
+  launches no longer hide its fighters (`hangarLaunch`): the dialog shows both. The recover dialog's
+  auto-distribute also sorts by `bayFillRank` now.
+- Verified: server harness 135 (the new group 17 fails 2 with the fix stashed), client 138, Stage 14
+  fleet check 43, all 0 failed. Replay 122 passed / 11 failed, as before. A per-game tally: the ten
+  Traveler games differ only by the five bay keys; 4347 by those plus its drift, byte-identical to a
+  stashed tree; no `edf` line anywhere.
+- **Two older faults, fixed at the user's request the same day.**
+  - *The Deployment payload.* `setEdfHexes` runs in `onConstructed`, BEFORE `deleteHiddenData` strips
+    an opponent's this-turn deploy rows, so a phase -1 payload's `edfHexes` / `edfNetHexes` carried the
+    positions of Walkers the opponent had already committed. Nothing drew them, but the browser could
+    read them. `deleteHiddenData` now rebuilds the map after its phase -1 masking, gated on there being
+    a field. The masked unit is back on its `start` row, so it drops out.
+  - *Late arrivals.* A late-slot unit places its entry hex the turn before it arrives, and it projected
+    from there during that turn. `setEdfHexes` now skips `getTurnDeployed > turn`; the client twin
+    `isOffBoardForEdf` makes the same test, which also keeps such a unit's Net out of the Movement
+    preview (that preview walks hidden icons too).
+  - ⚠️ **Side effect, intended:** `getTurnDeployed` answers 999 for a SURRENDERED slot, so a surrendered
+    fleet stops projecting as well, like every other gate that treats it as gone. Seven surrendered
+    replay games (4329, 4331–4334, 4337, 4345) differ by exactly that: the surrendered fleet's
+    `edfHexes` (and one `edfNetHexes`), nothing else. Re-record those seven.
+  - Verified: server harness 141 (groups 18 and 19 added), client 140, 0 failed.
 
 ### 3.15 The Traveler repairs what it carries
 
@@ -4528,7 +4695,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **13** ✅ | Mapmaker Jump Engine (§3.12) + the Fleet Checker hangar exemption — **DONE 2026-09-10** | **94 checks green** across two throwaway harnesses — 59 server, 35 client — covering the 10-turn recharge read from `$delay`, the one-engine-per-flight accessor, the charge mirrored onto all six craft, the declaration normalised at the wire and the second one refused *with the existing reason string*, `hasVortexDeclaration` reaching a flight at all, and the blueprint scan; every group asserts its own non-vacuity and both harnesses **fatal on the pre-edit tree**. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 115 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed. ⭐⭐ **THE PLAN WAS RIGHT THAT "ONE JUMP POINT PER FLIGHT" NEEDED NO NEW RULE AND WRONG ABOUT WHY IT WORKED**: `Firing::getVortexDeclarationBlock`'s one-vortex-per-**shooter** loop does catch it — but only once both orders name the SAME engine, so the rule that makes D13 true is a two-line **weaponid normalisation** in `validateVortexDeclaration`, not the loop itself. ⭐⭐ **AND THE REAL WORK WAS NOT THE CLIENT** (§3.12 called it "the whole stage"): five server sweeps walked `$ship->systems` looking for a `JumpEngine` and found NOTHING on a flight, because a flight's systems are *craft*. They all go through the new `JumpEngine::getUnitJumpEngines()` now. ⚠️ Three findings worth carrying, all in §3.12. |
 | **14** ✅ | `MedLightningArrayFtr` (§3.13, as built §3.13a, play-test fixes §3.13b, EW rules corrected §3.13c) + the Mapmaker hangar rule (D31) — **COMPLETE 2026-09-11** (built 2026-09-10) | ⚠️⚠️ **2026-09-11: the Mapmaker EW rules were CORRECTED from the rulebook text (§3.13c)** — the Array uses plain ship EW rules (OEW added, target DEW/BDEW/SDEW as the ordinary to-hit penalty, no OB, no OEW = doubled range penalty as usual) and the Pulsar gets OB + max(0, OEW − defensive EW). That **reverted** the §3.13b no-lock exemption described below. Re-proved with the Stage 12 client grid (90/0), the Stage 14 client (62/0) and server (99/0) harnesses, and the game-4347 probe (15/0); replay 114 / 8, unchanged, though no Mapmaker game is in the corpus. | **215 checks green** across four throwaway harnesses — 99 server, 62 client, 43 fleet-check and an 11-check live-game probe — covering 3 and 6 combining while 1/2/4/5 go technical, two 3-groups at two targets, buckets split by target / called id / mode, a damaged probe excluded on `getRemainingHealth() >= maxhealth` (and asserted NOT destroyed, so the obvious shortcut is proved wrong), an uncharged array refused server-side, D16 resolved in both directions with the loser named in the log and proved to ignore intercept orders, the turn-1 full charge proved as an ABSENT override, `edfSuppressesCollateral` proved inherited (and `LightningArray`'s proved overridden, which is why this class must not extend it), and the fleet check driven through the REAL `gamelobby.js` slices for Mapmakers, Stilettos and Fighter Squadrons alike. Every harness fails on a stashed tree, and each play-test fix fails in isolation when its own line is reverted. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 114 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed — including after the `weapon.php` no-lock change, which every weapon in the game runs through. ⭐ **THE STATS NEEDED NO CLIENT MIRROR** — both modes differ only in fire control, range penalty and damage span, and all three already travel as the engine's generic per-mode arrays, so the client half is the group rule and nothing else. ⭐⭐ **THE REAL WORK WAS D16, NOT THE COMBINING**: the combining is `HyperplasmaMatrix`'s pattern, but every exclusivity mechanism in the tree is per-CRAFT (`checkConflictingFireOrder` narrows to `getFighterBySystem` before it looks), so flight-wide exclusivity needed a new predicate on both sheets keyed on a new `flightExclusiveGroup` string. ⚠️⚠️ **AND THE HANGAR FIX FOUND THAT THE TWO HALVES OF THE RULE HAD NEVER MET**: the four Walker hulls declare `"Mapmaker Probes"` capacity while the flight left `hangarRequired` at `'fighters'` and classified itself as an ordinary MEDIUM fighter, so nothing could ever fill it. ⚠️⚠️ **PLAY TEST 4347 THEN FOUND TWO MORE THAT NO UNIT TEST COULD**: an undamaged craft has NO `damage` key at all (ShipCompactor strips empty arrays) so `getRemainingHealth` threw and the weapon could not be targeted, and a `useFlightEW` shot was taking a no-lock penalty D12 forbids — see §3.13b. ⚠️ Four findings worth carrying in §3.13a, three more in §3.13b. |
 | **15** ✅ | Walker jump drive (§3.17, as built §3.17a) — **DONE 2026-09-11**, promoted from Stage 18 the same day; a `markWalker()` flag on every Walker hull (D32) | **107 checks green** across two harnesses — 73 server, 34 client — both fatal on the pre-edit tree: the mark on all six hulls and on nothing else; the deferral at the end of Movement, against an ordinary hull on the identical legal path which still leaves; the refusal at submit and at resolution (which also withdraws an Initial Orders ballistic), with the identical orders accepted at a Walker that is not leaving, and all four client call sites passing the shooter; departure at the end of Firing with its attached unit, and a cancellation when the drive dies while it waits; zero failures in 300 rolls from an engine that fails at once with the flag off; and the Vortex Disruptor catching the waiting Walker. `checkShipData.php` PASS, 0 new against 237; autoload unchanged; replay 114 / 8 **byte-identical with timings normalised** to a stashed tree. ⚠️ Four findings in §3.17a, and traps 35–36. |
-| **16** | The Traveler's Docking Bay (§3.14) — **the Waymarker's two-turn procedure (§3.14a) is OPTIONAL within the stage (D23)** | 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
+| **16** ✅ | The Traveler's Docking Bay (§3.14, as built §3.14b) — **DONE 2026-09-11**; the Waymarker's two-turn procedure (§3.14a) DEFERRED (D35) | **292 checks green after the review revisions (D37–D40)** - 131 server, 118 client, and the Stage 14 fleet-check harness's 43 as a regression - with both new harnesses failing on the pre-stage tree; `checkShipData.php` PASS, 0 new against 237; a **2,727-hull differential** in which exactly five facts moved (the four dockable hulls' box cost, the Traveler's aft system class) and no capacity did; replay corpus 133/1 on a clean tree, and with the stage the ten Traveler games differ ONLY by four additive keys. ⚠️ Five traps, 37–41. Criterion as written: 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
 | **17** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
 | **18** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
 | **19** | Extra-Dimensional Jump Drive (§3.18) | Power-turns accumulating only while both conditions hold and resetting on a gap; the cost locked at the first turn; completion routed through `Movement::applyJumpOut`; contributors and the half-power-turn plain drive; a friendly jumped on one EW point; ⭐⭐ and a damaged EDJD rolling for detonation every active turn while the same hull's ordinary jump-out does not. |
@@ -4705,6 +4872,33 @@ Collected from the survey; each one has bitten this codebase before.
     docked-flight walk and docked-LCV walk (`carriesWalkerJumpDrive`), and the Vortex Disruptor,
     which searched only wreckage. A new "has it left?" test must ask the REMOVAL (`isDestroyed` +
     `hasJumpedToHyperspace`), or ask both questions.
+37. ⚠️ **A HANGAR SUBCLASS THAT MUST STILL CARRY FIGHTERS KEEPS `$name = 'hangar'`.** Twenty-nine
+    client sites gate the fighter launch/dock/recover UI on the name, and `SystemFactory` builds the
+    client object from it (`window[Capitalised(name)]`), so a new name silently takes the fighters'
+    UI away. Keep the name, add a discriminator flag, gate new client behaviour on the flag - the
+    ShadowHangar's precedent and now the Docking Bay's. The hit chart matches `$displayName`, which is
+    free to change and must move with the chart row in the same edit (§3.14b).
+38. ⚠️⚠️ **NOT EVERY FIGHTER CAPACITY SITE WENT THROUGH THE CHOKE POINT.** `HangarOps::effectiveCapacity`
+    and `HangarShared.effectiveHangarBoxes` are the two, but `shipTooltipFireMenu.js`'s dock AND
+    recover eligibility each recomputed `maxhealth - damage` inline and would never have seen a docked
+    ship. Both call `HangarShared` now. Grep for `maxhealth` before assuming a capacity rule reaches
+    every dialog (§3.14b).
+39. ⚠️⚠️ **THE ORDINARY HANGAR PARSER READS A PAYLOAD WITHOUT ITS OWN KEYS AS A LEGACY LAUNCH LIST**
+    and writes an EMPTY fighter launch order - which, latest note winning, cancels a real one. A Hangar
+    subclass that adds payload keys must take them out before calling the parent
+    (`DockingBay::doIndividualNotesTransfer`). The server harness proves the misfire on an ordinary
+    hangar as its control (§3.14b).
+40. ⭐ **A "ONE X PER TURN" LOCK MUST BE DECIDED FROM THE ORDERS AT LOAD, NOT BY WHOEVER RESOLVES
+    FIRST.** Hangar crit hooks run per bay in system order and the fighter coalescer runs once per
+    carrier from whichever bay reaches it first, so "first come" would be iteration order. And the lock
+    must be LATCHED: the orders are consumed as they resolve, and a lock that reads the live orders
+    reopens itself halfway through the pass. ⚠️ Keep it OUT of damage eviction, which reads boxes - a
+    lock expressed as "capacity 0" would there evict every craft aboard (§3.14b).
+41. ⚠️ **`performLCVLaunch`'s RE-INIT IS NOT SAFE FOR EVERY HULL.** It tops every Weapon to
+    `loadingtime`, which on a Walker hull would reset an Energy Draining Mine's STORE (its
+    `turnsloaded` is the mine count, Stage 6). System data loads as the latest row at or before the
+    turn, so a docked ship that is simply resurrected keeps exactly the state it docked with - which is
+    what the Docking Bay does (§3.14b).
 
 ---
 

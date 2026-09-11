@@ -27,8 +27,10 @@ class Pathfinder extends MediumShip{
         $this->rollcost = 1;
         $this->pivotcost = 2;
 		$this->iniativebonus = 14 *5;
+		//Docking Bay box cost (WALKERS_OF_SIGMA_PLAN.md 3.14, D18): 12 boxes.
+		$this->unitSize = 1/12;
 
-		$this->fighters = array("Mapmaker Probes"=>6);		
+		$this->fighters = array("Mapmaker Probes"=>6);
 
 		/*Walkers will use their own enhancement set */		
 		Enhancements::nonstandardEnhancementSet($this, 'WalkerShip');

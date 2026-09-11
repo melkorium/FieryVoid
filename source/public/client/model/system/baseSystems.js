@@ -360,6 +360,18 @@ var Hangar = function (json, ship) {
 	this.pendingLaunchOrdersDirty      = false;
 	this.pendingDockOrdersDirty        = false;
 	this.pendingDeployStartOrdersDirty = false;
+	//WALKERS_OF_SIGMA_PLAN.md 3.14 - a Docking Bay is a plain Hangar on this side (its server
+	//$name is 'hangar'); isDockingBay marks the one that also queues whole-SHIP orders, by shipId.
+	//Same hydrate-then-dirty pattern as the fighter orders above. Deploy-docks are one-shot, as
+	//for fighters, so there is nothing to hydrate for them.
+	if (this.isDockingBay) {
+		this.pendingBayShipDockOrders   = Array.isArray(this.pendingBayShipDockOrder)   ? this.pendingBayShipDockOrder.slice()   : [];
+		this.pendingBayShipLaunchOrders = Array.isArray(this.pendingBayShipLaunchOrder) ? this.pendingBayShipLaunchOrder.slice() : [];
+		this.pendingBayShipDeployStartOrders = [];
+		this.pendingBayShipDockOrdersDirty        = false;
+		this.pendingBayShipLaunchOrdersDirty      = false;
+		this.pendingBayShipDeployStartOrdersDirty = false;
+	}
 	this.refreshHangarTooltip();
 }
 Hangar.prototype = Object.create(ShipSystem.prototype);
@@ -384,7 +396,13 @@ Hangar.prototype.doIndividualNotesTransfer = function () {
 	var hasLaunch       = launchDirty      || (Array.isArray(this.pendingLaunchOrders)      && this.pendingLaunchOrders.length      > 0);
 	var hasDock         = dockDirty        || (Array.isArray(this.pendingDockOrders)        && this.pendingDockOrders.length        > 0);
 	var hasDeployStart  = deployStartDirty || (Array.isArray(this.pendingDeployStartOrders) && this.pendingDeployStartOrders.length > 0);
-	if (!hasLaunch && !hasDock && !hasDeployStart) {
+	//Docking Bay ship orders (WALKERS_OF_SIGMA_PLAN.md 3.14) - DockingBay::doIndividualNotesTransfer
+	//takes these keys out before the ordinary hangar parser sees the payload.
+	var bay = !!this.isDockingBay;
+	var hasShipDock   = bay && (!!this.pendingBayShipDockOrdersDirty        || (Array.isArray(this.pendingBayShipDockOrders)        && this.pendingBayShipDockOrders.length        > 0));
+	var hasShipLaunch = bay && (!!this.pendingBayShipLaunchOrdersDirty      || (Array.isArray(this.pendingBayShipLaunchOrders)      && this.pendingBayShipLaunchOrders.length      > 0));
+	var hasShipDeploy = bay && (!!this.pendingBayShipDeployStartOrdersDirty || (Array.isArray(this.pendingBayShipDeployStartOrders) && this.pendingBayShipDeployStartOrders.length > 0));
+	if (!hasLaunch && !hasDock && !hasDeployStart && !hasShipDock && !hasShipLaunch && !hasShipDeploy) {
 		this.individualNotesTransfer = "";
 		return;
 	}
@@ -392,7 +410,18 @@ Hangar.prototype.doIndividualNotesTransfer = function () {
 	if (hasLaunch)      payload.launches     = Array.isArray(this.pendingLaunchOrders)      ? this.pendingLaunchOrders      : [];
 	if (hasDock)        payload.docks        = Array.isArray(this.pendingDockOrders)        ? this.pendingDockOrders        : [];
 	if (hasDeployStart) payload.deployStarts = Array.isArray(this.pendingDeployStartOrders) ? this.pendingDeployStartOrders : [];
+	if (hasShipDock)    payload.bayShipDocks        = Array.isArray(this.pendingBayShipDockOrders)        ? this.pendingBayShipDockOrders        : [];
+	if (hasShipLaunch)  payload.bayShipLaunches     = Array.isArray(this.pendingBayShipLaunchOrders)      ? this.pendingBayShipLaunchOrders      : [];
+	if (hasShipDeploy)  payload.bayShipDeployStarts = Array.isArray(this.pendingBayShipDeployStartOrders) ? this.pendingBayShipDeployStartOrders : [];
 	this.individualNotesTransfer = JSON.stringify(payload);
+	if (bay) {
+		this.pendingBayShipDockOrders = [];
+		this.pendingBayShipLaunchOrders = [];
+		this.pendingBayShipDeployStartOrders = [];
+		this.pendingBayShipDockOrdersDirty = false;
+		this.pendingBayShipLaunchOrdersDirty = false;
+		this.pendingBayShipDeployStartOrdersDirty = false;
+	}
 	// Reset state — the next gamedata reload will re-hydrate from the server.
 	this.pendingLaunchOrders = [];
 	this.pendingDockOrders = [];
@@ -647,6 +676,38 @@ Hangar.prototype.refreshHangarTooltip = function () {
 		}
 	}
 
+	// WALKERS_OF_SIGMA_PLAN.md 3.14 - a Docking Bay's SHIPS share these boxes. Committed ships count
+	// (a ship queued to launch is listed "(Launching)" and frees its boxes, as a fighter does), and
+	// queued docks and deploy-docks count in. A server-hydrated order carries no box cost, so it is
+	// priced off the ship's unitSize, the same arithmetic as boxesPerCraftOf above.
+	var shipLines = [];
+	if (this.isDockingBay && typeof gamedata !== 'undefined' && gamedata.getShip) {
+		var bayShipName = function (id) {
+			var s = gamedata.getShip(id);
+			return (s && s.name) ? s.name : ('Ship ' + id);
+		};
+		var bayShipBoxesOf = function (o) {
+			if (o && o.boxes != null) return parseInt(o.boxes, 10) || 0;
+			var s = gamedata.getShip(o.shipId);
+			return Math.ceil(boxesPerCraftOf({ unitSize: s ? s.unitSize : 1 }));
+		};
+		var shipsLeaving = {};
+		(this.pendingBayShipLaunchOrders || []).forEach(function (o) { shipsLeaving[parseInt(o.shipId, 10)] = true; });
+		(this.shipsDocked || []).forEach(function (e) {
+			var leaving = !!shipsLeaving[parseInt(e.shipId, 10)];
+			if (!leaving) totalStored += parseInt(e.boxes || 0, 10);
+			shipLines.push(bayShipName(e.shipId) + ' (' + parseInt(e.boxes || 0, 10) + ' boxes)' + (leaving ? ' (Launching)' : ''));
+		});
+		(this.pendingBayShipDockOrders || []).forEach(function (o) {
+			totalStored += bayShipBoxesOf(o);
+			shipLines.push(bayShipName(o.shipId) + ' (Recovering)');
+		});
+		(this.pendingBayShipDeployStartOrders || []).forEach(function (o) {
+			totalStored += bayShipBoxesOf(o);
+			shipLines.push(bayShipName(o.shipId) + ' (Deploying)');
+		});
+	}
+
 	// Effective capacity = maxhealth - damage that got past armour, clamped >= 0.
 	// Damage is needed in the line to make hangar damage visible — without it,
 	// "Carrying: 8 / 14" never changes when boxes are destroyed but no craft
@@ -719,7 +780,7 @@ Hangar.prototype.refreshHangarTooltip = function () {
 			}
 		}
 	}
-	if (displayEntries.length === 0 && !hasLaunches && !hasForeignOccupancy) {
+	if (displayEntries.length === 0 && !hasLaunches && !hasForeignOccupancy && shipLines.length === 0) {
 		delete this.data["Stored Craft"];
 		return;
 	}
@@ -883,6 +944,7 @@ Hangar.prototype.refreshHangarTooltip = function () {
 	for (var lk in launchByClass) {
 		lines.push(launchByClass[lk].count + " x " + launchByClass[lk].name + ' (Launching)');
 	}
+	for (var sl = 0; sl < shipLines.length; sl++) lines.push(shipLines[sl]);   //Docking Bay ships (3.14)
 	this.data["Stored Craft"] = "<br>" + lines.join("<br>");
 };
 

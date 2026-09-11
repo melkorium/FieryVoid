@@ -381,10 +381,12 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
      * nothing changed keeps an ordinary turn's DB traffic at zero.
      */
     /* ⭐ CAN $unit RIDE ABOARD LEGACY OPENER $opener, beside what $reserved already promises? (user
-     * ruling 2026-09-11 - see JumpEngine::isLegacyOpener.) Only a FIGHTER FLIGHT, and only if its whole
-     * flight fits the opener's hangars. On success its boxes are added to $reserved, so the next
-     * berth in the pass sees them taken - the cumulative check the client's manifest dialog makes with
-     * DeploymentDock.planFlightsIntoCarrier.
+     * ruling 2026-09-11 - see JumpEngine::isLegacyOpener.) A FIGHTER FLIGHT whose whole flight fits the
+     * opener's hangars, or a SHIP one of its Docking Bays takes, with room (WALKERS_OF_SIGMA_PLAN.md
+     * 3.14b, user 2026-09-11). On success its boxes are added to $reserved, so the next berth in the
+     * pass sees them taken - the cumulative check the client's manifest dialog makes with
+     * DeploymentDock.planFlightsIntoCarrier. Fighters are packed in the Deployment dock's own order
+     * (HangarOps::sortBaysReservedFirst - a Docking Bay last), so both sides promise the same bays.
      *
      * The same bay rules the deploy-start dock uses (HangarOps): category, per-bay class allow-list,
      * integrated Shadow bays for their own fighters only, box cost per craft, catapults 1:1, and the
@@ -394,7 +396,18 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
      * never be honoured. */
     private static function legacyBerthFits($unit, $opener, array &$reserved)
     {
-        if (!($unit instanceof FighterFlight)) return false;
+        if (!($unit instanceof FighterFlight)){
+            $boxes = HangarOps::bayShipBoxes($unit);
+            foreach (HangarOps::collectHangars($opener) as $bay){
+                if (empty($bay->isDockingBay) || $bay->isDestroyed()) continue;
+                if (!HangarOps::bayDocksShipClass($bay, (string)$unit->phpclass)) continue;
+                $free = HangarOps::bayFreeBoxesForShips($bay, $opener) - (isset($reserved[$bay->id]) ? $reserved[$bay->id] : 0);
+                if ($free < $boxes) continue;
+                $reserved[$bay->id] = (isset($reserved[$bay->id]) ? $reserved[$bay->id] : 0) + $boxes;
+                return true;
+            }
+            return false;
+        }
 
         $category = HangarOps::trueSizeOf($unit);
         $bpc      = HangarOps::boxesPerCraftForClass($unit->phpclass);
@@ -406,7 +419,7 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
 
         $plan = array();
         $remaining = $size;
-        foreach (HangarOps::collectHangars($opener) as $hangar){
+        foreach (HangarOps::sortBaysReservedFirst(HangarOps::collectHangars($opener), $unit) as $hangar){
             if ($remaining <= 0) break;
             if ($hangar->isDestroyed()) continue;
             if (!empty($hangar->isShadowHangar) && $unit->phpclass !== 'ShadowMediumFighterFlight') continue;
@@ -483,8 +496,8 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
             $wanted = isset($claims[(int)$unit->id]) ? $claims[(int)$unit->id] : null;
             if ($wanted !== null && !isset($openers[$wanted])) $wanted = null; //no such exit
 
-            /* ⭐ A LEGACY OPENER CARRIES ONLY FIGHTERS, AND ONLY WHAT ITS HANGARS HOLD (user ruling
-               2026-09-11) - see JumpEngine::isLegacyOpener. The opener's own booking (its own id) is
+            /* ⭐ A LEGACY OPENER CARRIES ONLY FIGHTERS (AND DOCKING BAY SHIPS), AND ONLY WHAT ITS HANGARS
+               HOLD (user ruling 2026-09-11) - see JumpEngine::isLegacyOpener. The opener's own booking (its own id) is
                not a ride and passes untouched. Anything else is refused here as "no berth", exactly as
                a berth on a missing exit is: the unit simply stays in hyperspace. */
             if ($wanted !== null && $wanted !== (int)$unit->id){

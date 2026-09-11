@@ -5134,10 +5134,294 @@ class DockingCollar extends Hangar{
         //ShipSystem so we don't inherit Hangar's hangar/catapult Special block.
         ShipSystem::setSystemDataWindow($turn);
         $this->data["Special"]  = "External launch rail for LCVs.";
-        $this->data["Special"] .= "<br>LCVs can dock and launch from this system.";		
+        $this->data["Special"] .= "<br>LCVs can dock and launch from this system.";
         $this->data["Special"] .= "<br>Further details of Hangar Operations can be found in Fiery Void FAQ.";
     }
 
+}
+
+
+/* WALKERS_OF_SIGMA_PLAN.md 3.14 (Stage 16) - the Traveler's Docking Bay.
+
+   An ordinary hangar for fighters (the Mapmaker Probes use every fighter path unchanged) that ALSO
+   docks whole SHIPS by phpclass - Scribes, Pathfinders/Guideships and the Waymarker. The ship half
+   is DockingCollar's LCV dock with a LIST instead of one slot: a docked ship is removed from the
+   board, remembered in $shipsDocked, and resurrected at the carrier's hex on launch. All of that
+   logic lives in HangarOps::*BayShip* beside the LCV functions it mirrors.
+
+   ⭐ $name STAYS 'hangar' ON PURPOSE (ShadowHangar's precedent). Twenty-nine client sites gate the
+   fighter launch/dock/recover UI on name === 'hangar', and the Mapmakers need every one of them.
+   So the client builds a plain Hangar from this system and reads the isDockingBay flag instead.
+   $displayName is what the hit chart matches, which is why the chart row says "Docking Bay".
+
+   BOX ACCOUNTING. One pool of $maxhealth boxes, shared: a ship costs HangarOps::boxesPerCraftForClass
+   of its phpclass (unitSize 1/4, 1/12, 1/24 on the hulls, D18), a Mapmaker costs 1. Fighters see the
+   ships through HangarOps::effectiveCapacity, the one choke point every fighter dock gate reads; ships
+   see the fighters through occupiedBoxes. The LAUNCH RATE is per class (user, 2026-09-11): "12
+   Mapmakers OR 2 Scribes OR 1 Pathfinder" a turn, launches and recoveries together. Mapmakers keep
+   $output; each ship class has its own count in $shipLaunchRates.
+
+   ONE CRAFT TYPE PER TURN (D17), decided when the notes load - from the orders alone, so it cannot
+   depend on which bay's hook runs first. The bay's OWN fighter orders win ("it refuses a Scribe on a
+   turn a Mapmaker moved", plan 3.14): its ship orders are refused and logged. Otherwise ship orders
+   claim the bay, and it reports zero fighter capacity to every dock gate for the rest of the turn -
+   which is what stops the carrier-level coalescer routing a Mapmaker flight in from a sibling bay.
+
+   Deliberately not built: the Waymarker's two-turn procedure (3.14a, D23, deferred by the user
+   2026-09-11). The class is listed - its 24 boxes count in the Fleet Checker - but
+   DEFERRED_SHIP_CLASSES keeps it out of every dock, launch and deploy-dock. */
+class DockingBay extends Hangar{
+    public $displayName = "Docking Bay";
+
+    public $isDockingBay = true;             //the discriminator; $name stays 'hangar' (see above)
+    public $dockableShipClasses = array();   //phpclasses of SHIPS this bay docks whole
+    //phpclass => ships of that class that may launch or be recovered per turn (together).
+    public $shipLaunchRates = array();
+    //The $fighters capacity category this bay's boxes belong to. Read by the lobby's Fleet Checker
+    //only: a bought ship that could dock here counts its boxes toward that category's 50% minimum.
+    public $fleetCheckCategory = '';
+    //[{shipId, phpclass, boxes, dockTurn}] - the ship half of the bay's contents.
+    public $shipsDocked = array();
+    public $pendingBayShipDockOrder = null;   //latest bayShipDockOrder note for this turn
+    public $pendingBayShipLaunchOrder = null; //latest bayShipLaunchOrder note for this turn
+    //Transient, resolution-only: the ship phpclass that has used the bay this turn (type lock).
+    public $shipTypeThisTurn = null;
+    public $shipsMovedThisTurn = 0;   //transient: ships launched + recovered in this resolution pass
+    //Latched when the notes load, because the orders themselves are CONSUMED during resolution -
+    //and the fighter coalescer that runs after them must still find the bay closed.
+    private $shipsClaimedBayThisTurn = false;
+    private $refusedShipOrders = array();   //ship ids whose orders the type lock refused at load
+    private $lastSavedShipsDocked = null;
+    private $pendingBayShipDockTransfer = null;
+    private $pendingBayShipLaunchTransfer = null;
+    private $pendingBayShipDeployStartTransfer = null;
+
+    //A const, not a public static - see the Stage 11 note on MissileRack::stripForJson.
+    const DEFERRED_SHIP_CLASSES = array('Waymarker');
+
+    //$dockableShips: phpclass => ships of that class per turn, e.g. array('Scribe' => 2, 'Pathfinder' => 1).
+    function __construct($armour, $maxhealth, $output, $direction = 0, $dockableShips = array(), $fleetCheckCategory = ''){
+        parent::__construct($armour, $maxhealth, $output, $direction);
+        $this->shipLaunchRates = array();
+        foreach ((is_array($dockableShips) ? $dockableShips : array()) as $cls => $rate){
+            $this->shipLaunchRates[(string)$cls] = max(1, (int)$rate);
+        }
+        $this->dockableShipClasses = array_keys($this->shipLaunchRates);
+        $this->fleetCheckCategory = (string)$fleetCheckCategory;
+    }
+
+    /* Ship orders this turn claim the bay for ships (type lock). An empty order - a cancel - claims nothing. */
+    public function hasShipOrdersThisTurn(){
+        return $this->shipsClaimedBayThisTurn || !empty($this->pendingBayShipDockOrder) || !empty($this->pendingBayShipLaunchOrder);
+    }
+
+    /* A fighter dock or launch order on THIS bay this turn. An empty order (a cancel) is none. */
+    public function hasFighterOrdersThisTurn(){
+        foreach ((array)$this->pendingDockOrder as $o) if ((int)($o['count'] ?? 0) > 0) return true;
+        foreach ((array)$this->pendingLaunchOrder as $o) if ((int)($o['size'] ?? 0) > 0) return true;
+        return false;
+    }
+
+    /* Ship ids queued to START the game in this bay - read by DeploymentGamePhase, via
+       HangarOps::collectQueuedDeployStartFlightIds, BEFORE the notes are generated. */
+    public function getQueuedDeployDockShipIds(){
+        $ids = array();
+        if (!is_array($this->pendingBayShipDeployStartTransfer)) return $ids;
+        foreach ($this->pendingBayShipDeployStartTransfer as $order) $ids[] = (int)$order['shipId'];
+        return $ids;
+    }
+
+    public function onIndividualNotesLoaded($gamedata){
+        //Read this bay's own keys FIRST - the parent empties $this->individualNotes when it is done.
+        //Same chronological sort the parent uses (ids are monotonic; phase numbers are not).
+        $notes = $this->individualNotes;
+        usort($notes, function($a, $b){
+            if ($a->turn !== $b->turn) return ($a->turn < $b->turn) ? -1 : 1;
+            return ($a->id < $b->id) ? -1 : 1;
+        });
+        foreach ($notes as $note){
+            if ($note->notekey === 'bayShipsDocked'){
+                $decoded = json_decode($note->notevalue, true);
+                $this->shipsDocked = is_array($decoded) ? array_values($decoded) : array();
+                $this->lastSavedShipsDocked = $note->notevalue;
+            } else if ($note->notekey === 'bayShipDockOrder' && $note->turn == $gamedata->turn){
+                $decoded = json_decode($note->notevalue, true);
+                if (is_array($decoded)) $this->pendingBayShipDockOrder = $decoded;
+            } else if ($note->notekey === 'bayShipLaunchOrder' && $note->turn == $gamedata->turn){
+                $decoded = json_decode($note->notevalue, true);
+                if (is_array($decoded)) $this->pendingBayShipLaunchOrder = $decoded;
+            }
+        }
+
+        parent::onIndividualNotesLoaded($gamedata);
+
+        //One craft TYPE per turn (see the class note). The client never lets a player queue both;
+        //this is the server's word on it. The bay's own fighter orders win; failing those, ship
+        //orders claim the bay (and effectiveCapacity then closes it to fighters).
+        $shipOrders = !empty($this->pendingBayShipDockOrder) || !empty($this->pendingBayShipLaunchOrder);
+        if ($shipOrders && $this->hasFighterOrdersThisTurn()){
+            foreach (array_merge((array)$this->pendingBayShipDockOrder, (array)$this->pendingBayShipLaunchOrder) as $o){
+                $this->refusedShipOrders[] = (int)($o['shipId'] ?? 0);
+            }
+            $this->pendingBayShipDockOrder = null;
+            $this->pendingBayShipLaunchOrder = null;
+            $shipOrders = false;
+        }
+        $this->shipsClaimedBayThisTurn = $shipOrders;
+
+        //A docked ship is off the board. $removed is not a column - it is re-derived here on every
+        //load, exactly as the LCV rail does for its one occupant.
+        foreach ($this->shipsDocked as $entry){
+            $id = (int)($entry['shipId'] ?? 0);
+            if ($id <= 0) continue;
+            $docked = $gamedata->getShipById($id);
+            if (!$docked) continue;
+            $docked->removed = true;
+            $docked->removedTurn = (int)($entry['dockTurn'] ?? $gamedata->turn);
+        }
+    }
+
+    public function generateIndividualNotes($gamedata, $dbManager){
+        $ship = $this->getUnit();
+        $placed = $ship && $ship->getTurnPlaced($gamedata) <= $gamedata->turn;
+        if ($placed && !$ship->isDestroyed() && HangarOps::isFlowEnabled($gamedata->id)){
+            if ($this->pendingBayShipDockTransfer !== null){
+                $this->individualNotes[] = new IndividualNote(-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $ship->id, $this->id,
+                    'bayShipDockOrder', 'Docking bay ship dock order', json_encode($this->pendingBayShipDockTransfer));
+                $this->pendingBayShipDockTransfer = null;
+            }
+            if ($this->pendingBayShipLaunchTransfer !== null){
+                $this->individualNotes[] = new IndividualNote(-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $ship->id, $this->id,
+                    'bayShipLaunchOrder', 'Docking bay ship launch order', json_encode($this->pendingBayShipLaunchTransfer));
+                $this->pendingBayShipLaunchTransfer = null;
+            }
+            /* Deployment. THIS is the POST-side bay, which never loaded its notes - seed the ships
+               already aboard from the DB counterpart before anything is added, or the snapshot below
+               would replace the bay's contents with just this commit's docks. Also seeded when only
+               FIGHTERS deploy-dock, so the parent's fighter packer (effectiveCapacity) sees them.
+               Ships resolve BEFORE the parent's fighter deploy-docks on purpose: a Mapmaker flight
+               packed in the same commit then finds the ships' boxes already taken, rather than a
+               Pathfinder finding the Mapmakers in its way. */
+            if ($this->pendingBayShipDeployStartTransfer !== null || $this->pendingDeployStartTransfer !== null){
+                $dbBay = HangarOps::dbCounterpartBay($this, $ship, $gamedata);
+                if ($dbBay) $this->shipsDocked = array_values($dbBay->shipsDocked);
+            }
+            if ($this->pendingBayShipDeployStartTransfer !== null){
+                HangarOps::processBayShipDeployStartTransfer($this, $ship, $gamedata, $this->pendingBayShipDeployStartTransfer);
+                $this->pendingBayShipDeployStartTransfer = null;
+            }
+        }
+
+        parent::generateIndividualNotes($gamedata, $dbManager);
+
+        //Snapshot, change-detected - and written for a DESTROYED carrier too: a forced launch clears
+        //the list, and that cleared state must persist or the next load re-removes the ships.
+        if (!$placed) return;
+        $current = json_encode(array_values($this->shipsDocked));
+        if ($current === $this->lastSavedShipsDocked) return;
+        if ($this->lastSavedShipsDocked === null && empty($this->shipsDocked)) return;   //POST-side, nothing to say
+        $this->individualNotes[] = new IndividualNote(-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $ship->id, $this->id,
+            'bayShipsDocked', 'Docking bay ships', $current);
+        $this->lastSavedShipsDocked = $current;
+    }
+
+    public function criticalPhaseEffects($ship, $gamedata){
+        //Ships first: a bay they have claimed is closed to fighters anyway, and a bay destroyed this
+        //turn must put its ships back on the board before the parent wipes its fighters. A destroyed CARRIER's ships
+        //are HangarOps::processDockingBayCarrierDestruction's, run from criticals.php (Pass 3).
+        if (!$ship->isDestroyed()){
+            //Ship orders the type lock refused at load: say so in the log, as a failed dock does.
+            foreach ($this->refusedShipOrders as $refusedId){
+                Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $gamedata->turn, $gamedata->phase, $ship->id, $this->id,
+                    'hangarDockEvent', 'Docking bay ship order refused', 'fail:' . $refusedId . ':bay already used by another craft type this turn'));
+            }
+            $this->refusedShipOrders = array();
+            if ($this->isDestroyed()){
+                HangarOps::onDockingBayDestroyed($this, $ship, $gamedata);
+            } else {
+                HangarOps::processBayShipDockOrders($this, $ship, $gamedata);
+                HangarOps::processBayShipLaunchOrders($this, $ship, $gamedata);
+            }
+        }
+        parent::criticalPhaseEffects($ship, $gamedata);
+    }
+
+    /* The bay's own payload keys are taken out of the transfer before the parent sees it - the
+       parent reads a payload with none of ITS keys as a legacy launch list, and would then write an
+       empty fighter launch order over a real one. */
+    public function doIndividualNotesTransfer(){
+        $raw = $this->individualNotesTransfer;
+        $payload = (is_string($raw) && $raw !== '') ? json_decode($raw, true) : null;
+        if (is_array($payload)){
+            $touched = false;
+            if (array_key_exists('bayShipDocks', $payload)){
+                $this->pendingBayShipDockTransfer = self::cleanShipOrders($payload['bayShipDocks'], true);
+                unset($payload['bayShipDocks']);
+                $touched = true;
+            }
+            if (array_key_exists('bayShipLaunches', $payload)){
+                $this->pendingBayShipLaunchTransfer = self::cleanShipOrders($payload['bayShipLaunches'], false);
+                unset($payload['bayShipLaunches']);
+                $touched = true;
+            }
+            if (array_key_exists('bayShipDeployStarts', $payload)){
+                $this->pendingBayShipDeployStartTransfer = self::cleanShipOrders($payload['bayShipDeployStarts'], false);
+                unset($payload['bayShipDeployStarts']);
+                $touched = true;
+            }
+            if ($touched) $this->individualNotesTransfer = empty($payload) ? '' : json_encode($payload);
+        }
+        parent::doIndividualNotesTransfer();
+    }
+
+    /* [{shipId, thrustLeft?}] - anything else the client sends (its own box projection) is dropped;
+       the server prices every ship itself. */
+    private static function cleanShipOrders($orders, $withThrust){
+        $clean = array();
+        if (!is_array($orders)) return $clean;
+        foreach ($orders as $order){
+            if (!is_array($order)) continue;
+            $shipId = isset($order['shipId']) ? (int)$order['shipId'] : 0;
+            if ($shipId <= 0) continue;
+            $row = array('shipId' => $shipId);
+            if ($withThrust) $row['thrustLeft'] = isset($order['thrustLeft']) ? (int)$order['thrustLeft'] : 0;
+            $clean[] = $row;
+        }
+        return $clean;
+    }
+
+    public function stripForJson(){
+        $strippedSystem = parent::stripForJson();
+        $strippedSystem->isDockingBay = true;
+        $strippedSystem->dockableShipClasses = $this->dockableShipClasses;
+        $strippedSystem->shipLaunchRates = (object)$this->shipLaunchRates;   //a map, so never a JSON []
+        $strippedSystem->deferredShipClasses = self::DEFERRED_SHIP_CLASSES;
+        //An ENCLOSED bay, so its ships follow the same own-team mask as its hangarUsage (the parent
+        //has already raised hangarUsageHidden for everyone else), and so do its queued orders.
+        $disclosed = $this->isDisclosedToCurrentViewer();
+        $strippedSystem->shipsDocked = $disclosed ? array_values($this->shipsDocked) : array();
+        if ($disclosed){
+            if ($this->pendingBayShipDockOrder !== null)   $strippedSystem->pendingBayShipDockOrder   = $this->pendingBayShipDockOrder;
+            if ($this->pendingBayShipLaunchOrder !== null) $strippedSystem->pendingBayShipLaunchOrder = $this->pendingBayShipLaunchOrder;
+        }
+        return $strippedSystem;
+    }
+
+    public function setSystemDataWindow($turn){
+        parent::setSystemDataWindow($turn);
+        $ships = array();
+        foreach ($this->dockableShipClasses as $cls){
+            $label = $cls . ' (' . HangarOps::boxesPerCraftForClass($cls) . ' boxes, ' . $this->shipLaunchRates[$cls] . ' per turn';
+            if (in_array($cls, self::DEFERRED_SHIP_CLASSES, true)) $label .= ', not yet available';
+            $ships[] = $label . ')';
+        }
+        $this->data["Type"] = ($this->fleetCheckCategory !== '' ? $this->fleetCheckCategory : 'Fighters') . ' + Ships';
+        $this->data["Special"]  = "Docking bay: carries fighters AND whole ships, sharing one pool of boxes.";
+        if (!empty($ships)) $this->data["Special"] .= "<br>Ships: " . implode(', ', $ships) . ".";
+        $this->data["Special"] .= "<br>Only ONE type of craft may launch or be recovered per turn: " . $this->output . " fighters, or the ships per turn listed above (launches and recoveries together).";
+        $this->data["Special"] .= "<br>A docking ship must end its move in this hex on the carrier's heading, with 1 thrust unspent, while the carrier is at speed 0.";
+        $this->data["Special"] .= "<br>Details of Hangar Operations can be found in Fiery Void FAQ.";
+    }
 }
 
 
@@ -6793,7 +7077,8 @@ class JumpEngine extends Weapon{
      *
      * An Ancient special jump drive, the Shadow Phasing Drive or a BSG / Star Wars / Trek drive phases its
      * own ship in through a doorway nobody else can use - it opens no jump point - so its manifest may
-     * hold only FIGHTERS its hangars can take, and those arrive DOCKED inside it
+     * hold only FIGHTERS its hangars can take, and SHIPS its Docking Bay can (WALKERS_OF_SIGMA_PLAN.md
+     * 3.14b), and those arrive DOCKED inside it
      * (InitialOrdersGamePhase::legacyBerthFits at the manifest, DeploymentGamePhase at arrival). A gate
      * is never one. Goes through getUnitJumpEngines, so a Mapmaker flight's drive is found on its craft.
      * Client mirror: shipManager.movement.isLegacyOpener. */
@@ -6806,11 +7091,13 @@ class JumpEngine extends Weapon{
         return false;
     }
 
-    /* The legacy-drive opener this FIGHTER FLIGHT is booked to arrive inside, or null. Its own doorway
-     * (arrivalVia == its own id) is not a ride. Client mirror: shipManager.movement.getLegacyRideHost. */
+    /* The legacy-drive opener this unit is booked to arrive inside, or null - a fighter flight, or a
+     * ship a Docking Bay takes (WALKERS_OF_SIGMA_PLAN.md 3.14b); the manifest admits nothing else onto
+     * a legacy opener. Its own doorway (arrivalVia == its own id) is not a ride.
+     * Client mirror: shipManager.movement.getLegacyRideHost. */
     public static function getLegacyRideHost($unit, $gamedata)
     {
-        if (!($unit instanceof FighterFlight)) return null;
+        if (!$unit) return null;
         if ($unit->arrivalVia === null || (int)$unit->arrivalVia === (int)$unit->id) return null;
 
         $opener = $gamedata->getShipById((int)$unit->arrivalVia);
