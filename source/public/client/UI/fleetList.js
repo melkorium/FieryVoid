@@ -778,6 +778,26 @@ window.fleetListManager = {
             return;
         }
 
+        /* WALKERS_OF_SIGMA_PLAN.md 3.15 (Stage 17), user 2026-09-12: a whole SHIP stowed inside
+           another - a Scribe in a Traveler's Docking Bay, an LCV on a rail - scrolls to its
+           CARRIER, which is where it actually is. That keeps left-click meaning the one thing it
+           means everywhere else in this list ("show me where this is") instead of becoming a
+           second way to open a window; RIGHT-CLICK / the ⓘ affordance is the window, and for a
+           docked unit that is the only route to its repair queue and its power.
+           A docked FLIGHT is deliberately NOT here: it has no hex of its own to be shown at and
+           its window has been the row's click since Hangar Ops Stage 9.1 (isOffBoardButOurs above).
+           ⚠️ ABOVE the shouldBeHidden guard, and it has to be: that guard reads every removed unit
+           as destroyed, so below it this branch could never run. */
+        var carrier = fleetListManager.carrierHolding(ship);
+        if (carrier) {
+            if (shipManager.shouldBeHidden(carrier)) return;   //carrier gone or not on the board - nothing to scroll to
+            window.webglScene.customEvent('ScrollToShip', {
+                shipId: carrier.id,
+                select: !!(options && options.select)
+            });
+            return;
+        }
+
         if (shipManager.shouldBeHidden(ship)) { //Enemy, stealth equipped and undetected, or not deployed yet.
             return; //Do not scroll to Stealthed ships
         }
@@ -786,6 +806,34 @@ window.fleetListManager = {
             shipId: shipId,
             select: !!(options && options.select)
         });
+    },
+
+    /* The ship this one is stowed INSIDE, or null. Twin of ajaxInterface.isDepartedWithCarrier's
+       walk and deliberately the same shape: a rail's one LCV lives in `lcvDocked`, a Docking Bay's
+       ships in `shipsDocked` (WALKERS_OF_SIGMA_PLAN.md 3.14), and a docked FLIGHT is neither - it
+       is linked through hangarUsage and is answered by isOffBoardButOurs instead.
+       ⚠️ Ship ids are STRINGS on anything spawned mid-battle (LAST_INSERT_ID), so compare parsed
+       numbers, never raw values.
+       Costs nothing until something is actually stowed: the early-outs reject every unit that is
+       not `removed`, which in a normal turn is all of them. */
+    carrierHolding: function carrierHolding(ship) {
+        if (!ship || !ship.removed || ship.flight) return null;
+        var id = parseInt(ship.id, 10);
+
+        for (var i in gamedata.ships) {
+            var carrier = gamedata.ships[i];
+            if (!carrier || carrier === ship || !Array.isArray(carrier.systems)) continue;
+
+            for (var s = 0; s < carrier.systems.length; s++) {
+                var rail = carrier.systems[s];
+                if (!rail) continue;
+                var aboard = (rail.lcvDocked && parseInt(rail.lcvDocked.shipId, 10) === id)
+                    || (rail.isDockingBay && Array.isArray(rail.shipsDocked)
+                        && rail.shipsDocked.some(function (e) { return parseInt(e.shipId, 10) === id; }));
+                if (aboard) return carrier;
+            }
+        }
+        return null;
     },
 
     /* "Off the board, but yours and still coming back" - the two states whose row opens a

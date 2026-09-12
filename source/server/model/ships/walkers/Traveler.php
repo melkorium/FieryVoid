@@ -40,7 +40,13 @@ class Traveler extends BaseShip{
 		$scanner->markAdvanced();
 		$this->addPrimarySystem($scanner);			
 		$this->addPrimarySystem(new Engine(7, 28, 0, 16, 4));
-        $this->addPrimarySystem(new SelfRepair(7, 22, 9)); //armor, structure, output
+		//STAGE 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): the only Self Repair in the game that also services
+		//what its ship carries - the Structure, C&C, Self Repair and criticals of every SHIP docked in
+		//the aft Docking Bay, always after its own hull. Set on the instance, not a subclass, so the
+		//hit chart's "Self Repair" row and every existing SelfRepair path are untouched.
+		$travelerRepair = new SelfRepair(7, 22, 9); //armor, structure, output
+		$travelerRepair->servicesDockedUnits = true;
+		$this->addPrimarySystem($travelerRepair);
 		$jumpEngine = new JumpEngine(7, 30, 12, 6);
 		$jumpEngine->markWalker(); //Stage 15: leaves at the END of the turn, untargetable while it waits, no failure roll
 		$this->addPrimarySystem($jumpEngine);		

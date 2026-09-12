@@ -2048,6 +2048,59 @@ class HangarOps {
 		return true;
 	}
 
+	/* ===================================================================================
+	 * WALKERS_OF_SIGMA_PLAN.md 3.15 (Stage 17) - A DOCKED SHIP STILL REPAIRS ITSELF
+	 * ===================================================================================
+	 * ⚠️⚠️ A docked ship is `removed`, and `BaseShip::isDestroyed()` with no argument answers
+	 * TRUE for anything removed - so Criticals::setCriticals' $activeShips snapshot never
+	 * contains it and NOTHING on it runs criticalPhaseEffects. Left alone, a Scribe's own
+	 * Self Repair would go quiet the instant it docked, which is not the rule the user set:
+	 * a docked unit keeps repairing its own hull out of its own pool, and the Traveler's
+	 * Self Repair is a SECOND source on top (SelfRepair::gatherDockedUnitRepairs), not a
+	 * replacement for it.
+	 *
+	 * ⭐ ONLY the docked unit's Self Repair is driven, not its whole system list. Running the
+	 * full critical-phase sweep on a unit the engine has deliberately excluded would wake its
+	 * hangars, its dock orders and its area effects inside a closed bay; this is the one hook
+	 * the ruling asks for. StructureSelfRepair is deliberately NOT included either: no
+	 * dockable hull carries one, and its cooperative subclass repairs OTHER ships within five
+	 * hexes - which, driven from inside a bay, would reach off the carrier.
+	 *
+	 * ⭐ ONCE PER RESOLUTION, and the guard is on the CARRIER's bay rather than a static,
+	 * because two callers want it: the Traveler's own Self Repair (which wants it to have
+	 * happened before it builds its queue, so the docked unit's own points are spent first)
+	 * and DockingBay::criticalPhaseEffects (which covers a Traveler whose Self Repair is
+	 * destroyed). Transient and never serialised - the same shape as
+	 * BaseShip::$dockCoalesceDone / $dockRegenSweepDone, but on the BAY rather than the hull,
+	 * because a system-level flag can be taken out of the static blueprints by ShipCompactor's
+	 * $falseKeys and those two hull-level ones ride 2,580 blueprints as "false".
+	 */
+	public static function runDockedShipsSelfRepair($carrier, $gamedata){
+		if (!$carrier || !is_array($carrier->systems)) return;
+		foreach ($carrier->systems as $bay) {
+			if (empty($bay->isDockingBay) || empty($bay->shipsDocked)) continue;
+			if (!empty($bay->dockedSelfRepairDone)) continue;
+			$bay->dockedSelfRepairDone = true;
+			foreach ($bay->shipsDocked as $entry) {
+				$docked = $gamedata->getShipById((int)($entry['shipId'] ?? 0));
+				if (!$docked || !is_array($docked->systems)) continue;
+				/* ⚠️ A ship that docked THIS turn flew here under its own power, so it was on the
+				 * board when setCriticals snapshotted $activeShips and Pass 2 runs its systems in
+				 * their own right - repairing it here as well would pay for the same damage twice
+				 * out of two pools. A DEPLOYMENT dock is the exception: it was removed before the
+				 * snapshot was taken, so on turn 1 this hook is its only source. Written as a test
+				 * on the entry rather than left to the order of the carrier's system list, which
+				 * decides which of the two callers gets here first. */
+				if ((int)$docked->removedTurn === (int)$gamedata->turn && empty($entry['deploy'])) continue;
+				foreach ($docked->systems as $sys) {
+					if (!($sys instanceof SelfRepair)) continue;
+					if ($sys->isDestroyed()) continue;
+					$sys->criticalPhaseEffects($docked, $gamedata);
+				}
+			}
+		}
+	}
+
 	/* Pass 3 sibling of processLCVCarrierDestruction. ⚠️ A carrier that LEFT through hyperspace is
 	 * also "destroyed" (it is removed) - its ships leave WITH it, so it is skipped exactly as
 	 * processCarrierDestructionEscapes skips it. */

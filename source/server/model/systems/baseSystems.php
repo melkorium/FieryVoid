@@ -5187,6 +5187,10 @@ class DockingBay extends Hangar{
     //Transient, resolution-only: the ship phpclass that has used the bay this turn (type lock).
     public $shipTypeThisTurn = null;
     public $shipsMovedThisTurn = 0;   //transient: ships launched + recovered in this resolution pass
+    /*Stage 17 (3.15): transient once-per-resolution guard for HangarOps::runDockedShipsSelfRepair,
+    which has two callers - this bay and the carrier's own Self Repair - and must run exactly once,
+    before the carrier's queue is built. Not persisted and not serialised; fresh false each load.*/
+    public $dockedSelfRepairDone = false;
     //Latched when the notes load, because the orders themselves are CONSUMED during resolution -
     //and the fighter coalescer that runs after them must still find the bay closed.
     private $shipsClaimedBayThisTurn = false;
@@ -5341,6 +5345,12 @@ class DockingBay extends Hangar{
             } else {
                 HangarOps::processBayShipDockOrders($this, $ship, $gamedata);
                 HangarOps::processBayShipLaunchOrders($this, $ship, $gamedata);
+                /*Stage 17 (3.15): the ships that are STILL aboard after this turn's traffic repair
+                themselves. Guarded, so it is a no-op when the carrier's own Self Repair already ran
+                it - this branch is what covers a carrier whose Self Repair is destroyed. AFTER the
+                launches on purpose: a ship that has just left the bay is on the board again and the
+                ordinary Pass 2 sweep will reach it in its own right.*/
+                HangarOps::runDockedShipsSelfRepair($ship, $gamedata);
             }
         }
         parent::criticalPhaseEffects($ship, $gamedata);
@@ -12101,6 +12111,15 @@ class SelfRepair extends ShipSystem{
 	public $repairRestrictedTo = null; //array of system ids this system may service; null = no restriction
 	public $outputDoubled = false; //docked Heavy Orbital: internal self repair works at double rate
 	public $linkedOrbital = null; //set by KirishiacHeavyOrbital::addOrbitalSystem - null on standard mounts
+
+	/*WALKERS_OF_SIGMA_PLAN.md 3.15 (Stage 17) - the Traveler's Docking Bay carries whole SHIPS, and
+	the Traveler's Self Repair services them. True ONLY on that one mount; every other Self Repair in
+	the game pays one boolean test for it, exactly as it pays one null check for $repairRestrictedTo.
+	What it services on a docked unit is NARROWER than a whole-ship pass - Structure, C&C, that unit's
+	own Self Repair, and criticals - and those entries sit BELOW every one of the Traveler's own in
+	the queue (tier 1, see sortUnifiedRepairQueue). Repairing a Self Repair is an explicit EXCEPTION
+	to this class's own standing rule, which is why the exception is written here, where the rule is.*/
+	public $servicesDockedUnits = false; //Traveler only: also repairs the ships docked in its bays
       
 	
 	//SelfRepair itself is most important to be repaired - as it's the condition of further repairs being effected!
@@ -12149,6 +12168,16 @@ class SelfRepair extends ShipSystem{
 			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": only repairs systems on the orbital itself.";
 			$this->data["Special"] .= "<br>While the orbital is docked output is DOUBLED.";
 		}
+		/*Stage 17. The "cannot repair Self Repair systems" line above is contradicted for docked
+		units, so the exception is spelled out immediately under it rather than left to be found.*/
+		if ($this->servicesDockedUnits){
+			$this->data["Special"] .= "<br>Also repairs SHIPS docked in this vessel's docking bays: their Structure,";
+			$this->data["Special"] .= " C&amp;C, Self Repair and critical effects - Self Repair included, which is the one";
+			$this->data["Special"] .= " case the rule above does not cover.";
+			$this->data["Special"] .= "<br>Docked units are repaired out of THIS system's points, and always after";
+			$this->data["Special"] .= " every repairable item on this vessel itself.";
+			$this->data["Special"] .= "<br>A docked ship's own Self Repair keeps working on its own hull as well.";
+		}
 	}
 
 	
@@ -12164,6 +12193,17 @@ class SelfRepair extends ShipSystem{
 
 	    /* sorts generated repair queue */
     public static function sortUnifiedRepairQueue($a, $b){
+        //Stage 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): TIER BEATS EVERYTHING, priority included. Tier 0
+        //is this vessel's own damage, tier 1 a unit docked in its bays - the Traveler helps what it
+        //carries only once it has finished with itself, so a docked entry can never be promoted past
+        //an own one however the player sets the priorities. Absent = 0, so every other Self Repair in
+        //the game (and any queue built before this stage) sorts exactly as it did.
+        $aTier = isset($a['tier']) ? $a['tier'] : 0;
+        $bTier = isset($b['tier']) ? $b['tier'] : 0;
+        if($aTier !== $bTier){
+            return $aTier - $bTier; //lower tier first
+        }
+
 		if($a['priority'] !== $b['priority']){
             return $b['priority'] - $a['priority']; //higher priority first!
         }
@@ -12178,7 +12218,16 @@ class SelfRepair extends ShipSystem{
             return $aOv ? -1 : 1; //overridden entry first
         }
 
-        //Deterministic Sort: System ID then SubID
+        //Deterministic Sort: owning SHIP, then System ID, then SubID. The ship comes first because
+        //tier 1 holds entries from SEVERAL docked units and system ids are per-ship - without it two
+        //docked hulls' systems would interleave on a shared id and the order would depend on which
+        //bay was walked first. Absent = 0 on every tier-0 entry, so an ordinary queue is unaffected.
+        $aShip = isset($a['shipId']) ? $a['shipId'] : 0;
+        $bShip = isset($b['shipId']) ? $b['shipId'] : 0;
+        if($aShip !== $bShip){
+            return $aShip - $bShip;
+        }
+
         if($a['id'] !== $b['id']){
             return $a['id'] - $b['id'];
         }
@@ -12231,6 +12280,15 @@ class SelfRepair extends ShipSystem{
         $repairQueue = array();
         $ship=$this->getUnit();
 
+		/*Stage 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): a DOCKED unit is `removed`, and `removed` reads as
+		destroyed - so Criticals::setCriticals never reaches it and its OWN Self Repair would silently
+		stop working the moment it docked. The user's ruling is that it keeps working on its own hull,
+		so someone has to drive it, and the carrier is the only thing that knows the unit is there.
+		⭐ RUN IT FIRST, and out of the docked unit's own pool: what it fixes for itself is not billed
+		to the Traveler. DockingBay::criticalPhaseEffects calls the same helper (guarded, once per
+		resolution) so this still happens when the Traveler's own Self Repair is destroyed.*/
+		if ($this->servicesDockedUnits) HangarOps::runDockedShipsSelfRepair($ship, $gamedata);
+
         // 1. Gather Systems
 		foreach($ship->systems as $system){
 			if ( $system->maxhealth <= $system->getRemainingHealth() ) continue; //skip undamaged systems...
@@ -12273,6 +12331,10 @@ class SelfRepair extends ShipSystem{
 			    $repairQueue[] = array(
                     'type' => 'system',
                     'obj' => $system,
+                    'ship' => $ship,      // Stage 17: whose system this is - the DamageEntry is filed against it
+                    'shipId' => 0,        // Stage 17: 0 = this vessel's own; a docked unit's real id sorts after
+                    'tier' => 0,          // Stage 17: own damage always outranks a docked unit's
+                    'key' => $system->id, // Stage 17: the priorityChanges key (composite for docked units)
                     'priority' => $prio,
                     'overridden' => $isOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => $toBeRepaired, // Needed for unified repair logic
@@ -12322,6 +12384,10 @@ class SelfRepair extends ShipSystem{
                     'type' => 'critical',
                     'obj' => $critDmg,
                     'sys' => $systemToRepair, // We need the system object to execute repair
+                    'ship' => $ship,     // Stage 17: whose critical this is
+                    'shipId' => 0,       // Stage 17: 0 = this vessel's own
+                    'tier' => 0,         // Stage 17: own damage always outranks a docked unit's
+                    'key' => $compKey,   // Stage 17: the priorityChanges key
                     'priority' => $critPrio,
                     'overridden' => $critOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
                     'cost' => self::getEffectiveCriticalRepairCost($critDmg, $systemToRepair), //C&C crits cost 4 (B5W), everything else its own repairCost
@@ -12329,6 +12395,12 @@ class SelfRepair extends ShipSystem{
                     'subId' => $critDmg->id // SubID for sorting
                 );
             }
+        }
+
+        // 2b. Gather what the docked units need (Stage 17). Appended as tier 1, so the sort below
+        // keeps every one of them under everything above regardless of priority.
+        if ($this->servicesDockedUnits){
+            foreach ($this->gatherDockedUnitRepairs($ship, $gamedata) as $job) $repairQueue[] = $job;
         }
 		
         // 3. Sort
@@ -12351,6 +12423,10 @@ class SelfRepair extends ShipSystem{
              } else {
                  // System Repair
                  $systemToRepair = $job['obj'];
+                 //Stage 17: the OWNER of the system, which is this vessel for a tier-0 job and a
+                 //docked unit for a tier-1 one. The DamageEntry's shipid must name it or the row is
+                 //filed against the wrong hull and the repair vanishes on the next load.
+                 $ownerShip = isset($job['ship']) ? $job['ship'] : $ship;
                  
 			    $currentDamage = $systemToRepair->maxhealth - $systemToRepair->getRemainingHealth( );
 			    $causedThisTurn = $systemToRepair->damageReceivedOnTurn($gamedata->turn);
@@ -12364,7 +12440,7 @@ class SelfRepair extends ShipSystem{
 					    $undestroy=true;
 				    }
 				    //actual healing entry
-				    $damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $systemToRepair->id, -$toBeFixed, 0, 0, -1, false, $undestroy, 'SelfRepair', 'SelfRepair');
+				    $damageEntry = new DamageEntry(-1, $ownerShip->id, -1, $gamedata->turn, $systemToRepair->id, -$toBeFixed, 0, 0, -1, false, $undestroy, 'SelfRepair', 'SelfRepair');
 				    $damageEntry->updated = true;
 				    $systemToRepair->damage[] = $damageEntry;
 				    //mark repair points used
@@ -12373,12 +12449,16 @@ class SelfRepair extends ShipSystem{
 
 				    //Check if fully repaired, and if so remove from priority list!
 				    if ($systemToRepair->getRemainingHealth() >= $systemToRepair->maxhealth){
-					    if(array_key_exists($systemToRepair->id, $this->priorityChanges)){
-						    unset($this->priorityChanges[$systemToRepair->id]);
+					    //Stage 17: $job['key'] is the system id for our own systems and the composite
+					    //d<shipid>:<sysid> for a docked unit's - the two must never be confused, or a
+					    //docked Scribe's repair would clear the override on OUR system of that id.
+					    $overrideKey = isset($job['key']) ? $job['key'] : $systemToRepair->id;
+					    if(array_key_exists($overrideKey, $this->priorityChanges)){
+						    unset($this->priorityChanges[$overrideKey]);
 						    //and create note to remove it from DB/Client
 						    $notekey = 'override';
 						    $noteHuman = 'Repair priority override removed';
-						    $noteValue = $systemToRepair->id . ';-1';
+						    $noteValue = $overrideKey . ';-1';
 						    $this->individualNotes[] = new IndividualNote(-1,TacGamedata::$currentGameID,$gamedata->turn,$gamedata->phase,$ship->id,$this->id,$notekey,$noteHuman,$noteValue);//$id,$gameid,$turn,$phase,$shipid,$systemid,$notekey,$notekey_human,$notevalue
 					    }
 				    }
@@ -12387,8 +12467,128 @@ class SelfRepair extends ShipSystem{
         }
 			
     } //endof function criticalPhaseEffects
-	
-	
+
+
+	/* ===================================================================================
+	   STAGE 17 - WHAT THE TRAVELER REPAIRS IN ITS BAYS (WALKERS_OF_SIGMA_PLAN.md 3.15)
+	   ===================================================================================
+	   Builds the tier-1 half of the queue: one job per repairable item on each SHIP docked
+	   in $carrier's Docking Bays. The CLIENT mirror (SelfRepairList.getDockedRepairables)
+	   builds the identical list from the identical facts - the two must agree, because the
+	   menu is what the player sets the priorities in and this is what spends the points.
+
+	   WHAT COUNTS, and it is deliberately narrower than a whole-ship pass (the user's brief:
+	   "structure, CnC, Critical effects and SelfRepair systems"):
+	     - damaged Structure blocks   (a DESTROYED one is still out of reach, same as always)
+	     - damaged C&C                (the whole CnC class family, as elsewhere)
+	     - damaged Self Repair        - the exception this stage exists for
+	     - every repairable critical on ANY of the docked unit's systems ("critical effects")
+	   Everything else on the docked hull - its weapons, thrusters, sensors - is not offered.
+
+	   ⚠️ THE KEY IS COMPOSITE. Overrides live on the CARRIER's Self Repair, so a docked entry
+	   needs the docked unit in its priorityChanges key or two docked hulls (or a docked hull
+	   and the carrier) would collide on a shared system id. The format is 'd<shipid>:<sysid>'
+	   and 'd<shipid>:<sysid>-<critid>'; the client builds the same strings, and the note
+	   round-trip splits on ';' alone so a ':' in the key is safe.
+
+	   ⚠️ A docked unit is `removed`, which reads as DESTROYED - so isDestroyed($turn) on its
+	   SYSTEMS is still the right question (that is per-system state) but any ship-level
+	   isDestroyed() test would refuse the whole unit. There is none here on purpose. */
+	private function gatherDockedUnitRepairs($carrier, $gamedata){
+		$jobs = array();
+		foreach ($carrier->systems as $bay){
+			if (empty($bay->isDockingBay) || !is_array($bay->shipsDocked)) continue;
+			foreach ($bay->shipsDocked as $entry){
+				$docked = $gamedata->getShipById((int)($entry['shipId'] ?? 0));
+				if (!$docked || !is_array($docked->systems)) continue;
+				$prefix = 'd' . $docked->id . ':';
+
+				foreach ($docked->systems as $system){
+					$serviceable = ($system instanceof Structure) || ($system instanceof CnC) || ($system instanceof SelfRepair);
+
+					//Criticals first - they are offered on EVERY system, not just the serviceable three.
+					if (!$system->isDestroyed($gamedata->turn) && $system->repairPriority >= 1){
+						foreach ($system->criticals as $critDmg){
+							if ($critDmg->repairPriority < 1) continue;
+							if ($critDmg->turn >= $gamedata->turn) continue;          //caused this turn (or later)
+							if ($critDmg->oneturn || ($critDmg->turnend > 0)) continue; //temporary, or already cleared
+							//The default: a critical inherits its system's priority unless it already
+							//carries one of its own (>=10), exactly as on the carrier's own hull.
+							$critKey = $prefix . $system->id . '-' . $critDmg->id;
+							$critPrio = $critDmg->repairPriority;
+							$critOverridden = false;
+							if (array_key_exists($critKey, $this->priorityChanges) && ($this->priorityChanges[$critKey] >= 0)){
+								$critPrio = $this->priorityChanges[$critKey];
+								$critOverridden = true;
+							}elseif ($critPrio < 10){
+								$critPrio += $system->repairPriority;
+							}
+							if ($critPrio < 1) continue; //player set it to "do not repair"
+							$jobs[] = array(
+								'type' => 'critical',
+								'obj' => $critDmg,
+								'sys' => $system,
+								'ship' => $docked,
+								'shipId' => (int)$docked->id,
+								'tier' => 1,
+								'key' => $critKey,
+								'priority' => $critPrio,
+								'overridden' => $critOverridden,
+								'cost' => self::getEffectiveCriticalRepairCost($critDmg, $system),
+								'id' => $system->id,
+								'subId' => $critDmg->id
+							);
+						}
+					}
+
+					if (!$serviceable) continue;
+					if ($system->repairPriority < 1) continue;
+					if ($system->maxhealth <= $system->getRemainingHealth()) continue; //undamaged
+
+					if ($system instanceof Structure){
+						if ($system->isDestroyed($gamedata->turn)) continue; //destroyed Structure is out of reach, as ever
+					}else{
+						//A system in a blown section cannot be reached - the same rule the own-ship pass applies.
+						$strBlock = $docked->getStructureSystem($system->getStructureLocation());
+						if ($strBlock && $strBlock->isDestroyed($gamedata->turn)) continue;
+					}
+
+					$toBeRepaired = ($system->maxhealth - $system->getRemainingHealth()) - $system->damageReceivedOnTurn($gamedata->turn);
+					if ($toBeRepaired < 1) continue;
+
+					/*The player's override, then the destroyed bump - the same order and the same
+					"only if it was not overridden" rule the own-ship pass uses. A docked entry can
+					be reordered WITHIN tier 1; it can never climb out of it.*/
+					$sysKey = $prefix . $system->id;
+					$prio = $system->repairPriority;
+					$isOverridden = false;
+					if (array_key_exists($sysKey, $this->priorityChanges) && ($this->priorityChanges[$sysKey] >= 0)){
+						$prio = $this->priorityChanges[$sysKey];
+						$isOverridden = true;
+					}
+					if ($prio < 1) continue; //player set it to "do not repair"
+					if (!$isOverridden && ($prio <= 10) && $system->isDestroyed($gamedata->turn)) $prio += 10;
+
+					$jobs[] = array(
+						'type' => 'system',
+						'obj' => $system,
+						'ship' => $docked,
+						'shipId' => (int)$docked->id,
+						'tier' => 1,
+						'key' => $sysKey,
+						'priority' => $prio,
+						'overridden' => $isOverridden,
+						'cost' => $toBeRepaired,
+						'maxhealth' => $system->maxhealth,
+						'id' => $system->id,
+						'subId' => 0
+					);
+				}
+			}
+		}
+
+		return $jobs;
+	}
 
 	/* this method generates additional non-standard informaction in the form of individual system notes
 	in this case: 
@@ -12449,9 +12649,18 @@ class SelfRepair extends ShipSystem{
         $strippedSystem->data = $this->data;
 		//$strippedSystem->output = $this->getOutput();	//actual output is constant, and outputMod is correctly shown in front end!
         if (isset($this->priorityChanges) && !empty($this->priorityChanges)) {
-            $strippedSystem->priorityChanges = $this->priorityChanges;
+            //Stage 17: cast, so this is always a JSON OBJECT. It is keyed by system id today and by
+            //'d<shipid>:<sysid>' for a docked unit's entries, and a PHP array only encodes as an
+            //object while its keys are not a 0..n-1 run - which is a property of the ids, not a
+            //guarantee. The client indexes it by key either way; the cast makes that true by
+            //construction (arch_php_empty_array_json).
+            $strippedSystem->priorityChanges = (object)$this->priorityChanges;
         }
         //$strippedSystem->priorityChanges = $this->priorityChanges;
+		/*Stage 17: the flag the client's Manage Repair Queue reads to know it should also offer the
+		ships in this vessel's bays. Sent on the WIRE rather than left to the static blueprint so it
+		works without regenerating the statics, and only when true, so nothing else pays for it.*/
+		if ($this->servicesDockedUnits) $strippedSystem->servicesDockedUnits = true;
 		if ($this->linkedOrbital !== null){ //mounted on a Kirishiac Heavy Orbital - dynamic per-load state
 			$strippedSystem->repairRestrictedTo = ($this->repairRestrictedTo !== null) ? array_values($this->repairRestrictedTo) : null; //Manage Repair Queue filter
 			$strippedSystem->outputDoubled = $this->outputDoubled;

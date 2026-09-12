@@ -250,7 +250,16 @@ class ShipCompactor
                       'designedToRam','noLockPenalty','useOEW',
                       /* Stage 12 (WALKERS_OF_SIGMA_PLAN.md 3.11): the flight-EW lock-on flag. Read in
                          exactly one client site, weaponManager.computeOEW, as a truthy test. */
-                      'useFlightEW'];
+                      'useFlightEW',
+                      /* Stage 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): the Traveler's "also repairs the
+                         ships in my bays" flag. One client read site, SelfRepairList, truthy. The
+                         Traveler's own mount is TRUE, so this only drops it off the several hundred
+                         Self Repairs that are not it. The live wire copy is separate - see
+                         SelfRepair::stripForJson - so the menu works before the statics are rebuilt. */
+                      'servicesDockedUnits',
+                      /* Stage 17: DockingBay's transient once-per-resolution guard. Never anything
+                         but false on a blueprint, and nothing on the client reads it at all. */
+                      'dockedSelfRepairDone'];
         foreach ($falseKeys as $key) {
             if (isset($system[$key]) && $system[$key] === false) {
                 unset($system[$key]);

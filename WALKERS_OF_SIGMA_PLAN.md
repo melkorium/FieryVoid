@@ -13,7 +13,10 @@ Array + the Mapmaker hangar rule) COMPLETE 2026-09-11 after two play-test passes
 EW rules corrected from the rulebook text in §3.13c), and STAGE 15 (the Walker jump drive - promoted from
 Stage 18 on 2026-09-11, D32) COMPLETE 2026-09-11 and then REWORKED the same day (§3.17b - Ancient drives
 are legacy drives; the first build's deferred departure is gone), and STAGE 16 (the Traveler's Docking Bay) COMPLETE
-2026-09-11 with the Waymarker's two-turn procedure (§3.14a) deferred by the user (D35) - §3.14b. Stages 17–19 not
+2026-09-11 with the Waymarker's two-turn procedure (§3.14a) deferred by the user (D35) - §3.14b, and
+STAGE 17 (the Traveler repairs what it carries) COMPLETE 2026-09-12 with three additions from the
+user's notes the same day (D42 one tiered list, D43 a docked unit's own Self Repair keeps running,
+D44 cobalt reinforcement rows) - §3.15a. Stages 18–19 not
 started. ⚠️ Stages 12, 13
 and 14 all reshuffle `MapmakerProbes`'s positional system ids and MUST deploy together; append
 only after that. Stages 12–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
@@ -4145,7 +4148,7 @@ cadence up to 3, exactly as the user asked. Proved now, not changed.
     `edfHexes` (and one `edfNetHexes`), nothing else. Re-record those seven.
   - Verified: server harness 141 (groups 18 and 19 added), client 140, 0 failed.
 
-### 3.15 The Traveler repairs what it carries
+### 3.15 The Traveler repairs what it carries — **BUILT 2026-09-12 (Stage 17), as built in §3.15a**
 
 *"Traveler can use its SelfRepair to repair structure, CnC, Critical effects and SelfRepair systems
 for any ship it's carrying. New parameter for Self-repair system maybe, again this is the only ship
@@ -4194,6 +4197,100 @@ Whichever is true, it must be a decision rather than a discovery.
 and not out of its own; the repair survives a reload; the Traveler's own systems still take
 priority under the existing queue order; a Self Repair on the docked ship is repairable and a
 Self Repair on any OTHER ship in the game still is not; and the 128-game replay corpus is unmoved.
+
+---
+
+### 3.15a As built — Stage 17, 2026-09-12
+
+Built to §3.15 with three additions from the user's notes of the same day (D42–D44) and one
+question the plan left open answered the other way from the plan's guess.
+
+**D42 — the docked units share the Traveler's ONE list, marked and demoted.** *"Perhaps the best
+way to add would be for damaged Structure, CnC, SelfRepair and Crits for docked craft to show up in
+Traveler's own SelfRepairList, but be clearly marked as to what ship they belong to, and at a lower
+priority than Traveler's own systems."* So the queue grew a **tier**, not a second list:
+`sortUnifiedRepairQueue` compares `tier` **before priority**, 0 = the carrier's own damage, 1 = a
+docked unit's, absent = 0. Every override, drag, +/- and Move-to-Top still works *inside* a tier and
+none of them can lift a row out of one — the client clamps the drag to the tier span and stops the
+priority cascade at the tier boundary, so the boundary is something the player can feel rather than
+a number they can set and watch do nothing.
+
+**D43 — a docked ship's own Self Repair keeps working.** §3.15 asked for this to be *decided*; the
+user decided it runs. ⚠️⚠️ It cannot run by itself: a docked unit is `removed`, `removed` reads as
+destroyed, and `Criticals::setCriticals` snapshots `$activeShips` with `isDestroyed()`, so nothing
+on a docked hull is swept at all. `HangarOps::runDockedShipsSelfRepair($carrier, $gamedata)` drives
+it, called from **two** places behind one transient guard (`DockingBay::$dockedSelfRepairDone`):
+the carrier's own Self Repair (first thing it does, so the docked unit's own points are spent before
+the Traveler's) and `DockingBay::criticalPhaseEffects` (which is what still runs when the carrier's
+Self Repair is destroyed). ⚠️ It skips a ship whose `removedTurn` is the current turn unless the
+entry is a `deploy` dock — a ship that flew in this turn WAS in the active snapshot and Pass 2 runs
+its systems in their own right, so repairing it here as well pays for the same damage twice.
+
+**D44 — reinforcement rows go cobalt.** `.fleetlistentry .hyperspace` is `#4a7fe0`, not the shared
+`#00b8e6`. Docked rows keep the cyan. It is the one deliberate exception to the "do not introduce a
+second blue" rule the other three stylesheets state, and each of them now says so.
+
+**What is offered on a docked unit**, mirrored exactly in `SelfRepair::gatherDockedUnitRepairs` and
+`SelfRepairList.getDockedRepairables`: damaged **Structure** (a destroyed block is still out of
+reach), damaged **C&C**, damaged **Self Repair** — the exception the standing rule forbids — and
+**every repairable critical on any system**, which is the literal reading of "Critical effects".
+Nothing else: a docked hull's weapons, thrusters and sensors are its own business, and only its own
+Self Repair can reach them.
+
+⚠️ **THE OVERRIDE KEY IS COMPOSITE.** The overrides live on the CARRIER's Self Repair, so a docked
+entry is keyed `d<shipid>:<sysid>` (and `d<shipid>:<sysid>-<critid>` for a critical) or two docked
+hulls would collide on a shared system id — as would a docked hull and the carrier. The note
+round-trip splits on `;` alone, so a `:` in the key is safe, and `notevalue` is varchar(4096). The
+"fully repaired, drop the override" branch had to start reading the JOB's key rather than
+`$systemToRepair->id`, or a docked Scribe's repair would clear the carrier's override of that id.
+
+⚠️ **The DamageEntry's shipid must name the DOCKED ship.** Each job carries its owning ship;
+`getNewDamages()`/`getUpdatedCriticals()` walk `$gamedata->ships` with no `removed` filter, so the
+rows persist — but filed against the carrier they would be applied to the wrong hull and vanish.
+
+⭐ **`servicesDockedUnits` travels on the WIRE as well as in the blueprint.** It is a public property
+so it reaches the static blueprint (and is in ShipCompactor's `$falseKeys`, with
+`dockedSelfRepairDone`, so nothing else pays for it), but `stripForJson` also sends it when true, so
+the menu does not wait on a statics regeneration. The cost is the stage's only replay drift.
+
+#### Play-test follow-ups — game 4350, same day
+
+**⚠️⚠️ A DOCKED SHIP'S WHOLE WINDOW WAS INERT, and it was one line.** The list rendered correctly
+(the user confirmed the docked Scribes' systems were showing on the Traveler), but clicking the
+docked ship's OWN Self Repair in its OWN window did nothing — and neither did anything else in that
+window. `SystemIcon.clickSystem`'s guard is
+`if (!preBattleDamage && (shipManager.isDestroyed(ship) || …)) return;`, and `isDestroyed` folds
+`removed` in, so every icon of every stowed unit had been dead since docking existed. The carve-out
+is one predicate the codebase already had a name for: **`shipManager.isDestroyedByDamage`** — the
+same question asked of the damage alone, whose whole purpose is telling "gone" from "parked out of
+sight" — so `stowed = ship.removed && !isDestroyedByDamage(ship)`. ⚠️⚠️ Again NOT a change to
+`isDestroyed` (§3.16's warning), and carved out at this one site only.
+⭐ A stowed unit is then **diverted straight to the info menu** rather than let through the rest of
+the handler: it may be managed (its repair queue now, its power in Stage 18) but it is inside a
+hangar, so it must not reach weapon selection, called shots, a hangar-launch dialog or an LCV rail.
+This is the prerequisite §3.16(a) predicted, arriving one stage early and from the other direction.
+⚠️ Noted in passing, NOT changed: the second half of that guard,
+`shipManager.isDestroyed(ship, system) && !system.clickableWhenDestroyed`, passes a system to a
+one-argument function — it is `isDestroyed(ship)` again, so `clickableWhenDestroyed` has never done
+anything there. Almost certainly meant to be `shipManager.systems.isDestroyed`.
+
+**Left-click on a stowed ship's fleet row scrolls to its CARRIER** (user, 2026-09-12), which is
+where the unit actually is — not to its own window, which was the first build's answer and made
+left-click mean two different things in one list. Right-click and the ⓘ affordance remain the
+window. `fleetListManager.carrierHolding(ship)` is the finder, deliberately the same walk as
+`ajaxInterface.isDepartedWithCarrier` (a rail's `lcvDocked`, a bay's `shipsDocked`, ids parsed
+because a spawned unit's id is a STRING), so it covers a rail-parked LCV as well. ⚠️ It sits ABOVE
+the `shouldBeHidden` guard, which reads every removed unit as destroyed and would otherwise make the
+branch unreachable. A docked FLIGHT is deliberately excluded: it has no hex of its own and its row
+has opened its window since Hangar Ops Stage 9.1.
+
+**Proof.** `tests/replay/walkersStage17Harness.php` (70 checks) + `walkersStage17ClientHarness.js`
+(57, including the real `SystemIcon.clickSystem` and `carrierHolding` lifted out of the live file by
+a source marker), both **fatal** on a stashed pre-stage tree; `checkShipData.php` PASS, 0 new
+against 237; statics and both client bundles regenerated. ⚠️ **Replay corpus: 135/0 clean, 121/14
+with the stage, and every one of the 14 diffs is the same single additive key**
+(`/ships/N/systems/N/servicesDockedUnits: added (true)`) — no damage, critical, movement, to-hit or
+masking drift anywhere. Re-record to accept it.
 
 ---
 
@@ -4696,7 +4793,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **14** ✅ | `MedLightningArrayFtr` (§3.13, as built §3.13a, play-test fixes §3.13b, EW rules corrected §3.13c) + the Mapmaker hangar rule (D31) — **COMPLETE 2026-09-11** (built 2026-09-10) | ⚠️⚠️ **2026-09-11: the Mapmaker EW rules were CORRECTED from the rulebook text (§3.13c)** — the Array uses plain ship EW rules (OEW added, target DEW/BDEW/SDEW as the ordinary to-hit penalty, no OB, no OEW = doubled range penalty as usual) and the Pulsar gets OB + max(0, OEW − defensive EW). That **reverted** the §3.13b no-lock exemption described below. Re-proved with the Stage 12 client grid (90/0), the Stage 14 client (62/0) and server (99/0) harnesses, and the game-4347 probe (15/0); replay 114 / 8, unchanged, though no Mapmaker game is in the corpus. | **215 checks green** across four throwaway harnesses — 99 server, 62 client, 43 fleet-check and an 11-check live-game probe — covering 3 and 6 combining while 1/2/4/5 go technical, two 3-groups at two targets, buckets split by target / called id / mode, a damaged probe excluded on `getRemainingHealth() >= maxhealth` (and asserted NOT destroyed, so the obvious shortcut is proved wrong), an uncharged array refused server-side, D16 resolved in both directions with the loser named in the log and proved to ignore intercept orders, the turn-1 full charge proved as an ABSENT override, `edfSuppressesCollateral` proved inherited (and `LightningArray`'s proved overridden, which is why this class must not extend it), and the fleet check driven through the REAL `gamelobby.js` slices for Mapmakers, Stilettos and Fighter Squadrons alike. Every harness fails on a stashed tree, and each play-test fix fails in isolation when its own line is reverted. `checkShipData.php` PASS, 0 new findings against the same 237 baseline; replay harness 114 passed / 8 failed, **byte-identical with timings normalised** to the same run with `source/` stashed — including after the `weapon.php` no-lock change, which every weapon in the game runs through. ⭐ **THE STATS NEEDED NO CLIENT MIRROR** — both modes differ only in fire control, range penalty and damage span, and all three already travel as the engine's generic per-mode arrays, so the client half is the group rule and nothing else. ⭐⭐ **THE REAL WORK WAS D16, NOT THE COMBINING**: the combining is `HyperplasmaMatrix`'s pattern, but every exclusivity mechanism in the tree is per-CRAFT (`checkConflictingFireOrder` narrows to `getFighterBySystem` before it looks), so flight-wide exclusivity needed a new predicate on both sheets keyed on a new `flightExclusiveGroup` string. ⚠️⚠️ **AND THE HANGAR FIX FOUND THAT THE TWO HALVES OF THE RULE HAD NEVER MET**: the four Walker hulls declare `"Mapmaker Probes"` capacity while the flight left `hangarRequired` at `'fighters'` and classified itself as an ordinary MEDIUM fighter, so nothing could ever fill it. ⚠️⚠️ **PLAY TEST 4347 THEN FOUND TWO MORE THAT NO UNIT TEST COULD**: an undamaged craft has NO `damage` key at all (ShipCompactor strips empty arrays) so `getRemainingHealth` threw and the weapon could not be targeted, and a `useFlightEW` shot was taking a no-lock penalty D12 forbids — see §3.13b. ⚠️ Four findings worth carrying in §3.13a, three more in §3.13b. |
 | **15** ✅ | Walker jump drive (§3.17, as built §3.17a) — **DONE 2026-09-11**, promoted from Stage 18 the same day; a `markWalker()` flag on every Walker hull (D32) | **107 checks green** across two harnesses — 73 server, 34 client — both fatal on the pre-edit tree: the mark on all six hulls and on nothing else; the deferral at the end of Movement, against an ordinary hull on the identical legal path which still leaves; the refusal at submit and at resolution (which also withdraws an Initial Orders ballistic), with the identical orders accepted at a Walker that is not leaving, and all four client call sites passing the shooter; departure at the end of Firing with its attached unit, and a cancellation when the drive dies while it waits; zero failures in 300 rolls from an engine that fails at once with the flag off; and the Vortex Disruptor catching the waiting Walker. `checkShipData.php` PASS, 0 new against 237; autoload unchanged; replay 114 / 8 **byte-identical with timings normalised** to a stashed tree. ⚠️ Four findings in §3.17a, and traps 35–36. |
 | **16** ✅ | The Traveler's Docking Bay (§3.14, as built §3.14b) — **DONE 2026-09-11**; the Waymarker's two-turn procedure (§3.14a) DEFERRED (D35) | **292 checks green after the review revisions (D37–D40)** - 131 server, 118 client, and the Stage 14 fleet-check harness's 43 as a regression - with both new harnesses failing on the pre-stage tree; `checkShipData.php` PASS, 0 new against 237; a **2,727-hull differential** in which exactly five facts moved (the four dockable hulls' box cost, the Traveler's aft system class) and no capacity did; replay corpus 133/1 on a clean tree, and with the stage the ten Traveler games differ ONLY by four additive keys. ⚠️ Five traps, 37–41. Criterion as written: 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
-| **17** | Traveler Self Repair serves docked units (§3.15) | A damaged docked Scribe repaired out of the Traveler's pool and not its own; repair persisted; the Traveler's own queue priority unchanged; a docked ship's Self Repair repairable while every other Self Repair in the game still is not; replay corpus unmoved. |
+| **17** ✅ | Traveler Self Repair serves docked units (§3.15, as built §3.15a) — **DONE 2026-09-12**, two play-test follow-ups the same day | **127 checks green** — 70 server, 57 client — both harnesses fatal on a stashed pre-stage tree; `checkShipData.php` PASS, 0 new against 237. Criterion as written, all met: a damaged docked Scribe repaired out of the Traveler's pool (and its Thruster, which the Traveler may not touch, out of its own); every healing row filed against the DOCKED ship's id and marked updated, so it persists; the Traveler's own queue order unchanged and a priority of 99 on a docked row still beaten by an own row of 4; a docked Self Repair repaired and every other Self Repair in the game still refused. ⭐ Three additions from the user's notes the same day: **D42** one list with a TIER (docked rows marked with their ship and pinned below every own row, drag and Move-to-Top clamped to the tier), **D43** a docked unit's OWN Self Repair keeps running — which needs driving, because `removed` reads as destroyed and `Criticals::setCriticals` never reaches it — and **D44** reinforcement fleet-list rows go cobalt so they cannot be read as docked. ⭐ Play-test (game 4350) then found the other half of D43: **a docked ship's whole ship window was inert**, because `SystemIcon.clickSystem`'s guard is `shipManager.isDestroyed(ship)` and that folds `removed` in — carved out with the existing `isDestroyedByDamage` predicate and diverted straight to the info menu, which is also §3.16(a)'s prerequisite arriving a stage early; and left-click on a stowed ship's fleet row now scrolls to its **carrier** rather than opening its window (right-click still does that). ⚠️ Replay corpus 135/0 clean vs 121/14 with the stage, **every diff the same single additive key** `servicesDockedUnits: added (true)` and nothing else — re-record to accept. |
 | **18** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
 | **19** | Extra-Dimensional Jump Drive (§3.18) | Power-turns accumulating only while both conditions hold and resetting on a gap; the cost locked at the first turn; completion routed through `Movement::applyJumpOut`; contributors and the half-power-turn plain drive; a friendly jumped on one EW point; ⭐⭐ and a damaged EDJD rolling for detonation every active turn while the same hull's ordinary jump-out does not. |
 
@@ -4899,6 +4996,40 @@ Collected from the survey; each one has bitten this codebase before.
     `turnsloaded` is the mine count, Stage 6). System data loads as the latest row at or before the
     turn, so a docked ship that is simply resurrected keeps exactly the state it docked with - which is
     what the Docking Bay does (§3.14b).
+42. ⚠️⚠️ **NOTHING AT ALL RUNS ON A `removed` UNIT DURING THE CRITICAL PHASE.**
+    `Criticals::setCriticals` snapshots `$activeShips` through `isDestroyed()`, which answers true
+    for anything removed, so a docked ship's `testCritical`, `criticalPhaseEffects` and everything
+    hung off them stop the moment it docks. (`onAdvancingGamedata` is the opposite case and DOES
+    still run on it - §3.14b, group 16 - so "docked units are frozen" is false in general and true
+    for exactly this phase.) Anything a docked unit must keep doing needs a named driver on the
+    CARRIER, and that driver needs a guard for the ship that docked THIS turn: it WAS in the
+    snapshot, so it is about to be processed in its own right and doing it twice pays for the same
+    thing out of two pools. Stage 17's is `HangarOps::runDockedShipsSelfRepair`.
+43. ⚠️ **A cross-ship priority/override map needs a COMPOSITE key, and every read site must use the
+    job's key rather than the system's id.** `SelfRepair::$priorityChanges` was keyed by system id
+    alone; with docked units in the same list that collides between two docked hulls and between a
+    docked hull and the carrier. The subtle half is the WRITE side - the "fully repaired, drop the
+    override" branch read `$systemToRepair->id`, which would have cleared the carrier's own override
+    of that number. Carry the key in the job. (Format `d<shipid>:<sysid>[-<critid>]`; the note
+    round-trip splits on `;` only, and `notevalue` is varchar(4096).)
+44. ⭐ **A TIER is how you say "this can be reordered, but never past that".** Comparing a tier field
+    before priority in BOTH sort mirrors is three lines; what it costs is the UI, which must then
+    clamp every gesture that writes a priority - the drag's drop index, the drag's upward cascade,
+    and Move-to-Top's "what is the maximum" - to the row's own tier. Skip that and the player sets a
+    number, sees nothing move, and the boundary reads as a bug rather than a rule.
+45. ⚠️⚠️ **A STOWED UNIT'S SHIP WINDOW IS DEAD TO THE TOUCH, and it is one line in
+    `SystemIcon.clickSystem`.** Its opening guard is `shipManager.isDestroyed(ship)`, which folds
+    `removed` in - so no icon of a docked ship, a docked flight or a rail-parked LCV has ever
+    responded to a click. The fix is NOT to widen `isDestroyed` (§3.16's ⚠️⚠️) but to use the
+    predicate the client already has for exactly this distinction, `shipManager.isDestroyedByDamage`
+    ("gone" vs "parked out of sight"), at that ONE site - and then to divert the stowed unit
+    straight to the info menu rather than let it fall through into weapon selection, called shots,
+    hangar dialogs and LCV rails, none of which mean anything from inside a hangar.
+46. ⭐ **"Off the board" is not one behaviour.** A fleet-list row for a docked FLIGHT opens its
+    window (it has no hex of its own); a row for a docked SHIP scrolls to its CARRIER (it does have
+    one - its carrier's); a row for a hyperspace reinforcement opens its window (there is no hex
+    yet). Left-click meaning "show me where this is" everywhere and right-click meaning "open it"
+    everywhere is what keeps the list legible; a state that quietly swaps the two reads as a bug.
 
 ---
 
