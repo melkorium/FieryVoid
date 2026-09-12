@@ -2016,6 +2016,19 @@ at short range versus long range.
             <li>Ships may also <b>start the battle aboard</b>: during Deployment, select the ship and click the Traveler to dock it straight into the bay. A Traveler
                 arriving as a reinforcement can bring Scribes, Pathfinders and Guideships in its Docking Bay as well as its probes, and they arrive docked.</li>
             <li>A docked ship's weapons keep recharging while it is aboard, exactly as on the board; an Energy Draining Mine launcher restocks up to its usual 3.</li>
+            <li><b>The Traveler's Self Repair also repairs the ships it carries.</b> Damaged Structure, C&amp;C and Self Repair on a docked ship, and any repairable
+                critical on any of its systems, appear in the Traveler's own repair list, marked with the owning ship's name. They are ordered by priority alongside
+                the Traveler's own entries and nothing is pinned below anything else, so a docked hull may be repaired first if you want it repaired first. A docked
+                ship's <i>own</i> Self Repair keeps working as well, and spends its own points before the Traveler spends any - so a docked Scribe can have its
+                Thruster mended out of its own pool while the Traveler mends its Structure.</li>
+            <li><b>Docked ships share power with the Traveler.</b> Every 4 points of spare reactor power across all the ships aboard gives the Traveler <b>1 extra
+                point</b>: the surpluses are added together first and the total is then divided by four and rounded down, so 4 shared gives 1, 7 gives 1 and 8 gives 2.
+                Docked <i>probes</i> share nothing. The donor is not charged for it - what it costs is having the spare power in the first place, which is why you can
+                now <b>manage a docked ship's power from its own ship window</b> during Initial Orders: open it from its fleet-list row (right-click, or the &#9432;
+                affordance) and switch systems off, boost, overcharge and so on exactly as you would on the board. Power a docked Scribe's thrusters down and the
+                Traveler's available power goes up on the same click. The Traveler's Reactor tooltip shows how much is being shared and how much surplus is being
+                pooled to get it, and the <b>opposing player sees the same figure</b> on the Traveler's reactor once Initial Orders are committed - sharing power is
+                public, even though what is in the bay otherwise is not.</li>
             <li>Damage to the bay never forces a ship out - probes are evicted first as boxes are lost. If the Docking Bay or the Traveler is destroyed, every docked
                 ship is forced out and takes the bay's damage plus 2d10 to its Structure.</li>
             <li>The <b>Waymarker</b> (24 boxes) cannot use the bay yet: its dock and launch take two turns, which is not implemented. It already counts toward the
@@ -2082,8 +2095,8 @@ at short range versus long range.
                 Pulsar, a Medium Lightning Array that three or six of them fire as one gun, an EW allowance and a Walker jump drive, and needing no hangar space of their own.</li>
         </ul>
         <ul>
-            <li>Not implemented yet, and listed so the page is not read as promising them: the Waymarker's two-turn dock and launch through the Docking Bay; the
-                Traveler repairing and powering the ships it carries; and the Traveler's Extra-Dimensional Jump Drive.</li>
+            <li>Not implemented yet, and listed so the page is not read as promising them: the Waymarker's two-turn dock and launch through the Docking Bay; and
+                the Traveler's Extra-Dimensional Jump Drive.</li>
         </ul>
 
     <a class="back-to-top" href="#top">↩ Back to Top</a>

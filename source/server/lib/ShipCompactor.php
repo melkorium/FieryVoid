@@ -259,7 +259,12 @@ class ShipCompactor
                       'servicesDockedUnits',
                       /* Stage 17: DockingBay's transient once-per-resolution guard. Never anything
                          but false on a blueprint, and nothing on the client reads it at all. */
-                      'dockedSelfRepairDone'];
+                      'dockedSelfRepairDone',
+                      /* Stage 18 (WALKERS_OF_SIGMA_PLAN.md 3.16): DockingBay's "the ships aboard
+                         feed my reactor" flag. One client read site, shipManager.power
+                         .getDockedPowerShared, truthy. The live wire copy is separate - see
+                         DockingBay::stripForJson. */
+                      'sharesDockedPower'];
         foreach ($falseKeys as $key) {
             if (isset($system[$key]) && $system[$key] === false) {
                 unset($system[$key]);

@@ -16,7 +16,10 @@ are legacy drives; the first build's deferred departure is gone), and STAGE 16 (
 2026-09-11 with the Waymarker's two-turn procedure (§3.14a) deferred by the user (D35) - §3.14b, and
 STAGE 17 (the Traveler repairs what it carries) COMPLETE 2026-09-12 with three additions from the
 user's notes the same day (D42/D45 one list sorted by priority alone, docked rows marked by their ship name, D43 a docked unit's own Self Repair keeps running,
-D44 cobalt reinforcement rows) - §3.15a. Stages 18–19 not
+D44 cobalt reinforcement rows) - §3.15a, and STAGE 18 (docked power sharing) COMPLETE 2026-09-12,
+built to both halves of §3.16 with the grant recorded as CLIENT-COMPUTED AND ADVISORY (D46) -
+§3.16a - and a play-test follow-up the same day that gave the OPPONENT the same figure by disclosing
+the bay's ship ids and nothing else (D47) - §3.16b. Stage 19 (the Extra-Dimensional Jump Drive) not
 started. ⚠️ Stages 12, 13
 and 14 all reshuffle `MapmakerProbes`'s positional system ids and MUST deploy together; append
 only after that. Stages 12–19 were added 2026-09-08 — the Mapmaker Sensor Probes' remaining abilities, the
@@ -74,7 +77,9 @@ silent everywhere.
 | D37 | The Docking Bay's launch rate, corrected (2026-09-11, review of Stage 16) | *"It should be 12 Mapmakers OR 2 Scribes OR 1 Pathfinder."* A **per-class count**, launches and recoveries together, in `DockingBay::$shipLaunchRates` (Scribe 2, Pathfinder / Guideship / Waymarker 1); the Mapmakers keep `$output`. Replaces D34's box pricing, which gave three Scribes. §3.14b "Revisions". |
 | D38 | Fighters fill the side hangars first (2026-09-11) | *"Mapmakers should prioritise side hangars, since only the aft docking bay can store larger units."* `HangarOps::bayFillRank` / `HangarShared.bayFillRank`: reserved bays, then ordinary, then a Docking Bay, at every auto-fill and default-pick site. Also: docked weapons **recharge** as normal and an Energy Draining Mine restocks to its usual 3 - which the code already did; Stage 16's write-up had claimed otherwise without checking. |
 | D39 | LCV deploy-docking works the Docking Bay way (2026-09-11) | *"I prefer the way we dock ships to the Traveler MORE than the current implementation of LCV hangars where we have had to allow them to stack in a hex."* The LCV same-hex exemption and the un-dock snap are removed; an LCV deploy-docks from its carrier's DOCK button and is never placed on the carrier's hex. |
+| D47 | The opponent is told the IDS of the ships in a sharing bay (2026-09-12) | The docked-power grant was invisible to the Traveler's opponent, because `shipsDocked` is masked under the private-logistics gate and the grant is computed by each viewer's OWN client (D46). Of the two possible fixes the user chose **publish the ids**: the opponent's client then runs the identical function on the identical ships and reaches the identical number, which a server-side recomputation could not promise. ⚠️ On a SEPARATE key (`sharesDockedPowerIds`), because no client consumer of `shipsDocked` has ever met a partial entry and four of them read `boxes` / `phpclass` / `dockTurn` off those rows. Only on a bay that shares power. §3.16b. |
 | D40 | A reinforcement Traveler brings its ships aboard (2026-09-11) | *"Travelers brought into the game via 'Manage Reinforcements' cannot select Pathfinder, Guideship, Scribe ... only Mapmakers."* A legacy-drive opener's manifest now admits the ships its Docking Bay takes, packed with the fighters in one pass on both sides, and they arrive docked. |
+| D46 | The docked-power grant is client-computed and ADVISORY (2026-09-12) | §3.16 required an explicit written decision. **Advisory**, because there is no server twin of `getReactorPower` anywhere in the tree, `submitPower` validates nothing, and every power figure in Fiery Void is already a client number - a check here would be the codebase's only power validation and would still be reading a balance the server cannot compute. `DockingBay::$sharesDockedPower` therefore publishes the RULE and nothing on the server reads it. ⚠️ §3.16 asked for the tooltip to SAY it is advisory; it was written that way and the user TRIMMED that tail the same day, so the line is the figures alone - the disclosure lives here and on the faction page instead. Enforcing the balance is a cross-cutting project, not a Walkers stage. §3.16a. |
 
 Everything below assumes these.
 
@@ -4310,7 +4315,7 @@ masking drift anywhere. Re-record to accept it.
 
 ---
 
-### 3.16 Docked units share power with the Traveler
+### 3.16 Docked units share power with the Traveler — **BUILT 2026-09-12 (Stage 18) — see §3.16a**
 
 *"Docked ships can share power with Traveler on a 1 power per 4 shared basis. We can access their
 SCS via the fleetList menu, but are not able to manage power at the moment during Initial Orders."*
@@ -4356,6 +4361,248 @@ published a refitted field at its unenhanced radius for a whole stage before it 
 persists across the commit; four points of docked surplus give the Traveler one and three give it
 none; a docked **flight** contributes nothing; and the figure recomputes live as the docked ship's
 allocation changes.
+
+---
+
+### 3.16a As built — Stage 18, 2026-09-12
+
+Built to §3.16, both halves, plus the explicit decision the exit criterion demanded.
+
+**D46 — THE GRANT IS CLIENT-COMPUTED AND ADVISORY, and that is a decision, not an omission.**
+§3.16 required this to be written down either way. It is advisory, because the alternative is not
+"add a validator" but "give Fiery Void a server-side power model it has never had":
+
+* There is **no server twin of `getReactorPower`** anywhere in the tree. `Reactor::getOutput`
+  answers for one reactor on one hull; nothing sums a ship's draws, boosts and overloads.
+* `DBManager::submitPower` validates **nothing** — it normalises, de-duplicates on
+  `shipid-systemid-type-turn` and inserts. `InitialOrdersGamePhase::process` merges every
+  system's `->power` and hands it straight over.
+* So **every power figure in the game is already a client number**. A server check on this one
+  grant would be the only power validation in the codebase, and it would still be reading a
+  balance it cannot compute.
+
+What follows from that: the flag `DockingBay::$sharesDockedPower` publishes the **rule** and not a
+figure — nothing on the server reads it. ⚠️ §3.16 asked for the tooltip to say the number is
+advisory; it was written that way and the user trimmed that tail the same day (see “Where the
+number shows” below), so the caveat lives in this record and nowhere on screen. If the balance is
+ever to be enforced, that is a cross-cutting project (one server-side
+`getReactorPower`, then the commit gate moves behind it) and not a Walkers stage.
+
+**(a) Managing a docked unit's power — one predicate, four call sites.**
+`shipManager.power.isPowerManageable(ship)` is `!shipManager.isDestroyedByDamage(ship)`, and it
+replaced `shipManager.isDestroyed(ship)` in `onOfflineClicked`, `onOnlineClicked`,
+`onOverloadClicked` and `onStopOverloadClicked`. On a unit that is on the board the two answer
+identically; on a `removed` one — a ship in the Docking Bay, a rail-parked LCV, a docked flight —
+the old guard said "destroyed" and returned. ⚠️⚠️ **Not a change to `isDestroyed`**, for every
+reason §3.16 gives; it is the same carve-out, with the same existing predicate, that Stage 17 made
+in `SystemIcon.clickSystem` (§3.15a).
+
+⭐ **The user's report named the symptom precisely and was worth believing literally:** *"I can
+click on a system in the docked ship's shipWindow and bring up the systemPowerSettings menu, but
+clicking its buttons does nothing."* Both halves were true and for different reasons. The MENU
+opens because none of `SystemInfoButtons`'s six gates (`canOffline`, `canOnline`, `canBoost`,
+`canDeBoost`, `canOverload`, `canStopOverload`) asks about the SHIP at all — they test the phase,
+the system and the player. The BUTTONS did nothing because the four mutations behind them each
+opened with the ship-level guard. ⭐ And **boost and unboost already worked**: `clickPlus` /
+`clickMinus` never had the guard, which is exactly what made the menu look half-broken rather than
+switched off.
+
+⚠️ **THE SERVER HALF NEEDED NOTHING, and that was worth checking rather than assuming** (§3.16 said
+so). `InitialOrdersGamePhase::process` loops `$ships` with no `removed` filter; `construcGamedata`
+loops `gamedata.ships` with no `removed` filter either, so a docked ship's systems are in the POST
+already; and `submitPower` inserts what it is given. A docked ship's power has therefore persisted
+correctly for as long as the Docking Bay has existed — the only thing missing was the ability to
+set it.
+
+⚠️ **What is still refused on a docked hull, deliberately:** ownership (`gamedata.isMyShip` and
+`ship.userid != gamedata.thisplayer` are separate guards and untouched, so an enemy's docked ship
+stays read-only), the phase (Initial Orders only), a cooldown-forced offline, a vortex-locked
+offline, `powerLocked`, and a system with a firing order. A WRECK is still refused everywhere.
+
+⚠️ **Found in passing and NOT fixed** (same reasoning as the sibling finding in §3.15a):
+`onStopOverloadClicked`'s guard read `shipManager.isDestroyed(ship) || shipManager.isDestroyed(ship,
+system)` — and `shipManager.isDestroyed` takes ONE argument, so the second clause has always been
+the first one again and has never asked anything about the system. Only the ship-level half was
+relaxed; turning the dead clause into a real system test would be a rules change on every hull in
+the game, and it is flagged here rather than folded in.
+
+**The commit gate was deliberately left alone.** `getShipsNegativePower` still skips removed units,
+so a docked hull cannot block a commit. It cannot inflate the grant either — a negative surplus is
+clamped to 0 per ship before the sum — and a docked ship has nothing a boost could spend power on
+(it cannot move, fire or hold EW). Adding it would be a new way to block a commit for no gain.
+
+**(b) The transfer — `shipManager.power.getDockedPowerSummary(carrier)`.**
+Returns `{donors, surplus, shared}`: every Docking Bay on the hull with `sharesDockedPower`, every
+SHIP in its `shipsDocked`, each one's own `getReactorPower`, surpluses summed and then
+`Math.floor(total / 4)`. `getDockedPowerShared` is the number alone, and `getReactorPower` adds it
+to the carrier's balance as the **last** thing it does — a grant from elsewhere is not a system's
+draw and must not go into the per-system loop.
+
+Five rules in the sum, each with a reason:
+
+| Rule | Why |
+|---|---|
+| SHIPS only, never a flight | D20. Docked fighters are not in `shipsDocked` at all (they ride `hangarUsage`), so the `flight` test is belt and braces. |
+| The donor is **not charged** | D20 is a transfer at a quarter rate, not a spend. Deducting the 4 would drop the donor's surplus and the next recompute would take the grant away again, oscillating. What the donor really pays is the powering-down its owner must do to have a surplus — which is why (a) is the same stage. |
+| A negative surplus contributes **0** | Clamped per ship, BEFORE the sum, so one over-boosted docked hull cannot drain the Traveler. |
+| A wreck, a dead reactor, a destroyed bay or an already-launched ship contribute nothing | A destroyed bay has already put its ships back on the board (`HangarOps::onDockingBayDestroyed`), and the `removed` test catches a unit that left this turn. |
+| An **enemy viewer computes 0**, and is meant to | `DockingBay::stripForJson` masks `shipsDocked` to `[]` outside the owning team, so the grant is invisible rather than leaked. For a number nothing enforces, that is the safe direction. |
+
+⚠️ **Trap 23 does NOT bite here, and that is why the figure is a function rather than a map.** §3.16
+warned that "the sum of every docked reactor's output" is exactly the kind of number that must not
+be computed in `TacGamedata::onConstructed()` above the per-ship enhancement loop. It is never
+computed on the server at all, and on the client it is derived live at every read — so there is no
+snapshot to be taken at the wrong moment.
+
+⚠️ **THE LIVE RECOMPUTE NEEDED NO NEW EVENT.** §3.16 called for "one event in the shape of
+`ShipEwChanged`". There already is one: every power mutation raises `SystemDataChanged`, whose
+handler ends in `shipWindowManager.update()`, which re-renders **every** open ship window — so
+powering a docked Scribe down moves the Traveler's reactor figure on the same click. Adding a
+second event would have been duplicate plumbing.
+
+⚠️ **A re-entrancy latch, for a cycle that should not exist.** `getReactorPower(donor)` calls back
+into the walk for the DONOR's own bays. A docked ship cannot itself hold docked ships today, so
+`dockedPowerWalk` can only ever break a cycle that is already a bug — but a stack overflow is not
+the way to find out that one has appeared.
+
+⚠️ **THE LOBBY HAS A DIFFERENT `gamedata.getShip`.** On `gamelobby.php` there is no `gamedata.js` at
+all: `gamelobby.js` defines its own `getShip(phpclass, faction)`, which answers with a BLUEPRINT.
+`power.js` is loaded on both pages, so the walk early-outs on `gamedata.gamephase === -2` as well as
+on an empty `shipsDocked` — either alone would do, and both are cheap.
+
+**Where the number shows.** The Traveler's reactor icon already reads `getReactorPower`, so the
+grant lands in the figure the player looks at with no display work at all. The explanation is a
+client-computed line on the **Reactor** tooltip — *"Shared by docked ships: +1 of 4 pooled from 1
+ship"* — modelled on `shadowBombAvailable`,
+which exists for the same reason (`system.data` is built server-side per blueprint and cannot carry
+a figure that moves per click). ⭐ It is drawn whenever there is a donor **even when the grant is
+0**: "3 pooled, +0" is precisely what a player who has powered one system down needs to see.
+⚠️ It first carried the tail *"(4 shared = 1 gained; advisory, not server-checked)"*, which §3.16
+asked for and **the user trimmed the same day** — so the rule is stated on the Docking Bay's own
+`Special` text and on the faction page, and the advisory caveat is stated only here. The bay's
+`Special` text can stay server-side because, unlike the figure, the rule does not move.
+
+**The play-test pass — two findings, 2026-09-12. The first was FIXED (§3.16b); the second is
+recorded and deliberately not built.**
+
+**(1) The OPPONENT did not see the grant, and it was a masking consequence rather than a bug.**
+`DockingBay::stripForJson` masks `shipsDocked` to `[]` for anyone outside the owning team —
+`isDisclosedToCurrentViewer`, the **private-logistics** gate that also hides ammo loads and hangar
+contents, and which does not open with age (only with the post-mortem). So the opponent's client
+finds no donors, contributes 0, and renders the Traveler's balance without the grant while the owner
+renders it with. Everything else lines up: the docked ship's own row IS in the opponent's payload
+(`removed: true` is published unconditionally; only hyperspace reinforcements are dropped from the
+list), and its power rows only reach the database at commit — so an opponent's view of any enemy's
+power is inherently post-commit, which is why the discrepancy shows up exactly when the user saw it.
+
+⭐ **THE WIDER FACT, which is the reason this is worth writing down:** every derived power figure in
+Fiery Void is computed by the VIEWER'S OWN CLIENT from the data that viewer is allowed to see. Until
+now every input to that computation was public, so the answer was the same for everybody. This is the
+first power figure with a MASKED input, and nothing in the code warns that masking an input silently
+changes a number two players are meant to agree on. Any future figure derived from private logistics
+has the same property.
+
+The option space is exactly two, and neither is free:
+
+| Fix | Cost |
+|---|---|
+| Publish the docked ship **ids** to every viewer, keeping `boxes`/`dockTurn`/`phpclass` masked (~3 lines in `stripForJson`). The opponent's client then runs the *same* `getDockedPowerSummary` and gets the *same* number — no duplication, no drift, and correctly post-commit for free. | It discloses the ASSOCIATION and the bay's occupancy count. The opponent already has the docked unit's full sheet and knows it is `removed`; what they gain is *which* hull holds it (nothing, against a fleet with one Traveler; something against two) and therefore the bay's remaining capacity. That is a deliberate Stage 16 information rule, so it is the user's call and not a refactor. |
+| Compute the grant **server-side** and publish the integer. | A second implementation of the power balance. ⚠️ `EdfExposure::getMaxAvailablePower` is already a partial mirror ("the server-side mirror of the client's `getReactorPower` at maximum shed — keep the two in step"), but it is a CEILING: it ignores per-turn offline rows, boost cost and overload draw, so it cannot answer this. A full mirror would then have to agree with the owner's live client figure at every moment, or the owner sees one number before commit and another after. |
+
+**The user chose the first (2026-09-12) — built as §3.16b below.**
+
+**(2) NOT BUILT — power management for a unit still in HYPERSPACE is one step away, and the step is
+not in `power.js`.** `isPowerManageable` already answers true for a reinforcement that has not arrived (it
+is not a wreck), and driving `SystemPowerSettings`'s handlers against one switches its systems off
+correctly. Two things stop the click reaching them:
+
+* `PhaseStrategy.onSystemClicked` opens with `if (shipManager.getTurnDeployed(ship) > gamedata.turn)
+  return;` — and `getTurnDeployed` is the 999 sentinel for a unit in hyperspace, so the system info
+  menu never opens at all. ⚠️ It is also the SURRENDER test (999 again), so relaxing it needs the
+  narrower predicate, not a widened comparison.
+* `SystemIcon.clickSystem`'s `stowed` divert is `ship.removed && !isDestroyedByDamage(ship)`, and a
+  hyperspace unit is not `removed` — so it would fall through into the select/target workflow it has
+  no business in, exactly what the divert exists to prevent for a docked ship.
+
+The window itself already opens (`fleetListManager.isOffBoardButOurs` returns true for a hyperspace
+reinforcement), so the feature is: one named "off-board but ours" predicate shared by those two
+sites. Not built — the user asked for it "at a later point" — and recorded here because Stage 18 is
+what made the power half of it free.
+
+---
+
+### 3.16b As built — the opponent's view of the grant (Stage 18 follow-up, 2026-09-12)
+
+**D47 — the bay discloses the IDS of the ships aboard, and only the ids, to a viewer outside the
+owning team.** The user's ruling on the choice above. It is the option that cannot drift: the
+opponent's client runs the SAME `getDockedPowerSummary` on the SAME docked ships and reaches the
+SAME number, which no server-side recomputation could promise.
+
+⚠️⚠️ **A SEPARATE KEY, NOT A PRUNED `shipsDocked`, and that is the whole safety of the change.**
+Until now an outside viewer's `shipsDocked` was ALWAYS `[]`, so no client consumer has ever met a
+partial entry — and `HangarShared`'s capacity maths, the fire-menu dock dialogs, `SelfRepairList`
+and `fleetListManager.carrierHolding` all read `boxes`, `phpclass` or `dockTurn` off these rows.
+Handing them id-only entries would have been a silent `NaN` in four places. So the ids ride
+`sharesDockedPowerIds`, a bare integer list that exactly one function reads;
+`getDockedPowerSummary` prefers the real list whenever it has one, so an owner can never
+double-count.
+
+⚠️ **Only on a bay that actually shares power.** An ordinary Docking Bay fitted to some other hull
+later stays fully masked — the disclosure is bought by the rule that needs it and by nothing else.
+
+⚠️ **`hideDeploymentDocks` still drops anything that docked THIS turn**, and must: concealing the
+dock EVENT is a stronger mask than this one (it is *where a unit went*, not what a reactor reads).
+⭐ In practice it costs nothing, and the reason is a timing fact worth keeping: the dock resolves in
+the Critical phase, AFTER that turn's Initial Orders — so by the next turn's orders, which is when
+the figure is actually managed, `dockTurn` is in the past and the entry is disclosed here. The only
+window where the two players can still differ is the back half of the docking turn itself, when
+nobody is allocating power.
+
+⭐ **What the opponent gains, precisely:** the association and the bay's occupancy count. They
+already had the docked unit's full sheet (only hyperspace reinforcements are dropped from the ship
+list) and already knew it was `removed`. The post-mortem was already total disclosure, and stays so
+— with the game over, `isDisclosedToCurrentViewer` returns the real list and the id key is not
+emitted at all.
+
+**Verification.** 19 checks in a server harness over the REAL `Traveler` and its REAL bay, fatal on
+the pre-change tree: the owner and a teammate get the full list and no id key; the opponent gets an
+EMPTY `shipsDocked` plus bare integer ids, no `dockTurn` and no per-entry `boxes` anywhere in the
+payload, and no queued dock/launch orders; a non-sharing bay discloses neither ids nor flag; an
+empty sharing bay emits no key; the post-mortem hands over the real list; and a build with NO viewer
+context — static ship generation — emits no id key, which is what keeps it out of the blueprints.
+Plus 9 client checks: the opponent reaching the owner's figure from the id list, two donors still
+summed-then-floored, the owner preferring `shipsDocked` and never counting a ship twice, and every
+per-ship exclusion (flight, unresolvable id, destroyed bay, missing flag) still applying to an entry
+that arrived as an id. ⭐ Replay corpus unchanged at 121/13 with the same two additive keys — the new
+one never appears, because the harness has no outside viewer.
+
+**Files:** `baseSystems.php` (`DockingBay::stripForJson`), `power.js` (`getDockedPowerSummary`
+reads either list).
+
+---
+
+**Files (Stage 18 proper):** `power.js` (the predicate, the four guards, the summary, the hook in `getReactorPower`),
+`SystemInfo.js` (the tooltip line), `baseSystems.php` (`DockingBay::$sharesDockedPower`, its
+`stripForJson` and its `Special` line), `ShipCompactor.php` (`$falseKeys`), `Traveler.php` (the flag
+on the instance — the bay moved to a local variable, so no system id moved).
+
+**Verification.** 134 checks green across three harnesses — 67 in a server-free harness over the REAL
+`power.js`, 48 in a React harness, and 19 in a server harness over the real `Traveler` (§3.16b). The
+React one bundles the whole `reactJs` tree, evaluates it at module scope, renders `SystemInfo` to
+static markup and drives `SystemPowerSettings`'s own handlers. All three are fatal on the tree they
+were written against (21/37, 23/9 and 14/5). ⭐ The React run reproduces the user's report exactly: on
+the old tree *"the menu OPENS for a DOCKED hull"* passes while *"Off actually switches it off"*
+fails. ⭐ A second play-test pass the same day added 16 more: the WHOLE click path for a stowed
+WEAPON (a real `SystemIcon.clickSystem` call relaying exactly one `SystemClicked` and no
+targeting event, then overcharge and stop-overcharge taken through the menu), the right-click
+“all systems of this name” pair on a docked hull, and the REINFORCEMENT boundary — a unit still in
+hyperspace is ALREADY power-manageable, so what stops it is the click path and not the power model
+(see finding (2) of the play-test pass below). `checkShipData.php` PASS, 0 new against 237. A **2,727-hull differential** over 58,548 facts
+(every system's `sharesDockedPower`, `isDockingBay`, `powerReq`, `output`, `outputMod` and
+`boostable`, plus every hangar's `Special` text) moved exactly **two lines**, both `Traveler|sys11`:
+the flag and the added sentence. Replay corpus 121/13 against the un-re-recorded baseline, every
+diff one of two additive keys (`servicesDockedUnits` from Stage 17, `sharesDockedPower` from this
+one) and no behavioural drift; autoload unchanged.
 
 ### 3.17 The Walker jump drive — leaving slowly — **BUILT 2026-09-11 (Stage 15), rules 1 and 2 WITHDRAWN the same day — see §3.17b**
 
@@ -4810,7 +5057,7 @@ Ordered so that each stage is independently shippable and the risky shared-path 
 | **15** ✅ | Walker jump drive (§3.17, as built §3.17a) — **DONE 2026-09-11**, promoted from Stage 18 the same day; a `markWalker()` flag on every Walker hull (D32) | **107 checks green** across two harnesses — 73 server, 34 client — both fatal on the pre-edit tree: the mark on all six hulls and on nothing else; the deferral at the end of Movement, against an ordinary hull on the identical legal path which still leaves; the refusal at submit and at resolution (which also withdraws an Initial Orders ballistic), with the identical orders accepted at a Walker that is not leaving, and all four client call sites passing the shooter; departure at the end of Firing with its attached unit, and a cancellation when the drive dies while it waits; zero failures in 300 rolls from an engine that fails at once with the flag off; and the Vortex Disruptor catching the waiting Walker. `checkShipData.php` PASS, 0 new against 237; autoload unchanged; replay 114 / 8 **byte-identical with timings normalised** to a stashed tree. ⚠️ Four findings in §3.17a, and traps 35–36. |
 | **16** ✅ | The Traveler's Docking Bay (§3.14, as built §3.14b) — **DONE 2026-09-11**; the Waymarker's two-turn procedure (§3.14a) DEFERRED (D35) | **292 checks green after the review revisions (D37–D40)** - 131 server, 118 client, and the Stage 14 fleet-check harness's 43 as a regression - with both new harnesses failing on the pre-stage tree; `checkShipData.php` PASS, 0 new against 237; a **2,727-hull differential** in which exactly five facts moved (the four dockable hulls' box cost, the Traveler's aft system class) and no capacity did; replay corpus 133/1 on a clean tree, and with the stage the ten Traveler games differ ONLY by four additive keys. ⚠️ Five traps, 37–41. Criterion as written: 24 Mapmakers **or** 6 Scribes **or** 2 Pathfinders, with the 25th/7th/3rd refused and a mixed load filling to exactly 24 boxes; one craft type per turn; a docked Scribe surviving a reload with damage, power and notes intact; the aft hit-chart row still finding the renamed system (`checkShipData.php` clean); no other hull's hangar accounting moving in the corpus differential; a Scribe, Pathfinder or Waymarker queued for a deployment-phase dock placeable ON the Traveler's hex while two ordinary hulls still refuse to share one. **If §3.14a lands:** a Waymarker rides `attached` for exactly one turn each way with its 24 boxes reserved from declaration. |
 | **17** ✅ | Traveler Self Repair serves docked units (§3.15, as built §3.15a) — **DONE 2026-09-12**, two play-test follow-ups the same day | **127 checks green** — 70 server, 57 client — both harnesses fatal on a stashed pre-stage tree; `checkShipData.php` PASS, 0 new against 237. Criterion as written, all met: a damaged docked Scribe repaired out of the Traveler's pool (and its Thruster, which the Traveler may not touch, out of its own); every healing row filed against the DOCKED ship's id and marked updated, so it persists; the Traveler's own queue order unchanged and a priority of 99 on a docked row still beaten by an own row of 4; a docked Self Repair repaired and every other Self Repair in the game still refused. ⭐ Three additions from the user's notes the same day: **D42** one list, the docked rows marked by their ship name in cyan - first built with a TIER pinning them below every own row, which **D45 withdrew the same day**, so priority alone now decides and the player may put a docked hull first, **D43** a docked unit's OWN Self Repair keeps running — which needs driving, because `removed` reads as destroyed and `Criticals::setCriticals` never reaches it — and **D44** reinforcement fleet-list rows go cobalt so they cannot be read as docked. ⭐ Play-test (game 4350) then found the other half of D43: **a docked ship's whole ship window was inert**, because `SystemIcon.clickSystem`'s guard is `shipManager.isDestroyed(ship)` and that folds `removed` in — carved out with the existing `isDestroyedByDamage` predicate and diverted straight to the info menu, which is also §3.16(a)'s prerequisite arriving a stage early; and left-click on a stowed ship's fleet row now scrolls to its **carrier** rather than opening its window (right-click still does that). ⚠️ Replay corpus 135/0 clean vs 121/14 with the stage, **every diff the same single additive key** `servicesDockedUnits: added (true)` and nothing else — re-record to accept. |
-| **18** | Docked power sharing (§3.16) | A docked Scribe's power manageable during Initial Orders and persisted through the commit; four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live; and an explicit, written decision on whether the grant is server-validated or advisory. |
+| **18** ✅ | Docked power sharing (§3.16, as built §3.16a, opponent view §3.16b) — **DONE 2026-09-12**, one play-test follow-up the same day | **134 checks green** — 67 server-free over the REAL `power.js`, 48 in a React harness, 19 in a server harness over the real `Traveler` that bundles the whole `reactJs` tree, evaluates it at module scope, renders `SystemInfo` to static markup and drives `SystemPowerSettings`'s own handlers — each fatal on the tree it was written against (21/37, 23/9, 14/5); `checkShipData.php` PASS, 0 new against 237; a **2,727-hull / 58,548-fact differential** in which exactly TWO lines moved, both `Traveler|sys11` (the flag and one tooltip sentence); replay 121/13 with every diff one of two ADDITIVE keys and no behavioural drift; autoload unchanged. Criterion as written, all met: a docked Scribe's power manageable during Initial Orders and persisted through the commit (the server half needed nothing — no `removed` filter in `InitialOrdersGamePhase::process`, `construcGamedata` or `submitPower`); four points of docked surplus giving the Traveler one and three giving none; flights contributing nothing; the figure recomputing live (on the existing `SystemDataChanged` → `shipWindowManager.update()`, no new event); and the decision written down as **D46 — client-computed and ADVISORY**. ⭐ Play-test follow-up: the OPPONENT saw the Traveler's balance WITHOUT the grant, because the grant is computed per viewer and `shipsDocked` is masked under the private-logistics gate — fixed by disclosing the bay's ship IDS on a separate key (**D47**, §3.16b), so both clients run one function and cannot drift. ⚠️ Three traps, 47–49, plus 50 on the masked-input fact; one adjacent defect flagged but deliberately not fixed; and power management for a unit still in HYPERSPACE left unbuilt but mapped. |
 | **19** | Extra-Dimensional Jump Drive (§3.18) | Power-turns accumulating only while both conditions hold and resetting on a gap; the cost locked at the first turn; completion routed through `Movement::applyJumpOut`; contributors and the half-power-turn plain drive; a friendly jumped on one EW point; ⭐⭐ and a damaged EDJD rolling for detonation every active turn while the same hull's ordinary jump-out does not. |
 
 **Every stage:** run `fvbuild.ps1 -Check` (ship-data validator + replay harness). ⚠️ The baseline
@@ -5053,6 +5300,67 @@ Collected from the survey; each one has bitten this codebase before.
     one - its carrier's); a row for a hyperspace reinforcement opens its window (there is no hex
     yet). Left-click meaning "show me where this is" everywhere and right-click meaning "open it"
     everywhere is what keeps the list legible; a state that quietly swaps the two reads as a bug.
+
+47. ⚠️⚠️ **A MENU WHOSE GATES DO NOT ASK ABOUT THE SHIP WILL OPEN ON A UNIT ITS OWN HANDLERS
+    REFUSE, and the player then reports "the buttons do nothing".** All six
+    `SystemInfoButtons` power gates (`canOffline`, `canOnline`, `canBoost`, `canDeBoost`,
+    `canOverload`, `canStopOverload`) test the PHASE, the SYSTEM and the PLAYER and never the
+    ship's state - while four of the mutations they lead to opened with
+    `shipManager.isDestroyed(ship)`. On a docked ship the menu therefore drew every button and
+    nothing happened when they were clicked (§3.16a). ⭐ Two generalising halves. First, when a
+    gate and its action disagree about eligibility, the SYMPTOM is always this one, so
+    "the menu appears but does nothing" should send you looking for a guard inside the handler,
+    not a missing one in the gate. Second, **a partial refusal is worse than a total one**: boost
+    and unboost worked all along because `clickPlus`/`clickMinus` never had the guard, which made
+    the panel look broken rather than switched off and cost a play-test to pin down.
+    ⚠️ The fix is a NAMED predicate used by the affected paths only
+    (`shipManager.power.isPowerManageable`), never a widening of `isDestroyed` - trap 45 and
+    §3.16 both say why, and this is now the second site to need the same carve-out.
+
+48. ⭐ **A DERIVED NUMBER THAT NOTHING PERSISTS IS IMMUNE TO TRAP 23, AND THAT IS A DESIGN OPTION.**
+    Trap 23 is about a number read in `TacGamedata::onConstructed()` above the per-ship
+    enhancement loop. "The sum of every docked reactor's surplus" is exactly that kind of
+    number - and §3.16 flagged it as the third system in this plan to meet the trap. It does not,
+    because it is never stored: it is a function evaluated at every read, on the client, from
+    live objects. ⚠️ The price is that it can only be as authoritative as the place it is
+    computed, which for power in Fiery Void is the CLIENT (D46: `submitPower` validates nothing
+    and there is no server twin of `getReactorPower`). ⭐ So the real ruling is: when a figure
+    has no server-side owner, choose between a cached snapshot that can be stale and a live
+    derivation that can only be advisory - and say in the tooltip which one the player is
+    looking at.
+
+49. ⚠️ **A "SHARED RESOURCE" MUST SAY WHETHER THE DONOR IS CHARGED, OR IT WILL OSCILLATE.** The
+    docked-power grant reads each donor's surplus and does NOT deduct it. Deducting would drop
+    the donor's surplus to 0, the next recompute would take the grant away, and the figure would
+    flip on every render - a live-derived number cannot spend from the source it is derived from.
+    ⚠️ Clamp each contributor at 0 BEFORE summing, too: without that, one over-boosted donor
+    silently taxes the recipient, which is the opposite of what "sharing" means. Both facts
+    generalise to any pooled figure computed from its contributors rather than stored.
+
+50. ⭐⭐ **EVERY DERIVED FIGURE IN THE CLIENT IS COMPUTED BY THE VIEWER FROM WHAT THE VIEWER MAY SEE,
+    SO A MASKED INPUT SILENTLY MAKES TWO PLAYERS DISAGREE - AND NOTHING WARNS YOU.** The
+    docked-power grant is the first POWER figure in Fiery Void with a masked input: the owner's
+    client summed the docked ships and the opponent's found none, so the same reactor read 7 and 6
+    on the two screens (user report 2026-09-12, §3.16b). Until then every input to a power figure
+    was public, so the question had never arisen.
+    ⭐ **The general rule this produced:** when a derived number is added, ask *who computes it and
+    what can they see* - and if any input is masked, the figure needs either a disclosure or an
+    explicit statement that it is owner-only. Masking has a direction here that is unlike every
+    other mask in the tree: the usual failure is showing too much, but a derived figure fails by
+    showing a DIFFERENT ANSWER, which reads as a bug rather than as concealment.
+    ⭐ **And the fix has a shape:** disclose the minimum INPUT and let both clients run the one
+    function, rather than recomputing the figure on the server. A server number would have to agree
+    with the owner's live client figure at every moment; one shared function cannot drift by
+    construction. ⚠️ `EdfExposure::getMaxAvailablePower` is a standing warning about the other
+    choice - it is a partial server mirror of `getReactorPower` whose own comment says "keep the two
+    in step", and it is a CEILING at maximum shed, blind to per-turn offline rows, boost cost and
+    overload draw, so it could not have answered this even though it looks as though it should.
+    ⚠️⚠️ **When you widen a mask, add a NEW key rather than pruning the masked one.** An outside
+    viewer's `shipsDocked` had ALWAYS been `[]`, so no client consumer had ever met a partial entry -
+    and four of them (`HangarShared` capacity, the fire-menu dock dialogs, `SelfRepairList`,
+    `fleetListManager.carrierHolding`) read `boxes`, `phpclass` or `dockTurn` off those rows. Pruning
+    would have been a silent `NaN` in all four. A separate key that exactly one function reads has
+    no blast radius at all.
 
 ---
 

@@ -64,7 +64,13 @@ class Traveler extends BaseShip{
 		//Same position as the Hangar it replaces, so no system id moves. Args: armour, boxes, fighter
 		//launch rate, launch direction, dockable ship class => ships per turn, the $fighters category
 		//its boxes belong to. Rates: "12 Mapmakers OR 2 Scribes OR 1 Pathfinder" (user, 2026-09-11).
-        $this->addAftSystem(new DockingBay(6, 24, 12, 0, array('Scribe' => 2, 'Pathfinder' => 1, 'Guideship' => 1, 'Waymarker' => 1), 'Mapmaker Probes'));
+        $travelerBay = new DockingBay(6, 24, 12, 0, array('Scribe' => 2, 'Pathfinder' => 1, 'Guideship' => 1, 'Waymarker' => 1), 'Mapmaker Probes');
+		//STAGE 18 (WALKERS_OF_SIGMA_PLAN.md 3.16, D20): the ships aboard feed the Traveler's reactor -
+		//their surpluses are summed and every 4 points gives the Traveler 1, floored. On the INSTANCE
+		//for the same reason servicesDockedUnits above is: no subclass, no system id move, and no other
+		//Docking Bay becomes a power tap by accident. Read only on the client (see the flag's own note).
+		$travelerBay->sharesDockedPower = true;
+        $this->addAftSystem($travelerBay);
 		$this->addAftSystem(new GraviticThruster(6, 30, 0, 8, 2));
 		$this->addAftSystem(new EnergyDrainingField(6, 0, 0));
 

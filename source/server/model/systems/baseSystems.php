@@ -5191,6 +5191,18 @@ class DockingBay extends Hangar{
     which has two callers - this bay and the carrier's own Self Repair - and must run exactly once,
     before the carrier's queue is built. Not persisted and not serialised; fresh false each load.*/
     public $dockedSelfRepairDone = false;
+    /*Stage 18 (3.16, D20): the SHIPS in this bay feed their reactor SURPLUS to the carrier at one
+    point per four, summed over the whole bay list and then floored. An instance flag, exactly like
+    the Traveler's SelfRepair::servicesDockedUnits, so an ordinary Docking Bay fitted to some other
+    hull later is not silently a power tap.
+    ⚠️⚠️ THE SUM IS A CLIENT NUMBER AND THERE IS NO SERVER TWIN OF IT. That is a recorded
+    decision, not an oversight - see WALKERS_OF_SIGMA_PLAN.md 3.16a. The whole power BALANCE in
+    Fiery Void is computed in power.js; the server trusts the power rows it is handed (submitPower
+    validates nothing against anything) and Reactor::getOutput answers only for one reactor on one
+    hull. So this flag publishes the RULE and not a figure: it tells the client which bay taps its
+    ships, and NOTHING ON THE SERVER READS IT. Enforcing the grant would mean computing a ship's
+    whole balance server-side first, which is a cross-cutting project and not a Walkers stage.*/
+    public $sharesDockedPower = false;
     //Latched when the notes load, because the orders themselves are CONSUMED during resolution -
     //and the fighter coalescer that runs after them must still find the bay closed.
     private $shipsClaimedBayThisTurn = false;
@@ -5406,10 +5418,47 @@ class DockingBay extends Hangar{
         $strippedSystem->dockableShipClasses = $this->dockableShipClasses;
         $strippedSystem->shipLaunchRates = (object)$this->shipLaunchRates;   //a map, so never a JSON []
         $strippedSystem->deferredShipClasses = self::DEFERRED_SHIP_CLASSES;
+        //Stage 18 (3.16): sent on the wire as well as riding the static blueprint, for the same
+        //reason SelfRepair::servicesDockedUnits is - the tap then works before the statics are
+        //regenerated. ShipCompactor strips it from every bay on which it is false.
+        if ($this->sharesDockedPower) $strippedSystem->sharesDockedPower = true;
         //An ENCLOSED bay, so its ships follow the same own-team mask as its hangarUsage (the parent
         //has already raised hangarUsageHidden for everyone else), and so do its queued orders.
         $disclosed = $this->isDisclosedToCurrentViewer();
         $strippedSystem->shipsDocked = $disclosed ? array_values($this->shipsDocked) : array();
+        /* Stage 18 (3.16b, user ruling 2026-09-12): THE ONE THING AN OPPONENT IS TOLD ABOUT THE
+           CONTENTS OF A SHARING BAY - the ids of the ships aboard, and nothing else.
+
+           Why it exists: the docked-power grant is computed by EACH VIEWER'S OWN CLIENT
+           (D46 - shipManager.power.getDockedPowerSummary), so with shipsDocked masked to [] the
+           opponent found no donors and rendered the Traveler's reactor without the grant while its
+           owner rendered it with. Sending the ids lets the opponent's client run the IDENTICAL
+           function and reach the IDENTICAL number, which no server-side recomputation could
+           promise. The alternative - a second power balance on the server - is rejected in D46.
+
+           ⚠️ A SEPARATE KEY, NOT A PRUNED shipsDocked, and that is the whole safety of it. Until
+           now an outside viewer's shipsDocked was ALWAYS empty, so no client consumer has ever met
+           a partial entry; HangarShared's capacity maths, the fire-menu dock dialogs, SelfRepairList
+           and fleetListManager.carrierHolding all read 'boxes', 'phpclass' or 'dockTurn' off these
+           rows. Handing them id-only entries would be a silent NaN in four places. Only
+           getDockedPowerSummary reads this key, and it prefers the real list when it has one.
+
+           ⚠️ ONLY ON A BAY THAT ACTUALLY SHARES POWER. An ordinary Docking Bay fitted later stays
+           fully masked - the disclosure is bought by the rule that needs it and by nothing else.
+
+           ⚠️ hideDeploymentDocks HAS ALREADY DROPPED anything that docked THIS turn from this
+           viewer's copy, and must keep doing so: concealing the dock EVENT is a stronger mask than
+           this one (it is where a unit went, not what a reactor reads). In practice that costs
+           nothing - the dock resolves after Initial Orders, so by the next turn's orders, when the
+           figure is actually managed, dockTurn is in the past and the entry is disclosed here. */
+        if (!$disclosed && $this->sharesDockedPower && !empty($this->shipsDocked)){
+            $ids = array();
+            foreach ($this->shipsDocked as $entry){
+                $id = (int)($entry['shipId'] ?? 0);
+                if ($id > 0) $ids[] = $id;
+            }
+            if (!empty($ids)) $strippedSystem->sharesDockedPowerIds = $ids;
+        }
         if ($disclosed){
             if ($this->pendingBayShipDockOrder !== null)   $strippedSystem->pendingBayShipDockOrder   = $this->pendingBayShipDockOrder;
             if ($this->pendingBayShipLaunchOrder !== null) $strippedSystem->pendingBayShipLaunchOrder = $this->pendingBayShipLaunchOrder;
@@ -5430,6 +5479,12 @@ class DockingBay extends Hangar{
         if (!empty($ships)) $this->data["Special"] .= "<br>Ships: " . implode(', ', $ships) . ".";
         $this->data["Special"] .= "<br>Only ONE type of craft may launch or be recovered per turn: " . $this->output . " fighters, or the ships per turn listed above (launches and recoveries together).";
         $this->data["Special"] .= "<br>A docking ship must end its move in this hex on the carrier's heading, with 1 thrust unspent, while the carrier is at speed 0.";
+        //Stage 18 (3.16): the RULE, not the running figure. The live "+N shared" total is shown on
+        //the carrier's Reactor tooltip instead, because it is computed client-side from what the
+        //player has powered down this turn - see the ⚠️⚠️ on $sharesDockedPower.
+        if ($this->sharesDockedPower){
+            $this->data["Special"] .= "<br>Docked SHIPS share power with this vessel: their reactor surpluses are summed and every 4 points gives this vessel 1 (rounded down). Manage a docked ship's own power from its ship window during Initial Orders; docked fighters share nothing.";
+        }
         $this->data["Special"] .= "<br>Details of Hangar Operations can be found in Fiery Void FAQ.";
     }
 }
