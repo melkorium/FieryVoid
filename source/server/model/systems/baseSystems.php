@@ -12116,9 +12116,10 @@ class SelfRepair extends ShipSystem{
 	the Traveler's Self Repair services them. True ONLY on that one mount; every other Self Repair in
 	the game pays one boolean test for it, exactly as it pays one null check for $repairRestrictedTo.
 	What it services on a docked unit is NARROWER than a whole-ship pass - Structure, C&C, that unit's
-	own Self Repair, and criticals - and those entries sit BELOW every one of the Traveler's own in
-	the queue (tier 1, see sortUnifiedRepairQueue). Repairing a Self Repair is an explicit EXCEPTION
-	to this class's own standing rule, which is why the exception is written here, where the rule is.*/
+	own Self Repair, and criticals - but those entries go into the SAME queue as its own and are
+	sorted with them by priority alone: whether the Traveler fixes itself or its passengers first is
+	the player's call (user, 2026-09-12). Repairing a Self Repair is an explicit EXCEPTION to this
+	class's own standing rule, which is why the exception is written here, where the rule is.*/
 	public $servicesDockedUnits = false; //Traveler only: also repairs the ships docked in its bays
       
 	
@@ -12174,8 +12175,8 @@ class SelfRepair extends ShipSystem{
 			$this->data["Special"] .= "<br>Also repairs SHIPS docked in this vessel's docking bays: their Structure,";
 			$this->data["Special"] .= " C&amp;C, Self Repair and critical effects - Self Repair included, which is the one";
 			$this->data["Special"] .= " case the rule above does not cover.";
-			$this->data["Special"] .= "<br>Docked units are repaired out of THIS system's points, and always after";
-			$this->data["Special"] .= " every repairable item on this vessel itself.";
+			$this->data["Special"] .= "<br>Docked units are repaired out of THIS system's points and share ONE repair";
+			$this->data["Special"] .= " queue with this vessel's own systems - set the priorities however you like.";
 			$this->data["Special"] .= "<br>A docked ship's own Self Repair keeps working on its own hull as well.";
 		}
 	}
@@ -12193,17 +12194,11 @@ class SelfRepair extends ShipSystem{
 
 	    /* sorts generated repair queue */
     public static function sortUnifiedRepairQueue($a, $b){
-        //Stage 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): TIER BEATS EVERYTHING, priority included. Tier 0
-        //is this vessel's own damage, tier 1 a unit docked in its bays - the Traveler helps what it
-        //carries only once it has finished with itself, so a docked entry can never be promoted past
-        //an own one however the player sets the priorities. Absent = 0, so every other Self Repair in
-        //the game (and any queue built before this stage) sorts exactly as it did.
-        $aTier = isset($a['tier']) ? $a['tier'] : 0;
-        $bTier = isset($b['tier']) ? $b['tier'] : 0;
-        if($aTier !== $bTier){
-            return $aTier - $bTier; //lower tier first
-        }
-
+        /*Stage 17 (WALKERS_OF_SIGMA_PLAN.md 3.15): ONE LIST. A docked unit's damage is sorted by
+        PRIORITY alongside this vessel's own, with no tier and no floor under it - repairing what it
+        carries before itself is the player's call to make, and the cyan ship name on the row is what
+        tells the two apart (user, 2026-09-12, revising the first build). The only thing that still
+        separates them is the ship tiebreak at the bottom, which only ever settles an exact tie.*/
 		if($a['priority'] !== $b['priority']){
             return $b['priority'] - $a['priority']; //higher priority first!
         }
@@ -12219,9 +12214,11 @@ class SelfRepair extends ShipSystem{
         }
 
         //Deterministic Sort: owning SHIP, then System ID, then SubID. The ship comes first because
-        //tier 1 holds entries from SEVERAL docked units and system ids are per-ship - without it two
-        //docked hulls' systems would interleave on a shared id and the order would depend on which
-        //bay was walked first. Absent = 0 on every tier-0 entry, so an ordinary queue is unaffected.
+        //the queue can hold entries from SEVERAL docked units and system ids are per-ship - without
+        //it two docked hulls' systems would interleave on a shared id and the order would depend on
+        //which bay was walked first. 0 is this vessel's own, so on an exact tie its own damage still
+        //goes first; that is a tiebreak, not a rule, and any priority the player sets beats it.
+        //Absent = 0 on every entry of an ordinary queue, which is therefore unaffected.
         $aShip = isset($a['shipId']) ? $a['shipId'] : 0;
         $bShip = isset($b['shipId']) ? $b['shipId'] : 0;
         if($aShip !== $bShip){
@@ -12332,8 +12329,7 @@ class SelfRepair extends ShipSystem{
                     'type' => 'system',
                     'obj' => $system,
                     'ship' => $ship,      // Stage 17: whose system this is - the DamageEntry is filed against it
-                    'shipId' => 0,        // Stage 17: 0 = this vessel's own; a docked unit's real id sorts after
-                    'tier' => 0,          // Stage 17: own damage always outranks a docked unit's
+                    'shipId' => 0,        // Stage 17: 0 = this vessel's own; only ever a tiebreak (see the sort)
                     'key' => $system->id, // Stage 17: the priorityChanges key (composite for docked units)
                     'priority' => $prio,
                     'overridden' => $isOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
@@ -12385,8 +12381,7 @@ class SelfRepair extends ShipSystem{
                     'obj' => $critDmg,
                     'sys' => $systemToRepair, // We need the system object to execute repair
                     'ship' => $ship,     // Stage 17: whose critical this is
-                    'shipId' => 0,       // Stage 17: 0 = this vessel's own
-                    'tier' => 0,         // Stage 17: own damage always outranks a docked unit's
+                    'shipId' => 0,       // Stage 17: 0 = this vessel's own (tiebreak only)
                     'key' => $compKey,   // Stage 17: the priorityChanges key
                     'priority' => $critPrio,
                     'overridden' => $critOverridden, // explicit override wins ties (see sortUnifiedRepairQueue)
@@ -12397,8 +12392,8 @@ class SelfRepair extends ShipSystem{
             }
         }
 
-        // 2b. Gather what the docked units need (Stage 17). Appended as tier 1, so the sort below
-        // keeps every one of them under everything above regardless of priority.
+        // 2b. Gather what the docked units need (Stage 17). Appended to the SAME queue and sorted
+        // with everything else by priority alone - see sortUnifiedRepairQueue.
         if ($this->servicesDockedUnits){
             foreach ($this->gatherDockedUnitRepairs($ship, $gamedata) as $job) $repairQueue[] = $job;
         }
@@ -12472,10 +12467,11 @@ class SelfRepair extends ShipSystem{
 	/* ===================================================================================
 	   STAGE 17 - WHAT THE TRAVELER REPAIRS IN ITS BAYS (WALKERS_OF_SIGMA_PLAN.md 3.15)
 	   ===================================================================================
-	   Builds the tier-1 half of the queue: one job per repairable item on each SHIP docked
-	   in $carrier's Docking Bays. The CLIENT mirror (SelfRepairList.getDockedRepairables)
-	   builds the identical list from the identical facts - the two must agree, because the
-	   menu is what the player sets the priorities in and this is what spends the points.
+	   Builds the docked half of the queue: one job per repairable item on each SHIP docked
+	   in $carrier's Docking Bays, which the caller appends to the carrier's own and sorts as
+	   one list. The CLIENT mirror (SelfRepairList.getDockedRepairables) builds the identical
+	   list from the identical facts - the two must agree, because the menu is what the player
+	   sets the priorities in and this is what spends the points.
 
 	   WHAT COUNTS, and it is deliberately narrower than a whole-ship pass (the user's brief:
 	   "structure, CnC, Critical effects and SelfRepair systems"):
@@ -12513,7 +12509,9 @@ class SelfRepair extends ShipSystem{
 							if ($critDmg->turn >= $gamedata->turn) continue;          //caused this turn (or later)
 							if ($critDmg->oneturn || ($critDmg->turnend > 0)) continue; //temporary, or already cleared
 							//The default: a critical inherits its system's priority unless it already
-							//carries one of its own (>=10), exactly as on the carrier's own hull.
+							//carries one of its own (>=10), exactly as on the carrier's own hull. That
+							//default is all that separates a docked entry from ours - the queue is one
+							//list and the player may put either first.
 							$critKey = $prefix . $system->id . '-' . $critDmg->id;
 							$critPrio = $critDmg->repairPriority;
 							$critOverridden = false;
@@ -12530,7 +12528,6 @@ class SelfRepair extends ShipSystem{
 								'sys' => $system,
 								'ship' => $docked,
 								'shipId' => (int)$docked->id,
-								'tier' => 1,
 								'key' => $critKey,
 								'priority' => $critPrio,
 								'overridden' => $critOverridden,
@@ -12557,8 +12554,8 @@ class SelfRepair extends ShipSystem{
 					if ($toBeRepaired < 1) continue;
 
 					/*The player's override, then the destroyed bump - the same order and the same
-					"only if it was not overridden" rule the own-ship pass uses. A docked entry can
-					be reordered WITHIN tier 1; it can never climb out of it.*/
+					"only if it was not overridden" rule the own-ship pass uses. A docked entry is
+					reordered exactly like one of our own, and can be set above them.*/
 					$sysKey = $prefix . $system->id;
 					$prio = $system->repairPriority;
 					$isOverridden = false;
@@ -12574,7 +12571,6 @@ class SelfRepair extends ShipSystem{
 						'obj' => $system,
 						'ship' => $docked,
 						'shipId' => (int)$docked->id,
-						'tier' => 1,
 						'key' => $sysKey,
 						'priority' => $prio,
 						'overridden' => $isOverridden,

@@ -283,25 +283,12 @@ const CenteredListItem = styled(ListItem)`
 `;
 
 /* ── Stage 17: the docked units (WALKERS_OF_SIGMA_PLAN.md 3.15) ──────────────────────
-   #00b8e6 is FV's established "aboard / not here yet" cyan - the same value the fleet
-   list gives its .docked rows and the ship window gives a docked orbital's health bar.
-   The heading is a plain row rather than a second <ListContainer> on purpose: the drag
-   engine measures rows inside ONE scroller and indexes the visible list, so a second box
-   would need the whole engine again. It is not draggable and carries no keyId. */
-const SectionHeading = styled(ListItem)`
-    justify-content: center;
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #00b8e6;
-    background-color: rgba(0, 184, 230, 0.08);
-    border-top: 1px solid #00b8e6;
-    cursor: default;
-    touch-action: auto;
-`;
-
-/* Whose ship this row belongs to. Every docked row carries one - without it the list is a
-   pile of "Structure" and "C&C" entries with nothing to tell two Scribes apart. */
+   Whose ship this row belongs to, and the ONLY thing that marks a docked unit's entry out:
+   the list is one queue sorted by priority, so a Scribe's C&C sits wherever the player put
+   it, next to the Traveler's own systems (user, 2026-09-12). Without the name the list is a
+   pile of "Structure" and "C&C" rows with nothing to tell two Scribes apart.
+   #00b8e6 is FV's established "aboard" cyan - the same value the fleet list gives its
+   .docked rows and the ship window gives a docked orbital's health bar. */
 const OwnerTag = styled.span`
     color: #00b8e6;
     font-weight: normal;
@@ -416,10 +403,12 @@ class SelfRepairList extends React.Component {
         return out;
     }
 
-    /* The tier-1 half of the queue - MIRROR OF SelfRepair::gatherDockedUnitRepairs, and it has
+    /* The docked half of the queue - MIRROR OF SelfRepair::gatherDockedUnitRepairs, and it has
        to stay one: this is where the player sets the priorities and that is what spends the
        points. Same four categories (damaged Structure / C&C / Self Repair, plus every
-       repairable critical on ANY system), the same composite keys, the same defaults. */
+       repairable critical on ANY system), the same composite keys, the same defaults. These
+       rows are merged into the carrier's own list and sorted with them by priority alone; only
+       the cyan ship-name tag (`docked: true`) marks them out. */
     getDockedRepairables() {
         const { system } = this.props;
         const items = [];
@@ -456,7 +445,7 @@ class SelfRepairList extends React.Component {
                             crit: crit,
                             ownerShip: docked,
                             shipId: docked.id,
-                            tier: 1,
+                            docked: true,
                             priority: critPriority,
                             overridden: critOverridden,
                             cost: this.getEffectiveCriticalRepairCost(crit, sys),
@@ -498,7 +487,7 @@ class SelfRepairList extends React.Component {
                     sys: sys,
                     ownerShip: docked,
                     shipId: docked.id,
-                    tier: 1,
+                    docked: true,
                     priority: basePriority,
                     overridden: isOverridden,
                     damage: damage,
@@ -600,9 +589,9 @@ class SelfRepairList extends React.Component {
                         type: 'critical',
                         sys: sys,
                         crit: crit,
-                        ownerShip: ship,   // Stage 17: whose item this is - always us at tier 0
+                        ownerShip: ship,   // Stage 17: whose item this is - always us
                         shipId: 0,         // Stage 17: sorts ahead of any docked unit's real id
-                        tier: 0,           // Stage 17: our own damage outranks every docked entry
+                        docked: false,     // Stage 17: ours, so no cyan ship-name tag on the row
                         priority: critPriority,
                         overridden: critOverridden, // explicit override wins ties (mirror of server sort)
                         cost: this.getEffectiveCriticalRepairCost(crit, sys), //C&C crits cost 4 (mirror of server)
@@ -623,7 +612,7 @@ class SelfRepairList extends React.Component {
                     sys: sys,
                     ownerShip: ship,   // Stage 17
                     shipId: 0,         // Stage 17
-                    tier: 0,           // Stage 17
+                    docked: false,     // Stage 17
                     priority: basePriority,
                     overridden: isOverridden, // explicit override wins ties (mirror of server sort)
                     damage: damage,
@@ -635,18 +624,15 @@ class SelfRepairList extends React.Component {
             }
         }
 
-        // Concatenate first. Stage 17 appends the docked units' items as tier 1; the sort below
-        // keeps them under every own-ship row whatever their priority (mirror of the server's
-        // sortUnifiedRepairQueue). Empty for every Self Repair but the Traveler's.
+        // Concatenate first. Stage 17 appends the docked units' items to the SAME list and the sort
+        // below treats them as equals - priority alone decides, so the player may put a docked
+        // Scribe's C&C above the Traveler's own hull if that is what they want (user, 2026-09-12).
+        // The cyan ship name on the row is what tells the two apart. Empty for every Self Repair
+        // but the Traveler's. Mirror of the server's sortUnifiedRepairQueue.
         const allItems = [...criticals, ...systems, ...this.getDockedRepairables()];
 
-        // Sort Unified List: Tier -> Priority (Desc) -> Explicit-override wins ties -> Visual Stability (Previous Order) -> Ship/ID/SubID (Asc)
+        // Sort Unified List: Priority (Desc) -> Explicit-override wins ties -> Visual Stability (Previous Order) -> Ship/ID/SubID (Asc)
         allItems.sort((a, b) => {
-            // Stage 17: TIER BEATS EVERYTHING, priority included. 0 = this vessel's own damage,
-            // 1 = a unit docked in its bays. Absent reads as 0, so an ordinary list is unchanged.
-            const aTier = a.tier || 0, bTier = b.tier || 0;
-            if (aTier !== bTier) return aTier - bTier;
-
             if (a.priority !== b.priority) return b.priority - a.priority; // Higher priority first
 
             // Tie-break: an EXPLICIT player override beats an implicit/auto priority (e.g. the
@@ -667,9 +653,10 @@ class SelfRepairList extends React.Component {
                 }
             }
 
-            // Fallback / Deterministic Sort. Stage 17 puts the owning SHIP first: tier 1 holds
+            // Fallback / Deterministic Sort. Stage 17 puts the owning SHIP first: the list can hold
             // entries from several docked hulls and system ids are per-ship, so without it two
-            // docked units' systems would interleave on a shared id (mirror of the server).
+            // docked units' systems would interleave on a shared id (mirror of the server). 0 is
+            // this vessel's own, so an exact tie still favours it - a tiebreak, not a rule.
             const aShip = a.shipId || 0, bShip = b.shipId || 0;
             if (aShip !== bShip) return aShip - bShip;
             if (a.id !== b.id) return a.id - b.id;
@@ -783,15 +770,10 @@ class SelfRepairList extends React.Component {
         const systems = this.getRepairableSystems();
         if (systems.length === 0) return;
 
+        const maxPrio = systems[0].priority;
         const myItem = systems.find(s => s.keyId === targetId); // Use keyId
-        if (!myItem) return;
 
-        /* Stage 17: "top" means top OF ITS OWN TIER. A docked unit's row can never outrank the
-           carrier's own however high its number goes, so taking the global maximum would write a
-           meaningless priority and move nothing. */
-        const myTier = myItem.tier || 0;
-        const tierRows = systems.filter(s => (s.tier || 0) === myTier);
-        const maxPrio = tierRows[0].priority;
+        if (!myItem) return;
 
         // If I am already at the top priority, do nothing
         if (myItem.priority === maxPrio) {
@@ -1087,24 +1069,6 @@ class SelfRepairList extends React.Component {
         const fromIdx = order.findIndex(it => it.keyId === keyId);
         if (fromIdx === -1) return;
 
-        /* Stage 17: A ROW MAY ONLY MOVE WITHIN ITS OWN TIER. The server sorts by tier before
-           priority, so dragging a docked unit's row up among the carrier's own would write a
-           big priority that changes nothing on screen and nothing in the repair order - the
-           list would silently spring back. Clamping the drop instead makes the boundary
-           something the player can feel. The tier span is contiguous because the list is
-           already sorted by tier. */
-        const movedTier = order[fromIdx].tier || 0;
-        let tierStart = 0;
-        while (tierStart < order.length && (order[tierStart].tier || 0) < movedTier) tierStart++;
-        let tierEnd = order.length - 1; // last index of this tier, in the PRE-removal list
-        while (tierEnd >= 0 && (order[tierEnd].tier || 0) > movedTier) tierEnd--;
-        /* dropIdx is in "grabbed-row-removed" index space. Taking the grabbed row out shortens
-           this tier by one, so the legal insertion slots there are [tierStart .. tierEnd] - the
-           upper bound is tierEnd, not tierEnd-1, because inserting AT tierEnd puts the row after
-           the tier's last remaining member and still before the next tier's first. */
-        dropIdx = Math.max(tierStart, Math.min(dropIdx, tierEnd));
-        if (dropIdx === fromIdx) return; // clamped back to where it came from
-
         const items = order.slice();
         const [moved] = items.splice(fromIdx, 1);
         items.splice(dropIdx, 0, moved);
@@ -1125,9 +1089,9 @@ class SelfRepairList extends React.Component {
         system.setOverride(keyId, assign);
 
         // Walk upward, bumping each colliding row so priorities stay strictly
-        // descending above the drop point. Stage 17: STOPS AT THE TIER BOUNDARY - a docked
-        // unit's row must never rewrite the carrier's own priorities to make room for itself.
-        for (let i = dropIdx - 1; i >= tierStart; i--) {
+        // descending above the drop point. Stage 17: it walks over the carrier's OWN rows too -
+        // one list, so a docked unit's row dropped above them bumps them exactly as any other would.
+        for (let i = dropIdx - 1; i >= 0; i--) {
             if (items[i].priority > assign) break; // already strictly above
             assign += 1;
             system.setOverride(items[i].keyId, assign);
@@ -1217,18 +1181,10 @@ class SelfRepairList extends React.Component {
                                 lineBefore = true;  // middle -> marker line
                             }
                         }
-                        /* Stage 17: one heading above the first docked row. Rendered as a
-                           SIBLING of the row (a fragment) so the row itself keeps its index in
-                           the drag engine's list - the engine walks the container's children and
-                           skips anything without a data-keyid. */
-                        const isFirstDocked = (item.tier || 0) === 1
-                            && (index === 0 || ((repairableSystems[index - 1].tier || 0) === 0));
+                        //Stage 17: a docked unit's row is marked by its ship's name in cyan and by
+                        //nothing else - it sorts and drags exactly like one of our own.
                         const owner = item.ownerShip || ship;
                         return (
-                        <React.Fragment key={`wrap-${item.type}-${item.shipId || 0}-${item.sys.id}${item.crit ? '-' + item.crit.id : ''}`}>
-                        {isFirstDocked && (
-                            <SectionHeading $readOnly={true}>Docked units &mdash; repaired last</SectionHeading>
-                        )}
                         <ListItem
                             key={item.keyId}
                             data-keyid={item.keyId}
@@ -1244,7 +1200,7 @@ class SelfRepairList extends React.Component {
                                 {item.type === 'critical' ? (
                                     <>
                                         <CriticalItemName>
-                                            {(item.tier || 0) === 1 && <OwnerTag>{owner.name}:</OwnerTag>}
+                                            {item.docked && <OwnerTag>{owner.name}:</OwnerTag>}
                                             {item.sys.displayName} ({item.crit.description || item.crit.phpclass})
                                         </CriticalItemName>
                                         <ItemStatus>
@@ -1253,16 +1209,16 @@ class SelfRepairList extends React.Component {
                                     </>
                                 ) : (
                                     <>
-                                        {/* Stage 17: `owner`, not `ship` - a tier-1 row's system lives on a
-                                            DOCKED unit and its health has to be read there. */}
+                                        {/* Stage 17: `owner`, not `ship` - a docked row's system lives on
+                                            another hull and its health has to be read there. */}
                                         {shipManager.systems.isDestroyed(owner, item.sys) ? (
                                             <DestroyedItemName>
-                                                {(item.tier || 0) === 1 && <OwnerTag>{owner.name}:</OwnerTag>}
+                                                {item.docked && <OwnerTag>{owner.name}:</OwnerTag>}
                                                 {item.sys.displayName}
                                             </DestroyedItemName>
                                         ) : (
                                             <ItemName>
-                                                {(item.tier || 0) === 1 && <OwnerTag>{owner.name}:</OwnerTag>}
+                                                {item.docked && <OwnerTag>{owner.name}:</OwnerTag>}
                                                 {item.sys.displayName}
                                             </ItemName>
                                         )}
@@ -1296,7 +1252,6 @@ class SelfRepairList extends React.Component {
                                 )}
                             </ActionButtons>
                         </ListItem>
-                        </React.Fragment>
                         );
                     })}
                 </ListContainer>
