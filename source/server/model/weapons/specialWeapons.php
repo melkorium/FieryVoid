@@ -11980,7 +11980,7 @@ class spawnMeteoroid extends Terrain {
         $this->faction = "Terrain";
         $this->factionAge = 1;
         $this->phpclass = "spawnMeteoroid";
-        $this->imagePath = "img/ships/asteroidField3.png";
+        $this->imagePath = "img/ships/meteorSwarm.png";
         $this->canvasSize = 200;
         $this->shipClass = "Meteoroid Field";
         $this->Enormous = true;
