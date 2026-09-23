@@ -37,10 +37,12 @@
         <link href="<?php echo AssetLoader::getAssetUrl('styles/lobby.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">        
         <link href="<?php echo AssetLoader::getAssetUrl('styles/createGame.css'); ?>" rel="stylesheet" type="text/css">
+        <link href="<?php echo AssetLoader::getAssetUrl('styles/scenarioCard.css'); ?>" rel="stylesheet" type="text/css">
         <script src="<?php echo AssetLoader::getAssetUrl('client/lib/jquery-4.0.0.min.js'); ?>"></script>
 <!--		<script src="client/helper.js"></script>-->
         <script src="client/mathlib.js"></script>
         <script src="client/UI/confirm.js"></script>
+        <script src="<?php echo AssetLoader::getAssetUrl('client/UI/scenarioCard.js'); ?>"></script>
         <script src="client/UI/createGame.js"></script>
         <script src="client/ajaxInterface.js"></script>
         <script src="client/ladder.js"></script>        

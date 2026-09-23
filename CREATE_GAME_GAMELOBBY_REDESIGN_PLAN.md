@@ -1,6 +1,6 @@
 # Create Game & Gamelobby Redesign Plan
 
-Planning document only — nothing in this plan has been built yet. Covers two pages:
+**Build status: Stage 0 BUILT 2026-09-23 (see §12); Stages 1-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -241,12 +241,16 @@ do not carry that field into the structured `scenario` JSON below.
 - **Submit as structured JSON**, not a formatted string:
   ```
   scenario: {
-    tier, tierCustom, fleetRequirements, customFactions, forbiddenFactions,
-    enhancements, enhancementsPoints, mapBorders,
+    v, tier, tierCustom, fleetRequirements, fleetRequirementsCustom, customFactions,
+    forbiddenFactions, enhancements, enhancementsPoints, mapBorders,
     victoryConditions, victoryCustom, additionalInfo
   }
   ```
-  This is the field that removes gamelobby's regex parser entirely (§4.1).
+  This is the field that removes gamelobby's regex parser entirely (§4.1). **Corrected at
+  Stage 0:** the original list here missed `fleetRequirementsCustom` (the real form's
+  Fleet Requirements select has an "Other" + `#req_custom` reveal, same as Tier and Victory),
+  and gained a `v` schema version. The authoritative key list is now
+  `scenarioCard.FIELDS` in `client/UI/scenarioCard.js` — §12.1.
 - **Backward compatibility:** existing lobbies only have the old free-text `description`.
   Gamelobby's renderer needs both paths — `scenario` JSON present → structured render; absent
   (a legacy game) → today's parser, unchanged. No backfill migration; old games simply age out.
@@ -395,6 +399,12 @@ through":
 - Design mobile-first for the two genuinely hard mobile surfaces named in the brief: the
   faction picker (§4.3) and the wizard navigation (§3.1) — both get an explicit mobile layout
   in this plan, not a media-query afterthought bolted on later.
+- **Every stage must be mobile-friendly, not just those two surfaces** (user requirement,
+  2026-09-23: "the new page design should be mobile friendly too", applying throughout the
+  project). Each stage's own markup/CSS must work at 390px before it counts as done — §9's
+  phone-width screenshot pass is a gate, not a nice-to-have. Prefer layouts keyed to their
+  CONTAINER's width (see §12.1's fact grid) over viewport media queries: the same component
+  sits in a third-width lobby column on desktop and a full-width phone screen.
 
 ---
 
@@ -426,9 +436,10 @@ Each stage is independently shippable and testable on its own. **Stages 1-3 (Cre
 a user-approved visual reference** — the mockup canvas's 4 wizard-step artboards (§11) — build
 against those directly rather than re-deriving layout from this section's prose description.
 
-- **Stage 0 — Shared groundwork.** No user-visible change: add the three additive columns
-  (§6, minus the password join-flow work), stub the shared `scenarioCard.js` renderer. Lets
-  every later stage build on real columns instead of a guessed shape.
+- **Stage 0 — Shared groundwork. ✅ BUILT 2026-09-23 — as-built record and traps in §12.1.**
+  No user-visible change: add the three additive columns (§6, minus the password join-flow
+  work), stub the shared `scenarioCard.js` renderer. Lets every later stage build on real
+  columns instead of a guessed shape.
 - **Stage 1 — Create Game visual pass, still single-page.** Restyle in place: background
   picker grid, Terrain Features list, consistently grouped headers, structured scenario submit
   (§3.2/§3.3) — without the wizard yet. Biggest readability win, fastest, and the safest place
@@ -748,3 +759,77 @@ convention.
 - Terrain Features card: single column of rows (label + count dropdown each), not the two-column
   grid an earlier pass tried — the two-column split stopped being necessary once the card moved
   beside Rules & Options instead of spanning the step's full width.
+
+---
+
+## 12. Build log
+
+### 12.1 Stage 0 — shared groundwork (built 2026-09-23)
+
+**What landed** (no user-visible change; nothing calls the renderer or touches the columns yet):
+
+- `db/createGameRedesign.sql` — ONE migration, not the three files §6 suggested (matches the
+  more recent `reinforcements.sql` precedent: one feature, one file). Adds `tac_game.scenario`
+  (TEXT), `in_service_date` (INT), `password_hash` (VARCHAR(255)), all `DEFAULT NULL`, after
+  `description`. Uses `ADD COLUMN IF NOT EXISTS`, so re-running it is a no-op (verified by
+  running it twice against a throwaway `CREATE TABLE … LIKE tac_game` copy). Matching block in
+  `db/emptyDatabase.sql`. **Safe to apply ahead of any code** — every existing `tac_game` query
+  was audited: the one INSERT (`DBManager::createGame`) already names its columns, and every
+  `SELECT *` maps its row field-by-field into `TacGamedata`.
+- `client/UI/scenarioCard.js` — `window.scenarioCard`. `FIELDS` is **the storage contract** for
+  the scenario JSON (keys + the option strings, the latter verified verbatim against
+  creategame.php's `<option value>`s by script); `normalise(raw)` accepts a JSON string, an
+  object or nothing and returns known keys only, all trimmed strings; `render(raw, {plain})`
+  returns an escaped `<dl>` fact grid (or `""`). Display rules taken from the mockup: an
+  "Other"/"Up to X points" choice shows what was typed ("Up to 20 pts"); Forbidden Factions is
+  left out when it says "None"; empty facts are left out (so an older, shorter scenario renders
+  cleanly); Additional Info spans the full width and keeps its line breaks via CSS
+  `white-space: pre-line`, never `<br>` markup. Each field has a form `label` (creategame.php's
+  wording) and a shorter `factLabel` (the mockup's lobby wording — "Tier", "Custom Factions").
+- `styles/scenarioCard.css` — `.fv-scn-*`. NOT gamesPanel.css's `.fv-card` (that is games.php's
+  clickable `<a>` card and the file isn't linked on either page). **Column count follows the
+  grid's own width**: at most two columns, one once a column would be under 11rem — so it is
+  two-up in a third-width lobby column and one-up on a phone without a media query. `plain`
+  modifier drops each fact's card chrome for use inside the Summary step's card.
+- Wired on both pages: CSS via `AssetLoader`; JS via `AssetLoader` on creategame.php, but as a
+  PLAIN tag inside gamelobby.php's `$debug` block (bundle-legacy.js skips AssetLoader tags —
+  a versioned tag there would never enter the lobby bundle).
+
+**Traps found — read before Stages 1, 4, 6 and 8:**
+
+1. **Lobby payload uses `JSON_NUMERIC_CHECK`** (`Manager::getGameLobbyDataJSON`). Any
+   numeric-looking STRING nested anywhere in the payload becomes a number, and some change value
+   on the way ("0012" → 12, "1e5" → 100000). Stage 4 must publish `scenario` as its **raw JSON
+   text** (a string at the top level — never numeric) and let `scenarioCard.normalise` parse it
+   client-side; publishing a decoded object would let this flag rewrite player free text.
+2. **The DB connection is `utf8` (3-byte)** (`mysqli_set_charset(…, 'utf8')`). A 4-byte
+   character (emoji) in a free-text field can't be stored. Stage 1: re-encode the validated
+   scenario server-side with `json_encode`'s DEFAULT flags (never `JSON_UNESCAPED_UNICODE`) — the
+   stored text is then pure ASCII `\uXXXX` and immune. (`description` already has this latent
+   problem today; not ours to fix here.)
+3. **`description` must KEEP being written** alongside `scenario`. Besides the PHP parser,
+   gamelobby.php's inline JS regex-matches it directly — `/CUSTOM FACTIONS \/ UNITS:\s*Allowed/i`
+   at ~lines 361 and 384 (the "Show Custom" default and its warning). Stage 4 can switch those
+   two to `scenario.customFactions` with the regex as the legacy fallback.
+4. **`TacGamedata`'s constructor rewrites `\n` → `<br>` in `description`.** Do not route
+   `scenario` through that path, or through anything else that does.
+5. **`password_hash` must never enter `TacGamedata`.** `stripForJson` builds its object by hand,
+   so a property it doesn't name stays server-side — but that payload is inlined into
+   gamelobby.php and polled by game.php, so one careless `$strippedGamedata->… = $this->…` would
+   hand a private game's hash to everyone who opens it. Stage 8: give the join path its own
+   narrow query.
+6. **creategame.php has NO `<meta name="viewport">`** (gamelobby.php does). Without it a phone
+   lays the page out at ~980px and scales it down, so NO responsive CSS on that page can ever
+   take effect. Not added at Stage 0 because it changes how today's fixed-width page renders on
+   phones (user-visible); **Stage 1 must add it**, since the restyled page is designed for it.
+7. **Mockup leftover:** `CreateGame_Step4_Summary` still shows a "Called Shots: Allowed" fact
+   and paraphrased values ("Hard edge"). Called Shots is dropped (§3.3) and values are always
+   the real option text — the renderer already does both.
+8. **Verifying at 390px with headless Chrome on Windows:** the browser enforces a minimum
+   window width (~500px) and just crops the screenshot, so `--window-size=390,…` lays out
+   wider than it shows and looks broken/overflowing. Test a component inside a 358px-wide box
+   (390 minus 16px gutters) on a wider page instead, or use real device emulation.
+9. **Local DB:** the migration was only validated against a scratch copy — apply
+   `db/createGameRedesign.sql` to the local DB (and later test/live) before Stage 1's code runs.
+   The legacy watcher wasn't running at build time; the lobby bundle was rebuilt by hand with
+   `FV_NO_MINIFY=1 node scripts/bundle-legacy.js` (what the watcher runs).

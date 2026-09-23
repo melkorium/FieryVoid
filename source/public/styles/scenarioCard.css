@@ -1,0 +1,79 @@
+/*
+ * scenarioCard.css - the Scenario Description fact grid built by client/UI/scenarioCard.js.
+ * CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §3.3 / §4.1. Linked on creategame.php and gamelobby.php.
+ *
+ * Tokens only - tokens.css is the one :root block; never declare another here.
+ *
+ * Deliberately NOT gamesPanel.css's .fv-card. That one is games.php's clickable <a> card (hover
+ * fill, focus ring, a --rail that defaults to the idle state), and gamesPanel.css is not linked on
+ * either of these pages. Same grammar - card fill, soft border, the 3px rail - without the
+ * interaction states a read-only fact must not advertise.
+ */
+
+.fv-scn-grid {
+  --fv-scn-gap: 12px;
+  display: grid;
+  /* At most TWO columns, dropping to one once a column would be narrower than 11rem.
+     Keyed to the grid's OWN width, not the viewport's: the same grid sits in a third-width
+     lobby column on a desktop, a full-width wizard card and a 390px phone, and a media query
+     can only see the last of those. A browser without max() drops the whole declaration and
+     gets one column - the phone layout, which is the safe way round. */
+  grid-template-columns: repeat(auto-fill, minmax(max(11rem, calc((100% - var(--fv-scn-gap)) / 2)), 1fr));
+  gap: var(--fv-scn-gap);
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.fv-scn-fact {
+  /* min-width: 0 lets a long unbroken value wrap instead of widening its whole track */
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--fv-card);
+  border: 1px solid var(--fv-line-soft);
+  border-left: var(--fv-log-rail) solid var(--rail, var(--fv-accent));
+  box-sizing: border-box;
+}
+
+.fv-scn-fact--wide {
+  grid-column: 1 / -1;
+}
+
+/* font-family on the element itself: gamesNew.css's `* { font-family: Arial }` matches every
+   element directly, so an inherited display face would lose to it. */
+.fv-scn-label {
+  margin: 0 0 5px;
+  font-family: var(--fv-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--fv-text-dim);
+}
+
+.fv-scn-value {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fv-text);
+  /* player-typed text: a long URL or faction list must break rather than overflow on a phone */
+  overflow-wrap: anywhere;
+}
+
+/* Additional Info keeps the creator's line breaks - as text, never as markup. */
+.fv-scn-value--multiline {
+  white-space: pre-line;
+}
+
+/* Plain: the facts already sit INSIDE a card carrying the rail (the wizard's Summary step), and
+   cards inside a card read as clutter - so drop each fact's chrome and keep the type. */
+.fv-scn-grid--plain .fv-scn-fact {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.fv-scn-grid--plain .fv-scn-label {
+  margin-bottom: 3px;
+  font-size: 8.5px;
+  letter-spacing: 1px;
+}

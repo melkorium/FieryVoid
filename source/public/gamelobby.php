@@ -105,6 +105,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<link href="<?php echo AssetLoader::getAssetUrl('styles/lobby.css'); ?>" rel="stylesheet" type="text/css">
 		<link href="<?php echo AssetLoader::getAssetUrl('styles/confirm.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">
+        <link href="<?php echo AssetLoader::getAssetUrl('styles/scenarioCard.css'); ?>" rel="stylesheet" type="text/css">
         <!-- jQuery + jQuery-UI self-hosted (same-origin HTTP/2 + cache-control, no 3rd-party
              TLS). Both kept SYNCHRONOUS: the lobby's synchronous client/*.js scripts run
              during parse and expect $.fn.draggable present, so jQuery-UI must not defer
@@ -152,6 +153,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<script src="client/UI/confirm.js"></script>
         <script src="client/UI/fleetList.js"></script>
         <script src="client/UI/gameInfo.js"></script>
+        <script src="client/UI/scenarioCard.js"></script>
         <script src="client/model/ship.js"></script>
         <script src="client/model/shipSystem.js"></script>
         <script src="client/model/systemFactory.js"></script>
