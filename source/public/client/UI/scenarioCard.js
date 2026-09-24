@@ -18,8 +18,10 @@
  * that fact. The `options` strings are copied VERBATIM from creategame.php's <option value>s and
  * stored as-is, so they are compared, not just displayed: do not paraphrase them either.
  * Called Shots is deliberately absent (dropped from the redesign, plan §3.3).
+ * The server keeps its own copy of the key list (Manager::$scenarioKeys) - change both together.
  *
- * STAGE 0: nothing calls this yet. Stage 1 writes the JSON, Stages 2 and 4 render it.
+ * `help` is the Create Game form's "?" text. Stage 1 builds that form from this list; Stages 2
+ * and 4 render the stored JSON with render().
  */
 window.scenarioCard = {
 
@@ -31,35 +33,42 @@ window.scenarioCard = {
         {
             key: "tier", label: "Expected Power Level", factLabel: "Tier",
             options: ["Any", "Tier 1", "Tier 2", "Tier 3", "Ancient", "Other"],
-            otherKey: "tierCustom"
+            otherKey: "tierCustom",
+            help: "The power level fleets are expected to be built to. Factions & Tiers lists where each faction sits."
         },
         {
             key: "fleetRequirements", label: "Fleet Requirements", factLabel: "Fleet Requirements",
             options: ["Pass the fleet checker", "Other"],
-            otherKey: "fleetRequirementsCustom"
+            otherKey: "fleetRequirementsCustom",
+            help: "What every fleet must satisfy before the game starts - normally, passing the lobby's Fleet Checker."
         },
         {
             key: "customFactions", label: "Custom Factions / Units", factLabel: "Custom Factions",
-            options: ["Allowed", "Custom factions allowed", "Custom ships in official factions allowed", "Not allowed"]
+            options: ["Allowed", "Custom factions allowed", "Custom ships in official factions allowed", "Not allowed"],
+            help: "Whether fan-made factions, and custom ships added to official factions, may be used."
         },
         {
             //free text, "None" by default - a fact that says nothing is left out of the grid
             key: "forbiddenFactions", label: "Forbidden Factions", factLabel: "Forbidden Factions",
-            omitNone: true
+            omitNone: true,
+            help: "Factions that may not be used in this game, whatever their tier."
         },
         {
             key: "enhancements", label: "Enhancements", factLabel: "Enhancements",
             options: ["Allowed", "Up to X points", "Not allowed"],
-            pointsKey: "enhancementsPoints"
+            pointsKey: "enhancementsPoints",
+            help: "Whether units may buy enhancements such as Elite Crew, and optionally a points limit on them."
         },
         {
             key: "mapBorders", label: "Map Borders", factLabel: "Map Borders",
-            options: ["Unit ending movement out of map is destroyed", "Unit leaving map is destroyed"]
+            options: ["Unit ending movement out of map is destroyed", "Unit leaving map is destroyed"],
+            help: "What happens to a unit that goes off the edge of the map."
         },
         {
             key: "victoryConditions", label: "Victory Conditions", factLabel: "Victory Conditions",
             options: ["More forces remaining after Turn 12", "Last unit on map", "Last ship on map", "Other"],
-            otherKey: "victoryCustom"
+            otherKey: "victoryCustom",
+            help: "How the game is won."
         },
         {
             key: "additionalInfo", label: "Additional Info", factLabel: "Additional Info",

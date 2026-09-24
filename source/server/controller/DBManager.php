@@ -1321,7 +1321,11 @@ class DBManager
 */        
 
 
-    public function createGame($gamename, $background, $slots, $userid, $gamespace, $description, $rules = '{}')
+    /* $scenario: the validated Scenario Description JSON text (Manager::cleanScenario), or null
+       for a game created without one - the Fleet Builder, or an old cached createGame.js.
+       ⚠️ Needs db/createGameRedesign.sql applied first: naming a column that does not exist
+       fails the whole INSERT, and with it every game creation. */
+    public function createGame($gamename, $background, $slots, $userid, $gamespace, $description, $rules = '{}', $scenario = null)
     {
         //Name the columns explicitly: a column-less INSERT ... VALUES breaks at
         //prepare() time with "Column count doesn't match value count" the moment
@@ -1330,7 +1334,7 @@ class DBManager
             INSERT INTO
                 tac_game
                 (name, turn, phase, activeship, background, points, status,
-                 slots, creator, submitLock, gamespace, rules, description)
+                 slots, creator, submitLock, gamespace, rules, description, scenario)
             VALUES
             (
                 ?,
@@ -1345,7 +1349,8 @@ class DBManager
                 null,
                 ?,
                 ?,
-		?
+		?,
+                ?
             )
         ");
 
@@ -1356,14 +1361,15 @@ class DBManager
             $slotnum = count($slots);
             $gamespace = $this->DBEscape($gamespace);
             $stmt->bind_param(
-                'ssiisss',
+                'ssiissss',
                 $gamename,
                 $background,
                 $slotnum,
                 $userid,
                 $gamespace,
                 $rules,
-		$description
+		$description,
+                $scenario
             );
             if ($stmt->execute())
                 $gameid = $this->getLastInstertID();
@@ -2466,7 +2472,9 @@ class DBManager
         $asteroids = isset($r['asteroids']) ? (int)$r['asteroids'] : 0;
         $moons     = (isset($r['moons']) && is_array($r['moons'])) ? $r['moons'] : array();
         $moonCount = (int)($moons['small'] ?? 0) + (int)($moons['medium'] ?? 0) + (int)($moons['large'] ?? 0);
-        if ($asteroids > 0 || $moonCount > 0) $chips[] = 'TERRAIN';
+        $fields    = (isset($r['dustAndMeteors']) && is_array($r['dustAndMeteors'])) ? $r['dustAndMeteors'] : array();
+        $fieldCount = (int)($fields['dust'] ?? 0) + (int)($fields['meteors'] ?? 0);
+        if ($asteroids > 0 || $moonCount > 0 || $fieldCount > 0) $chips[] = 'TERRAIN';
 
         if (!empty($r['allowMines']))   $chips[] = 'MINES';
         if (!empty($r['allowReinforcements'])) $chips[] = 'REINF';

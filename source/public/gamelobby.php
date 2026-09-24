@@ -545,6 +545,8 @@ $optionsUsed = '';
     $desperateTeams = null;
     $asteroidsNo = 0;
     $moonData = [];
+    $dustNo = 0;
+    $meteorsNo = 0;
 
 
     if (isset($gamelobbydata->rules)) {
@@ -585,7 +587,12 @@ $optionsUsed = '';
             } else if (is_array($rulesMoons)) {
                 $moonData = $rulesMoons;
             }
-        }       
+        }
+
+        if (isset($gamelobbydata->rules->dustAndMeteors)) {
+            $dustNo = (int)($gamelobbydata->rules->dustAndMeteors->dust ?? 0);
+            $meteorsNo = (int)($gamelobbydata->rules->dustAndMeteors->meteors ?? 0);
+        }
     }
 
     if ($ladder == true) { // Ladder game
@@ -654,7 +661,14 @@ $optionsUsed = '';
             : ', Moons (' . implode(', ', $moonParts) . ')';
     }
 
-    if ($asteroids == false && $moons == false) { 
+    if ($dustNo > 0) {
+        $optionsUsed .= ', Dust (' . $dustNo . ')';
+    }
+    if ($meteorsNo > 0) {
+        $optionsUsed .= ', Meteor Swarms (' . $meteorsNo . ')';
+    }
+
+    if ($asteroids == false && $moons == false && $dustNo == 0 && $meteorsNo == 0) {
         $optionsUsed .= ', No Terrain';
     }
 

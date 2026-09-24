@@ -1069,6 +1069,7 @@ spl_autoload_register(
                 'dudromaa_early' => '/server/model/ships/drazi_old/dudromaA_early.php',
                 'dudromab' => '/server/model/ships/drazi/dudromaB.php',
                 'dudromab_early' => '/server/model/ships/drazi_old/dudromaB_early.php',
+                'dustandmeteorsrule' => '/server/model/DustAndMeteorsRule.php',
                 'dux' => '/server/model/ships/centauri_raiders/dux.php',
                 'duxraider' => '/server/model/ships/raiders/duxRaider.php',
                 'earlybattlewagon' => '/server/model/ships/raiders/earlybattlewagon.php',

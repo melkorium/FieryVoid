@@ -38,6 +38,10 @@ class GameRules implements JsonSerializable{
         if ($moonsRules !== null) {
             array_push($this->rules, $moonsRules);
         }
+        $dustAndMeteorsRules = $this->getDustAndMeteorsRules($rules);
+        if ($dustAndMeteorsRules !== null) {
+            array_push($this->rules, $dustAndMeteorsRules);
+        }
         $fleetTestRules = $this->getFleetTestRules($rules);
         if ($fleetTestRules !== null) {
             array_push($this->rules, $fleetTestRules);
@@ -163,6 +167,22 @@ private function getMoonsRules($rules) {
 
     return new MoonsRule($small, $medium, $large);
 }
+
+    //Absent unless at least one count is above zero, so "no dust, no meteors" leaves the rules
+    //blob exactly as it was before this rule existed.
+    private function getDustAndMeteorsRules($rules) {
+        if (!isset($rules['dustAndMeteors'])) return null;
+
+        $d = $rules['dustAndMeteors'];
+        if (is_object($d)) $d = (array)$d;
+        if (!is_array($d)) return null;
+
+        $rule = new DustAndMeteorsRule($d['dust'] ?? 0, $d['meteors'] ?? 0);
+        $counts = $rule->jsonSerialize();
+        if ($counts['dust'] === 0 && $counts['meteors'] === 0) return null;
+
+        return $rule;
+    }
 
     public function jsonSerialize(): mixed {
         $list = [];

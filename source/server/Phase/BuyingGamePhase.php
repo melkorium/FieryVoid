@@ -7,8 +7,11 @@ class BuyingGamePhase implements Phase
     {
         $servergamedata = $dbManager->getTacGamedata($gameData->forPlayer, $gameData->id);
 
-        if (($gameData->rules->hasRuleName("asteroids") || $gameData->rules->hasRuleName("moons"))){        
-            // Sort ships to prioritise placing larger terrain first 
+        $randomTerrain = $gameData->rules->hasRuleName("asteroids") || $gameData->rules->hasRuleName("moons")
+            || $gameData->rules->hasRuleName("dustAndMeteors");
+
+        if ($randomTerrain){
+            // Sort ships to prioritise placing larger terrain first
             usort($servergamedata->ships, function($a, $b) {
                 $getWeight = function($ship) {
                     if ($ship instanceof moonLarge) return 90;
@@ -19,6 +22,9 @@ class BuyingGamePhase implements Phase
                     if ($ship instanceof asteroidLNew) return 40;
                     if ($ship instanceof asteroidMNew) return 30;
                     if ($ship instanceof asteroidSNew) return 20;
+                    //Last: they may sit next to anything already placed, and nothing placed
+                    //after them has to keep its distance from them.
+                    if ($ship instanceof spawnDustField || $ship instanceof spawnMeteoroid) return 10;
                     return 0;
                 };
                 
@@ -125,10 +131,15 @@ class BuyingGamePhase implements Phase
         $moonPositions = [];
         $terrainOccupiedHexes = [];
         foreach ($servergamedata->ships as $ship) {
-            if (($gameData->rules->hasRuleName("asteroids") || $gameData->rules->hasRuleName("moons")) && $ship->userid == -5) {
+            if ($randomTerrain && $ship->userid == -5) {
                 // It's an asteroid or moon, so assign a unique random position.
                 $deploymentZone = $this->getGamespace($gameData);
-                
+
+                /* Dust and Meteor Swarms MAY be placed adjacent to other terrain, moons included
+                   (user ruling 2026-09-23): no moon buffer, and only sharing a hex is refused -
+                   everything else keeps its 1-hex gap. */
+                $mayTouchTerrain = $this->isDustOrMeteors($ship);
+
                 if ($ship instanceof moonSmallNew || $ship instanceof moonNew || $ship instanceof moonLarge) {
                     $maxX = (int)(($deploymentZone['width'] / 2) - 6);
                     $maxY = (int)(($deploymentZone['height'] / 2) - 4);  
@@ -184,7 +195,7 @@ class BuyingGamePhase implements Phase
                     }
 
                     // 2. Check collision with Moons
-                    foreach ($moonPositions as $mPos) {
+                    if (!$mayTouchTerrain) foreach ($moonPositions as $mPos) {
                         $moonCenter = new OffsetCoordinate($mPos[0], $mPos[1]);
                         // Moons need 7 hex buffer from other moons, Asteroids need 4 from moons
                         $limit = ($ship instanceof moonSmallNew || $ship instanceof moonNew || $ship instanceof moonLarge) ? 7 : 4;
@@ -200,7 +211,7 @@ class BuyingGamePhase implements Phase
 
                     // 3. Check collision with other Terrain (Asteroids/Irregular)
                     // If we are over 50% of max attempts, relax the rule: allow 0 distance (adjacency), just no direct overlap
-                    $minDist = ($attempts > ($maxAttempts / 2)) ? 0 : 1; 
+                    $minDist = ($mayTouchTerrain || $attempts > ($maxAttempts / 2)) ? 0 : 1;
 
                     if (!empty($terrainOccupiedHexes)) {
                         foreach ($currentUnitHexes as $myHex) {
@@ -307,6 +318,28 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
         $moonIndex++;
     }
 }
+
+    /* DustAndMeteorsRule: one single-hex unit per count. These are the Triad Asteroid Salvo's own
+       terrain classes, so collision damage and their not blocking line of sight need nothing new.
+       Placed in advance() by the same random pass as the rest of the terrain, under a looser
+       spacing rule - see isDustOrMeteors(). */
+    public function addDustAndMeteors($gameData, $dbManager, $dustCount, $meteorCount, $slot)
+    {
+        for ($i = 1; $i <= $dustCount; $i++) {
+            $dust = new spawnDustField($gameData->id, -5, "Dust #$i", $slot);
+            $dbManager->submitShip($gameData->id, $dust, -5);
+        }
+
+        for ($i = 1; $i <= $meteorCount; $i++) {
+            $meteors = new spawnMeteoroid($gameData->id, -5, "Meteor Swarm #$i", $slot);
+            $dbManager->submitShip($gameData->id, $meteors, -5);
+        }
+    }
+
+    private function isDustOrMeteors($ship)
+    {
+        return ($ship instanceof spawnDustField) || ($ship instanceof spawnMeteoroid);
+    }
 
     /* The name a bulk purchase numbers its copies from - the row's own name, which the
        lobby sets to the ship CLASS for mines and OSATs alike (neither bulk dialog offers
@@ -618,6 +651,11 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
                 }                 
 
                 $this->addAsteroids($gameData, $dbManager, $numberOfAsteroids, $slot->slot);
+            }
+
+            if ($gameData->rules->hasRuleName("dustAndMeteors") && $slot->slot == 1) {
+                $dmData = $gameData->rules->getRuleByName('dustAndMeteors')->jsonSerialize();
+                $this->addDustAndMeteors($gameData, $dbManager, (int)$dmData['dust'], (int)$dmData['meteors'], $slot->slot);
             }
 
         }

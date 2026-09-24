@@ -370,6 +370,7 @@ class Manager{
         $background = $data["background"];
         $gamespace = $data["gamespace"];
         $description = $data["description"];
+        $scenario = self::cleanScenario($data["scenario"] ?? null);
         $slots = array();
         $pointsA = $data["slots"][0]["points"];
         $poinstB = $data["slots"][1]["points"];
@@ -382,7 +383,7 @@ class Manager{
         try {
             self::initDBManager();
             self::$dbManager->startTransaction();
-            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules));
+            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules), $scenario);
             //SystemData::initSystemData(0, $gameid);
             self::takeSlot($userid, $gameid, 1);
             self::$dbManager->endTransaction(false);
@@ -395,6 +396,45 @@ class Manager{
     
     }
     
+    /* The submitted Scenario Description -> the JSON text stored in tac_game.scenario, or null
+       when there is none (the Fleet Builder sends none). CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md
+       §3.3 / §12.
+
+       Known keys only - the list is scenarioCard.FIELDS in client/UI/scenarioCard.js, which is
+       the storage contract; keep the two in step. Every value is stored as a trimmed string and
+       capped, and it is rendered escaped, so option values are NOT checked against the dropdown
+       lists: an unknown one costs nothing, and a new option needs no server change.
+
+       json_encode's DEFAULT flags on purpose: they escape every non-ASCII character as \uXXXX,
+       and the connection charset is 3-byte utf8, which cannot store an emoji.
+       INVALID_UTF8_SUBSTITUTE keeps one bad byte from dropping the whole scenario. */
+    private static $scenarioKeys = array(
+        'tier', 'tierCustom', 'fleetRequirements', 'fleetRequirementsCustom', 'customFactions',
+        'forbiddenFactions', 'enhancements', 'enhancementsPoints', 'mapBorders',
+        'victoryConditions', 'victoryCustom', 'additionalInfo'
+    );
+
+    public static function cleanScenario($raw){
+        if (!is_array($raw)) return null;
+
+        $clean = array('v' => 1);
+        foreach (self::$scenarioKeys as $key) {
+            if (!isset($raw[$key]) || !is_scalar($raw[$key])) continue;
+
+            $value = trim((string)$raw[$key]);
+            if ($key === 'enhancementsPoints') {
+                $value = substr(preg_replace('/[^0-9]/', '', $value), 0, 6);
+            } else {
+                $value = mb_substr($value, 0, ($key === 'additionalInfo') ? 4000 : 200);
+            }
+            if ($value !== '') $clean[$key] = $value;
+        }
+        if (count($clean) === 1) return null; //only the version
+
+        $json = json_encode($clean, JSON_INVALID_UTF8_SUBSTITUTE);
+        return ($json === false) ? null : $json;
+    }
+
     public static function takeSlot($userid, $gameid, $slot){
         
         try {

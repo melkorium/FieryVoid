@@ -1,6 +1,6 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stage 0 BUILT 2026-09-23 (see §12); Stages 1-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23 (see §12); Stages 2-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -440,7 +440,8 @@ against those directly rather than re-deriving layout from this section's prose 
   No user-visible change: add the three additive columns (§6, minus the password join-flow
   work), stub the shared `scenarioCard.js` renderer. Lets every later stage build on real
   columns instead of a guessed shape.
-- **Stage 1 — Create Game visual pass, still single-page.** Restyle in place: background
+- **Stage 1 — Create Game visual pass, still single-page. ✅ BUILT 2026-09-23 — §12.2.**
+  Restyle in place: background
   picker grid, Terrain Features list, consistently grouped headers, structured scenario submit
   (§3.2/§3.3) — without the wizard yet. Biggest readability win, fastest, and the safest place
   to prove the new `scenario` JSON round-trips correctly before building navigation on top of
@@ -833,3 +834,94 @@ convention.
    `db/createGameRedesign.sql` to the local DB (and later test/live) before Stage 1's code runs.
    The legacy watcher wasn't running at build time; the lobby bundle was rebuilt by hand with
    `FV_NO_MINIFY=1 node scripts/bundle-legacy.js` (what the watcher runs).
+
+### 12.2 Stage 1 — Create Game restyle, single page (built 2026-09-23)
+
+**⚠️⚠️ DEPLOY ORDER: `db/createGameRedesign.sql` MUST be applied to a database BEFORE this
+stage's code runs against it** (local, test and live). `DBManager::createGame` now names the
+`scenario` column, so without the migration EVERY game creation fails — the Fleet Builder included.
+
+**What landed:**
+
+- **creategame.php** rebuilt as three `.cg-section` panels — Game Options / Scenario
+  Description / Teams & Map — then one Create Game button. Still one form, one POST; no wizard
+  (Stage 2). Added `<meta name="viewport">` (§12.1 trap 6). `createGame.js` is now versioned
+  through `AssetLoader`: it and the markup change together, and a cached copy against the new
+  page would find none of its ids.
+- **Background picker:** a horizontally scrolling strip of lazy-loaded thumbnails (the 26
+  backgrounds total 2.3 MB). A radio group named `background`, so it is still one Tab stop with
+  arrow keys; the choice still repaints the page backdrop as a full-size preview.
+- **Rules & Options:** the mockup's check rows with a one-line caption each. Brackets and
+  Desperate teams are the inline dependent selects of §11.6, shown only while ticked. Real option
+  values kept (brackets 1-12, default 8 from `SimultaneousMovementRule`; Desperate
+  Both/Team 1/Team 2). **Labels follow the mockup except "Desperate Scenario"**, which keeps the
+  real wording (the mockup's "Desperate Measures" is not a term used anywhere else).
+  All element ids are unchanged, and the page now re-reads every ticked box on load — a browser
+  restoring the form (Back, failed POST) used to leave a ticked box whose rule was never set.
+- **Terrain Features:** six fixed count rows, no master "Add Terrain" checkbox; a type enters
+  the rules only when its count is above zero (`readTerrain`). Moons (0-5 / 0-4 / 0-2) are plain
+  `<select>`s. **Asteroids, Dust and Meteor Swarms are a COUNT COMBO** (`cgCountCombo` +
+  `createGame.initCountCombos`), keeping the old asteroid box's best-of-both-worlds behaviour at
+  the user's explicit request: ANY value 0-48 can be typed (digits only, clamped on change) or
+  stepped with the mouse wheel while focused (the page's shared wheel handler), and the ▾ lists
+  ONLY the named presets — None/Few/Several/Pack/Lots/Horde/Swarm/Zounds. A first cut that listed
+  every number 0-48 in a `<select>` was rejected: it lost free typing and the wheel, and buried
+  the presets. The combo is an ARIA combobox (input keeps focus, `aria-activedescendant`;
+  ArrowDown opens, arrows move, Enter picks without submitting, Escape/Tab/outside click
+  close; one open at a time). On touch, the ▾ opens the list WITHOUT focusing the field, so the
+  phone keyboard doesn't cover it. ⚠️ `.cg-section` deliberately has NO `overflow: hidden`: on a
+  phone, Meteor Swarms is the last row of its panel and its list must drop past the panel edge.
+- **Dust / Meteor Swarms** (user rulings 2026-09-23): each count is that many **single-hex** units,
+  0-48 with the asteroid presets, labelled "Dust" and "Meteor Swarms". New `DustAndMeteorsRule`
+  (rules key `dustAndMeteors: {dust, meteors}`, clamped 0-48, absent when both are 0).
+  `BuyingGamePhase` creates `spawnDustField` / `spawnMeteoroid` — the Triad Asteroid Salvo's own
+  classes, so collision damage and not blocking line of sight come for free; their map names stay
+  "Dust Field" / "Meteoroid Field". **Placement ruling:** they may sit adjacent to ANY other
+  terrain, moons included (no moon buffer), but never share a hex; they are placed last. Every
+  other terrain type keeps its old spacing. Also shown in the lobby's Options Selected line and
+  counted by the games list's TERRAIN chip.
+- **Scenario Description:** built from `scenarioCard.FIELDS` (which gained `help` text), 8 purple-
+  rail cards in a 2→1 container-width grid. "?" expands the help INLINE rather than as a floating
+  bubble — works identically on touch and needs no positioning. "Other" / "Up to X points" reveal
+  their input with the plan's one deliberate animation (grid-row 0fr→1fr, off under
+  `prefers-reduced-motion`). Submits BOTH `scenario` (JSON) and the legacy `description`, whose
+  format is byte-compatible with the old one minus the Called Shots line.
+- **Server:** `Manager::cleanScenario` keeps known keys only (its `$scenarioKeys` mirrors
+  `FIELDS` — change both together), trims and caps them (4000 chars for Additional Info, 200
+  otherwise, digits only for points), stamps `v: 1`, and encodes with DEFAULT flags so the stored
+  text is pure ASCII (§12.1 trap 2). Option values are deliberately not checked against the lists.
+- **Teams & Map:** map preview + legend beside team cards. One `teamColor()` drives the canvas
+  zones, the team rails and the legend, matching the game's own palettes (§11.4): 2 teams
+  relative (Team 1 green, Team 2 red); 3+ teams absolute (`teamBaseColorsMultiTeam`), repainted on
+  every refresh because adding a third team turns Team 2 from red to orange. The legend names teams
+  ("Team 1", "Team 2"…) rather than the mockup's "Your / Other team's deployment": nothing on this
+  canvas is per-viewer, and no terrain is drawn on it. The canvas keeps its 545×390 drawing surface
+  and is only CSS-scaled (nothing on it is clickable).
+- **Mobile:** everything collapses to one column (grids by their own width where possible,
+  900px where they split the page); form controls go to 16px under 600px (iOS zooms the page on
+  focusing anything smaller) and 44px tall on touch screens; `lobby.css`'s
+  `#mapPreview { min-width: 480px }` and base.css's fixed 1000px chat panel are overridden here.
+
+**Deliberately NOT in Stage 1** (they appear in the Step 1 artboard but belong to later stages):
+In-Service Date (Stage 6), Private Game (Stage 8), Save/Load Settings and Copy Slot/Team (Stage 3),
+the step tabs and Next/Back (Stage 2).
+
+**Verified:** PHP lint on all seven files; `cleanScenario` + rule round-trip + the REAL
+`BuyingGamePhase::advance()` placement pass run against a stub DBManager — 40 randomised runs,
+2480 units placed, zero shared hexes, dust/meteors landing adjacent to other terrain 664 times,
+asteroid/moon spacing unchanged; creategame.php rendered through PHP CLI and driven in headless
+Chrome (the posted `data` checked field by field); screenshots at desktop and 390px (the latter
+inside an iframe, which IS its own viewport — see §12.1 trap 8). `fvbuild -Check`: autoload map
+up to date, ship validator clean, replay 130/131 — the one, **game 4251** (ship 6's system
+`output` values each 1 lower), fails identically with every Stage 1 server change stashed, so it
+is pre-existing drift awaiting a re-record, not this stage.
+**Count combo, verified 2026-09-24 with Docker down** (not restarted): creategame.php syntax-
+checked with the `php-parser` npm package (negative-controlled — it rejects a planted error); the
+combo driven in headless Chrome on the previous CLI render with the three rows swapped for a
+line-for-line mirror of `cgCountCombo`'s output — typing, clamping, wheel, ▾, keyboard, mouse pick,
+outside-close, Escape and the posted rules all as intended; screenshots of an open list on desktop
+and of the LAST row's list on a phone, unclipped. ⚠️ A real PHP lint + CLI render of the final
+creategame.php is still owed once Docker is back up.
+
+**Found, not fixed:** `lobby.css` still carries `#asteroidsDropdown` / `#moonsDropdown` rules for
+elements that no longer exist anywhere (dead, harmless).

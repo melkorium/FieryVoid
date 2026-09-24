@@ -271,4 +271,9 @@
   --fv-mine: #52b352;
   --fv-mine-soft: #7ed576;
   --fv-ended: #b76662;
+
+  /* Topic rail for Create Game's Scenario Description cards
+     (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §2). A TOPIC colour, not a signal: it only has
+     to read as "not Game Options", so it deliberately borrows no status or allegiance hue. */
+  --fv-purple: #b28cf0;
 }

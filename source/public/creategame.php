@@ -1,17 +1,17 @@
 <?php
     include_once 'global.php';
-    
+
 	if (!isset($_SESSION["user"]) || $_SESSION["user"] == false){
 		header('Location: index.php');
 	}
 	if (!Manager::canCreateGame($_SESSION["user"])){
 		header('Location: games.php');
 	}
-	
+
 	$maps = Manager::getMapBackgrounds();
-	$defaultGameName = 'GAME NAME' . $_SESSION["user"];	
+	$defaultGameName = 'GAME NAME' . $_SESSION["user"];
 	$playerName = Manager::getPlayerName($_SESSION["user"]);
-	//if ($playerName != '')	
+	//if ($playerName != '')
 		$defaultGameName = ucfirst($playerName) . "'s Game";
 
 	if (isset($_POST["docreate"]) && isset($_POST["data"])){
@@ -19,9 +19,43 @@
 		if ($id){
 			header("Location: gamelobby.php?gameid=$id");
 		}
-		
+
 	}
-	
+
+	natsort($maps); // Natural sort: sorts "1", "2", ..., "10", "11"
+
+	//"12.PlanetOrange.jpg" -> "PlanetOrange"
+	function cgMapDisplayName($file) {
+		return preg_replace(array('/^\d+\./', '/\.[^.]+$/'), '', $file);
+	}
+
+	//<option>s 0..$max for a short Terrain Features count (the moon rows).
+	function cgCountOptions($max) {
+		$html = '';
+		for ($i = 0; $i <= $max; $i++) {
+			$html .= "<option value=\"$i\">$i</option>";
+		}
+		return $html;
+	}
+	$fieldPresets = array(0 => 'None', 3 => 'Few', 6 => 'Several', 12 => 'Pack', 18 => 'Lots', 24 => 'Horde', 36 => 'Swarm', 48 => 'Zounds');
+
+	//A count that takes ANY value 0..$max - typed, or stepped with the mouse wheel while focused -
+	//and also offers a short list of named presets behind its ▾ (createGame.initCountCombos).
+	//The old page's asteroid box worked this way; this is that control rebuilt accessibly.
+	function cgCountCombo($id, $label, $max, $presets) {
+		$list = '';
+		foreach ($presets as $value => $name) {
+			$list .= "<li role=\"option\" id=\"{$id}_opt{$value}\" class=\"cg-combo-option\" data-value=\"$value\">$name ($value)</li>";
+		}
+		return "<div class=\"cg-combo\">"
+			. "<input type=\"text\" id=\"$id\" class=\"cg-input cg-combo-input cg-terrain-count\" value=\"0\""
+			. " inputmode=\"numeric\" pattern=\"[0-9]*\" maxlength=\"" . strlen((string)$max) . "\" min=\"0\" max=\"$max\" step=\"1\""
+			. " autocomplete=\"off\" role=\"combobox\" aria-autocomplete=\"none\" aria-expanded=\"false\" aria-controls=\"{$id}_list\">"
+			. "<button type=\"button\" class=\"cg-combo-toggle\" tabindex=\"-1\" aria-label=\"$label presets\"><span class=\"cg-chevron\" aria-hidden=\"true\"></span></button>"
+			. "<ul class=\"cg-combo-list\" id=\"{$id}_list\" role=\"listbox\" aria-label=\"$label presets\" hidden>$list</ul>"
+			. "</div>";
+	}
+
 ?>
 
 <!DOCTYPE HTML>
@@ -29,13 +63,16 @@
 	<head>
 		<title>Fiery Void - Create game</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<!-- Without this a phone lays the page out ~980px wide and scales it down, and none of the
+		     responsive rules in createGame.css ever apply. -->
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<!-- Shared fv design tokens (roadmap item 6): MUST load before every other stylesheet. -->
 		<link href="<?php echo AssetLoader::getAssetUrl('styles/tokens.css'); ?>" rel="stylesheet" type="text/css">
 		<link href="<?php echo AssetLoader::getAssetUrl('styles/base.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/confirm.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/ladder.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/lobby.css'); ?>" rel="stylesheet" type="text/css">
-        <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">        
+        <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/createGame.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/scenarioCard.css'); ?>" rel="stylesheet" type="text/css">
         <script src="<?php echo AssetLoader::getAssetUrl('client/lib/jquery-4.0.0.min.js'); ?>"></script>
@@ -43,380 +80,297 @@
         <script src="client/mathlib.js"></script>
         <script src="client/UI/confirm.js"></script>
         <script src="<?php echo AssetLoader::getAssetUrl('client/UI/scenarioCard.js'); ?>"></script>
-        <script src="client/UI/createGame.js"></script>
+        <!-- Versioned: this script and the markup below change together, and a browser holding
+             yesterday's copy against today's page would find none of its ids. -->
+        <script src="<?php echo AssetLoader::getAssetUrl('client/UI/createGame.js'); ?>"></script>
         <script src="client/ajaxInterface.js"></script>
-        <script src="client/ladder.js"></script>        
+        <script src="client/ladder.js"></script>
 	</head>
 	<body class="creategame">
   <header class="pageheader">
     <img src="img/logo.png" alt="Fiery Void Logo" class="logo">
     <div class="top-right-row">
-      <a href="games.php">Back to Game Lobby</a>        
+      <a href="games.php">Back to Game Lobby</a>
       <a href="logout.php" class="btn btn-primary">Logout</a>
     </div>
   </header>
 
   <main class="container">
-      <form id="createGameForm" method="post">
-      <section class="panel large create">
-      <div class="panelheader"><span>CREATE YOUR GAME</span></div>
-			
-        <div class="game-options-wrapper">
-            <div class="options-column">
-                <div class="split-header" style = "margin-top: 10px">GAME OPTIONS:</div>
-                <div class="gameNameSelectContainer">
-                    <label for="gamename" class="gameNameSelect">GAME NAME:</label>
-                    <input id="gamename" class="gamename" type="text" name="gamename" value="<?php print($defaultGameName); ?>">
-                </div>    
-            
-                <!--<div class="split-header">BACKGROUND & GAME OPTIONS:</div>	-->					
-                <!--<div class="createheader">CHOOSE A BACKGROUND:</div>-->
-                <div class="backgroundSelectContainer">
-                    <label for="backgroundSelect" class="background">BACKGROUND:</label>        
-                    <select id="backgroundSelect" class="backgroundSelect" name="background">
-                        <!--<option id="default_option" value="default">select ...</option>-->
+    <form id="createGameForm" method="post" class="cg-page">
+
+      <h1 class="cg-title">Create Game</h1>
+
+      <!-- ═══ GAME OPTIONS ═══ -->
+      <section class="cg-section" aria-labelledby="cgOptionsHead">
+        <h2 class="cg-section-head" id="cgOptionsHead">Game Options</h2>
+        <div class="cg-section-body">
+
+          <div class="cg-field cg-name-field">
+            <label for="gamename" class="cg-label">Game Name</label>
+            <input id="gamename" class="gamename cg-input" type="text" name="gamename" value="<?php print(htmlspecialchars($defaultGameName)); ?>">
+          </div>
+
+          <!-- Background: the thumbnails ARE the choice. A radio group, so it is one Tab stop
+               with arrow-key selection, exactly like the <select> it replaces. -->
+          <fieldset class="cg-card cg-bg-card">
+            <legend class="cg-card-label">Background</legend>
+            <div class="cg-bg-strip">
+              <?php
+                $first = true;
+                foreach ($maps as $name) {
+                    $file = htmlspecialchars($name);
+                    $display = htmlspecialchars(cgMapDisplayName($name));
+                    print('<label class="cg-bg-tile" title="' . $display . '">'
+                        . '<input type="radio" name="background" value="' . $file . '"' . ($first ? ' checked' : '') . '>'
+                        . '<img src="img/maps/' . $file . '" alt="" loading="lazy" decoding="async">'
+                        . '<span class="cg-sr">' . $display . '</span>'
+                        . '</label>');
+                    $first = false;
+                }
+              ?>
+            </div>
+            <div class="cg-caption">Selected: <span id="bgSelectedName"></span></div>
+          </fieldset>
+
+          <div class="cg-options-grid">
+
+            <div class="cg-card">
+              <h3 class="cg-card-label">Rules &amp; Options</h3>
+
+              <div class="cg-check-row">
+                <input id="laddercheck" type="checkbox" name="laddercheck">
+                <div class="cg-check-body">
+                  <div class="cg-check-line">
+                    <label for="laddercheck" class="cg-check-label">Ladder Game</label>
+                    <button type="button" class="btn-ladder cg-link">View Ladder</button>
+                  </div>
+                  <div class="cg-caption">Counts toward the ladder standings. Limits the game to two teams of one slot each.</div>
+                </div>
+              </div>
+
+              <div class="cg-check-row">
+                <input id="movementcheck" type="checkbox" name="movementcheck">
+                <div class="cg-check-body">
+                  <div class="cg-check-line">
+                    <label for="movementcheck" class="cg-check-label">Simultaneous Movement</label>
+                    <span id="movementDropdown" class="cg-dep">
+                      <label for="initiativeSelect" class="cg-sr">Number of brackets</label>
+                      <select id="initiativeSelect" name="initiativeCategories" class="cg-input cg-input--inline">
                         <?php
-                            natsort($maps); // Natural sort: sorts "1", "2", ..., "10", "11"
-                            foreach ($maps as $name){
-                                $displayName = $name;
-                                $displayName = preg_replace('/^\d+\./', '', $displayName);
-                                $displayName = preg_replace('/\.[^.]+$/', '', $displayName);
-                                print("<option value=\"".$name."\">".$displayName."</option>");
-                            }
-                        
+                        for ($i = 1; $i <= 12; $i++) {
+                            $selected = ($i == SimultaneousMovementRule::$defaultNoOfCategories) ? ' selected' : '';
+                            print("<option value=\"$i\"$selected>$i " . ($i == 1 ? 'Bracket' : 'Brackets') . "</option>");
+                        }
                         ?>
-                    </select>
-                </div>    
-
-
-
-                <div class="settings-group movementspacecontainer">
-                     <input id="laddercheck" type="checkbox" name="laddercheck"> <label for="laddercheck" class="clickable">Ladder Game</label>
-                     <span class="btn-ladder btn-ladder-inline btn-create-game-ladder">View Ladder</span>
+                      </select>
+                    </span>
+                  </div>
+                  <div class="cg-caption">Units move in initiative brackets, a whole bracket at a time, instead of one unit at a time.</div>
                 </div>
-            
-                <div id="simultaenousMovement" class="settings-group movementspacecontainer">
-                    <div>
-                        <input id="movementcheck" type="checkbox" name="movementcheck"> <label for="movementcheck" class="clickable">Use Simultaneous Movement</label>
-                    </div>
-                    <div id="movementDropdown" class="movementDropdown">
-                        <label for="initiativeSelect">Number of Brackets:</label>
-                        <select id="initiativeSelect" name="initiativeCategories" class="initiativeCategories">
-                            <!-- Dropdown options from 1 to 12 -->
-                <?php 
-                for($i=1;$i<=12;$i++){ 
-                    $selected = '';
-                    
-                    if($i==SimultaneousMovementRule::$defaultNoOfCategories){ //is this value set as default?
-                        $selected = 'selected';
-                    }
-                    
-                print("<option value=\"".$i."\" ".$selected." >".$i."</option>");
-                }          
-                    
-                ?>
-                        </select>
-                    </div>
+              </div>
+
+              <div class="cg-check-row">
+                <input id="allowMinesCheck" type="checkbox" name="allowMinesCheck">
+                <div class="cg-check-body">
+                  <label for="allowMinesCheck" class="cg-check-label">Mines Allowed</label>
+                  <div class="cg-caption">Mine units may be bought in the lobby.</div>
                 </div>
+              </div>
 
-                <div id="terrain" class="settings-group movementspacecontainer">
-                    <div>
-                        <input id="terraincheck" type="checkbox" name="terraincheck"> <label for="terraincheck" class="clickable">Add Terrain</label>
-                    </div>
-
-                    <div id="asteroidsDropdown" class="terrainDropdowns">
-                        <div class="asteroidsDropdown" style="position: relative;">
-                            <label for="asteroidsSelect" class="asteroidsSelect">Number of Asteroids:</label>
-                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="asteroidsSelect" name="asteroidsCategories" class="asteroidsCategories" min="0" max="48" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
-                            <div id="asteroid_custom_dropdown" class="custom-dropdown-container">
-                                <div class="asteroid-option" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">None (0)</div>
-                                <div class="asteroid-option" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Few (3)</div>
-                                <div class="asteroid-option" data-value="6" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Several (6)</div>
-                                <div class="asteroid-option" data-value="12" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Pack (12)</div>
-                                <div class="asteroid-option" data-value="18" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Lots (18)</div>
-                                <div class="asteroid-option" data-value="24" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Horde (24)</div>
-                                <div class="asteroid-option" data-value="36" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Swarm (36)</div>
-                                <div class="asteroid-option" data-value="48" style="padding: 5px; cursor: pointer; color: #DEEBFF;">Zounds (48)</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="moonsDropdown" class="terrainDropdowns">
-                        <div class="moonsDropdown" style="position: relative;">
-                            <label for="moonsSmallSelect" class="moonsSelect">Small Moons:</label>
-                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsSmallSelect" name="moonsSmall" class="moonsSmallSelect" min="0" max="5" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
-                            <div id="moons_small_dropdown" class="custom-dropdown-container" style="left: 200px;">
-                                <div class="moon-option small-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
-                                <div class="moon-option small-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
-                                <div class="moon-option small-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
-                                <div class="moon-option small-moon" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">3</div>
-                                <div class="moon-option small-moon" data-value="4" style="padding: 5px; cursor: pointer; color: #DEEBFF;">4</div>
-                                <div class="moon-option small-moon" data-value="5" style="padding: 5px; cursor: pointer; color: #DEEBFF;">5</div>
-                            </div>
-                        </div>
-                        <div class="moonsDropdown" style="position: relative;">
-                            <label for="moonsMediumSelect" class="moonsSelect">Medium Moons:</label>
-                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsMediumSelect" name="moonsMedium" class="moonsMediumSelect" min="0" max="4" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
-                            <div id="moons_medium_dropdown" class="custom-dropdown-container" style="left: 200px;">
-                                <div class="moon-option medium-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
-                                <div class="moon-option medium-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
-                                <div class="moon-option medium-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
-                                <div class="moon-option medium-moon" data-value="3" style="padding: 5px; cursor: pointer; color: #DEEBFF;">3</div>
-                                <div class="moon-option medium-moon" data-value="4" style="padding: 5px; cursor: pointer; color: #DEEBFF;">4</div>
-                            </div>
-                        </div>
-                        <div class="moonsDropdown" style="position: relative;">
-                            <label for="moonsLargeSelect" class="moonsSelect">Large Moons:</label>
-                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="moonsLargeSelect" name="moonsLarge" class="moonsLargeSelect" min="0" max="2" step="1" value="0" autocomplete="off" style="width: 140px; background-color: #0c1a28; color: #DEEBFF; border: 1px solid #215a7a; padding: 4px; border-radius: 3px; font-size: 14px;">
-                            <div id="moons_large_dropdown" class="custom-dropdown-container" style="left: 200px;">
-                                <div class="moon-option large-moon" data-value="0" style="padding: 5px; cursor: pointer; color: #DEEBFF;">0</div>
-                                <div class="moon-option large-moon" data-value="1" style="padding: 5px; cursor: pointer; color: #DEEBFF;">1</div>
-                                <div class="moon-option large-moon" data-value="2" style="padding: 5px; cursor: pointer; color: #DEEBFF;">2</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>    
-
-                <div class="settings-group movementspacecontainer">
-                     <input id="allowMinesCheck" type="checkbox" name="allowMinesCheck"> <label for="allowMinesCheck" class="clickable">Allow Mines</label>
+              <!-- REINFORCEMENTS_PLAN.md 2.1: off means the whole feature does not exist -
+                   the lobby sells no reinforcements, so nothing is ever flagged and no jump
+                   point exit can be declared. -->
+              <div class="cg-check-row">
+                <input id="allowReinforcementsCheck" type="checkbox" name="allowReinforcementsCheck">
+                <div class="cg-check-body">
+                  <label for="allowReinforcementsCheck" class="cg-check-label">Reinforcements Allowed</label>
+                  <div class="cg-caption">Units may be bought as reinforcements, arriving later through a jump point.</div>
                 </div>
+              </div>
 
-                <!-- REINFORCEMENTS_PLAN.md 2.1: off means the whole feature does not exist -
-                     the lobby sells no reinforcements, so nothing is ever flagged and no jump
-                     point exit can be declared. -->
-                <div class="settings-group movementspacecontainer">
-                     <input id="allowReinforcementsCheck" type="checkbox" name="allowReinforcementsCheck"> <label for="allowReinforcementsCheck" class="clickable">Allow Reinforcements</label>
+              <div class="cg-check-row">
+                <input id="desperatecheck" type="checkbox" name="desperatecheck">
+                <div class="cg-check-body">
+                  <div class="cg-check-line">
+                    <label for="desperatecheck" class="cg-check-label">Desperate Scenario</label>
+                    <span id="desperateDropdown" class="cg-dep">
+                      <label for="desperateSelect" class="cg-sr">Apply Desperate rules to</label>
+                      <select id="desperateSelect" name="desperateCategories" class="cg-input cg-input--inline">
+                        <option value="-1">Both teams</option>
+                        <option value="1">Team 1</option>
+                        <option value="2">Team 2</option>
+                      </select>
+                    </span>
+                  </div>
+                  <div class="cg-caption">Desperate rules: ramming is allowed, and a ship may jump out on a damaged jump drive.</div>
                 </div>
+              </div>
 
-                <div id="desperate" class="settings-group movementspacecontainer">
-                    <div>
-                        <input id="desperatecheck" type="checkbox" name="desperatecheck"> <label for="desperatecheck" class="clickable">Desperate Scenario</label>
-                    </div>    
-                    
-                    <div id="desperateDropdown" class="desperateDropdown">
-                        <label for="desperateSelect">Apply Desparate rules to:</label>
-                        <select id="desperateSelect" name="desperateCategories"  class="desparateSelect">
-                            <option value="-1">Both teams</option>
-                            <option value="1">Team 1</option>
-                            <option value="2">Team 2</option>
-                        </select>
-                    </div>
+              <div class="cg-check-row">
+                <input id="friendlyFireCheck" type="checkbox" name="friendlyFireCheck">
+                <div class="cg-check-body">
+                  <label for="friendlyFireCheck" class="cg-check-label">Friendly Fire</label>
+                  <div class="cg-caption">Weapons can hit units on their own side.</div>
                 </div>
+              </div>
 
-                <div class="settings-group movementspacecontainer">
-                     <input id="friendlyFireCheck" type="checkbox" name="friendlyFireCheck"> <label for="friendlyFireCheck" class="clickable">Allow Friendly Fire</label>
+              <div class="cg-check-row">
+                <input id="unlimitedPointsCheck" type="checkbox" name="unlimitedPointsCheck">
+                <div class="cg-check-body">
+                  <label for="unlimitedPointsCheck" class="cg-check-label">Unlimited Points</label>
+                  <div class="cg-caption">No fleet points cap for any slot.</div>
                 </div>
-
-                <div class="settings-group movementspacecontainer">
-                     <input id="unlimitedPointsCheck" type="checkbox" name="unlimitedPointsCheck"> <label for="unlimitedPointsCheck" class="clickable">Unlimited Points</label>
-                </div>
-
-
-
+              </div>
             </div>
-            
-            <!-- Scenario Description (Right Column) -->
-            <div class="scenario-form">
-                <div class="split-header">SCENARIO DESCRIPTION:</div>
 
-                <div class="scenario-row">
-                    <label for="tier">EXPECTED POWER LEVEL:</label>
-                    <select id="tier">
-                        <option value="Any">Any</option>                        
-                        <option value="Tier 1" selected>Tier 1</option>
-                        <option value="Tier 2">Tier 2</option>
-                        <option value="Tier 3">Tier 3</option>
-                        <option value="Ancient">Ancient</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <input type="text" id="tier_custom" class="scenario-custom-input" style="display:none;" placeholder="Enter power level...">
-                </div>      
-
-                <div class="scenario-row">
-                    <label for="req">FLEET REQUIREMENTS:</label>
-                    <select id="req">
-                        <option value="Pass the fleet checker">Pass the fleet checker</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <input type="text" id="req_custom" class="scenario-custom-input" style="display:none;" placeholder="Enter requirements...">
-                </div>
-
-                <div class="scenario-row">
-                    <label for="customfactions">CUSTOM FACTIONS / UNITS:</label>
-                    <select id="customfactions">
-                        <option value="Allowed">Allowed</option>
-                        <option value="Custom factions allowed">Custom factions allowed</option>                        
-                        <option value="Custom ships in official factions allowed">Custom ships in official factions allowed</option>                         
-                        <option value="Not allowed" selected>Not allowed</option>
-                    </select>
-                </div>
-
-                <div class="scenario-row">
-                    <label for="forbidden">FORBIDDEN FACTIONS:</label>
-                    <input type="text" id="forbidden" value="None" class="forbiddenText">
-                </div> 
-
-                <div class="scenario-row">
-                    <label for="enhancements">ENHANCEMENTS:</label>
-                    <select id="enhancements">
-                        <option value="Allowed">Allowed</option>
-                        <option value="Up to X points">Up to X points</option>
-                        <option value="Not allowed">Not allowed</option>
-                    </select>
-                    <input type="number" min="0" step="1" data-validation="^[0-9]+$" id="enhancements_custom" class="scenario-custom-input" style="display:none;" placeholder="Enter points...">
-                </div>
-        
-                <div class="scenario-row">
-                    <label for="borders">MAP BORDERS:</label>
-                    <select id="borders">
-                        <option value="Unit ending movement out of map is destroyed">Unit ending movement out of map is destroyed</option>
-                        <option value="Unit leaving map is destroyed">Unit leaving map is destroyed</option>
-                    </select>
-                </div>
-                <div class="scenario-row">
-                    <label for="called">CALLED SHOTS:</label>
-                    <select id="called">
-                        <option value="Allowed" selected>Allowed</option>
-                        <option value="Not allowed">Not allowed</option>
-                    </select>
-                </div>
-                <div class="scenario-row">
-                    <label for="victory">VICTORY CONDITIONS:</label>
-                    <select id="victory">
-                        <option value="More forces remaining after Turn 12">More forces remaining after Turn 12</option>                        
-                        <option value="Last unit on map">Last unit on map</option>
-                        <option value="Last ship on map">Last ship on map</option>
-                        <option value="Other">Other</option>                    
-                    </select>
-                    <input type="text" id="victory_custom" class="scenario-custom-input" style="display:none;" placeholder="Enter victory conditions...">
-                </div>
-                <div class="scenario-row additional">
-                    <label for="other">ADDITIONAL INFO:</label>
-                    <textarea id="other" rows="3"></textarea>
-                </div>     
+            <!-- Terrain Features: one fixed row per type (plan §8.4). Zero = none of that type;
+                 createGame.readTerrain() turns the rows into rules. -->
+            <div class="cg-card">
+              <h3 class="cg-card-label">Terrain Features</h3>
+              <div class="cg-terrain-row"><label for="asteroidsSelect">Asteroids</label><?php print(cgCountCombo('asteroidsSelect', 'Asteroids', 48, $fieldPresets)); ?></div>
+              <div class="cg-terrain-row"><label for="moonsSmallSelect">Moons (Small)</label><select id="moonsSmallSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(5)); ?></select></div>
+              <div class="cg-terrain-row"><label for="moonsMediumSelect">Moons (Medium)</label><select id="moonsMediumSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(4)); ?></select></div>
+              <div class="cg-terrain-row"><label for="moonsLargeSelect">Moons (Large)</label><select id="moonsLargeSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(2)); ?></select></div>
+              <div class="cg-terrain-row"><label for="dustSelect">Dust Field</label><?php print(cgCountCombo('dustSelect', 'Dust', DustAndMeteorsRule::$maxCount, $fieldPresets)); ?></div>
+              <div class="cg-terrain-row"><label for="meteorsSelect">Meteor Swarms</label><?php print(cgCountCombo('meteorsSelect', 'Meteor Swarms', DustAndMeteorsRule::$maxCount, $fieldPresets)); ?></div>
+              <div class="cg-caption">Placed at random when the game starts. Dust and Meteor Swarms are single hexes that may sit right next to other terrain.</div>
             </div>
+
+          </div>
         </div>
-    </section>
+      </section>
 
-    <section class="panel large create" style="margin-top: 15px;">
-        <!-- Moved Game Space Here (Below Scenario Description) -->
-        <div class="split-header">MAP LAYOUT AND TEAMS:</div>
-        <div id="gamespace" class="settings-group gamespacecontainer">
-            <div class="mapSelectContainer">
-                <label for="mapDimensionsSelect" class="mapDimensionsSelect">MAP TEMPLATES:</label>
-                <select id="mapDimensionsSelect" name="mapdimensions" class="mapSelect">
-                    <option value="custom">Custom</option>
-                    <option value="small">Small (30x24)</option>
-                    <option value="standard" selected>Standard (42x30)</option>
-                    <option value="large">Large (60x40)</option>
-                    <option value="2v2">2v2 (42x40)</option>
-                    <option value="ambush">Ambush (42x40)</option>
-                    <option value="baseAssault">Base Assault (60x40)</option>                    
-                    <option value="convoyRaid">Convoy Raid (42x30)</option>
-                    <option value="northvsouth">North Vs South (60x40)</option> 
-                    <option value="3teams">Three Teams (42x30)</option>
-                    <option value="4teams">Four Teams (42x30)</option>                                                                              
-                    <option value="unlimited">No Boundaries</option>                    
-                </select>
+      <!-- ═══ SCENARIO DESCRIPTION ═══ built by createGame.renderScenarioFields() from
+           scenarioCard.FIELDS, which is also what the stored JSON is checked against. -->
+      <section class="cg-section" aria-labelledby="cgScenarioHead">
+        <h2 class="cg-section-head" id="cgScenarioHead">Scenario Description</h2>
+        <div class="cg-section-body">
+          <p class="cg-intro">Every player sees this in the game lobby before choosing a fleet.</p>
+          <div id="scenarioFields" class="cg-scn-grid"></div>
+        </div>
+      </section>
+
+      <!-- ═══ TEAMS & MAP ═══ -->
+      <section class="cg-section" aria-labelledby="cgTeamsHead">
+        <h2 class="cg-section-head" id="cgTeamsHead">Teams &amp; Map</h2>
+        <div class="cg-section-body">
+
+          <div id="gamespace" class="cg-map-controls">
+            <div class="cg-field cg-template-field">
+              <label for="mapDimensionsSelect" class="cg-label">Map Template</label>
+              <select id="mapDimensionsSelect" name="mapdimensions" class="mapSelect cg-input">
+                <option value="custom">Custom</option>
+                <option value="small">Small (30x24)</option>
+                <option value="standard" selected>Standard (42x30)</option>
+                <option value="large">Large (60x40)</option>
+                <option value="2v2">2v2 (42x40)</option>
+                <option value="ambush">Ambush (42x40)</option>
+                <option value="baseAssault">Base Assault (60x40)</option>
+                <option value="convoyRaid">Convoy Raid (42x30)</option>
+                <option value="northvsouth">North Vs South (60x40)</option>
+                <option value="3teams">Three Teams (42x30)</option>
+                <option value="4teams">Four Teams (42x30)</option>
+                <option value="unlimited">No Boundaries</option>
+              </select>
             </div>
             <div class="gamespacedefinition">
-                <span class="mapDimensions">MAP SIZE:</span>
-                <span class="unlimitedspace">
-                    <span>No Boundaries</span>
+              <span class="unlimitedspace cg-field">
+                <span class="cg-label">Map Size</span>
+                <span class="cg-static">No Boundaries</span>
+              </span>
+              <span class="limitedspace cg-size-fields invisible">
+                <span class="cg-field">
+                  <label for="spacex" class="cg-label">Width</label>
+                  <input id="spacex" class="spacex cg-input" data-validation="^-{0,1}[0-9]+$" data-default="0" type="number" name="spacex" value="0">
                 </span>
-                <span class="limitedspace invisible">
-                    <span>Width:</span>
-                    <input class ="spacex tinySize" data-validation="^-{0,1}[0-9]+$" data-default ="0" type="number" name="spacex" value="0">
-                    <span>Height:</span>
-                    <input class ="spacey tinySize" data-validation="^-{0,1}[0-9]+$" data-default ="0" type="number" name="spacey" value="0">   
-
+                <span class="cg-field">
+                  <label for="spacey" class="cg-label">Height</label>
+                  <input id="spacey" class="spacey cg-input" data-validation="^-{0,1}[0-9]+$" data-default="0" type="number" name="spacey" value="0">
                 </span>
+              </span>
             </div>
+          </div>
+
+          <div class="cg-teams-map">
+            <div class="cg-card cg-map-card">
+              <h3 class="cg-card-label">Map Preview</h3>
+              <div id="mapPreviewContainer" class="cg-map-frame">
+                <canvas id="mapPreview" width="545" height="390"></canvas>
+              </div>
+              <div id="mapLegend" class="cg-legend"></div>
+            </div>
+
+            <div class="cg-teams-col">
+              <div id="teamsContainer">
+                <!-- Teams will be injected here -->
+              </div>
+              <button type="button" id="addTeamBtn" class="cg-btn">+ Add Team</button>
+            </div>
+          </div>
+
         </div>
+      </section>
 
-        <!-- Split Layout for Teams and Map -->
-        <div class="slots-map-wrapper">
-            <!-- Left Column: Teams -->
-            <div class="slots-column">
-                <div id="addTeamBtn" class="clickable btn btn-add-team">Add Team</div>
-                <div id="teamsContainer">
-                    <!-- Teams will be injected here -->
-                </div>
-            </div>
+      <input type="hidden" name="docreate" value="true">
+      <input id="createGameData" type="hidden" name="data" value="">
 
-            <!-- Right Column: Map Preview -->
-            <div class="map-preview-column">
-                <!--<div class="split-header"><span>DEPLOYMENT ZONE PREVIEW:</span></div>-->
-                <div id="mapPreviewContainer" class="mapPreviewContainer">
-                    <canvas id="mapPreview" width="545" height="390" class="mapPreviewContainerBox"></canvas>
-                </div>
-            </div>
+      <div class="cg-actions">
+        <button type="submit" class="cg-btn cg-btn--create create-game-btn">Create Game</button>
+      </div>
+
+      <!-- Template for Team (Hidden). renderTeams() clones it and paints --rail per team. -->
+      <div id="teamtemplatecontainer" hidden>
+        <div class="team-section cg-card cg-team" data-team-id="">
+          <div class="cg-team-head">
+            <h3 class="cg-team-name">Team <span class="team-number"></span></h3>
+            <button type="button" class="btn-remove-team remove-team-btn cg-link">Remove Team</button>
+          </div>
+          <div class="slotcontainer"></div>
+          <div class="add-slot-wrapper"><button type="button" class="addslotbutton btn-add-slot cg-btn cg-btn--small">+ Add Slot</button></div>
         </div>
-                
-				
-				<input type="hidden" name="docreate" value="true">
+      </div>
 
-                <input id="createGameData" type="hidden" name="data" value="">
-
-                <div style="text-align: right; margin-top: 10px; padding-bottom: 1px;">
-                    <!--<span class="btn btn-fleet-test" onclick="createGame.submitFleetTest()" style="margin-right: 15px;">Fleet Test</span>--->
-                    <button type="submit" class="btn btn-create-submit create-game-btn" style="position: static; margin-top: 0; float: none;">
-                        Create Game
-                    </button>
-                </div>                  
-				
-
-        
-
-        <!-- Template for Team (Hidden) -->
-        <div id="teamtemplatecontainer" style="display:none;">
-            <div class="team-section" data-team-id="">
-                <div class="team-header-row" style="display:flex; justify-content:flex-start; align-items:center; margin-top: 10px; border-bottom: 1px solid #496791; padding-bottom: 5px; margin-bottom: 10px;">
-                    <div class="createsubheader" style="margin:0;">TEAM <span class="team-number"></span>:</div>
-                    <span class="clickable btn-remove-team remove-team-btn">Remove Team</span>
-                </div>
-                <div class="subpanel slotcontainer" style="border:none; background:transparent;"></div>
-                <div class="add-slot-wrapper"><span class="clickable addslotbutton btn-add-slot">Add Slot</span></div>
-            </div>
+      <!-- Template for Slots (Hidden). Input NAMES are the slot model's keys (inputChange). -->
+      <div id="slottemplatecontainer" hidden>
+        <div class="slot-card slot">
+          <div class="cg-slot-head">
+            <label class="cg-slot-field cg-slot-name">
+              <span class="cg-mini-label">Slot Name</span>
+              <input class="name cg-input" type="text" name="name" value="BLUE">
+            </label>
+            <button type="button" class="close remove-btn cg-link">Remove Slot</button>
+          </div>
+          <div class="cg-slot-grid">
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Points</span>
+              <input class="points cg-input" type="text" inputmode="numeric" data-validation="^[0-9]+$" name="points" value="0">
+              <span class="unlimited-label cg-static" style="display:none;">Unlimited</span>
+            </label>
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Deploys Turn</span>
+              <input class="depavailable cg-input" type="number" name="depavailable" value="1" min="1">
+            </label>
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Deploy X</span>
+              <input class="depx cg-input" data-validation="^-{0,1}[0-9]+$" data-default="0" type="number" name="depx" value="0">
+            </label>
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Deploy Y</span>
+              <input class="depy cg-input" type="number" name="depy" value="1">
+            </label>
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Width</span>
+              <input class="depwidth cg-input" type="number" name="depwidth" value="0">
+            </label>
+            <label class="cg-slot-field">
+              <span class="cg-mini-label">Height</span>
+              <input class="depheight cg-input" type="number" name="depheight" value="0">
+            </label>
+          </div>
         </div>
+      </div>
 
-        <!-- Template for Slots (Hidden) -->
-        <div id="slottemplatecontainer" style="display:none;">
-            <div class="slot-card slot">
-                <div class="header-row">
-                    <div style="display:flex; align-items:center;">
-                        <label class="slotName">SLOT NAME:</label>
-                        <input class="name mediumSize" type="text" name="name" value="BLUE" style="min-width: 150px;">
-                    </div>
-                    <span class="clickable close remove-btn">Remove Slot</span>
-                </div>
-                <div class="create-row">
-                    
-                    <label>Points:</label>
-                    <input class="points smallSize" type="text" data-validation="^[0-9]+$" name="points" value="0">
-                    <span class="unlimited-label" style="display:none; font-weight:bold; color:#DEEBFF; margin-left:5px; padding: 5px;">Unlimited</span>
-                    
-                    <label>Deploys on Turn:</label>
-                    <input class="depavailable tinySize" type="number" name="depavailable" value="1" min="1">
-                </div>
-                
-                <div class="create-row2">
-                    <label class="smallSize">Deployment:</label>
-                    <label>x:</label>
-                    <input class="depx tinySize" data-validation="^-{0,1}[0-9]+$" data-default="0" type="number" name="depx" value="0">
-                    
-                    <label>y:</label>
-                    <input class="depy tinySize" type="number" name="depy" value="1">
-                    
-                    <label class="depwidthheader">Width:</label>
-                    <input class="depwidth tinySize" type="number" name="depwidth" value="0">
-                    
-                    <label class="depheightheader">Height:</label>
-                    <input class="depheight tinySize" type="number" name="depheight" value="0">
-                </div>
-            </div>
-        </div>
-        </section>
-      </form>
+    </form>
 
         <?php
         // The chat is now a PANEL WRAPPER around #globalchat rather than the same element,
@@ -440,8 +394,8 @@
 
 <footer class="site-disclaimer">
   <p>
-DISCLAIMER — Fiery Void is an unofficial, fan-created work based on concepts from Agents of Gaming’s Babylon 5 Wars. 
-It is not affiliated with, endorsed by, or sponsored by any official rights holders. 
+DISCLAIMER — Fiery Void is an unofficial, fan-created work based on concepts from Agents of Gaming’s Babylon 5 Wars.
+It is not affiliated with, endorsed by, or sponsored by any official rights holders.
 All trademarks and copyrights remain the property of their respective owners.
   </p>
 </footer>
