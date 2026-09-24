@@ -2453,14 +2453,14 @@ class RammingAttack extends Weapon{
 		if($deployTurn > $gamedata->turn) return;  //Ship not deployed yet, don't ram anything!			
 	
 		//First let's check if any units moved through this Terrain unit and create appropriate fireOrders.		
-		if($shooter->isTerrain() && !$shooter->isDestroyed() && $shooter->Enormous){ //Only Enormous terrain (asteroids/moons) collides; bases like shipyards/jumpgates do not.
+		if($shooter->isTerrain() && !$shooter->isDestroyed() && ($shooter->Enormous || !empty($shooter->isDustField) || !empty($shooter->isMeteoroid))){ //Only Enormous terrain (asteroids/moons) collides; bases like shipyards/jumpgates do not.
 			$relevantShips = array();
 
 			//Make a list of relevant ships e.g. this ship and enemy fighters in the game.
 			foreach($gamedata->ships as $ship){
 				if($ship->isDestroyed()) continue; //Ignore destroyed ships
 				if($ship->isTerrain()) continue;	//Don't add other terrain.
-				if($ship instanceof spawnMeteoroid || $ship instanceof spawnDustField) continue; // GTS_Triad
+				//if($ship instanceof spawnMeteoroid || $ship instanceof spawnDustField) continue; // GTS_Triad - These are marked as Terrain in isTerrain already - DK
 				if($ship->getTurnDeployed($gamedata) > $gamedata->turn)	continue; //Ship not deployed yet.		
 				if($this->isPhasedThroughTerrain($ship, $shooter, $gamedata)) continue; //Half-phased Shadow ships slip straight through terrain, provided they don't stop inside it.
 					//if ($ship instanceof FighterFlight && $shooter->Huge == 0) continue; //Not doing fighters except for very large terrain, change if and when skindancing introduced.	
@@ -3018,15 +3018,15 @@ $newFireOrder->notes = "loc:" . ($location ?: 1);
 			}	
 		}
 
-if($fireOrder->damageclass == 'WaveformCollision' && $this->getDamage($fireOrder) <= 0) return; // GTS
-// Skip duplicate dust fire orders silently - only first hex counts
-if ($fireOrder->damageclass == 'DustCollision') {
-    if (isset(spawnDustField::$dustDamagedThisTurn[$fireOrder->targetid]) && 
-        spawnDustField::$dustDamagedThisTurn[$fireOrder->targetid] == $gamedata->turn) {
-        $fireOrder->shotshit = 0;
-        return;
-    }
-}
+		if($fireOrder->damageclass == 'WaveformCollision' && $this->getDamage($fireOrder) <= 0) return; // GTS
+		// Skip duplicate dust fire orders silently - only first hex counts
+		if ($fireOrder->damageclass == 'DustCollision') {
+			if (isset(spawnDustField::$dustDamagedThisTurn[$fireOrder->targetid]) && 
+				spawnDustField::$dustDamagedThisTurn[$fireOrder->targetid] == $gamedata->turn) {
+				$fireOrder->shotshit = 0;
+				return;
+			}
+		}
 		parent::fire($gamedata, $fireOrder);
 
 		if($fireOrder->shotshit > 0){
@@ -3145,7 +3145,7 @@ if($fireOrder->damageclass == 'MeteoroidCollision' || $fireOrder->damageclass ==
             if($hits <= 0) return 0; // GTS
             $damage = 0; // GTS
             for($h = 0; $h < $hits; $h++) $damage += spawnMeteoroid::getMeteorDamage($targetSpeed); // GTS
-            if(empty($target->advancedArmor)) $damage *= 2; // GTS - double damage for non-advanced armor
+            if(empty($target->advancedArmor) && $this->factionAge >= 3) $damage *= 2; // GTS - double damage for non-advanced armor for TRIAD generated terrain
             return $damage; // GTS
 
 		}else if($fireOrder->damageclass == 'DustCollision'){ // GTS
@@ -3154,7 +3154,7 @@ if($fireOrder->damageclass == 'MeteoroidCollision' || $fireOrder->damageclass ==
             $targetMove = $target->getLastMovement(); // GTS
             $targetSpeed = $targetMove ? $targetMove->speed : 0; // GTS
             $damage = spawnDustField::getDustDamage($targetSpeed); // GTS
-            if(empty($target->advancedArmor)) $damage *= 2; // GTS - double damage for non-advanced armor
+            if(empty($target->advancedArmor) && $this->factionAge >= 3) $damage *= 2; // GTS - double damage for non-advanced armor for TRIAD generated terrain
             return $damage; // GTS
 
 
@@ -11978,12 +11978,11 @@ class spawnMeteoroid extends Terrain {
         parent::__construct($id, $userid, $name, $slot);
         $this->pointCost = 0;
         $this->faction = "Terrain";
-        $this->factionAge = 1;
         $this->phpclass = "spawnMeteoroid";
         $this->imagePath = "img/ships/meteorSwarm.png";
         $this->canvasSize = 200;
         $this->shipClass = "Meteoroid Swarm";
-        $this->Enormous = true;
+        $this->Enormous = false;
         $this->iniativebonus = -200;
         $this->isd = 0;
         $this->notes = "Units entering this hex roll d20 on the Meteoroid chart.";
@@ -11999,6 +11998,7 @@ class spawnMeteoroid extends Terrain {
         $this->accelcost = 0;
         $this->rollcost = 0;
         $this->pivotcost = 0;
+		$this->factionAge = 3;
         Enhancements::nonstandardEnhancementSet($this, 'Terrain');
         $this->addPrimarySystem(new OSATCnC(10, 1, 0, 0));
         $this->addPrimarySystem(new Structure(8, 300));
@@ -12053,12 +12053,11 @@ class spawnDustField extends Terrain {
         parent::__construct($id, $userid, $name, $slot);
         $this->pointCost = 0;
         $this->faction = "Terrain";
-        $this->factionAge = 1;
         $this->phpclass = "spawnDustField";
         $this->imagePath = "img/ships/dust.png";
         $this->canvasSize = 200;
         $this->shipClass = "Dust Field";
-        $this->Enormous = true;
+        $this->Enormous = false;
         $this->iniativebonus = -200;
         $this->isd = 0;
         $this->notes = "Units entering this hex take dust damage.";
@@ -12074,6 +12073,7 @@ class spawnDustField extends Terrain {
         $this->accelcost = 0;
         $this->rollcost = 0;
         $this->pivotcost = 0;
+		$this->factionAge = 3;		
         Enhancements::nonstandardEnhancementSet($this, 'Terrain');
         $this->addPrimarySystem(new OSATCnC(10, 1, 0, 0));
         $this->addPrimarySystem(new Structure(8, 300));

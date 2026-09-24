@@ -24,7 +24,7 @@ class BuyingGamePhase implements Phase
                     if ($ship instanceof asteroidSNew) return 20;
                     //Last: they may sit next to anything already placed, and nothing placed
                     //after them has to keep its distance from them.
-                    if ($ship instanceof spawnDustField || $ship instanceof spawnMeteoroid) return 10;
+                    if ($ship instanceof DustField || $ship instanceof MeteorSwarm) return 10;
                     return 0;
                 };
                 
@@ -130,8 +130,44 @@ class BuyingGamePhase implements Phase
         // Now let's see if we have to add any terrain.
         $moonPositions = [];
         $terrainOccupiedHexes = [];
+
+        /* A map template's PRE-PLACED terrain (TerrainLayoutRule) goes on its own hexes first, and
+           is registered exactly as a randomly placed unit would be - so the random pass below keeps
+           its usual distance from it. Units of one class are interchangeable, so each entry takes
+           the lowest-id unplaced unit of its class: process() created one per entry, and any extra
+           of the same class (a random count on top) is left for the random pass. */
+        $placedByLayout = [];
+        $layoutRule = $gameData->rules->getRuleByName('terrainLayout');
+        if ($layoutRule) {
+            $pool = [];
+            foreach ($servergamedata->ships as $ship) {
+                if ($ship->userid == -5) $pool[$ship->phpclass][] = $ship;
+            }
+            foreach ($pool as $phpclass => $list) {
+                usort($list, function($a, $b) { return $a->id - $b->id; });
+                $pool[$phpclass] = $list;
+            }
+
+            foreach ($layoutRule->getUnitsOnMap($this->getGamespace($gameData)) as $unit) {
+                if (empty($pool[$unit['phpclass']])) continue;
+                $ship = array_shift($pool[$unit['phpclass']]);
+
+                $h = isset($unit['h']) ? $unit['h'] : rand(0, 5);
+                $center = new OffsetCoordinate($unit['q'], $unit['r']);
+                foreach ($this->getTerrainHexes($ship, $center, $h) as $hex) {
+                    $terrainOccupiedHexes[] = $hex->q . "," . $hex->r;
+                }
+                if ($this->isMoon($ship)) {
+                    $moonPositions[] = [$unit['q'], $unit['r']];
+                }
+
+                $ship->movement = array(new MovementOrder(-1, "start", $center, 0, 0, 0, $h, $h, true, 1, 0, 0));
+                $placedByLayout[$ship->id] = true;
+            }
+        }
+
         foreach ($servergamedata->ships as $ship) {
-            if ($randomTerrain && $ship->userid == -5) {
+            if ($randomTerrain && $ship->userid == -5 && !isset($placedByLayout[$ship->id])) {
                 // It's an asteroid or moon, so assign a unique random position.
                 $deploymentZone = $this->getGamespace($gameData);
 
@@ -177,22 +213,10 @@ class BuyingGamePhase implements Phase
                     $h = rand(0, 5); // Generate facing inside loop to validate specific footprint
 
                     $valid = true;
-                    $currentUnitHexes = []; // To store hexes occupied by this unit
                     $center = new OffsetCoordinate($x, $y);
-                    $currentUnitHexes[] = $center;
 
                     // 1. Calculate the hexes this unit would occupy
-                    if (property_exists($ship, 'hexOffsets') && is_array($ship->hexOffsets) && count($ship->hexOffsets) > 0) {
-                        foreach ($ship->hexOffsets as $offset) {
-                            $currentUnitHexes[] = Mathlib::getRotatedHex($center, $offset, $h);
-                        }
-                    } elseif ($ship->Huge > 0) {
-                        // Fallback for circular Huge terrain
-                        $neighbours = Mathlib::getNeighbouringHexes($center, $ship->Huge);
-                        foreach ($neighbours as $n) {
-                            $currentUnitHexes[] = new OffsetCoordinate($n['q'], $n['r']);
-                        }
-                    }
+                    $currentUnitHexes = $this->getTerrainHexes($ship, $center, $h);
 
                     // 2. Check collision with Moons
                     if (!$mayTouchTerrain) foreach ($moonPositions as $mPos) {
@@ -257,7 +281,84 @@ class BuyingGamePhase implements Phase
 
     }
 
-    public function addAsteroids($gameData, $dbManager, $numberOfAsteroids, $slot)
+    /* Every hex a terrain unit centred on $center with facing $h occupies: the centre, plus either
+       its irregular hexOffsets turned to $h, or the full disc of radius Huge. */
+    private function getTerrainHexes($ship, $center, $h)
+    {
+        $hexes = [$center];
+
+        if (property_exists($ship, 'hexOffsets') && is_array($ship->hexOffsets) && count($ship->hexOffsets) > 0) {
+            foreach ($ship->hexOffsets as $offset) {
+                $hexes[] = Mathlib::getRotatedHex($center, $offset, $h);
+            }
+        } elseif ($ship->Huge > 0) {
+            // Fallback for circular Huge terrain
+            $neighbours = Mathlib::getNeighbouringHexes($center, $ship->Huge);
+            foreach ($neighbours as $n) {
+                $hexes[] = new OffsetCoordinate($n['q'], $n['r']);
+            }
+        }
+
+        return $hexes;
+    }
+
+    private function isMoon($ship)
+    {
+        return ($ship instanceof moonSmallNew) || ($ship instanceof moonNew) || ($ship instanceof moonLarge);
+    }
+
+    /* TerrainLayoutRule: one unit per pre-placed entry (advance() puts each on its hex). Named in
+       the same series as the random terrain of its kind, and the returned counts are where the
+       random adders below start numbering, so no two units share a name. */
+    /*
+    public function addTerrainLayout($gameData, $dbManager, $layoutRule, $slot)
+    {
+        $stems = array('moon' => 'Moon', 'asteroid' => 'Asteroids', 'dust' => 'Dust', 'meteors' => 'Meteor Swarm');
+        $counts = array('moon' => 0, 'asteroid' => 0, 'dust' => 0, 'meteors' => 0);
+
+        foreach ($layoutRule->getUnitsOnMap($this->getGamespace($gameData)) as $unit) {
+            if (strpos($unit['type'], 'moon') === 0) $kind = 'moon';
+            else if (strpos($unit['type'], 'asteroid') === 0) $kind = 'asteroid';
+            else $kind = $unit['type']; //dust, meteors
+
+            $counts[$kind]++;
+            $class = $unit['phpclass'];
+            $terrain = new $class($gameData->id, -5, $stems[$kind] . " #" . $counts[$kind], $slot);
+            $dbManager->submitShip($gameData->id, $terrain, -5); //nominal userid -5: terrain only
+        }
+
+        return $counts;
+    }
+    */
+
+    /* TerrainLayoutRule: one unit per pre-placed entry (advance() puts each on its hex), unnumbered -
+       each named as the random adders below name that class. Still returns the per-kind counts, so
+       the numbered versions above and below can be switched back on without touching process(). */
+    public function addTerrainLayout($gameData, $dbManager, $layoutRule, $slot)
+    {
+        $names = array(
+            'asteroidS' => 'Asteroids', 'asteroidM' => 'Asteroids', 'asteroidL' => 'Asteroids',
+            'asteroid2' => 'Asteroid', 'asteroid3' => 'Asteroid',
+            'moonS' => 'Small Moon', 'moonM' => 'Moon', 'moonL' => 'Large Moon',
+            'dust' => 'Dust Field', 'meteors' => 'Meteor Swarm'
+        );
+        $counts = array('moon' => 0, 'asteroid' => 0, 'dust' => 0, 'meteors' => 0);
+
+        foreach ($layoutRule->getUnitsOnMap($this->getGamespace($gameData)) as $unit) {
+            if (strpos($unit['type'], 'moon') === 0) $kind = 'moon';
+            else if (strpos($unit['type'], 'asteroid') === 0) $kind = 'asteroid';
+            else $kind = $unit['type']; //dust, meteors
+
+            $counts[$kind]++;
+            $class = $unit['phpclass'];
+            $terrain = new $class($gameData->id, -5, $names[$unit['type']], $slot);
+            $dbManager->submitShip($gameData->id, $terrain, -5); //nominal userid -5: terrain only
+        }
+
+        return $counts;
+    }
+
+    public function addAsteroids($gameData, $dbManager, $numberOfAsteroids, $slot, $nameOffset = 0)
     {
         $counter = $numberOfAsteroids;
         $irregulars = floor($numberOfAsteroids/6); //one sixth of random asteroid are irregular 2 or 3 hex asteroids.
@@ -266,10 +367,12 @@ class BuyingGamePhase implements Phase
         while ($irregulars > 0) {
             $size = Dice::d(2, 1);  //Use a dice to decide a random size of asteroid!                    
             if($size == 1){
-                $currAsteroid = new asteroidTwoHex($gameData->id, -5, "Asteroids #" . $counter . "", $slot);
+                //$currAsteroid = new asteroidTwoHex($gameData->id, -5, "Asteroids #" . ($counter + $nameOffset), $slot);
+                $currAsteroid = new asteroidTwoHex($gameData->id, -5, "Asteroid", $slot);                
                 $dbManager->submitShip($gameData->id, $currAsteroid, -5); //Save them with a nominal userid of -5, only terrain should use that!               
             }else{
-                $currAsteroid = new asteroidThreeHex($gameData->id, -5, "Asteroids #" . $counter . "", $slot);
+                //$currAsteroid = new asteroidThreeHex($gameData->id, -5, "Asteroids #" . ($counter + $nameOffset), $slot);
+                $currAsteroid = new asteroidThreeHex($gameData->id, -5, "Asteroid", $slot);                
                 $dbManager->submitShip($gameData->id, $currAsteroid, -5); //Save them with a nominal userid of -5, nonly terrain should use that!                            
             }
             $counter--;
@@ -280,65 +383,73 @@ class BuyingGamePhase implements Phase
         while ($counter > 0) {
             $size = Dice::d(3, 1);  //Use a dice to decide a random size of asteroid!
             if($size == 1){
-                $currAsteroid = new asteroidSNew($gameData->id, -5, "Asteroids #" . $counter . "", $slot);
+                //$currAsteroid = new asteroidSNew($gameData->id, -5, "Asteroids #" . ($counter + $nameOffset), $slot);
+                $currAsteroid = new asteroidSNew($gameData->id, -5, "Asteroids", $slot);                
                 $dbManager->submitShip($gameData->id, $currAsteroid, -5); //Save them with a nominal userid of -5, only terrain should use that!                   
             }else if($size == 2){
-                $currAsteroid = new asteroidMNew($gameData->id, -5, "Asteroids #" . $counter . "", $slot);
+                //$currAsteroid = new asteroidMNew($gameData->id, -5, "Asteroids #" . ($counter + $nameOffset), $slot);
+                $currAsteroid = new asteroidMNew($gameData->id, -5, "Asteroids", $slot);                
                 $dbManager->submitShip($gameData->id, $currAsteroid, -5); //Save them with a nominal userid of -5, only terrain should use that!                  
             }else{
-                $currAsteroid = new asteroidLNew($gameData->id, -5, "Asteroids #" . $counter . "", $slot);
+                //$currAsteroid = new asteroidLNew($gameData->id, -5, "Asteroids #" . ($counter + $nameOffset), $slot);
+                $currAsteroid = new asteroidLNew($gameData->id, -5, "Asteroids", $slot);                
                 $dbManager->submitShip($gameData->id, $currAsteroid, -5); //Save them with a nominal userid of -5, nonly terrain should use that!                    
             }
             $counter--; //Reduce counter   
         }
     }        
 
-public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $largeCount, $slot)
+public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $largeCount, $slot, $nameOffset = 0)
 {
-    $moonIndex = 1;
+    $moonIndex = 1 + $nameOffset;
 
     // Small
     for ($i = 0; $i < $smallCount; $i++) {
-        $currMoon = new moonSmallNew($gameData->id, -5, "Moon #$moonIndex", $slot);
+        //$currMoon = new moonSmallNew($gameData->id, -5, "Moon #$moonIndex", $slot);
+        $currMoon = new moonSmallNew($gameData->id, -5, "Small Moon", $slot);        
         $dbManager->submitShip($gameData->id, $currMoon, -5);
         $moonIndex++;
     }
 
     // Medium
     for ($i = 0; $i < $mediumCount; $i++) {
-        $currMoon = new moonNew($gameData->id, -5, "Moon #$moonIndex", $slot);
+        //$currMoon = new moonNew($gameData->id, -5, "Moon #$moonIndex", $slot);
+        $currMoon = new moonNew($gameData->id, -5, "Moon", $slot);        
         $dbManager->submitShip($gameData->id, $currMoon, -5);
         $moonIndex++;
     }
 
     // Large
     for ($i = 0; $i < $largeCount; $i++) {
-        $currMoon = new moonLarge($gameData->id, -5, "Moon #$moonIndex", $slot);
+        //$currMoon = new moonLarge($gameData->id, -5, "Moon #$moonIndex", $slot);
+        $currMoon = new moonLarge($gameData->id, -5, "Large Moon", $slot);        
         $dbManager->submitShip($gameData->id, $currMoon, -5);
         $moonIndex++;
     }
 }
 
-    /* DustAndMeteorsRule: one single-hex unit per count. These are the Triad Asteroid Salvo's own
-       terrain classes, so collision damage and their not blocking line of sight need nothing new.
+    /* DustAndMeteorsRule: one single-hex unit per count - DustField / MeteorSwarm, the terrain
+       counterparts of the Triad Asteroid Salvo's spawns, with the same collisions and no LoS block.
        Placed in advance() by the same random pass as the rest of the terrain, under a looser
        spacing rule - see isDustOrMeteors(). */
-    public function addDustAndMeteors($gameData, $dbManager, $dustCount, $meteorCount, $slot)
+    public function addDustAndMeteors($gameData, $dbManager, $dustCount, $meteorCount, $slot, $dustOffset = 0, $meteorOffset = 0)
     {
         for ($i = 1; $i <= $dustCount; $i++) {
-            $dust = new spawnDustField($gameData->id, -5, "Dust #$i", $slot);
+            //$dust = new spawnDustField($gameData->id, -5, "Dust Field #" . ($i + $dustOffset), $slot);
+            $dust = new DustField($gameData->id, -5, "Dust Field", $slot);            
             $dbManager->submitShip($gameData->id, $dust, -5);
         }
 
         for ($i = 1; $i <= $meteorCount; $i++) {
-            $meteors = new spawnMeteoroid($gameData->id, -5, "Meteor Swarm #$i", $slot);
+            //$meteors = new spawnMeteoroid($gameData->id, -5, "Meteor Swarm #" . ($i + $meteorOffset), $slot);
+            $meteors = new MeteorSwarm($gameData->id, -5, "Meteor Swarm", $slot);            
             $dbManager->submitShip($gameData->id, $meteors, -5);
         }
     }
 
     private function isDustOrMeteors($ship)
     {
-        return ($ship instanceof spawnDustField) || ($ship instanceof spawnMeteoroid);
+        return ($ship instanceof DustField) || ($ship instanceof MeteorSwarm);
     }
 
     /* The name a bulk purchase numbers its copies from - the row's own name, which the
@@ -631,6 +742,12 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
                 
             $dbManager->setPlayerWaitingStatus($gameData->forPlayer, $gameData->id, true);
 
+            //A map template's pre-placed terrain first; the random terrain numbers on after it.
+            $named = array('moon' => 0, 'asteroid' => 0, 'dust' => 0, 'meteors' => 0);
+            if ($gameData->rules->hasRuleName("terrainLayout") && $slot->slot == 1) {
+                $named = $this->addTerrainLayout($gameData, $dbManager, $gameData->rules->getRuleByName('terrainLayout'), $slot->slot);
+            }
+
             if ($gameData->rules->hasRuleName("moons") && $slot->slot == 1) {
                 $moonData = $gameData->rules->getRuleByName('moons')->jsonSerialize();
 
@@ -638,7 +755,7 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
                 $medium = (int)($moonData['medium'] ?? 0);
                 $large  = (int)($moonData['large']  ?? 0);
 
-                $this->addMoons($gameData, $dbManager, $small, $medium, $large, $slot->slot);
+                $this->addMoons($gameData, $dbManager, $small, $medium, $large, $slot->slot, $named['moon']);
             }
 
             // Now let's see if we have to add any terrain.
@@ -650,12 +767,12 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
                     $numberOfAsteroids = $asteroidsRule->jsonSerialize();
                 }                 
 
-                $this->addAsteroids($gameData, $dbManager, $numberOfAsteroids, $slot->slot);
+                $this->addAsteroids($gameData, $dbManager, $numberOfAsteroids, $slot->slot, $named['asteroid']);
             }
 
             if ($gameData->rules->hasRuleName("dustAndMeteors") && $slot->slot == 1) {
                 $dmData = $gameData->rules->getRuleByName('dustAndMeteors')->jsonSerialize();
-                $this->addDustAndMeteors($gameData, $dbManager, (int)$dmData['dust'], (int)$dmData['meteors'], $slot->slot);
+                $this->addDustAndMeteors($gameData, $dbManager, (int)$dmData['dust'], (int)$dmData['meteors'], $slot->slot, $named['dust'], $named['meteors']);
             }
 
         }

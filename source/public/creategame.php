@@ -29,15 +29,9 @@
 		return preg_replace(array('/^\d+\./', '/\.[^.]+$/'), '', $file);
 	}
 
-	//<option>s 0..$max for a short Terrain Features count (the moon rows).
-	function cgCountOptions($max) {
-		$html = '';
-		for ($i = 0; $i <= $max; $i++) {
-			$html .= "<option value=\"$i\">$i</option>";
-		}
-		return $html;
-	}
 	$fieldPresets = array(0 => 'None', 3 => 'Few', 6 => 'Several', 12 => 'Pack', 18 => 'Lots', 24 => 'Horde', 36 => 'Swarm', 48 => 'Zounds');
+	//Moons count far lower, so every count up to the row's max is its own preset.
+	$moonPresets = array(0 => 'None', 1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5');
 
 	//A count that takes ANY value 0..$max - typed, or stepped with the mouse wheel while focused -
 	//and also offers a short list of named presets behind its ▾ (createGame.initCountCombos).
@@ -45,7 +39,9 @@
 	function cgCountCombo($id, $label, $max, $presets) {
 		$list = '';
 		foreach ($presets as $value => $name) {
-			$list .= "<li role=\"option\" id=\"{$id}_opt{$value}\" class=\"cg-combo-option\" data-value=\"$value\">$name ($value)</li>";
+			if ($value > $max) continue;
+			$text = ((string)$name === (string)$value) ? $name : "$name ($value)"; //a bare number needs no gloss
+			$list .= "<li role=\"option\" id=\"{$id}_opt{$value}\" class=\"cg-combo-option\" data-value=\"$value\">$text</li>";
 		}
 		return "<div class=\"cg-combo\">"
 			. "<input type=\"text\" id=\"$id\" class=\"cg-input cg-combo-input cg-terrain-count\" value=\"0\""
@@ -98,11 +94,38 @@
   <main class="container">
     <form id="createGameForm" method="post" class="cg-page">
 
-      <h1 class="cg-title">Create Game</h1>
+      <div class="cg-titlebar">
+        <h1 class="cg-title">Create Game</h1>
+        <span class="cg-draft">Draft &mdash; not yet saved</span>
+      </div>
 
-      <!-- ═══ GAME OPTIONS ═══ -->
-      <section class="cg-section" aria-labelledby="cgOptionsHead">
-        <h2 class="cg-section-head" id="cgOptionsHead">Game Options</h2>
+      <!-- The wizard (plan §3.1): one form, one POST - the four steps are the sections below,
+           shown one at a time by createGame.showStep(). Every step's tab stays clickable; going
+           FORWARD checks each step passed on the way (createGame.validateStep). -->
+      <nav class="cg-steps" aria-label="Create Game steps">
+        <ol class="cg-steps-list">
+          <li><button type="button" class="cg-step" data-step="1" aria-controls="cgStep1">
+            <span class="cg-step-num"><span class="cg-step-word">Step </span>1 / 4</span>
+            <span class="cg-step-name"><span class="cg-step-long">Game Options</span><span class="cg-step-short">Options</span></span>
+          </button></li>
+          <li><button type="button" class="cg-step" data-step="2" aria-controls="cgStep2">
+            <span class="cg-step-num"><span class="cg-step-word">Step </span>2 / 4</span>
+            <span class="cg-step-name"><span class="cg-step-long">Scenario Description</span><span class="cg-step-short">Scenario</span></span>
+          </button></li>
+          <li><button type="button" class="cg-step" data-step="3" aria-controls="cgStep3">
+            <span class="cg-step-num"><span class="cg-step-word">Step </span>3 / 4</span>
+            <span class="cg-step-name"><span class="cg-step-long">Teams &amp; Map</span><span class="cg-step-short">Teams</span></span>
+          </button></li>
+          <li><button type="button" class="cg-step cg-step--confirm" data-step="4" aria-controls="cgStep4">
+            <span class="cg-step-num"><span class="cg-step-word">Step </span>4 / 4</span>
+            <span class="cg-step-name"><span class="cg-step-long">Confirm</span><span class="cg-step-short">Confirm</span></span>
+          </button></li>
+        </ol>
+      </nav>
+
+      <!-- ═══ STEP 1: GAME OPTIONS ═══ -->
+      <section class="cg-section cg-step-panel" id="cgStep1" data-step="1" aria-labelledby="cgOptionsHead">
+        <h2 class="cg-section-head" id="cgOptionsHead" tabindex="-1">Game Options</h2>
         <div class="cg-section-body">
 
           <div class="cg-field cg-name-field">
@@ -227,50 +250,65 @@
                  createGame.readTerrain() turns the rows into rules. -->
             <div class="cg-card">
               <h3 class="cg-card-label">Terrain Features</h3>
+              <div class="cg-caption">Placed at random when the game starts.</div>              
               <div class="cg-terrain-row"><label for="asteroidsSelect">Asteroids</label><?php print(cgCountCombo('asteroidsSelect', 'Asteroids', 48, $fieldPresets)); ?></div>
-              <div class="cg-terrain-row"><label for="moonsSmallSelect">Moons (Small)</label><select id="moonsSmallSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(5)); ?></select></div>
-              <div class="cg-terrain-row"><label for="moonsMediumSelect">Moons (Medium)</label><select id="moonsMediumSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(4)); ?></select></div>
-              <div class="cg-terrain-row"><label for="moonsLargeSelect">Moons (Large)</label><select id="moonsLargeSelect" class="cg-input cg-terrain-count"><?php print(cgCountOptions(2)); ?></select></div>
+              <div class="cg-terrain-row"><label for="moonsSmallSelect">Moons (Small)</label><?php print(cgCountCombo('moonsSmallSelect', 'Small Moons', 5, $moonPresets)); ?></div>
+              <div class="cg-terrain-row"><label for="moonsMediumSelect">Moons (Medium)</label><?php print(cgCountCombo('moonsMediumSelect', 'Medium Moons', 4, $moonPresets)); ?></div>
+              <div class="cg-terrain-row"><label for="moonsLargeSelect">Moons (Large)</label><?php print(cgCountCombo('moonsLargeSelect', 'Large Moons', 2, $moonPresets)); ?></div>
               <div class="cg-terrain-row"><label for="dustSelect">Dust Field</label><?php print(cgCountCombo('dustSelect', 'Dust', DustAndMeteorsRule::$maxCount, $fieldPresets)); ?></div>
               <div class="cg-terrain-row"><label for="meteorsSelect">Meteor Swarms</label><?php print(cgCountCombo('meteorsSelect', 'Meteor Swarms', DustAndMeteorsRule::$maxCount, $fieldPresets)); ?></div>
-              <div class="cg-caption">Placed at random when the game starts. Dust and Meteor Swarms are single hexes that may sit right next to other terrain.</div>
+              <!-- Filled by createGame.setTerrainLayout() while a Map Template with its own terrain is picked. -->
+              <div id="terrainLayoutNote" class="cg-caption cg-terrain-note" hidden></div>
             </div>
 
           </div>
         </div>
       </section>
 
-      <!-- ═══ SCENARIO DESCRIPTION ═══ built by createGame.renderScenarioFields() from
+      <!-- ═══ STEP 2: SCENARIO DESCRIPTION ═══ built by createGame.renderScenarioFields() from
            scenarioCard.FIELDS, which is also what the stored JSON is checked against. -->
-      <section class="cg-section" aria-labelledby="cgScenarioHead">
-        <h2 class="cg-section-head" id="cgScenarioHead">Scenario Description</h2>
+      <section class="cg-section cg-step-panel" id="cgStep2" data-step="2" aria-labelledby="cgScenarioHead" hidden>
+        <h2 class="cg-section-head" id="cgScenarioHead" tabindex="-1">Scenario Description</h2>
         <div class="cg-section-body">
           <p class="cg-intro">Every player sees this in the game lobby before choosing a fleet.</p>
           <div id="scenarioFields" class="cg-scn-grid"></div>
         </div>
       </section>
 
-      <!-- ═══ TEAMS & MAP ═══ -->
-      <section class="cg-section" aria-labelledby="cgTeamsHead">
-        <h2 class="cg-section-head" id="cgTeamsHead">Teams &amp; Map</h2>
+      <!-- ═══ STEP 3: TEAMS & MAP ═══ -->
+      <section class="cg-section cg-step-panel" id="cgStep3" data-step="3" aria-labelledby="cgTeamsHead" hidden>
+        <h2 class="cg-section-head" id="cgTeamsHead" tabindex="-1">Teams &amp; Map</h2>
         <div class="cg-section-body">
 
           <div id="gamespace" class="cg-map-controls">
             <div class="cg-field cg-template-field">
               <label for="mapDimensionsSelect" class="cg-label">Map Template</label>
+              <!-- Values are createGame.mapData keys. A "Maps with Terrain" entry is a base template
+                   (its teams and size) plus pre-placed terrain - createGame.getMapConfig(). -->
               <select id="mapDimensionsSelect" name="mapdimensions" class="mapSelect cg-input">
                 <option value="custom">Custom</option>
-                <option value="small">Small (30x24)</option>
-                <option value="standard" selected>Standard (42x30)</option>
-                <option value="large">Large (60x40)</option>
-                <option value="2v2">2v2 (42x40)</option>
-                <option value="ambush">Ambush (42x40)</option>
-                <option value="baseAssault">Base Assault (60x40)</option>
-                <option value="convoyRaid">Convoy Raid (42x30)</option>
-                <option value="northvsouth">North Vs South (60x40)</option>
-                <option value="3teams">Three Teams (42x30)</option>
-                <option value="4teams">Four Teams (42x30)</option>
-                <option value="unlimited">No Boundaries</option>
+                <optgroup label="Layouts">
+                  <option value="small">Small (30x24)</option>
+                  <option value="standard" selected>Standard (42x30)</option>
+                  <option value="large">Large (60x40)</option>
+                  <option value="2v2">2v2 (42x40)</option>
+                  <option value="ambush">Ambush (42x40)</option>
+                  <option value="baseAssault">Base Assault (60x40)</option>
+                  <option value="convoyRaid">Convoy Raid (42x30)</option>
+                  <option value="northvsouth">North Vs South (60x40)</option>
+                  <option value="3teams">Three Teams (42x30)</option>
+                  <option value="4teams">Four Teams (42x30)</option>
+                  <option value="unlimited">No Boundaries</option>
+                </optgroup>
+                <optgroup label="Maps with Terrain">
+                  <option value="closeQuarters">Close Quarters (30x24)</option>
+                  <option value="asteroidBelt">Asteroid Belt (42x30)</option>
+                  <option value="twinMoons">Twin Moons (42x30)</option>
+                  <option value="crossroads">Crossroads - Four Teams (42x30)</option>
+                  <option value="fracturedFront">Fractured Front - 2v2 (42x40)</option>
+                  <option value="shatteredMoon">Shattered Moon (60x40)</option>
+                  <option value="meteorStorm">Meteor Storm (60x40)</option>
+                </optgroup>
               </select>
             </div>
             <div class="gamespacedefinition">
@@ -298,6 +336,7 @@
                 <canvas id="mapPreview" width="545" height="390"></canvas>
               </div>
               <div id="mapLegend" class="cg-legend"></div>
+              <div id="mapTerrainNote" class="cg-caption" hidden></div>
             </div>
 
             <div class="cg-teams-col">
@@ -311,11 +350,69 @@
         </div>
       </section>
 
+      <!-- ═══ STEP 4: SUMMARY & CONFIRM ═══ read-only, rebuilt from the form by
+           createGame.renderSummary() every time this step is shown. -->
+      <section class="cg-section cg-step-panel" id="cgStep4" data-step="4" aria-labelledby="cgSummaryHead" hidden>
+        <h2 class="cg-section-head cg-section-head--confirm" id="cgSummaryHead" tabindex="-1">Summary &amp; Confirm</h2>
+        <div class="cg-section-body">
+          <p class="cg-intro">This is what other players will see in the game lobby. Anything wrong? Edit takes you back to that step.</p>
+
+          <!-- Two columns: Game Options above Scenario Description | Teams & Map. One column,
+               in that order, under 900px. -->
+          <div class="cg-sum-row">
+            <div class="cg-sum-col">
+              <div class="cg-card cg-sum-card">
+                <div class="cg-sum-head">
+                  <h3 class="cg-card-label">Game Options</h3>
+                  <button type="button" class="cg-btn cg-btn--ghost cg-btn--small" data-goto="1">Edit</button>
+                </div>
+                <div class="cg-sum-game">
+                  <img id="sumBackground" class="cg-sum-thumb" src="" alt="">
+                  <div class="cg-sum-game-text">
+                    <div id="sumName" class="cg-sum-name"></div>
+                    <div id="sumBackgroundName" class="cg-sum-meta"></div>
+                  </div>
+                </div>
+                <ul id="sumRules" class="cg-chips" aria-label="Rules and options"></ul>
+              </div>
+
+              <div class="cg-card cg-sum-card">
+                <div class="cg-sum-head">
+                  <h3 class="cg-card-label">Scenario Description</h3>
+                  <button type="button" class="cg-btn cg-btn--ghost cg-btn--small" data-goto="2">Edit</button>
+                </div>
+                <div id="sumScenario"></div>
+              </div>
+            </div>
+
+            <div class="cg-card cg-sum-card">
+              <div class="cg-sum-head">
+                <h3 class="cg-card-label">Teams &amp; Map</h3>
+                <button type="button" class="cg-btn cg-btn--ghost cg-btn--small" data-goto="3">Edit</button>
+              </div>
+              <div class="cg-map-frame"><canvas id="sumMap" width="545" height="390" aria-hidden="true"></canvas></div>
+              <div id="sumMapMeta" class="cg-sum-meta cg-sum-map-meta"></div>
+              <div id="sumTeams" class="cg-sum-teams"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <input type="hidden" name="docreate" value="true">
       <input id="createGameData" type="hidden" name="data" value="">
 
-      <div class="cg-actions">
-        <button type="submit" class="cg-btn cg-btn--create create-game-btn">Create Game</button>
+      <!-- Sticky: Next / Confirm stays on screen however long the step is (plan §5), and so does
+           the reason a step cannot be left yet (createGame.showStepError) - it sits in the bar,
+           not at the foot of a step that may be scrolled far out of view. -->
+      <div class="cg-nav">
+        <div id="cgStepError" class="cg-step-error" role="alert" hidden></div>
+        <div class="cg-nav-row">
+          <a href="games.php" id="cgCancel" class="cg-btn cg-btn--ghost">Cancel</a>
+          <button type="button" id="cgBack" class="cg-btn cg-btn--ghost" hidden><span aria-hidden="true">&larr;</span>&nbsp;Back</button>
+          <span class="cg-nav-spacer"></span>
+          <button type="button" id="cgNext" class="cg-btn cg-btn--create"><span class="cg-next-long">Next: Scenario Description</span><span class="cg-next-short">Next</span>&nbsp;<span aria-hidden="true">&rarr;</span></button>
+          <button type="submit" id="cgConfirm" class="cg-btn cg-btn--create cg-btn--confirm create-game-btn" hidden><span class="cg-next-long">Confirm &amp;&nbsp;</span>Create Game&nbsp;<span aria-hidden="true">&rarr;</span></button>
+        </div>
       </div>
 
       <!-- Template for Team (Hidden). renderTeams() clones it and paints --rail per team. -->

@@ -4,10 +4,10 @@
    Stage 1). Same shape as MoonsRule - one rule carrying one count per terrain type.
 
    Each count is a number of SINGLE-HEX units, placed at random in BuyingGamePhase:
-     dust    -> spawnDustField  ("Dust Field" on the map)
-     meteors -> spawnMeteoroid  ("Meteoroid Field" on the map; "Meteor Swarms" in Create Game)
-   Both classes already exist (specialWeapons.php - the Triad Asteroid Salvo spawns them in play),
-   so their collision damage and their NOT blocking line of sight come for free.
+     dust    -> DustField    ("Dust Field" on the map)
+     meteors -> MeteorSwarm  ("Meteoroid Swarm" on the map; "Meteor Swarms" in Create Game)
+   Both live in ships/terrain and mirror the Triad Asteroid Salvo's spawnDustField / spawnMeteoroid
+   (specialWeapons.php), sharing their collision damage and their NOT blocking line of sight.
 
    Unlike every other terrain type they MAY be placed adjacent to other terrain, moons included
    (user ruling 2026-09-23) - they just never share a hex with it. */

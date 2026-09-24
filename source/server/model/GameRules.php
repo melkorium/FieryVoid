@@ -42,6 +42,10 @@ class GameRules implements JsonSerializable{
         if ($dustAndMeteorsRules !== null) {
             array_push($this->rules, $dustAndMeteorsRules);
         }
+        $terrainLayoutRules = $this->getTerrainLayoutRules($rules);
+        if ($terrainLayoutRules !== null) {
+            array_push($this->rules, $terrainLayoutRules);
+        }
         $fleetTestRules = $this->getFleetTestRules($rules);
         if ($fleetTestRules !== null) {
             array_push($this->rules, $fleetTestRules);
@@ -182,6 +186,18 @@ private function getMoonsRules($rules) {
         if ($counts['dust'] === 0 && $counts['meteors'] === 0) return null;
 
         return $rule;
+    }
+
+    //A map template's pre-placed terrain. Absent unless at least one unit survives the checks.
+    private function getTerrainLayoutRules($rules) {
+        if (!isset($rules['terrainLayout'])) return null;
+
+        $t = $rules['terrainLayout'];
+        if (is_object($t)) $t = (array)$t;
+        if (!is_array($t)) return null;
+
+        $rule = new TerrainLayoutRule($t['name'] ?? '', $t['units'] ?? array());
+        return $rule->isEmpty() ? null : $rule;
     }
 
     public function jsonSerialize(): mixed {

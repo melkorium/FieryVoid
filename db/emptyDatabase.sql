@@ -318,7 +318,7 @@ CREATE TABLE `tac_game` (
   `creator` int(11) DEFAULT NULL,
   `submitLock` datetime DEFAULT NULL,
   `gamespace` varchar(45) DEFAULT NULL,
-  `rules` varchar(400) DEFAULT '{}',  
+  `rules` text DEFAULT '{}',
   `description` text ,
   `scenario` text DEFAULT NULL,
   `in_service_date` int(11) DEFAULT NULL,

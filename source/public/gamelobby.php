@@ -547,6 +547,8 @@ $optionsUsed = '';
     $moonData = [];
     $dustNo = 0;
     $meteorsNo = 0;
+    $layoutName = '';
+    $layoutCount = 0;
 
 
     if (isset($gamelobbydata->rules)) {
@@ -592,6 +594,12 @@ $optionsUsed = '';
         if (isset($gamelobbydata->rules->dustAndMeteors)) {
             $dustNo = (int)($gamelobbydata->rules->dustAndMeteors->dust ?? 0);
             $meteorsNo = (int)($gamelobbydata->rules->dustAndMeteors->meteors ?? 0);
+        }
+
+        //A map template's pre-placed terrain (TerrainLayoutRule).
+        if (isset($gamelobbydata->rules->terrainLayout)) {
+            $layoutName = (string)($gamelobbydata->rules->terrainLayout->name ?? '');
+            $layoutCount = count((array)($gamelobbydata->rules->terrainLayout->units ?? array()));
         }
     }
 
@@ -668,7 +676,11 @@ $optionsUsed = '';
         $optionsUsed .= ', Meteor Swarms (' . $meteorsNo . ')';
     }
 
-    if ($asteroids == false && $moons == false && $dustNo == 0 && $meteorsNo == 0) {
+    if ($layoutCount > 0) { //the name is the creator's text: escaped here, where it becomes HTML
+        $optionsUsed .= ', Terrain Map: ' . htmlspecialchars($layoutName !== '' ? $layoutName : 'Pre-placed') . ' (' . $layoutCount . ' features)';
+    }
+
+    if ($asteroids == false && $moons == false && $dustNo == 0 && $meteorsNo == 0 && $layoutCount == 0) {
         $optionsUsed .= ', No Terrain';
     }
 

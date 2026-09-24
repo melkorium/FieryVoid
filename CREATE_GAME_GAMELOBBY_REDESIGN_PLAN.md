@@ -1,6 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23 (see §12); Stages 2-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stage 2 BUILT 2026-09-24 (see §12); Stages 3-10 not
+started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -446,8 +447,10 @@ against those directly rather than re-deriving layout from this section's prose 
   (§3.2/§3.3) — without the wizard yet. Biggest readability win, fastest, and the safest place
   to prove the new `scenario` JSON round-trips correctly before building navigation on top of
   it.
-- **Stage 2 — Create Game wizard shell.** Wrap Stage 1's sections into the 4-step navigator +
-  summary screen (§3.1/§3.5). Purely client-side, no new server contract.
+- **Stage 2 — Create Game wizard shell. ✅ BUILT 2026-09-24 — §12.3.** Wrap Stage 1's sections
+  into the 4-step navigator + summary screen (§3.1/§3.5). Grew three user additions: moon counts
+  as count combos, **Maps with Terrain** (templates with pre-placed terrain — a new server rule),
+  and faint white hexes in game for Dust / Meteor Swarms.
 - **Stage 3 — Copy Slot/Team + save/reuse presets (localStorage).** Small, isolated, no schema
   dependency.
 - **Stage 4 — Gamelobby scenario/map rendering.** Structured-JSON render + legacy fallback
@@ -860,7 +863,7 @@ stage's code runs against it** (local, test and live). `DBManager::createGame` n
   restoring the form (Back, failed POST) used to leave a ticked box whose rule was never set.
 - **Terrain Features:** six fixed count rows, no master "Add Terrain" checkbox; a type enters
   the rules only when its count is above zero (`readTerrain`). Moons (0-5 / 0-4 / 0-2) are plain
-  `<select>`s. **Asteroids, Dust and Meteor Swarms are a COUNT COMBO** (`cgCountCombo` +
+  `<select>`s (Stage 2 made them count combos too, §12.3). **Asteroids, Dust and Meteor Swarms are a COUNT COMBO** (`cgCountCombo` +
   `createGame.initCountCombos`), keeping the old asteroid box's best-of-both-worlds behaviour at
   the user's explicit request: ANY value 0-48 can be typed (digits only, clamped on change) or
   stepped with the mouse wheel while focused (the page's shared wheel handler), and the ▾ lists
@@ -881,8 +884,8 @@ stage's code runs against it** (local, test and live). `DBManager::createGame` n
   other terrain type keeps its old spacing. Also shown in the lobby's Options Selected line and
   counted by the games list's TERRAIN chip.
 - **Scenario Description:** built from `scenarioCard.FIELDS` (which gained `help` text), 8 purple-
-  rail cards in a 2→1 container-width grid. "?" expands the help INLINE rather than as a floating
-  bubble — works identically on touch and needs no positioning. "Other" / "Up to X points" reveal
+  rail cards in a 2→1 container-width grid. "?" expanded the help INLINE rather than as a floating
+  bubble — **superseded at the Stage 2 review (§12.3): it is the mockup's floating window now.** "Other" / "Up to X points" reveal
   their input with the plan's one deliberate animation (grid-row 0fr→1fr, off under
   `prefers-reduced-motion`). Submits BOTH `scenario` (JSON) and the legacy `description`, whose
   format is byte-compatible with the old one minus the Called Shots line.
@@ -925,3 +928,179 @@ creategame.php is still owed once Docker is back up.
 
 **Found, not fixed:** `lobby.css` still carries `#asteroidsDropdown` / `#moonsDropdown` rules for
 elements that no longer exist anywhere (dead, harmless).
+**Owed item closed at Stage 2:** creategame.php now lints clean under the real `php -l` and
+CLI-renders with no PHP errors (Docker was up on 2026-09-24).
+
+### 12.3 Stage 2 — Create Game wizard + Maps with Terrain (built 2026-09-24)
+
+**⚠️ One schema change, added at review: `tac_game.rules` varchar(400) → text** (appended to
+`db/createGameRedesign.sql` + `emptyDatabase.sql`). A terrain map's `terrainLayout` is 0.9-1.9 KB of
+rules JSON, so without it creating a game on any "Maps with Terrain" entry fails with "Data too
+long for column 'rules'". Apply before this stage's code runs (local, test, live); the statement
+is a no-op on re-run and keeps every stored value and the `'{}'` default (checked on a scratch copy
+of `tac_game`). **One new server class** (`TerrainLayoutRule`, autoload map regenerated) and
+`game.legacy.bundle.js` needs rebuilding for the renderer change — both happen in a normal deploy
+build.
+
+**The wizard (plan §3.1 / §3.5, mockup Step 1-4 artboards):**
+
+- creategame.php's three `.cg-section`s are now steps 1-3 (`#cgStep1..3`, `data-step`), plus a new
+  read-only **Step 4 Summary & Confirm** (`#cgStep4`). Still one form, one POST, no endpoint change.
+  One shown at a time via the `hidden` attribute — `.cg-page [hidden] { display:none !important }`
+  because `.cg-btn` and friends set their own display, which beats the browser's `[hidden]` rule.
+- **Step bar** (`.cg-steps`): four `<button>`s, `aria-current="step"` on the current one. Rails per
+  §2: steps 1-3 blue, Confirm green, always; progress shows as fill/brightness (current tinted,
+  passed full strength, ahead faded). No ✓ glyphs (§11.6). Every tab is clickable.
+- **Navigation rule:** going FORWARD (Next, or any later tab) runs `createGame.validateStep()` on
+  every step being passed and stops on the first that is not ready, with the reason in the bar and
+  the field flagged (`aria-invalid`) and focused. Going back never checks. Kept deliberately short —
+  only what would reach the lobby blank or broken: a game name; an "Other" / "Up to X points" with
+  nothing typed; a limited map with no size; a slot with no name.
+- **Sticky nav bar** (`.cg-nav`, `position: sticky; bottom`): Cancel (step 1, → games.php) /
+  Back, then Next ("Next: <next step>", just "Next" on a phone) or, on Step 4, **Confirm & Create
+  Game** ("Create Game" on a phone). The step error lives INSIDE the bar — at the foot of a long
+  step it could be scrolled out of view.
+- **Submit guard replaced.** The old mousedown/touchstart `allowSubmit` flag also refused the
+  keyboard's own Enter/Space on the button. Now: the form submits only from Step 4 (Enter in a
+  field on steps 1-3 is an implicit submit through Confirm and is refused), every step is
+  re-checked on the way out, and Confirm disables itself after the first press (two presses = two
+  games) — re-enabled on `pageshow` for a bfcache Back. `isFleetTest` keeps its exemption.
+- **Summary** (`renderSummary`, rebuilt each time Step 4 opens): Game Options card (background
+  thumbnail, name, one chip per active rule — the lobby's "Options Selected" itemised; "No
+  optional rules" when none), Scenario card (`scenarioCard.render(…, {plain:true})` — the renderer
+  Stage 0 built for exactly this), Teams & Map card (a second canvas painted by the same
+  `paintMap()`, template/size/terrain line, one block per team in the §11.4 colours). Each card
+  has Edit → its step.
+- On a step change: short entry animation (off under reduced motion), the step bar scrolled into
+  view, focus to the step's heading (`tabindex="-1"`, no ring) so a screen reader announces it.
+- Mobile: step bar shows "1 / 4" + short names; nav labels shorten; Summary cards stack at 900px.
+  Checked at 390px in an iframe (§12.1 trap 8) on steps 1, 3 and 4.
+
+**Moons use the count combo** (user addition 1): the three moon rows are `cgCountCombo`s like
+Asteroids/Dust/Meteor Swarms — typed, wheel, ▾ presets. Ranges UNCHANGED (0-5 / 0-4 / 0-2); the
+presets are every count ("None (0)", "1", "2"…) — `cgCountCombo` now prints a bare number without
+the "(n)" gloss and skips presets above the row's max.
+
+**Maps with Terrain** (user addition 2) — Map Template entries with PRE-PLACED terrain, the same
+every game:
+
+- **Server:** new `TerrainLayoutRule` (rules key `terrainLayout: {name, units:[{type,q,r,h}]}`).
+  `type` is a short key (`asteroidS/M/L`, `asteroid2`, `asteroid3`, `moonS/M/L`, `dust`,
+  `meteors`) mapped to the phpclass in `TerrainLayoutRule::$types` — the rules blob is published to
+  every client, the class is the server's business. Checked for SHAPE only (known type, ints,
+  facing wrapped 0-5, ≤150 units, name ≤60 chars); balance/overlap is the creator's choice, like a
+  deployment zone. `getUnitsOnMap($gamespace)` drops units whose centre is off the map (same bounds
+  as `ReinforcementEntry.onMap`), and BOTH halves of BuyingGamePhase read through it, so the unit
+  created and the hex it is placed on always come from the same list.
+- `BuyingGamePhase::process` (slot 1): `addTerrainLayout()` creates one unit per entry FIRST, named
+  in the same series as the random terrain ("Asteroids #n", "Moon #n", "Dust #n", "Meteor Swarm
+  #n"); the random adders gained a name offset so they number on after it — no duplicate names.
+- `BuyingGamePhase::advance`: layout units are placed BEFORE the random pass — each entry takes the
+  lowest-id unplaced unit of its phpclass (units of a class are interchangeable, and any extra of
+  the same class from a random count is left for the random pass). Their hexes and moon centres
+  are registered exactly as a random unit's would be, so random terrain on top keeps its usual
+  spacing from them. The footprint maths moved into `getTerrainHexes()` (used by both passes).
+- **Random counts still work on top** of a terrain map; Step 1's Terrain card says so while a
+  terrain map is picked. Typing a Width/Height turns the template to Custom and **drops** the
+  layout (it was laid out for the template's size).
+- Lobby: the Options Selected line gains "Terrain Map: <name> (N features)" (name HTML-escaped —
+  it came from a POST); the games list's TERRAIN chip counts layouts too. The lobby MAP PREVIEW
+  markers are Stage 4's job — the data is already in `gamedata.rules.terrainLayout`.
+- **Client:** the maps live in `createGame.mapData` as `{base, name, blurb, terrain}` entries,
+  resolved onto their base template by `getMapConfig()`. Preview (and the Summary copy) draws white
+  markers of real size — a disc of radius Huge+½ for a moon, a dot per hex for the rest, irregular
+  asteroids turned by `h` with `createGame.rotatedHex` (a port of `Mathlib::getRotatedHex`,
+  **verified identical to the server on all 32 irregular units**). Dust/Meteor markers are fainter:
+  `TERRAIN_ALPHA` 0.9 / `FIELD_TERRAIN_ALPHA` 0.45, legend swatches follow them.
+- **Seven maps**, one per size family: Close Quarters (Small 30x24), Asteroid Belt / Twin Moons
+  (Standard 42x30), Crossroads (Four Teams 42x30), Fractured Front (2v2 42x40), Shattered Moon /
+  Meteor Storm (Large 60x40). Each is authored as one quadrant/half and mirrored about the map's
+  TRUE centre — half a hex left of hex 0,0 on an even width (the map box is drawn centred there, and
+  the standard zones at -19/+18 are symmetric about it): mirror = `(q,r) → (-1-q+(r&1), r)`,
+  flip = `(q,-r)`, and an irregular asteroid's mirrored facing is found by matching footprints.
+  Every map keeps two hexes clear of each deployment zone, never overlaps, keeps non-field terrain
+  one hex apart and moons 7 apart. Crossroads and Fractured Front are added to
+  `forbiddenLadderMaps` (not two teams of one slot); the other five are allowed in ladder games.
+
+**In-game Dust / Meteor hexes** (user addition 3): `BallisticIconContainer.generateTerrainHexes`
+now draws them with the same white `hexWhite` region as asteroids and moons, at
+**`FIELD_TERRAIN_DIM` = 0.5** (a multiplier on the region's fill/rim opacity — the user asked for a
+value to tune by hand). Matched by phpclass (`spawnDustField` / `spawnMeteoroid`) as well as the old
+Enormous + size-class-5 test, so they are drawn whether or not a blueprint carries those fields —
+which also covers the Triad Asteroid Salvo's spawned dust/meteors.
+
+**Traps found:**
+
+1. **jQuery 4 has no `$.trim`** (creategame.php loads jQuery 4.0) — it threw on the first Next.
+   Use `String(x || "").trim()`.
+2. **jQuery 4 runs ready-handlers ASYNCHRONOUSLY.** A test driver on `window.load` can run BEFORE
+   createGame's ready handler, whose `initWizard()` then resets to Step 1 — looks like a broken
+   step jump. Drive tests from `jQuery(fn)` + `setTimeout`.
+3. **gamesNew.css's `* { font-family: Arial }`** hits every nested span: the step bar's and the
+   buttons' inner spans need their face named (or `inherit`) explicitly.
+4. **Git Bash `sed -i` and `grep -c $'\r$'` both lie about CRLF** — sed strips CRs, grep hides
+   them. Check line endings with a byte count in node or `git ls-files --eol`.
+
+**Verified:** real `php -l` on all six server files; creategame.php CLI-rendered with no PHP
+errors; a scratch run of the REAL path — `GameRules` round trip → `addTerrainLayout` + all three
+random adders with offsets → `BuyingGamePhase::advance()` against a stub DBManager — for all seven
+maps with random terrain on top: every layout unit on its exact hex with its facing, zero shared
+hexes, zero duplicate names; malformed layouts dropped or trimmed as intended. Wizard driven in
+headless Chrome (validation, forward-jump stop, Back, terrain map set/posted/dropped on a typed
+size, moon clamp 9→5, submit refused before Step 4); screenshots at desktop and at 390px of steps
+1, 3 (Asteroid Belt, Meteor Storm) and 4 (Shattered Moon, Crossroads) plus the error state.
+**Not verified in a live game:** the in-game dust/meteor hexes and a real terrain-map game start —
+create a game on a terrain map, buy, and check the terrain lands where the preview showed.
+
+**Review refinements (user, 2026-09-24):**
+
+- **Scenario "?" = the mockup's floating window**, not an inline row: the "?" sits right after the
+  label; a click/tap opens a purple-bordered bubble (`.cg-help-bubble`) just under it with an arrow
+  pointing at the "?". `createGame.positionHelp()` measures from the card's PADDING box (what
+  `left`/`top` resolve against) and slides the bubble left to stay inside the card — on a phone the
+  "?" of "Custom Factions / Units" sits nearer the edge than the bubble is wide. One open at a time;
+  a click elsewhere or Escape closes it (Escape returns focus to the "?"); a step change closes it.
+  No hover-to-open — deliberate, so mouse and touch behave the same.
+- **Additional Info** is one grid cell like the rest, which in FIELDS order puts it under Map
+  Borders beside Victory Conditions (the mockup). FIELDS' `wide` is untouched — it still spans the
+  read-only fact grid (Summary, lobby).
+- **Slot numbers on one line:** a flex row of fixed 3.75rem centred inputs, each field as wide as
+  that or its label (~422px for all six). Too narrow for that — a phone, or the two-column layout
+  below ~1200px viewport — and it becomes two rows of three in EQUAL columns so the numbers still
+  line up, via `@container (max-width: 430px)` on `.slot` (the page's first container query:
+  it has to follow the slot's width, which a viewport query cannot know).
+- **Confirm step = two columns:** Game Options above Scenario Description (`.cg-sum-col`) | Teams &
+  Map. Stacks in that order under 900px.
+
+Verified in headless Chrome: the help windows' open/switch/toggle/inside-click/outside-click/
+Escape+focus/step-change states, arrow landing on the "?" centre; Additional Info's position; slot
+row one line at 1440/1280, 3+3 aligned at 1024/390, with Unlimited Points too; screenshots of steps
+2-4 at desktop and 390px (iframe). `php -l` clean.
+
+**Second review round (user, 2026-09-24):**
+
+- **Dust / Meteor Swarms are now their own terrain classes** (user's change): `DustField` and
+  `MeteorSwarm` in `ships/terrain/`, mirroring the Triad's `spawnDustField` / `spawnMeteoroid`,
+  which stay for the Asteroid Salvo. Everything that names a class had to follow:
+  `TerrainLayoutRule::$types`, BuyingGamePhase's placement weight, `BallisticIconContainer`'s
+  `FIELD_TERRAIN_CLASSES` (all four listed). ⚠️ `RammingAttack`'s terrain gate now reads
+  `isDustField` / `isMeteoroid`, which only those classes declare, and warnings throw here — so
+  `!empty()`, or a jump gate / shipyard / jump point (non-Enormous terrain, auto-given a
+  RammingAttack) fatals the pre-firing step. The "Class MeteoriteSwarm not found" lobby fatal was
+  a game created while the class's `phpclass` string still read "MeteoriteSwarm" (the container's
+  rsync copy had not picked up the rename); that game's rows were repaired by hand.
+- **Terrain names are unnumbered now** (user): the random adders and `addTerrainLayout` both name
+  a unit by its class alone ("Asteroids", "Asteroid" for the irregulars, "Small Moon" / "Moon" /
+  "Large Moon", "Dust Field", "Meteor Swarm") - so the "zero duplicate names" check above no longer
+  applies. The numbered versions are kept commented out, and the name offsets are still passed, so
+  numbering can be switched back on without touching `process()`.
+- **Map Preview restyled to the mockup's Teams & Map artboard** (`createGame.paintMap`, both Step 3
+  and the Summary): the map is a dark well (`--fv-well`) under a faint grid every few hexes (~24px,
+  anchored on brighter centre lines); each zone a 0.14 wash of its team colour with a DASHED edge
+  on its inner sides only (a side on the rim is left to the rim); a mono "TEAM n" label in the
+  zone's corner nearest the rim; terrain grey `#5a6a76` discs, those ≥ 6px with the mockup's halo
+  drawn INSIDE the true footprint; dust/meteors fainter with no halo. The canvas now takes the
+  map's proportions (height/width clamped 0.45-1.0, letterboxed beyond) so the map fills the
+  frame, and is drawn at 2x its logical 545px width for sharp lines once CSS scales it. The old
+  fixed 6px x-nudge is now exactly half a hex (`toX`), the true-centre offset it approximated.
+  The legend keeps team names (not "Your / Other Team's Deployment" - nothing here is per-viewer).

@@ -100,23 +100,36 @@ jQuery(function ($) {
         createGame.removeTeam(teamId);
     });
 
-    let allowSubmit = false;
-
-    // Only set allowSubmit on real mouse or touch interaction
-    $("#createGameForm button[type='submit']").on("mousedown touchstart", function () {
-        allowSubmit = true;
-    });
-
+    /* Only the Summary step's Confirm creates the game. Enter in a field on Steps 1-3 submits the
+       form implicitly - through Confirm, the form's one submit button - so it is refused here.
+       (This replaces a mousedown/touchstart flag, which also refused the keyboard's own Enter or
+       Space on the button itself.) Every step is checked once more on the way out, and a second
+       press while the first POST is in flight is ignored: each one would create a game. */
     $("#createGameForm").on("submit", function (e) {
-        if (!allowSubmit) {
-            e.preventDefault(); // Block submission from pressing Enter
+        if (createGame.submitting || (!createGame.isFleetTest && createGame.currentStep !== 4)) {
+            e.preventDefault();
             return false;
         }
 
-        // Call your original setData function before submitting
-        createGame.setData();
+        for (let step = 1; step <= 3; step++) {
+            const problem = createGame.validateStep(step);
+            if (problem) {
+                e.preventDefault();
+                createGame.showStep(step, true);
+                createGame.showStepError(problem);
+                return false;
+            }
+        }
 
-        allowSubmit = false; // Reset flag after submission
+        createGame.setData();
+        createGame.submitting = true;
+        $("#cgConfirm").prop("disabled", true);
+    });
+
+    //Back from the lobby can restore this page from the bfcache with Confirm still disabled.
+    $(window).on("pageshow", function () {
+        createGame.submitting = false;
+        $("#cgConfirm").prop("disabled", false);
     });
 
     // Bind checkbox events
@@ -142,6 +155,8 @@ jQuery(function ($) {
     createGame.refreshSlotsUI();
     createGame.onMapDimensionsChange(); // Run on load
     createGame.drawMapPreview();
+
+    createGame.initWizard();
 });
 
 window.createGame = {
@@ -185,17 +200,19 @@ window.createGame = {
             }
         }
 
+        //A hand-typed size is a Custom map - and a template's pre-placed terrain was laid out for
+        //the template's own size, so it goes with it.
         if (inputname == "spacex") {
             createGame.gamespace_data.width = parseInt(value);
             $("#mapDimensionsSelect").val("custom");
-            createGame.drawMapPreview();
+            createGame.setTerrainLayout(null);
             return;
         }
 
         if (inputname == "spacey") {
             createGame.gamespace_data.height = parseInt(value);
             $("#mapDimensionsSelect").val("custom");
-            createGame.drawMapPreview();
+            createGame.setTerrainLayout(null);
             return;
         }
 
@@ -218,105 +235,266 @@ window.createGame = {
     },
 
     drawMapPreview: function drawMapPreview() {
-        const canvas = document.getElementById("mapPreview");
+        createGame.paintMap(document.getElementById("mapPreview"));
+        createGame.renderLegend(createGame.getTeamIds().length);
+    },
+
+    /* The map preview's look, after the mockup's Teams & Map artboard (plan §11): the map a dark
+       well under a faint grid, each deployment zone a light wash of its team colour behind a
+       dashed edge, labelled in the corner nearest the map's rim, and terrain as grey discs.
+       Colours are tokens.css values (a canvas cannot read var()); terrain grey is the mockup's. */
+    mapPreviewColors: {
+        well: "#04161c",        //--fv-well
+        grid: "#0b2330",        //a shade above --fv-card, which vanishes once the canvas is scaled down
+        axis: "#15374a",        //the centre lines, between the grid and the rim
+        rim: "#215a7a",         //--fv-line
+        terrain: "90, 106, 118" //#5a6a76, as rgb for the alpha
+    },
+
+    //Logical width of the drawing; its height follows the map. Drawn at PIXEL_RATIO times that,
+    //so the thin lines stay sharp however CSS scales the canvas (width 100%, height auto).
+    MAP_PREVIEW_WIDTH: 545,
+    MAP_PREVIEW_PIXEL_RATIO: 2,
+
+    //The map preview's drawing, onto any canvas: Step 3's preview and the Summary's copy of it.
+    paintMap: function paintMap(canvas) {
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
+        const colors = createGame.mapPreviewColors;
         const isLimited = $("#mapDimensionsSelect").val() !== "unlimited";
 
         // Use fixed width/height if unlimited is selected
         const mapWidth = isLimited ? (createGame.gamespace_data.width || 1) : 84;
         const mapHeight = isLimited ? (createGame.gamespace_data.height || 1) : 60;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        //The canvas takes the map's own proportions, so the map fills the frame as in the mockup -
+        //within limits, so a long strip or a tall custom map is letterboxed instead.
+        const width = createGame.MAP_PREVIEW_WIDTH;
+        const height = Math.round(width * Math.min(1, Math.max(0.45, mapHeight / mapWidth)));
+        const ratio = createGame.MAP_PREVIEW_PIXEL_RATIO;
+        if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+            canvas.width = width * ratio; //resizing also clears it
+            canvas.height = height * ratio;
+        }
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.clearRect(0, 0, width, height);
 
-        // Background
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const margin = 1; //room for the rim's own line
+        const scale = Math.min((width - margin * 2) / mapWidth, (height - margin * 2) / mapHeight);
+        const mapW = mapWidth * scale, mapH = mapHeight * scale;
+        const left = (width - mapW) / 2, top = (height - mapH) / 2;
+        const centerX = left + mapW / 2, centerY = top + mapH / 2;
+        const snap = v => Math.round(v * ratio) / ratio; //a 1px line (ratio device px) centred here is sharp
 
-        // Margins and scale
-        const margin = 10;
-        const scaleX = (canvas.width - margin * 2) / mapWidth;
-        const scaleY = (canvas.height - margin * 2) / mapHeight;
-        const scale = Math.min(scaleX, scaleY); // Uniform scale
+        //Hex column x -> canvas. The map's true centre is half a hex left of x = 0 (plan §12.3), so
+        //x sits half a hex right of where the box would put it; y runs up the map, in rows.
+        const toX = x => centerX + (x + 0.5) * scale;
+        const toY = y => centerY - y * scale;
 
-        // Calculate offset to center the map in the canvas
-        const offsetX = (canvas.width - mapWidth * scale) / 2;
-        const offsetY = (canvas.height - mapHeight * scale) / 2;
-
-        // Draw Map Boundary
-        ctx.fillStyle = "#050a10";
-        ctx.fillRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
-
-        ctx.strokeStyle = "#deebffaf";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
-
-        // Grid lines / Center lines
         ctx.save();
-        ctx.globalAlpha = 0.4;
-        ctx.strokeStyle = "#496791";
+        ctx.fillStyle = colors.well;
+        ctx.fillRect(left, top, mapW, mapH);
+        ctx.beginPath();
+        ctx.rect(left, top, mapW, mapH);
+        ctx.clip(); //zones and terrain past the rim are cut there, as the game cuts them
+
+        //A grid every few hexes - about 24px apart at any map size - on the centre lines, which
+        //are drawn a little brighter.
+        const step = [1, 2, 3, 4, 5, 10, 20].find(n => n * scale >= 24) || 20;
+        const pitch = step * scale;
         ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-
-        const centerX = offsetX + 6 + (mapWidth / 2) * scale;
-        const centerY = offsetY + (mapHeight / 2) * scale;
-
-        // Vertical Center Line
-        ctx.beginPath();
-        ctx.moveTo(centerX, offsetY);
-        ctx.lineTo(centerX, offsetY + mapHeight * scale);
-        ctx.stroke();
-
-        // Horizontal Center Line
-        ctx.beginPath();
-        ctx.moveTo(offsetX, centerY);
-        ctx.lineTo(offsetX + mapWidth * scale, centerY);
-        ctx.stroke();
-
-        ctx.restore();
+        for (let k = -Math.ceil(mapW / 2 / pitch); k <= Math.ceil(mapW / 2 / pitch); k++) {
+            const x = snap(centerX + k * pitch);
+            ctx.strokeStyle = k === 0 ? colors.axis : colors.grid;
+            ctx.beginPath();
+            ctx.moveTo(x, top);
+            ctx.lineTo(x, top + mapH);
+            ctx.stroke();
+        }
+        for (let k = -Math.ceil(mapH / 2 / pitch); k <= Math.ceil(mapH / 2 / pitch); k++) {
+            const y = snap(centerY + k * pitch);
+            ctx.strokeStyle = k === 0 ? colors.axis : colors.grid;
+            ctx.beginPath();
+            ctx.moveTo(left, y);
+            ctx.lineTo(left + mapW, y);
+            ctx.stroke();
+        }
 
         // Draw deployment zones
         // Iterate data model directly to ensure we catch all teams even if DOM is lagging
         const teamCount = createGame.getTeamIds().length;
+        const labels = [];
         createGame.slots.forEach(function (slot) {
-            const data = slot;
-            const team = data.team;
+            const x = parseInt(slot.depx) || 0;
+            const y = parseInt(slot.depy) || 0;
+            const w = parseInt(slot.depwidth) || 0;
+            const h = parseInt(slot.depheight) || 0;
+            if (w <= 0 || h <= 0) return;
 
-            const x = parseInt(data.depx) || 0;
-            const y = parseInt(data.depy) || 0;
-            const w = parseInt(data.depwidth) || 0;
-            const h = parseInt(data.depheight) || 0;
+            // (x, y) is the zone's centre
+            const rgb = createGame.teamColor(slot.team, teamCount).join(",");
+            const zx = toX(x - w / 2), zy = toY(y + h / 2);
+            const zw = w * scale, zh = h * scale;
 
-            const rgb = createGame.teamColor(team, teamCount);
-            ctx.fillStyle = "rgba(" + rgb.join(",") + ", 0.35)";
-            ctx.strokeStyle = "rgb(" + rgb.join(",") + ")";
-            ctx.lineWidth = 1;
+            ctx.fillStyle = "rgba(" + rgb + ", 0.14)";
+            ctx.fillRect(zx, zy, zw, zh);
 
-            // Adjust position to treat (x, y) as center
-            // coordinate system: center of map is (0,0)
-            // canvas origin is topleft
-
-            const drawX = offsetX + (x - w / 2 + mapWidth / 2) * scale;
-            const drawY = offsetY + ((mapHeight / 2) - y - (h / 2)) * scale;
-
-            ctx.fillRect(drawX + 6, drawY, w * scale, h * scale);
-            ctx.strokeRect(drawX + 6, drawY, w * scale, h * scale);
-
-            // Draw slot number/TeamID
+            //Dashed on the sides facing into the map; a side lying on the rim is left to the rim,
+            //as in the mockup. Inset by half the line, which is 1.5px.
+            const x0 = zx + 0.75, y0 = zy + 0.75, x1 = zx + zw - 0.75, y1 = zy + zh - 0.75;
+            const sides = [
+                [x0, y0, x1, y0, zy <= top + 0.5],
+                [x1, y0, x1, y1, zx + zw >= left + mapW - 0.5],
+                [x0, y1, x1, y1, zy + zh >= top + mapH - 0.5],
+                [x0, y0, x0, y1, zx <= left + 0.5]
+            ];
             ctx.save();
-            ctx.fillStyle = "white";
-            ctx.font = "bold 14px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            // Center of the box
-            ctx.fillText(team, drawX + 6 + (w * scale) / 2, drawY + (h * scale) / 2);
+            ctx.strokeStyle = "rgb(" + rgb + ")";
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]);
+            sides.forEach(function (side) {
+                if (side[4]) return;
+                ctx.beginPath();
+                ctx.moveTo(side[0], side[1]);
+                ctx.lineTo(side[2], side[3]);
+                ctx.stroke();
+            });
             ctx.restore();
+
+            labels.push({ text: "TEAM " + slot.team, rgb: rgb, zx: zx, zy: zy, zw: zw, zh: zh, right: x + 0.5 > 1, bottom: y < 0 });
         });
 
-        createGame.renderLegend(teamCount);
+        //Hex (q, r) -> canvas, on the same axes as the zones (an odd row sits half a hex left).
+        createGame.paintTerrain(ctx, scale, function (q, r) {
+            return { x: toX(q - 0.5 * (r & 1)), y: toY(r) };
+        });
+
+        //Labels last, over the terrain: in the zone's corner nearest the map's rim, running on
+        //into the map when the zone is narrower than the label.
+        ctx.font = "11px Consolas, 'Lucida Console', monospace";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowColor = colors.well; //lifts it off a dashed edge or a marker it crosses
+        ctx.shadowBlur = 3;
+        labels.forEach(function (label) {
+            const pad = 6;
+            ctx.textAlign = label.right ? "right" : "left";
+            ctx.fillStyle = "rgb(" + label.rgb + ")";
+            ctx.fillText(label.text,
+                label.right ? label.zx + label.zw - pad : label.zx + pad,
+                label.bottom ? label.zy + label.zh - pad : label.zy + pad + 9);
+        });
+        ctx.restore(); //the clip
+
+        ctx.strokeStyle = colors.rim;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(snap(left) + 0.5, snap(top) + 0.5, snap(mapW) - 1, snap(mapH) - 1); //just inside the map
+    },
+
+    /* ── Pre-placed terrain (Maps with Terrain) ────────────────────────────────────────────
+       A template in mapData with `terrain` places those units on those hexes, every game: the
+       list travels as rules.terrainLayout (server: TerrainLayoutRule, placed by
+       BuyingGamePhase::advance before any random terrain). `type` is a TerrainLayoutRule::$types
+       key - keep the two lists in step. Here each type only needs its footprint, to be drawn:
+       `huge` is the disc radius (0 = one hex), `offsets` an irregular shape turned by the unit's
+       facing `h`, and `field` marks the fainter Dust / Meteor Swarm markers. */
+    terrainTypes: {
+        asteroidS: { huge: 0 },
+        asteroidM: { huge: 0 },
+        asteroidL: { huge: 0 },
+        asteroid2: { offsets: [{ q: 1, r: 0 }] },
+        asteroid3: { offsets: [{ q: 0, r: 1 }, { q: -1, r: 0 }] },
+        moonS: { huge: 1, moon: true },
+        moonM: { huge: 2, moon: true },
+        moonL: { huge: 3, moon: true },
+        dust: { huge: 0, field: true },
+        meteors: { huge: 0, field: true }
+    },
+
+    //Marker opacity: solid terrain, and the fainter dust / meteor fields.
+    TERRAIN_ALPHA: 1,
+    FIELD_TERRAIN_ALPHA: 0.55,
+
+    /* Mathlib::getRotatedHex (server), which BuyingGamePhase uses for the same footprint: hex ->
+       pixel, turn the offset by facing * -60 degrees, pixel -> nearest hex (odd-r offset). */
+    rotatedHex: function rotatedHex(center, offset, facing) {
+        const s3 = Math.sqrt(3);
+        const toPx = (q, r) => ({ x: s3 * (q - 0.5 * (r & 1)), y: 1.5 * r });
+        const c = toPx(center.q, center.r), o = toPx(offset.q, offset.r), z = toPx(0, 0);
+        const vx = o.x - z.x, vy = o.y - z.y;
+        const a = -facing * Math.PI / 3;
+        const px = c.x + vx * Math.cos(a) - vy * Math.sin(a);
+        const py = c.y + vx * Math.sin(a) + vy * Math.cos(a);
+
+        //axial, cube-rounded, then back to odd-r offset
+        const fq = (s3 / 3) * px - py / 3, fr = (2 / 3) * py, fs = -fq - fr;
+        let rq = Math.round(fq), rr = Math.round(fr), rs = Math.round(fs);
+        const dq = Math.abs(rq - fq), dr = Math.abs(rr - fr), ds = Math.abs(rs - fs);
+        if (dq > dr && dq > ds) rq = -rr - rs;
+        else if (ds <= dr) rr = -rq - rs;
+        return { q: rq + (rr + (rr & 1)) / 2, r: rr };
+    },
+
+    /* Grey markers of each unit's real size: a disc for a moon, a dot per hex for the rest. A
+       marker big enough to carry one gets the mockup's halo - a fainter ring INSIDE the unit's
+       footprint, so a moon still reads at its true size. Dust / meteor fields: fainter, no halo. */
+    paintTerrain: function paintTerrain(ctx, scale, toCanvas) {
+        const layout = createGame.rules.terrainLayout;
+        if (!layout || !layout.units) return;
+
+        const grey = createGame.mapPreviewColors.terrain;
+        ctx.save();
+        layout.units.forEach(function (unit) {
+            const type = createGame.terrainTypes[unit.type];
+            if (!type) return;
+
+            const alpha = type.field ? createGame.FIELD_TERRAIN_ALPHA : createGame.TERRAIN_ALPHA;
+            const hexes = [{ q: unit.q, r: unit.r }];
+            if (type.offsets) {
+                type.offsets.forEach(offset => hexes.push(createGame.rotatedHex(unit, offset, unit.h || 0)));
+            }
+            const radius = Math.max((type.offsets ? 0.5 : type.huge + 0.5) * scale * (type.moon ? 1 : 0.8), 1.5);
+            const halo = (type.field || radius < 6) ? 0 : Math.min(6, radius * 0.3);
+
+            hexes.forEach(function (hex) {
+                const p = toCanvas(hex.q, hex.r);
+                if (halo) {
+                    ctx.fillStyle = "rgba(" + grey + ", " + (alpha * 0.3) + ")";
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = "rgba(" + grey + ", " + alpha + ")";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, radius - halo, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        });
+        ctx.restore();
+    },
+
+    /* The template's layout becomes rules.terrainLayout (or none), and both terrain notes and the
+       preview follow it. Units are copied, so the rules never hold a reference into mapData. */
+    setTerrainLayout: function setTerrainLayout(config) {
+        const esc = scenarioCard.escapeHtml;
+
+        if (config && config.terrain && config.terrain.length) {
+            createGame.rules.terrainLayout = {
+                name: config.name,
+                units: config.terrain.map(unit => Object.assign({}, unit))
+            };
+            const count = config.terrain.length;
+            $("#mapTerrainNote").html("<strong>" + esc(config.name) + ":</strong> " + esc(config.blurb || "")
+                + " " + count + " terrain features, the same every game.").prop("hidden", false);
+            $("#terrainLayoutNote").html("The <strong>" + esc(config.name) + "</strong> map template (Teams &amp; Map) places "
+                + count + " terrain features of its own. Counts here add random terrain around them.").prop("hidden", false);
+        } else {
+            delete createGame.rules.terrainLayout;
+            $("#mapTerrainNote, #terrainLayoutNote").empty().prop("hidden", true);
+        }
+
+        createGame.drawMapPreview();
     },
 
     getTeamIds: function getTeamIds() {
@@ -342,10 +520,19 @@ window.createGame = {
     },
 
     renderLegend: function renderLegend(teamCount) {
-        const html = createGame.getTeamIds().map(function (team) {
+        let html = createGame.getTeamIds().map(function (team) {
             const rgb = createGame.teamColor(team, teamCount);
             return '<span class="cg-legend-item"><span class="cg-swatch" style="background:rgb(' + rgb.join(",") + ')"></span>Team ' + team + "</span>";
         }).join("");
+
+        const layout = createGame.rules.terrainLayout;
+        if (layout) {
+            const types = createGame.terrainTypes;
+            const solid = layout.units.some(unit => types[unit.type] && !types[unit.type].field);
+            const fields = layout.units.some(unit => types[unit.type] && types[unit.type].field);
+            if (solid) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + createGame.TERRAIN_ALPHA + '"></span>Asteroids &amp; Moons</span>';
+            if (fields) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + createGame.FIELD_TERRAIN_ALPHA + '"></span>Dust &amp; Meteor Swarms</span>';
+        }
         $("#mapLegend").html(html);
     },
 
@@ -609,7 +796,7 @@ window.createGame = {
         }
     },
 
-    forbiddenLadderMaps: ["2v2", "ambush", "baseAssault", "convoyRaid", "3teams", "4teams"],
+    forbiddenLadderMaps: ["2v2", "ambush", "baseAssault", "convoyRaid", "3teams", "4teams", "crossroads", "fracturedFront"],
 
 
     mapData: {
@@ -774,11 +961,164 @@ window.createGame = {
                 { name: "Team 2", id: 2, depx: 27, depy: 0, depwidth: 5, depheight: 40, depavailable: 1 }
             ]
         },
+
+        /* Maps with Terrain: a `base` template's size and teams, plus terrain that is placed on
+           exactly these hexes every game (see terrainTypes / setTerrainLayout). Each layout is
+           symmetric about the map's true centre - half a hex left of hex 0,0 on an even width -
+           so both sides of a two-team map see the same ground, keeps two hexes clear of every
+           deployment zone and never overlaps itself (non-field terrain keeps a one-hex gap).
+           Read through getMapConfig(). */
+        "closeQuarters": {
+            base: "small", name: "Close Quarters",
+            blurb: "A tight map with asteroid cover throughout and a hazardous centre.",
+            terrain: [
+                { type: "asteroidL", q: -4, r: 2 }, { type: "asteroidM", q: -1, r: 5 }, { type: "asteroid2", q: -3, r: 8, h: 0 },
+                { type: "asteroidS", q: -5, r: 6 }, { type: "dust", q: -2, r: 1 }, { type: "dust", q: -5, r: 4 },
+                { type: "meteors", q: 0, r: 3 }, { type: "asteroidS", q: -2, r: 10 }, { type: "asteroidL", q: 3, r: 2 },
+                { type: "asteroidM", q: 1, r: 5 }, { type: "asteroid2", q: 2, r: 8, h: 3 }, { type: "asteroidS", q: 4, r: 6 },
+                { type: "dust", q: 2, r: 1 }, { type: "dust", q: 4, r: 4 }, { type: "asteroidS", q: 1, r: 10 },
+                { type: "asteroidL", q: -4, r: -2 }, { type: "asteroidM", q: -1, r: -5 }, { type: "asteroid2", q: -3, r: -8, h: 0 },
+                { type: "asteroidS", q: -5, r: -6 }, { type: "dust", q: -2, r: -1 }, { type: "dust", q: -5, r: -4 },
+                { type: "meteors", q: 0, r: -3 }, { type: "asteroidS", q: -2, r: -10 }, { type: "asteroidL", q: 3, r: -2 },
+                { type: "asteroidM", q: 1, r: -5 }, { type: "asteroid2", q: 2, r: -8, h: 3 }, { type: "asteroidS", q: 4, r: -6 },
+                { type: "dust", q: 2, r: -1 }, { type: "dust", q: 4, r: -4 }, { type: "asteroidS", q: 1, r: -10 }
+            ]
+        },
+        "asteroidBelt": {
+            base: "standard", name: "Asteroid Belt",
+            blurb: "A broken asteroid belt down the middle, crossed by three lanes.",
+            terrain: [
+                { type: "asteroidL", q: -2, r: 2 }, { type: "asteroidM", q: 0, r: 3 }, { type: "asteroid3", q: -3, r: 5, h: 0 },
+                { type: "asteroidM", q: -1, r: 7 }, { type: "asteroidS", q: -4, r: 3 }, { type: "dust", q: -6, r: 2 },
+                { type: "dust", q: -6, r: 6 }, { type: "dust", q: -1, r: 0 }, { type: "meteors", q: -1, r: 8 },
+                { type: "asteroid2", q: -3, r: 10, h: 0 }, { type: "asteroidM", q: 0, r: 11 }, { type: "asteroidS", q: -2, r: 13 },
+                { type: "dust", q: -9, r: 4 }, { type: "asteroidS", q: -10, r: 8 }, { type: "dust", q: -8, r: 12 },
+                { type: "asteroidL", q: 1, r: 2 }, { type: "asteroid3", q: 3, r: 5, h: 2 }, { type: "asteroidM", q: 1, r: 7 },
+                { type: "asteroidS", q: 4, r: 3 }, { type: "dust", q: 5, r: 2 }, { type: "dust", q: 5, r: 6 },
+                { type: "dust", q: 0, r: 0 }, { type: "meteors", q: 0, r: 8 }, { type: "asteroid2", q: 2, r: 10, h: 3 },
+                { type: "asteroidS", q: 2, r: 13 }, { type: "dust", q: 8, r: 4 }, { type: "asteroidS", q: 9, r: 8 },
+                { type: "dust", q: 7, r: 12 }, { type: "asteroidL", q: -2, r: -2 }, { type: "asteroidM", q: 0, r: -3 },
+                { type: "asteroid3", q: -3, r: -5, h: 5 }, { type: "asteroidM", q: -1, r: -7 }, { type: "asteroidS", q: -4, r: -3 },
+                { type: "dust", q: -6, r: -2 }, { type: "dust", q: -6, r: -6 }, { type: "meteors", q: -1, r: -8 },
+                { type: "asteroid2", q: -3, r: -10, h: 0 }, { type: "asteroidM", q: 0, r: -11 }, { type: "asteroidS", q: -2, r: -13 },
+                { type: "dust", q: -9, r: -4 }, { type: "asteroidS", q: -10, r: -8 }, { type: "dust", q: -8, r: -12 },
+                { type: "asteroidL", q: 1, r: -2 }, { type: "asteroid3", q: 3, r: -5, h: 3 }, { type: "asteroidM", q: 1, r: -7 },
+                { type: "asteroidS", q: 4, r: -3 }, { type: "dust", q: 5, r: -2 }, { type: "dust", q: 5, r: -6 },
+                { type: "meteors", q: 0, r: -8 }, { type: "asteroid2", q: 2, r: -10, h: 3 }, { type: "asteroidS", q: 2, r: -13 },
+                { type: "dust", q: 8, r: -4 }, { type: "asteroidS", q: 9, r: -8 }, { type: "dust", q: 7, r: -12 }
+            ]
+        },
+        "twinMoons": {
+            base: "standard", name: "Twin Moons",
+            blurb: "Two moons north and south of a dusty centre, with asteroid cover on both approaches.",
+            terrain: [
+                { type: "moonM", q: 0, r: 7 }, { type: "asteroidS", q: -4, r: 10 }, { type: "asteroidM", q: -3, r: 4 },
+                { type: "dust", q: 0, r: 1 }, { type: "dust", q: -2, r: 0 }, { type: "meteors", q: -1, r: 3 },
+                { type: "asteroid2", q: -9, r: 2, h: 0 }, { type: "asteroidL", q: -8, r: 10 }, { type: "dust", q: -7, r: 6 },
+                { type: "asteroidS", q: -12, r: 5 }, { type: "asteroidS", q: 3, r: 10 }, { type: "asteroidM", q: 2, r: 4 },
+                { type: "dust", q: 1, r: 0 }, { type: "meteors", q: 1, r: 3 }, { type: "asteroid2", q: 8, r: 2, h: 3 },
+                { type: "asteroidL", q: 7, r: 10 }, { type: "dust", q: 6, r: 6 }, { type: "asteroidS", q: 12, r: 5 },
+                { type: "moonM", q: 0, r: -7 }, { type: "asteroidS", q: -4, r: -10 }, { type: "asteroidM", q: -3, r: -4 },
+                { type: "dust", q: 0, r: -1 }, { type: "meteors", q: -1, r: -3 }, { type: "asteroid2", q: -9, r: -2, h: 0 },
+                { type: "asteroidL", q: -8, r: -10 }, { type: "dust", q: -7, r: -6 }, { type: "asteroidS", q: -12, r: -5 },
+                { type: "asteroidS", q: 3, r: -10 }, { type: "asteroidM", q: 2, r: -4 }, { type: "meteors", q: 1, r: -3 },
+                { type: "asteroid2", q: 8, r: -2, h: 3 }, { type: "asteroidL", q: 7, r: -10 }, { type: "dust", q: 6, r: -6 },
+                { type: "asteroidS", q: 12, r: -5 }
+            ]
+        },
+        "crossroads": {
+            base: "4teams", name: "Crossroads",
+            blurb: "A large moon at the centre of four fleets, with cover in every quarter.",
+            terrain: [
+                { type: "moonL", q: 0, r: 0 }, { type: "asteroidM", q: -5, r: 6 }, { type: "asteroid3", q: -9, r: 4, h: 0 },
+                { type: "asteroidS", q: -12, r: 7 }, { type: "dust", q: -4, r: 4 }, { type: "meteors", q: -7, r: 2 },
+                { type: "dust", q: -11, r: 1 }, { type: "asteroidM", q: 4, r: 6 }, { type: "asteroid3", q: 8, r: 4, h: 2 },
+                { type: "asteroidS", q: 12, r: 7 }, { type: "dust", q: 3, r: 4 }, { type: "meteors", q: 6, r: 2 },
+                { type: "dust", q: 11, r: 1 }, { type: "asteroidM", q: -5, r: -6 }, { type: "asteroid3", q: -9, r: -4, h: 5 },
+                { type: "asteroidS", q: -12, r: -7 }, { type: "dust", q: -4, r: -4 }, { type: "meteors", q: -7, r: -2 },
+                { type: "dust", q: -11, r: -1 }, { type: "asteroidM", q: 4, r: -6 }, { type: "asteroid3", q: 8, r: -4, h: 3 },
+                { type: "asteroidS", q: 12, r: -7 }, { type: "dust", q: 3, r: -4 }, { type: "meteors", q: 6, r: -2 },
+                { type: "dust", q: 11, r: -1 }
+            ]
+        },
+        "fracturedFront": {
+            base: "2v2", name: "Fractured Front",
+            blurb: "An asteroid line splits the north and south fights; each has a small moon.",
+            terrain: [
+                { type: "asteroidL", q: -2, r: 0 }, { type: "asteroid2", q: -6, r: 0, h: 0 }, { type: "asteroidS", q: -10, r: 1 },
+                { type: "dust", q: -8, r: 2 }, { type: "meteors", q: -4, r: 2 }, { type: "moonS", q: 0, r: 11 },
+                { type: "asteroidM", q: -5, r: 12 }, { type: "dust", q: -9, r: 9 }, { type: "asteroidS", q: -3, r: 16 },
+                { type: "dust", q: -11, r: 15 }, { type: "asteroidS", q: -9, r: 6 }, { type: "dust", q: -3, r: 6 },
+                { type: "asteroidL", q: 1, r: 0 }, { type: "asteroid2", q: 5, r: 0, h: 3 }, { type: "asteroidS", q: 10, r: 1 },
+                { type: "dust", q: 7, r: 2 }, { type: "meteors", q: 3, r: 2 }, { type: "asteroidM", q: 4, r: 12 },
+                { type: "dust", q: 9, r: 9 }, { type: "asteroidS", q: 2, r: 16 }, { type: "dust", q: 11, r: 15 },
+                { type: "asteroidS", q: 8, r: 6 }, { type: "dust", q: 2, r: 6 }, { type: "asteroidS", q: -10, r: -1 },
+                { type: "dust", q: -8, r: -2 }, { type: "meteors", q: -4, r: -2 }, { type: "moonS", q: 0, r: -11 },
+                { type: "asteroidM", q: -5, r: -12 }, { type: "dust", q: -9, r: -9 }, { type: "asteroidS", q: -3, r: -16 },
+                { type: "dust", q: -11, r: -15 }, { type: "asteroidS", q: -9, r: -6 }, { type: "dust", q: -3, r: -6 },
+                { type: "asteroidS", q: 10, r: -1 }, { type: "dust", q: 7, r: -2 }, { type: "meteors", q: 3, r: -2 },
+                { type: "asteroidM", q: 4, r: -12 }, { type: "dust", q: 9, r: -9 }, { type: "asteroidS", q: 2, r: -16 },
+                { type: "dust", q: 11, r: -15 }, { type: "asteroidS", q: 8, r: -6 }, { type: "dust", q: 2, r: -6 }
+            ]
+        },
+        "shatteredMoon": {
+            base: "large", name: "Shattered Moon",
+            blurb: "A large moon ringed by its own debris, with medium moons north and south.",
+            terrain: [
+                { type: "moonL", q: 0, r: 1 }, { type: "moonM", q: 0, r: 13 }, { type: "asteroidS", q: -5, r: 4 },
+                { type: "asteroidM", q: -6, r: 1 }, { type: "dust", q: -4, r: 5 }, { type: "asteroid2", q: -3, r: 7, h: 0 },
+                { type: "meteors", q: -9, r: 3 }, { type: "asteroidL", q: -13, r: 6 }, { type: "asteroid3", q: -15, r: 11, h: 1 },
+                { type: "dust", q: -12, r: 9 }, { type: "asteroidS", q: -17, r: 2 }, { type: "dust", q: -8, r: 16 },
+                { type: "asteroidM", q: -5, r: 17 }, { type: "asteroidS", q: 4, r: 4 }, { type: "asteroidM", q: 6, r: 1 },
+                { type: "dust", q: 4, r: 5 }, { type: "asteroid2", q: 3, r: 7, h: 3 }, { type: "meteors", q: 9, r: 3 },
+                { type: "asteroidL", q: 12, r: 6 }, { type: "asteroid3", q: 15, r: 11, h: 1 }, { type: "dust", q: 12, r: 9 },
+                { type: "asteroidS", q: 16, r: 2 }, { type: "dust", q: 7, r: 16 }, { type: "asteroidM", q: 5, r: 17 },
+                { type: "moonM", q: 0, r: -13 }, { type: "asteroidS", q: -5, r: -4 }, { type: "asteroidM", q: -6, r: -1 },
+                { type: "dust", q: -4, r: -5 }, { type: "asteroid2", q: -3, r: -7, h: 0 }, { type: "meteors", q: -9, r: -3 },
+                { type: "asteroidL", q: -13, r: -6 }, { type: "asteroid3", q: -15, r: -11, h: 4 }, { type: "dust", q: -12, r: -9 },
+                { type: "asteroidS", q: -17, r: -2 }, { type: "dust", q: -8, r: -16 }, { type: "asteroidM", q: -5, r: -17 },
+                { type: "asteroidS", q: 4, r: -4 }, { type: "asteroidM", q: 6, r: -1 }, { type: "dust", q: 4, r: -5 },
+                { type: "asteroid2", q: 3, r: -7, h: 3 }, { type: "meteors", q: 9, r: -3 }, { type: "asteroidL", q: 12, r: -6 },
+                { type: "asteroid3", q: 15, r: -11, h: 4 }, { type: "dust", q: 12, r: -9 }, { type: "asteroidS", q: 16, r: -2 },
+                { type: "dust", q: 7, r: -16 }, { type: "asteroidM", q: 5, r: -17 }
+            ]
+        },
+        "meteorStorm": {
+            base: "large", name: "Meteor Storm",
+            blurb: "Two parallel meteor streams to cross, and small moons in opposite corners.",
+            terrain: [
+                { type: "meteors", q: -17, r: 15 }, { type: "meteors", q: -16, r: 13 }, { type: "dust", q: -16, r: 12 },
+                { type: "meteors", q: -15, r: 10 }, { type: "meteors", q: -12, r: 7 }, { type: "meteors", q: -11, r: 5 },
+                { type: "asteroidM", q: -11, r: 4 }, { type: "meteors", q: -10, r: 3 }, { type: "dust", q: -10, r: 2 },
+                { type: "meteors", q: -9, r: 1 }, { type: "meteors", q: -9, r: 0 }, { type: "meteors", q: -8, r: -2 },
+                { type: "meteors", q: -7, r: -3 }, { type: "dust", q: -7, r: -4 }, { type: "meteors", q: -5, r: -7 },
+                { type: "dust", q: -4, r: -8 }, { type: "meteors", q: -3, r: -9 }, { type: "asteroidS", q: -3, r: -10 },
+                { type: "meteors", q: -2, r: -11 }, { type: "meteors", q: -1, r: -13 }, { type: "meteors", q: -1, r: -14 },
+                { type: "dust", q: 0, r: -15 }, { type: "asteroidL", q: 0, r: 1 }, { type: "dust", q: -1, r: 0 },
+                { type: "moonS", q: -19, r: -9 }, { type: "asteroid2", q: -20, r: -14, h: 0 }, { type: "meteors", q: 17, r: -15 },
+                { type: "meteors", q: 16, r: -13 }, { type: "dust", q: 15, r: -12 }, { type: "meteors", q: 14, r: -10 },
+                { type: "meteors", q: 12, r: -7 }, { type: "meteors", q: 11, r: -5 }, { type: "asteroidM", q: 10, r: -4 },
+                { type: "meteors", q: 10, r: -3 }, { type: "dust", q: 9, r: -2 }, { type: "meteors", q: 9, r: -1 },
+                { type: "meteors", q: 8, r: 0 }, { type: "meteors", q: 7, r: 2 }, { type: "meteors", q: 7, r: 3 },
+                { type: "dust", q: 6, r: 4 }, { type: "meteors", q: 5, r: 7 }, { type: "dust", q: 3, r: 8 },
+                { type: "meteors", q: 3, r: 9 }, { type: "asteroidS", q: 2, r: 10 }, { type: "meteors", q: 2, r: 11 },
+                { type: "meteors", q: 1, r: 13 }, { type: "meteors", q: 0, r: 14 }, { type: "dust", q: 0, r: 15 },
+                { type: "asteroidL", q: 0, r: -1 }, { type: "dust", q: 0, r: 0 }, { type: "moonS", q: 19, r: 9 },
+                { type: "asteroid2", q: 19, r: 14, h: 3 }
+            ]
+        },
+    },
+
+    //A template, or a Map with Terrain resolved onto its base template's size and teams.
+    getMapConfig: function getMapConfig(val) {
+        const config = createGame.mapData[val];
+        if (!config || !config.base) return config;
+        return Object.assign({}, createGame.mapData[config.base], { name: config.name, blurb: config.blurb, terrain: config.terrain });
     },
 
     onMapDimensionsChange: function () {
         const val = $("#mapDimensionsSelect").val();
-        const mapConfig = createGame.mapData[val];
+        const mapConfig = createGame.getMapConfig(val);
 
         if (val === "unlimited") {
             $(".gamespacedefinition .unlimitedspace").removeClass("invisible");
@@ -792,7 +1132,7 @@ window.createGame = {
             createGame.applyMapConfig(mapConfig);
         }
 
-        createGame.drawMapPreview();
+        createGame.setTerrainLayout(mapConfig); //draws the preview
     },
 
     applyMapConfig: function (config) {
@@ -1326,17 +1666,19 @@ window.createGame = {
                 reveal = '<div class="cg-reveal" id="' + id + '_reveal"><div class="cg-reveal-inner">' + extra + "</div></div>";
             }
 
-            //Inline help rather than a floating bubble: a tap target that expands in place works
-            //the same on a phone as with a mouse, and never has to be positioned.
+            //"?" opens a floating help window over the card (the mockup's bubble) - a click/tap
+            //toggle, so it works the same on a phone as with a mouse. positionHelp() places it.
             let helpButton = "", helpText = "";
             if (field.help) {
                 helpButton = '<button type="button" class="cg-help" aria-expanded="false" aria-controls="' + id + '_help">'
                     + '<span aria-hidden="true">?</span><span class="cg-sr">About ' + esc(field.label) + "</span></button>";
-                helpText = '<p class="cg-help-text" id="' + id + '_help" hidden>' + esc(field.help) + "</p>";
+                helpText = '<div class="cg-help-bubble" id="' + id + '_help" hidden>' + esc(field.help) + "</div>";
             }
 
+            //One grid cell each, Additional Info included, which puts it under Map Borders beside
+            //Victory Conditions (the mockup). FIELDS' `wide` is for the read-only fact grid only.
             const optional = field.multiline ? ' <span class="cg-optional">(optional)</span>' : "";
-            html += '<div class="cg-scn-card' + (field.wide ? " cg-scn-card--wide" : "") + '">'
+            html += '<div class="cg-scn-card">'
                 + '<div class="cg-scn-head"><label for="' + id + '" class="cg-card-label">' + esc(field.label) + optional + "</label>" + helpButton + "</div>"
                 + helpText + control + reveal
                 + "</div>";
@@ -1363,11 +1705,57 @@ window.createGame = {
             if (digits !== this.value) this.value = digits;
         });
 
+        //One help window open at a time; a click anywhere else, or Escape, closes it.
         $("#scenarioFields").on("click", ".cg-help", function () {
-            const open = $(this).attr("aria-expanded") !== "true";
-            $(this).attr("aria-expanded", open ? "true" : "false");
-            $("#" + $(this).attr("aria-controls")).prop("hidden", !open);
+            const wasOpen = createGame.openHelpButton === this;
+            createGame.closeHelp();
+            if (!wasOpen) createGame.openHelp(this);
         });
+        $(document).on("click", function (e) {
+            if (!$(e.target).closest(".cg-help, .cg-help-bubble").length) createGame.closeHelp();
+        }).on("keydown", function (e) {
+            const button = createGame.openHelpButton;
+            if (e.key !== "Escape" || !button) return;
+            createGame.closeHelp();
+            button.focus();
+        });
+        $(window).on("resize", function () {
+            if (createGame.openHelpButton) createGame.positionHelp(createGame.openHelpButton);
+        });
+    },
+
+    openHelpButton: null,
+
+    openHelp: function openHelp(button) {
+        $(button).attr("aria-expanded", "true");
+        $("#" + $(button).attr("aria-controls")).prop("hidden", false);
+        createGame.openHelpButton = button;
+        createGame.positionHelp(button);
+    },
+
+    closeHelp: function closeHelp() {
+        const button = createGame.openHelpButton;
+        if (!button) return;
+        $(button).attr("aria-expanded", "false");
+        $("#" + $(button).attr("aria-controls")).prop("hidden", true);
+        createGame.openHelpButton = null;
+    },
+
+    //Just under the "?", arrow pointing at it, slid left as far as it must to stay inside the
+    //card - on a phone the "?" can sit nearer the card's right edge than the window is wide.
+    //Offsets are from the card's padding box, which is what `left`/`top` are measured from.
+    positionHelp: function positionHelp(button) {
+        const bubble = document.getElementById($(button).attr("aria-controls"));
+        const card = button.closest(".cg-scn-card");
+        const cardBox = card.getBoundingClientRect();
+        const glyph = button.querySelector("[aria-hidden]").getBoundingClientRect();
+        const centre = glyph.left + glyph.width / 2 - cardBox.left - card.clientLeft;
+        const maxLeft = Math.max(8, card.clientWidth - bubble.offsetWidth - 8);
+        const left = Math.min(Math.max(8, centre - 16), maxLeft);
+
+        bubble.style.left = left + "px";
+        bubble.style.top = (glyph.bottom - cardBox.top - card.clientTop + 9) + "px";
+        bubble.style.setProperty("--cg-help-arrow", (centre - left) + "px");
     },
 
     //The form -> the scenario object stored in tac_game.scenario (via scenarioCard.normalise).
@@ -1402,6 +1790,226 @@ window.createGame = {
             result += createGame.scenarioUI[key].legacy + ": " + value + "\n";
         });
         return result;
+    },
+
+    /* ── The wizard (plan §3.1 / §3.5) ─────────────────────────────────────────────────────
+       One form, one POST: the four steps are the .cg-step-panel sections, one shown at a time.
+       Every tab stays clickable, but going FORWARD - by Next or by a later tab - checks each step
+       being passed first, and stops on the first one that is not ready, saying why. Going back
+       never checks anything. */
+    currentStep: 1,
+
+    nextLabels: { 1: "Next: Scenario Description", 2: "Next: Teams & Map", 3: "Next: Summary & Confirm" },
+
+    initWizard: function initWizard() {
+        $(".cg-step").on("click", function () {
+            createGame.goToStep(parseInt($(this).data("step"), 10));
+        });
+        $("#cgNext").on("click", function () { createGame.goToStep(createGame.currentStep + 1); });
+        $("#cgBack").on("click", function () { createGame.goToStep(createGame.currentStep - 1); });
+        $("#cgStep4").on("click", "[data-goto]", function () {
+            createGame.goToStep(parseInt($(this).data("goto"), 10));
+        });
+
+        //A field that was flagged clears its flag once it is edited.
+        $("#createGameForm").on("input change", "[aria-invalid='true']", function () {
+            $(this).removeAttr("aria-invalid");
+        });
+
+        createGame.showStep(1, false);
+    },
+
+    goToStep: function goToStep(target) {
+        target = Math.max(1, Math.min(4, target));
+
+        for (let step = createGame.currentStep; step < target; step++) {
+            const problem = createGame.validateStep(step);
+            if (problem) {
+                if (step !== createGame.currentStep) createGame.showStep(step, true);
+                createGame.showStepError(problem);
+                return false;
+            }
+        }
+
+        createGame.showStep(target, true);
+        return true;
+    },
+
+    //`moved`: a person changed step - scroll the wizard's top into view and move focus to the
+    //new step's heading, so a screen reader announces it and Tab carries on from there.
+    showStep: function showStep(step, moved) {
+        createGame.clearStepError();
+        createGame.closeHelp();
+        if (step === 4) createGame.renderSummary();
+        createGame.currentStep = step;
+
+        $(".cg-step-panel").each(function () {
+            const on = parseInt($(this).data("step"), 10) === step;
+            this.hidden = !on;
+            if (on && moved) {
+                //restart the entry animation
+                this.classList.remove("is-entering");
+                void this.offsetWidth;
+                this.classList.add("is-entering");
+            }
+        });
+
+        $(".cg-step").each(function () {
+            const tab = parseInt($(this).data("step"), 10);
+            $(this).toggleClass("is-current", tab === step).toggleClass("is-done", tab < step);
+            if (tab === step) $(this).attr("aria-current", "step");
+            else $(this).removeAttr("aria-current");
+        });
+
+        $("#cgCancel").prop("hidden", step !== 1);
+        $("#cgBack").prop("hidden", step === 1);
+        $("#cgNext").prop("hidden", step === 4);
+        $("#cgConfirm").prop("hidden", step !== 4);
+        $("#cgNext .cg-next-long").text(createGame.nextLabels[step] || "");
+
+        if (moved) {
+            const top = $(".cg-steps")[0].getBoundingClientRect().top;
+            if (top < 0) window.scrollBy(0, top - 8);
+            $("#cgStep" + step + " .cg-section-head").trigger("focus");
+        }
+    },
+
+    /* What stops a step being left, as {message, field} - or null. Deliberately short: only what
+       would otherwise reach the lobby blank or broken. */
+    validateStep: function validateStep(step) {
+        if (step === 1) {
+            if (!String($("#gamename").val() || "").trim()) {
+                return { message: "Give the game a name.", field: "#gamename" };
+            }
+        }
+
+        if (step === 2) {
+            for (const field of scenarioCard.FIELDS) {
+                if (!field.otherKey && !field.pointsKey) continue;
+                const id = createGame.scenarioUI[field.key].id;
+                const choice = $("#" + id).val();
+                const custom = String($("#" + id + "_custom").val() || "").trim();
+
+                if (field.pointsKey && choice === "Up to X points" && !custom) {
+                    return { message: field.label + ": enter the points limit, or choose another option.", field: "#" + id + "_custom" };
+                }
+                if (field.otherKey && choice === "Other" && !custom) {
+                    return { message: field.label + ": describe your “Other” choice, or pick one of the options.", field: "#" + id + "_custom" };
+                }
+            }
+        }
+
+        if (step === 3) {
+            if ($("#mapDimensionsSelect").val() !== "unlimited"
+                && !(createGame.gamespace_data.width > 0 && createGame.gamespace_data.height > 0)) {
+                return { message: "Give the map a width and height, or choose No Boundaries.", field: "#spacex" };
+            }
+            const unnamed = createGame.slots.find(slot => !String(slot.name || "").trim());
+            if (unnamed) {
+                return { message: "Every slot needs a name.", field: ".slot.slotid_" + unnamed.id + " [name='name']" };
+            }
+        }
+
+        return null;
+    },
+
+    showStepError: function showStepError(problem) {
+        $("#cgStepError").text(problem.message).prop("hidden", false);
+        const field = $(problem.field).first();
+        if (field.length) field.attr("aria-invalid", "true").trigger("focus");
+    },
+
+    clearStepError: function clearStepError() {
+        $("#cgStepError").empty().prop("hidden", true);
+        $("#createGameForm [aria-invalid='true']").removeAttr("aria-invalid");
+    },
+
+    //Step 4: a read-only recap, grouped the way the lobby will show the game.
+    renderSummary: function renderSummary() {
+        const esc = scenarioCard.escapeHtml;
+
+        const background = $("input[name='background']:checked");
+        $("#sumBackground").attr("src", background.length ? "img/maps/" + background.val() : "");
+        $("#sumName").text(String($("#gamename").val() || "").trim());
+        $("#sumBackgroundName").text("Background: " + (background.closest(".cg-bg-tile").attr("title") || background.val() || ""));
+
+        const rules = createGame.summaryRules();
+        $("#sumRules").html(rules.length
+            ? rules.map(rule => '<li class="cg-chip">' + esc(rule) + "</li>").join("")
+            : '<li class="cg-chip cg-chip--none">No optional rules</li>');
+
+        $("#sumScenario").html(scenarioCard.render(createGame.readScenario(), { plain: true })
+            || '<p class="cg-caption">No scenario details.</p>');
+
+        createGame.paintMap(document.getElementById("sumMap"));
+        $("#sumMapMeta").html(createGame.summaryMap());
+        $("#sumTeams").html(createGame.summaryTeams());
+    },
+
+    //The active rules and options, one chip each - the lobby's "Options Selected", itemised.
+    summaryRules: function summaryRules() {
+        const r = createGame.rules;
+        const out = [];
+
+        if (r.ladder) out.push("Ladder Game");
+        if (r.initiativeCategories) {
+            out.push("Simultaneous Movement (" + r.initiativeCategories + (r.initiativeCategories === 1 ? " bracket)" : " brackets)"));
+        }
+        if (r.allowMines) out.push("Mines Allowed");
+        if (r.allowReinforcements) out.push("Reinforcements Allowed");
+        if (r.desperate !== undefined) {
+            out.push("Desperate Scenario (" + (r.desperate === 1 ? "Team 1" : r.desperate === 2 ? "Team 2" : "Both teams") + ")");
+        }
+        if (r.friendlyFire) out.push("Friendly Fire");
+        if ($("#unlimitedPointsCheck").is(":checked")) out.push("Unlimited Points");
+
+        if (r.asteroids) out.push("Asteroids (" + r.asteroids + ")");
+        if (r.moons) {
+            const moons = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]]
+                .filter(size => r.moons[size[0]] > 0)
+                .map(size => r.moons[size[0]] + " " + size[1]);
+            out.push("Moons (" + moons.join(", ") + ")");
+        }
+        if (r.dustAndMeteors && r.dustAndMeteors.dust) out.push("Dust (" + r.dustAndMeteors.dust + ")");
+        if (r.dustAndMeteors && r.dustAndMeteors.meteors) out.push("Meteor Swarms (" + r.dustAndMeteors.meteors + ")");
+
+        return out;
+    },
+
+    summaryMap: function summaryMap() {
+        const esc = scenarioCard.escapeHtml;
+        const template = $("#mapDimensionsSelect").val();
+        let text;
+
+        if (template === "unlimited") text = "No Boundaries";
+        else if (template === "custom") text = "Custom map, " + createGame.gamespace_data.width + " × " + createGame.gamespace_data.height;
+        else text = $("#mapDimensionsSelect option:selected").text();
+
+        let html = esc(text);
+        if (createGame.rules.terrainLayout) {
+            html += ' <span class="cg-sum-sep">&middot;</span> ' + createGame.rules.terrainLayout.units.length + " pre-placed terrain features";
+        }
+        return html;
+    },
+
+    summaryTeams: function summaryTeams() {
+        const esc = scenarioCard.escapeHtml;
+        const teams = createGame.getTeamIds();
+        const unlimited = $("#unlimitedPointsCheck").is(":checked");
+
+        return teams.map(function (team) {
+            const rgb = "rgb(" + createGame.teamColor(team, teams.length).join(",") + ")";
+            const slots = createGame.slots.filter(slot => slot.team === team);
+            const rows = slots.map(function (slot) {
+                let meta = (unlimited || slot.points == -1) ? "Unlimited" : esc(slot.points) + " pts";
+                if (parseInt(slot.depavailable, 10) > 1) meta += " &middot; deploys turn " + esc(slot.depavailable);
+                return '<li><span class="cg-sum-slot-name">' + esc(slot.name) + '</span><span class="cg-sum-slot-meta">' + meta + "</span></li>";
+            }).join("");
+
+            return '<div class="cg-sum-team" style="--rail:' + rgb + '">'
+                + '<div class="cg-sum-team-head" style="color:' + rgb + '">Team ' + team + " &middot; " + slots.length + (slots.length === 1 ? " slot" : " slots") + "</div>"
+                + '<ul class="cg-sum-slots">' + rows + "</ul></div>";
+        }).join("");
     },
 
     submitFleetTest: function () {

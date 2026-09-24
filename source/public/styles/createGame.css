@@ -27,14 +27,169 @@
   box-sizing: border-box;
 }
 
+/* The [hidden] attribute is how the wizard shows one step, one nav button set and the error
+   box at a time. Several of those elements set their own display (.cg-btn is inline-flex), which
+   would otherwise beat the browser's own [hidden] rule. */
+.cg-page [hidden] {
+  display: none !important;
+}
+
+.cg-titlebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-top: 4px;
+}
+
 .cg-title {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--fv-display);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 2.2px;
   text-transform: uppercase;
   color: var(--fv-text-bright);
+}
+
+.cg-draft {
+  font-family: var(--fv-mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--fv-text-dim);
+}
+
+/* ── Wizard step bar (plan §3.1, mockup §11) ───────────────────────────────── */
+
+/* Steps 1-3 always carry the blue rail and Confirm the green one (plan §2); what changes with
+   progress is the fill and brightness: current = tinted, passed = full strength, ahead = faded. */
+.cg-steps {
+  background: linear-gradient(180deg, rgba(27, 45, 62, 0.94), rgba(18, 32, 45, 0.94));
+  border: 1px solid #2a6b8f;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.cg-steps-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cg-steps-list > li {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cg-step {
+  --step-rail: var(--fv-accent);
+  --step-tint: rgba(139, 202, 242, 0.14);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 14px 18px;
+  text-align: left;
+  color: var(--fv-text-dim);
+  background: none;
+  border: 0;
+  border-left: var(--fv-log-rail) solid var(--step-rail);
+  border-radius: 0;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.cg-step--confirm {
+  --step-rail: var(--fv-own);
+  --step-tint: rgba(125, 191, 136, 0.14);
+}
+
+.cg-step--confirm:not(.is-current):not(.is-done) {
+  opacity: 0.4;
+}
+
+.cg-step:hover {
+  opacity: 0.85;
+}
+
+.cg-step.is-done,
+.cg-step.is-current {
+  opacity: 1;
+}
+
+.cg-step.is-current {
+  background: var(--step-tint);
+  cursor: default;
+}
+
+.cg-step:focus-visible {
+  outline: 2px solid var(--fv-accent);
+  outline-offset: -2px;
+}
+
+/* gamesNew.css sets Arial on EVERY element with `*`, so each nested span names its face too. */
+.cg-step-num,
+.cg-step-num * {
+  font-family: var(--fv-mono);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.cg-step-name,
+.cg-step-name * {
+  font-family: var(--fv-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.cg-step-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.cg-step.is-done .cg-step-num,
+.cg-step.is-current .cg-step-num {
+  color: var(--step-rail);
+}
+
+.cg-step.is-done .cg-step-name {
+  color: var(--fv-text-accent);
+}
+
+.cg-step.is-current .cg-step-name {
+  color: var(--fv-text-bright);
+}
+
+.cg-step-short {
+  display: none;
+}
+
+/* The step being entered: the one deliberate transition on the page besides the reveal. */
+@keyframes cgStepIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cg-step-panel.is-entering {
+  animation: cgStepIn 200ms ease-out;
+}
+
+/* Focus lands on a step's heading when the step changes (for screen readers); the heading is
+   not a control, so it draws no ring. */
+.cg-section-head:focus {
+  outline: none;
 }
 
 /* Screen-reader-only text: the background tiles' names, the inline selects' labels. */
@@ -249,10 +404,12 @@ textarea.cg-input {
   font-size: 9px;
 }
 
+/* gamesNew.css's `* { font-family: Arial }` again: a button's inner spans follow the button. */
+.cg-btn * {
+  font-family: inherit;
+}
+
 .cg-btn--create {
-  min-height: 44px;
-  padding: 12px 28px;
-  font-size: 12px;
   color: #e6f4e6;
   background: rgba(60, 122, 60, 0.671);
   border-color: #66b266;
@@ -260,6 +417,29 @@ textarea.cg-input {
 
 .cg-btn--create:hover {
   background: rgba(60, 122, 60, 0.85);
+}
+
+.cg-btn--confirm {
+  min-height: 44px;
+  padding: 12px 26px;
+  font-size: 12px;
+}
+
+.cg-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.cg-btn--ghost {
+  color: var(--fv-text-dim);
+  background: transparent;
+  border-color: var(--fv-line-soft);
+  text-decoration: none;
+}
+
+.cg-btn--ghost:hover {
+  color: var(--fv-text);
+  background: rgba(73, 103, 145, 0.2);
 }
 
 /* A text-style action (View Ladder, Remove Slot, Remove Team). */
@@ -277,9 +457,222 @@ textarea.cg-input {
   color: var(--fv-text-bright);
 }
 
-.cg-actions {
+/* ── Wizard nav bar ────────────────────────────────────────────────────────── */
+
+/* Sticky to the bottom of the viewport while the form is on screen, so Next / Confirm never
+   scrolls away below a long step (plan §5). z-index under the count combos' lists (20). */
+.cg-nav {
+  position: sticky;
+  bottom: 8px;
+  z-index: 10;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(27, 45, 62, 0.97), rgba(18, 32, 45, 0.97));
+  border: 1px solid #2a6b8f;
+  border-radius: 6px;
+  box-shadow: 0 -2px 18px rgba(0, 0, 0, 0.55);
+}
+
+.cg-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cg-nav-spacer {
+  flex: 1;
+}
+
+.cg-next-short {
+  display: none;
+}
+
+.cg-step-error {
+  padding: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #ffe1d6;
+  background: rgba(237, 103, 56, 0.14);
+  border: 1px solid rgba(237, 103, 56, 0.45);
+  border-left: var(--fv-log-rail) solid var(--fv-crit);
+}
+
+.cg-page [aria-invalid="true"] {
+  border-color: var(--fv-crit);
+}
+
+/* ── Summary & Confirm (Step 4) ────────────────────────────────────────────── */
+
+.cg-section-head--confirm {
+  color: var(--fv-own);
+}
+
+.cg-sum-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cg-sum-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cg-sum-head .cg-card-label {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--fv-text);
+}
+
+.cg-sum-game {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.cg-sum-thumb {
+  flex: none;
+  width: 110px;
+  height: 62px;
+  object-fit: cover;
+  background: #081420;
+  border: 1px solid var(--fv-line-soft);
+  border-radius: 2px;
+}
+
+.cg-sum-game-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cg-sum-name {
+  font-family: var(--fv-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--fv-text-bright);
+  overflow-wrap: anywhere;
+}
+
+.cg-sum-meta,
+.cg-sum-meta * {
+  font-family: var(--fv-mono);
+  font-size: 10.5px;
+  color: var(--fv-text-dim);
+}
+
+.cg-sum-meta strong {
+  color: var(--fv-text);
+}
+
+.cg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cg-chip {
+  padding: 4px 9px;
+  font-family: var(--fv-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.3px;
+  color: var(--fv-text-accent);
+  background: rgba(139, 202, 242, 0.1);
+  border: 1px solid var(--fv-line-scs);
+  border-radius: 2px;
+}
+
+.cg-chip--none {
+  color: var(--fv-text-dim);
+  background: none;
+  border-style: dashed;
+}
+
+.cg-sum-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+/* The left column: Game Options above Scenario Description. */
+.cg-sum-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cg-sum-card .cg-map-frame {
+  max-width: 400px;
+}
+
+.cg-page #sumMap {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* One block per team, as many across as fit - the card is half the page on a desktop. */
+.cg-sum-teams {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: 12px 20px;
+}
+
+.cg-sum-team {
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--rail);
+}
+
+.cg-sum-team-head {
+  margin-bottom: 5px;
+  font-family: var(--fv-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.cg-sum-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cg-sum-slots li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--fv-text);
+}
+
+.cg-sum-slot-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cg-sum-slot-meta {
+  flex: none;
+  font-family: var(--fv-mono);
+  font-size: 11px;
+  color: var(--fv-text-dim);
 }
 
 /* ── Background picker ─────────────────────────────────────────────────────── */
@@ -525,7 +918,9 @@ textarea.cg-input {
   gap: var(--cg-scn-gap);
 }
 
+/* position: the help window (.cg-help-bubble) is placed against the card. */
 .cg-scn-card {
+  position: relative;
   min-width: 0;
   padding: 14px 16px;
   background: var(--fv-card);
@@ -533,19 +928,20 @@ textarea.cg-input {
   border-left: var(--fv-log-rail) solid var(--fv-purple);
 }
 
-.cg-scn-card--wide {
-  grid-column: 1 / -1;
-}
-
 .cg-scn-card .cg-input:focus {
   border-color: var(--fv-purple);
 }
 
+/* The "?" sits right after the label, as in the mockup. */
 .cg-scn-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.cg-scn-head .cg-card-label {
+  margin: 0;
 }
 
 .cg-optional {
@@ -555,7 +951,8 @@ textarea.cg-input {
   text-transform: none;
 }
 
-/* The "?" - its visible circle is small, but the button around it is a real tap target. */
+/* The "?" - its visible circle is small, but the button around it is a real tap target. The
+   negative margins keep that target from making the heading row taller. */
 .cg-help {
   flex: none;
   display: inline-flex;
@@ -563,7 +960,7 @@ textarea.cg-input {
   justify-content: center;
   width: 28px;
   height: 28px;
-  margin: -8px -6px 0 0;
+  margin: -8px 0;
   padding: 0;
   background: none;
   border: 0;
@@ -589,14 +986,34 @@ textarea.cg-input {
   border-color: var(--fv-purple);
 }
 
-.cg-help-text {
-  margin: -2px 0 10px;
-  padding: 8px 10px;
-  font-size: 11.5px;
+/* The help window (mockup Step 2): floats over the card and whatever is below it. `left`, `top`
+   and --cg-help-arrow (the arrow's x) are set by createGame.positionHelp(). z-index: over the
+   sticky nav (10), level with the count combos' lists. */
+.cg-help-bubble {
+  position: absolute;
+  z-index: 20;
+  width: min(260px, calc(100% - 16px));
+  padding: 9px 11px;
+  font-size: 12px;
   line-height: 1.45;
   color: var(--fv-text);
   background: #0d222e;
-  border-left: 2px solid var(--fv-purple);
+  border: 1px solid var(--fv-purple);
+  border-radius: 3px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.cg-help-bubble::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: calc(var(--cg-help-arrow, 16px) - 5px);
+  width: 10px;
+  height: 10px;
+  background: #0d222e;
+  border-left: 1px solid var(--fv-purple);
+  border-top: 1px solid var(--fv-purple);
+  transform: rotate(45deg);
 }
 
 /* "Other" / "Up to X points" reveal: the one deliberate motion on the page (plan §3.3). A
@@ -660,9 +1077,9 @@ textarea.cg-input {
   align-items: start;
 }
 
+/* No fill or border of its own: paintMap() draws the map's well and rim, and sizes the canvas to
+   the map's proportions - so the card shows only where a very long or tall map is letterboxed. */
 .cg-map-frame {
-  background: #000;
-  border: 1px solid var(--fv-line-soft);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -697,6 +1114,27 @@ textarea.cg-input {
   width: 12px;
   height: 12px;
   border-radius: 2px;
+}
+
+/* Pre-placed terrain is drawn as grey discs (createGame.mapPreviewColors.terrain); the legend's
+   opacity is set inline from createGame.TERRAIN_ALPHA / FIELD_TERRAIN_ALPHA so it always matches
+   the map. */
+.cg-swatch--terrain {
+  background: #5a6a76;
+  border-radius: 50%;
+}
+
+/* "This template places N features of its own" - under the terrain counts in Step 1. */
+.cg-terrain-note {
+  padding: 7px 10px;
+  color: var(--fv-text);
+  background: rgba(139, 202, 242, 0.08);
+  border-left: 2px solid var(--fv-accent);
+}
+
+.cg-terrain-note strong,
+#mapTerrainNote strong {
+  color: var(--fv-text-bright);
 }
 
 .cg-teams-col {
@@ -747,8 +1185,10 @@ div[data-team-id="2"] .remove-team-btn {
 }
 
 /* lobby.css styles .slot for the lobby's own slot rows (5px radius, span padding, input
-   margins); a Create Game slot is an editor, not that row. */
+   margins); a Create Game slot is an editor, not that row. A size container so .cg-slot-grid can
+   fall back to rows of three by the slot's OWN width, not the viewport's. */
 .cg-page .slot {
+  container-type: inline-size;
   margin: 0;
   padding: 10px;
   color: var(--fv-text);
@@ -795,20 +1235,44 @@ div[data-team-id="2"] .remove-team-btn {
   color: var(--fv-text-dim);
 }
 
-/* Six numbers that wrap into as many columns as fit - three a row on a phone. */
+/* Six short numbers on ONE line: every input is a fixed, just-wide-enough width (5 digits at 16px),
+   each field is as wide as that or its label, and the whole row needs ~422px. Centred, so each
+   number sits under its label. */
 .cg-slot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
+.cg-slot-grid .cg-slot-field {
+  flex: none;
+  align-items: center;
+}
+
+.cg-slot-grid .cg-mini-label {
+  white-space: nowrap;
+}
+
 .cg-slot-grid .cg-input {
+  width: 3.75rem;
+  max-width: 100%;
   min-height: 32px;
-  padding: 5px 8px;
+  padding: 5px 4px;
+  text-align: center;
 }
 
 .cg-slot-grid .cg-static {
   min-height: 32px;
+}
+
+/* A slot too narrow for that line (a phone; the two-column layout on a small laptop): two rows of
+   three, in equal columns so the numbers still line up. 430px leaves the one-line row a little
+   slack for font differences. */
+@container (max-width: 430px) {
+  .cg-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .add-slot-wrapper {
@@ -827,8 +1291,13 @@ div[data-team-id="2"] .remove-team-btn {
 
 @media screen and (max-width: 900px) {
   .cg-options-grid,
-  .cg-teams-map {
+  .cg-teams-map,
+  .cg-sum-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cg-step {
+    padding: 12px 12px;
   }
 }
 
@@ -854,8 +1323,51 @@ div[data-team-id="2"] .remove-team-btn {
     font-size: 16px;
   }
 
-  .cg-actions .cg-btn--create {
-    width: 100%;
+  /* Four tabs in 358px: short names, no "Step" word, tighter type. */
+  .cg-step {
+    gap: 3px;
+    padding: 10px 7px;
+  }
+
+  .cg-step-word,
+  .cg-step-long,
+  .cg-next-long {
+    display: none;
+  }
+
+  .cg-step-short,
+  .cg-next-short {
+    display: inline;
+  }
+
+  .cg-step-num,
+  .cg-step-num * {
+    font-size: 9px;
+  }
+
+  .cg-step-name,
+  .cg-step-name * {
+    font-size: 9.5px;
+    letter-spacing: 0.5px;
+  }
+
+  .cg-nav {
+    bottom: 0;
+    padding: 8px 10px;
+  }
+
+  .cg-btn--confirm {
+    padding: 10px 14px;
+    font-size: 10.5px;
+  }
+
+  .cg-sum-game {
+    gap: 12px;
+  }
+
+  .cg-sum-thumb {
+    width: 84px;
+    height: 48px;
   }
 }
 
@@ -881,6 +1393,7 @@ div[data-team-id="2"] .remove-team-btn {
   .cg-help {
     width: 36px;
     height: 36px;
+    margin: -12px 0;
   }
 }
 
@@ -888,5 +1401,9 @@ div[data-team-id="2"] .remove-team-btn {
   .cg-reveal,
   .cg-reveal.is-open {
     transition: none;
+  }
+
+  .cg-step-panel.is-entering {
+    animation: none;
   }
 }

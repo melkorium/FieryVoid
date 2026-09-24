@@ -273,6 +273,11 @@ window.BallisticIconContainer = function () {
 	const HEX_REGION_FILL_OPACITY = 0.10;   //the 0.10 fill baked into the hex textures
 	const HEX_REGION_BORDER_OPACITY = 0.40; //lifted by hand; 0.40 is what the textures stroke at
 	const SPLASH_REGION_DIM = 0.7;          //splash hexes were drawn at sprite opacity 0.7 - "a bit less bright"
+	/* Dust Fields and Meteor Swarms get the same white terrain hexes as asteroids and moons, but
+	   fainter: they are a hazard to fly through, not a wall (they neither block line of sight nor
+	   force a ram). A multiplier on the fill and rim opacity above - 1 would match asteroids and
+	   moons exactly, 0 would hide them. Tune freely. */
+	const FIELD_TERRAIN_DIM = 0.35;
 	const HEX_REGION_Z = -101;              //just behind the hex sprites at -100, well clear of the grid at -500
 
 	/* A region's rim has to be the same THICKNESS as the rim of the hex sprite sitting in the middle
@@ -343,18 +348,27 @@ window.BallisticIconContainer = function () {
 		return hexes;
 	}
 
+	//Dust Fields and Meteor Swarms - Create Game's terrain counts / terrain maps (DustField,
+	//MeteorSwarm), and the Triad Asteroid Salvo's spawns (spawn*). By phpclass: it is on every
+	//ship, blueprint or not.
+	const FIELD_TERRAIN_CLASSES = ['DustField', 'MeteorSwarm', 'spawnDustField', 'spawnMeteoroid'];
+	function isFieldTerrain(ship) {
+		return FIELD_TERRAIN_CLASSES.includes(ship.phpclass);
+	}
+
 	function generateTerrainHexes(gamedata) {
 		if (gamedata.gamephase === -1) return; //Don't bother during Deployment phase.
 
-		gamedata.ships.filter(ship => ship.Enormous && ship.shipSizeClass == 5 && !shipManager.isDestroyed(ship)).forEach(ship => {
+		gamedata.ships.filter(ship => ((ship.Enormous && ship.shipSizeClass == 5) || isFieldTerrain(ship)) && !shipManager.isDestroyed(ship)).forEach(ship => {
 			const position = shipManager.getShipPosition(ship);
 			const move = shipManager.movement.getLastCommitedMove(ship);
 			const facing = move ? move.facing : 0;
 			const hexes = getTerrainOccupiedHexes(ship, position, facing);
+			const dim = isFieldTerrain(ship) ? FIELD_TERRAIN_DIM : 1;
 
 			//position + facing fix the footprint, so an unmoved moon is never rebuilt
 			syncSceneObject.call(this, 'terrain:' + ship.id, `${position.q},${position.r}|${facing}|${hexes.length}`, () => {
-				const overlay = buildHexRegionOverlay.call(this, position, hexes, 'hexWhite', 1);
+				const overlay = buildHexRegionOverlay.call(this, position, hexes, 'hexWhite', dim);
 
 				return overlay && { object: overlay, release: window.HexRegion.dispose };
 			});

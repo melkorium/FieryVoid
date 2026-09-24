@@ -2474,7 +2474,8 @@ class DBManager
         $moonCount = (int)($moons['small'] ?? 0) + (int)($moons['medium'] ?? 0) + (int)($moons['large'] ?? 0);
         $fields    = (isset($r['dustAndMeteors']) && is_array($r['dustAndMeteors'])) ? $r['dustAndMeteors'] : array();
         $fieldCount = (int)($fields['dust'] ?? 0) + (int)($fields['meteors'] ?? 0);
-        if ($asteroids > 0 || $moonCount > 0 || $fieldCount > 0) $chips[] = 'TERRAIN';
+        $layoutCount = (isset($r['terrainLayout']['units']) && is_array($r['terrainLayout']['units'])) ? count($r['terrainLayout']['units']) : 0;
+        if ($asteroids > 0 || $moonCount > 0 || $fieldCount > 0 || $layoutCount > 0) $chips[] = 'TERRAIN';
 
         if (!empty($r['allowMines']))   $chips[] = 'MINES';
         if (!empty($r['allowReinforcements'])) $chips[] = 'REINF';

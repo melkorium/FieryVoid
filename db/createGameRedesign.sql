@@ -35,3 +35,16 @@ ALTER TABLE `tac_game`
   ADD COLUMN IF NOT EXISTS `scenario`        text         DEFAULT NULL AFTER `description`,
   ADD COLUMN IF NOT EXISTS `in_service_date` int(11)      DEFAULT NULL AFTER `scenario`,
   ADD COLUMN IF NOT EXISTS `password_hash`   varchar(255) DEFAULT NULL AFTER `in_service_date`;
+
+--
+-- Stage 2 — `rules` widened from varchar(400) to text.
+--
+-- A Map Template with pre-placed terrain travels in the rules JSON as `terrainLayout` (one entry
+-- per unit, TerrainLayoutRule caps it at 150), so the shipped maps alone need 0.9-1.9 KB, and
+-- anything past 400 characters failed the INSERT in DBManager::createGame with "Data too long for
+-- column 'rules'". Widening keeps every stored value and the '{}' default, and re-running it is a
+-- no-op. MariaDB 10.2.1+ is needed for a literal DEFAULT on a text column.
+--
+
+ALTER TABLE `tac_game`
+  MODIFY COLUMN `rules` text DEFAULT '{}';
