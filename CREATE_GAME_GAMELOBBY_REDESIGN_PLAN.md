@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stage 2 BUILT 2026-09-24 (see §12); Stages 3-10 not
-started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24 (see §12); Stages 4-10
+not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -451,8 +451,10 @@ against those directly rather than re-deriving layout from this section's prose 
   into the 4-step navigator + summary screen (§3.1/§3.5). Grew three user additions: moon counts
   as count combos, **Maps with Terrain** (templates with pre-placed terrain — a new server rule),
   and faint white hexes in game for Dust / Meteor Swarms.
-- **Stage 3 — Copy Slot/Team + save/reuse presets (localStorage).** Small, isolated, no schema
-  dependency.
+- **Stage 3 — Copy Slot/Team + save/reuse presets (localStorage). ✅ BUILT 2026-09-24 — §12.4.**
+  Small, isolated, no schema dependency. User placement change: Save Settings sits beside
+  Confirm & Create Game on the Confirm step, not in Game Options; Load Settings stays beside
+  Game Name.
 - **Stage 4 — Gamelobby scenario/map rendering.** Structured-JSON render + legacy fallback
   (§4.1), map preview legend (§4.2). Depends on Stage 0's `scenario` column existing.
 - **Stage 5 — Gamelobby faction picker overhaul.** Search, custom sub-groups, mobile sheet
@@ -1104,3 +1106,70 @@ row one line at 1440/1280, 3+3 aligned at 1024/390, with Unlimited Points too; s
   frame, and is drawn at 2x its logical 545px width for sharp lines once CSS scales it. The old
   fixed 6px x-nudge is now exactly half a hex (`toX`), the true-centre offset it approximated.
   The legend keeps team names (not "Your / Other Team's Deployment" - nothing here is per-viewer).
+
+### 12.4 Stage 3 — Copy Slot / Copy Team + Save / Load Settings (built 2026-09-24)
+
+Client only: creategame.php, createGame.js, createGame.css. No server, schema or bundle change
+(createGame.js is served directly through `AssetLoader`, not bundled).
+
+**Copy Slot / Copy Team** (plan §3.4, mockup Step 3):
+
+- **Copy Slot** is a small ghost button beside each slot's Remove Slot link. It copies the
+  source's name, points, deploy turn and zone (`createGame.slotFields`) into a new slot at the END
+  of the same team — appended exactly as Add Slot appends (`createSlot`, no full re-render), so the
+  pressed button survives and keeps focus.
+- **Copy Team** sits beside + Add Slot. It adds the next team (max + 1) with a copy of every slot
+  of the source team, then re-renders like Add Team (which also repaints the 3+-team palette). A
+  slot still named after its team follows the new number: "Team 1 (North)" → "Team 3 (North)";
+  "Team 12 Escort" is not touched (`(?!\d)`).
+- **Zones are copied as-is**, so a copy overlaps its source until moved. Deliberate: Add Team
+  already puts a new team on Team 1's or Team 2's zone, and any automatic placement would be a guess.
+- Ids: `nextSlotId()` = max + 1, and `createGame.slotid` is kept at the last id used, so Add Slot
+  after a copy never reuses an id (the server stores the posted `id` as the slot number, and the
+  creator takes slot 1 — `Manager::createGame`).
+- Hidden in a ladder game with the other add/remove controls (`refreshSlotsUI`).
+- In a slot too narrow for the name + both actions (a phone), `.cg-slot-actions` wraps under the
+  name. A new copy is scrolled into view with `scroll-margin-bottom` clearing the sticky nav.
+
+**Save / Load Settings** (plan §3.2 — "save these settings" / "load saved settings"):
+
+- **Placement (user, 2026-09-24):** Load Settings ▾ beside Game Name on Step 1 (as the mockup);
+  **Save Settings in the sticky nav, left of Confirm & Create Game, on the Confirm step only** —
+  NOT beside Load as the mockup drew it. So only a form that passed every step's checks is saved.
+- **Storage:** ONE localStorage key, `fv.createGamePresets.v1`, holding an array
+  `[{name, saved, mapLabel, settings}]`, newest first — not the §3.2 sketch's one key per preset
+  (`fv.createGamePreset.<name>`), which would need a key scan to list them. Names are unique
+  ignoring case and outer spaces; saving an existing name replaces it (the note and the button
+  say "Replace"). Every access is try/caught: a throwing or corrupt store reads as an empty list,
+  and a failed save says so and keeps the box open.
+- **A preset is the FORM, not the posted data** (`readSettings`): checkboxes and the two
+  dependent selects by element id, terrain counts by id, `readScenario()`, template + size, the
+  game name, the background and the slots. Rules, a template's pre-placed terrain layout and the
+  map preview are never stored — `applySettings` replays the form through the page's OWN
+  handlers, which rebuild them. **Order matters there:** Ladder off first (it greys out maps and
+  prunes slots); the template (resets teams); Unlimited Points (rewrites every slot's points, so
+  its change handler only runs when the state actually flips); THEN the saved slots, sorted by id
+  and renumbered 1..n (`presetSlots`, which rejects them unless Teams 1 and 2 are present); the
+  other rules; Ladder last. Anything the page no longer offers (a background file, a template, an
+  option value) is skipped rather than forced; a vanished template falls back to Custom with the
+  saved size.
+- The Load menu (`.cg-preset-menu`) is a disclosure list: each row loads on click and shows
+  "<map> · <date>"; its × deletes after the page's own `confirm.confirm` dialog (clicks inside
+  `.confirm` do not close the menu). Escape, an outside click/tap or Tab-ing out closes it.
+  Footer: "Saved in this browser only."
+- The save-name box opens INSIDE the nav bar, over its right end. ⚠️ **Enter in that box is
+  caught on keydown**: on the Confirm step the form's implicit submit would otherwise CREATE THE
+  GAME. "Saved as …" / "Loaded …" float just above the bar (`#cgNavStatus`, role=status, 4 s).
+- Mobile: Load wraps under the name; the nav keeps Back / Save / Create Game on one line down to
+  360px (spacer dropped, labels `nowrap`, tighter padding and letter-spacing under 600px); the
+  save box puts Save + Cancel under the name together.
+
+**Verified** with a CDP driver (Chrome over Node 23's built-in WebSocket — real mouse clicks and
+real key presses, and true 390/360px device emulation with touch, which avoids §12.1 trap 8):
+Copy Slot/Team values, ids, DOM, focus, palette, rename rule, Unlimited Points, ladder hide/show;
+Save → real Enter saves and posts nothing, empty name refused, Replace, Escape; three presets
+(2v2 + copies + scenario "Other"/points + rules; a terrain map with Unlimited Points; ladder on a
+custom 50x36 map) each loaded over the others — **the posted `data` and every visible control
+identical to when saved**, ladder on→off and off→on included; delete confirm/cancel, menu close
+paths, corrupt and throwing storage; Confirm & Create Game still submits. `php -l` clean, CLI
+render clean. Screenshots: desktop steps 1/3/4, phone 390 and 360 steps 1/3/4.

@@ -367,6 +367,136 @@ textarea.cg-input {
   max-width: 480px;
 }
 
+/* ── Saved settings: Load beside Game Name (Save is in the nav bar) ────────── */
+
+/* Load wraps under the name on a phone rather than squeezing it. */
+.cg-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.cg-name-row .cg-name-field {
+  flex: 1 1 260px;
+}
+
+.cg-presets {
+  position: relative;
+  flex: none;
+}
+
+/* As tall as the name field beside it. */
+.cg-presets .cg-btn {
+  gap: 10px;
+  min-height: 36px;
+}
+
+.cg-presets .cg-chevron {
+  transition: transform 150ms ease;
+}
+
+#cgLoadToggle[aria-expanded="true"] .cg-chevron {
+  transform: translateY(2px) rotate(225deg);
+}
+
+/* An overlay, like the count combos' lists: it never pushes the page down. */
+.cg-preset-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--fv-well);
+  border: 1px solid var(--fv-line-scs);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.cg-preset-list {
+  max-height: 300px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: var(--fv-scroll-thumb) var(--fv-scroll-track);
+}
+
+.cg-preset {
+  display: flex;
+}
+
+.cg-preset + .cg-preset {
+  border-top: 1px solid #0e222c;
+}
+
+.cg-preset-load {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 12px;
+  text-align: left;
+  color: var(--fv-text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.cg-preset-name {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.cg-preset-meta {
+  font-family: var(--fv-mono);
+  font-size: 10.5px;
+  color: var(--fv-text-dim);
+}
+
+.cg-preset-delete {
+  flex: none;
+  width: 40px;
+  padding: 0;
+  font-size: 17px;
+  color: var(--fv-text-dim);
+  background: none;
+  border: 0;
+  border-left: 1px solid #0e222c;
+  cursor: pointer;
+}
+
+.cg-preset-load:hover,
+.cg-preset-delete:hover {
+  background: rgba(73, 103, 145, 0.45);
+}
+
+.cg-preset-delete:hover {
+  color: var(--fv-text-bright);
+}
+
+.cg-preset-load:focus-visible,
+.cg-preset-delete:focus-visible {
+  outline: 2px solid var(--fv-accent);
+  outline-offset: -2px;
+}
+
+.cg-preset-empty,
+.cg-preset-foot {
+  padding: 9px 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--fv-text-dim);
+}
+
+.cg-preset-foot {
+  font-size: 11px;
+  border-top: 1px solid var(--fv-line-soft);
+}
+
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 
 .cg-btn {
@@ -483,6 +613,58 @@ textarea.cg-input {
 
 .cg-nav-spacer {
   flex: 1;
+}
+
+/* Save Settings' name box, over the right-hand end of the bar where Save sits. */
+.cg-save-panel {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(100%, 520px);
+}
+
+.cg-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cg-save-row .cg-input {
+  flex: 1 1 200px;
+  width: auto;
+}
+
+/* Save + Cancel wrap under the name together, never one without the other. */
+.cg-save-actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.cg-save-panel .cg-caption {
+  margin-top: 0;
+}
+
+/* "Saved as ..." / "Loaded ...": floats above the bar (a sticky box is a containing block), so
+   it shifts nothing; empty, it draws nothing. */
+.cg-nav-status {
+  position: absolute;
+  right: 12px;
+  bottom: calc(100% + 8px);
+  max-width: calc(100% - 24px);
+}
+
+.cg-nav-status:not(:empty) {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--fv-text);
+  background: #0d222e;
+  border: 1px solid var(--fv-line-scs);
+  border-left: var(--fv-log-rail) solid var(--fv-own);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
 }
 
 .cg-next-short {
@@ -1205,10 +1387,12 @@ div[data-team-id="2"] .remove-team-btn {
   margin-right: 0;
 }
 
+/* Wraps: in a slot too narrow for the name and both actions, the actions drop to their own line. */
 .cg-slot-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px 12px;
   margin-bottom: 8px;
 }
 
@@ -1220,12 +1404,22 @@ div[data-team-id="2"] .remove-team-btn {
 }
 
 .cg-slot-name {
-  flex: 1;
+  flex: 1 1 180px;
 }
 
-.cg-slot-head .remove-btn {
+/* Copy Slot + Remove Slot, centred on the name field's height. */
+.cg-slot-actions {
   flex: none;
-  margin-bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+
+/* A new copy is scrolled into view; this keeps it clear of the sticky nav bar. */
+.cg-page .slot,
+.cg-team {
+  scroll-margin: 12px 0 110px;
 }
 
 .cg-mini-label {
@@ -1277,6 +1471,8 @@ div[data-team-id="2"] .remove-team-btn {
 
 .add-slot-wrapper {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* ── Chat panel below the form ─────────────────────────────────────────────── */
@@ -1361,6 +1557,28 @@ div[data-team-id="2"] .remove-team-btn {
     font-size: 10.5px;
   }
 
+  /* Back, Save and Create Game share one row on the Confirm step: each label stays on one line,
+     and the spacer's gap is given back (the right-hand buttons push themselves over instead). */
+  .cg-nav-row {
+    gap: 8px;
+  }
+
+  .cg-nav-spacer {
+    display: none;
+  }
+
+  #cgNext,
+  #cgSave {
+    margin-left: auto;
+  }
+
+  .cg-nav-row .cg-btn {
+    padding-left: 11px;
+    padding-right: 11px;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+  }
+
   .cg-sum-game {
     gap: 12px;
   }
@@ -1386,8 +1604,18 @@ div[data-team-id="2"] .remove-team-btn {
     min-height: 32px;
   }
 
-  .cg-combo-option {
+  .cg-slot-actions,
+  .cg-presets .cg-btn {
+    min-height: 44px;
+  }
+
+  .cg-combo-option,
+  .cg-preset-load {
     padding: 11px 14px;
+  }
+
+  .cg-preset-delete {
+    width: 48px;
   }
 
   .cg-help {

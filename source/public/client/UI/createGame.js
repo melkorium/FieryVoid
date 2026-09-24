@@ -99,6 +99,10 @@ jQuery(function ($) {
         console.log("Target Team ID:", teamId);
         createGame.removeTeam(teamId);
     });
+    $("#teamsContainer").on("click", ".copy-slot-btn", createGame.copySlot);
+    $("#teamsContainer").on("click", ".copy-team-btn", function () {
+        createGame.copyTeam(parseInt($(this).closest(".team-section").data("team-id"), 10));
+    });
 
     /* Only the Summary step's Confirm creates the game. Enter in a field on Steps 1-3 submits the
        form implicitly - through Confirm, the form's one submit button - so it is refused here.
@@ -156,6 +160,7 @@ jQuery(function ($) {
     createGame.onMapDimensionsChange(); // Run on load
     createGame.drawMapPreview();
 
+    createGame.initPresets();
     createGame.initWizard();
 });
 
@@ -1300,6 +1305,7 @@ window.createGame = {
             $(".slot .remove-btn").hide();
             $("#addTeamBtn").hide();
             $(".remove-team-btn").hide();
+            $(".copy-slot-btn, .copy-team-btn").hide(); //a ladder game is one slot a team
         } else {
             // Only show Add Team if map supports it (or is custom/unlimited)
             const mapType = $("#mapDimensionsSelect").val();
@@ -1315,6 +1321,7 @@ window.createGame = {
             }
 
             $(".addslotbutton").show();
+            $(".copy-slot-btn, .copy-team-btn").show();
             createGame.updateSlotButtons();
         }
     },
@@ -1619,6 +1626,61 @@ window.createGame = {
         createGame.updateSlotButtons();
     },
 
+    /* ── Copy Slot / Copy Team (plan §3.4) ─────────────────────────────────────────────────
+       A copy of the SOURCE - its name, points, deploy turn and zone - where Add Slot / Add Team
+       start from defaults. The copy lands where Add would put it: at the end of its team, or
+       as the next team. Its zone is the source's own, overlapping it until moved (Add Team
+       does the same with Team 1's or Team 2's zone). */
+    slotFields: ["name", "points", "depx", "depy", "deptype", "depwidth", "depheight", "depavailable"],
+
+    copySlotData: function copySlotData(source, team, id) {
+        const copy = { id: id, team: team };
+        createGame.slotFields.forEach(function (key) {
+            if (source[key] !== undefined) copy[key] = source[key];
+        });
+        return copy;
+    },
+
+    nextSlotId: function nextSlotId() {
+        return createGame.slots.reduce((max, slot) => Math.max(max, parseInt(slot.id, 10) || 0), 0) + 1;
+    },
+
+    //Appended the way Add Slot appends, so the button pressed stays put - and keeps focus.
+    copySlot: function copySlot() {
+        const source = createGame.getSlotData($(this).closest(".slot").data("slotid"));
+        if (!source) return;
+
+        const id = createGame.nextSlotId();
+        const copy = createGame.copySlotData(source, source.team, id);
+        createGame.slotid = id;
+        createGame.slots.push(copy);
+        createGame.createSlot(copy);
+        createGame.drawMapPreview();
+        createGame.updateSlotButtons();
+
+        const added = $(".slot.slotid_" + id)[0];
+        if (added) added.scrollIntoView({ block: "nearest" });
+    },
+
+    copyTeam: function copyTeam(teamId) {
+        const sources = createGame.slots.filter(slot => slot.team === teamId);
+        if (!sources.length) return;
+
+        const team = Math.max(...createGame.getTeamIds()) + 1;
+        let id = createGame.nextSlotId();
+        sources.forEach(function (source) {
+            const copy = createGame.copySlotData(source, team, id++);
+            //A slot still named after its team - "Team 1", "Team 1 (North)" - follows the new one.
+            copy.name = String(copy.name).replace(new RegExp("^Team " + teamId + "(?!\\d)"), "Team " + team);
+            createGame.slots.push(copy);
+        });
+        createGame.slotid = id - 1;
+        createGame.refreshSlotsUI();
+
+        const added = $('#teamsContainer .team-section[data-team-id="' + team + '"]')[0];
+        if (added) added.scrollIntoView({ block: "nearest" });
+    },
+
     /* Create Game's half of each scenario field; scenarioCard.FIELDS is the shared half.
        `id` keeps the element ids the form has always had (applyMapConfig's config.scenario
        support addresses fields by them), `value` is the preselected option, and `legacy` is the
@@ -1840,6 +1902,8 @@ window.createGame = {
     showStep: function showStep(step, moved) {
         createGame.clearStepError();
         createGame.closeHelp();
+        createGame.closePresetMenu(false);
+        createGame.closeSavePanel(false);
         if (step === 4) createGame.renderSummary();
         createGame.currentStep = step;
 
@@ -1864,6 +1928,7 @@ window.createGame = {
         $("#cgCancel").prop("hidden", step !== 1);
         $("#cgBack").prop("hidden", step === 1);
         $("#cgNext").prop("hidden", step === 4);
+        $("#cgSave").prop("hidden", step !== 4);
         $("#cgConfirm").prop("hidden", step !== 4);
         $("#cgNext .cg-next-long").text(createGame.nextLabels[step] || "");
 
@@ -2010,6 +2075,386 @@ window.createGame = {
                 + '<div class="cg-sum-team-head" style="color:' + rgb + '">Team ' + team + " &middot; " + slots.length + (slots.length === 1 ? " slot" : " slots") + "</div>"
                 + '<ul class="cg-sum-slots">' + rows + "</ul></div>";
         }).join("");
+    },
+
+    /* ── Saved settings (plan §3.2) ────────────────────────────────────────────────────────
+       The whole form, saved by name in THIS browser (localStorage - no account, no server: the
+       plan's v1) and loaded back onto it. Load sits beside Game Name; Save sits beside Confirm,
+       so only a form that has passed every step's checks is ever saved.
+       A preset is the FORM, not the posted data: loading replays it through the page's own
+       handlers, so the rules, a template's pre-placed terrain and the map preview are rebuilt
+       exactly as if it had been entered by hand. Only the slots are put back as data.
+       ⚠️ localStorage throws outright in some privacy modes: every access is wrapped, and a
+       failure just means an empty list (Load) or a message (Save). */
+    PRESET_KEY: "fv.createGamePresets.v1",
+    PRESET_VERSION: 1,
+
+    presetName: "", //the preset last loaded or saved - what Save offers as the name
+    navStatusTimer: null,
+
+    //Rule checkboxes -> the handler that turns each into rules. Ladder and Unlimited Points are
+    //read the same way but applied apart: both rewrite the slots (see applySettings).
+    presetChecks: {
+        movementcheck: "doMovementCheck",
+        allowMinesCheck: "doAllowMinesCheck",
+        allowReinforcementsCheck: "doAllowReinforcementsCheck",
+        desperatecheck: "doDesperateCheck",
+        friendlyFireCheck: "doFriendlyFireCheck"
+    },
+    presetSelects: ["initiativeSelect", "desperateSelect"],
+
+    readPresets: function readPresets() {
+        try {
+            const list = JSON.parse(window.localStorage.getItem(createGame.PRESET_KEY) || "[]");
+            if (!Array.isArray(list)) return [];
+            return list.filter(preset => preset && typeof preset.name === "string" && preset.settings && typeof preset.settings === "object");
+        } catch (e) {
+            return [];
+        }
+    },
+
+    writePresets: function writePresets(list) {
+        try {
+            window.localStorage.setItem(createGame.PRESET_KEY, JSON.stringify(list));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    //One name whatever its case or spacing: "2v2 league" and "2V2 League " are the same preset.
+    presetKey: function presetKey(name) {
+        return String(name || "").trim().toLowerCase();
+    },
+
+    findPreset: function findPreset(list, name) {
+        const key = createGame.presetKey(name);
+        return list.findIndex(preset => createGame.presetKey(preset.name) === key);
+    },
+
+    //The form as it stands - by element id wherever the element is the only record of a value.
+    readSettings: function readSettings() {
+        const checks = {};
+        ["laddercheck", "unlimitedPointsCheck"].concat(Object.keys(createGame.presetChecks)).forEach(function (id) {
+            checks[id] = $("#" + id).is(":checked");
+        });
+        const selects = {};
+        createGame.presetSelects.forEach(function (id) { selects[id] = $("#" + id).val(); });
+        const terrain = {};
+        $(".cg-terrain-count").each(function () { terrain[this.id] = parseInt(this.value, 10) || 0; });
+
+        return {
+            v: createGame.PRESET_VERSION,
+            gamename: String($("#gamename").val() || ""),
+            background: $("input[name='background']:checked").val() || "",
+            checks: checks,
+            selects: selects,
+            terrain: terrain,
+            scenario: createGame.readScenario(),
+            map: { template: $("#mapDimensionsSelect").val(), width: createGame.gamespace_data.width, height: createGame.gamespace_data.height },
+            slots: createGame.slots.map(slot => createGame.copySlotData(slot, slot.team, slot.id))
+        };
+    },
+
+    /* A saved form back onto the page. The ORDER matters: the map template resets the teams,
+       Unlimited Points resets every slot's points, and Ladder prunes the slots and greys out
+       maps - so the slots go back after the first two, and Ladder goes last. Anything the page
+       no longer offers (a background, a template, an option) is skipped, not forced. */
+    applySettings: function applySettings(settings) {
+        const checked = id => !!(settings.checks && settings.checks[id]);
+        const choose = function (select, value) {
+            if (value == null) return false;
+            const offered = select.find("option").filter(function () { return this.value === String(value); });
+            if (!offered.length) return false;
+            select.val(String(value));
+            return true;
+        };
+
+        createGame.clearStepError();
+
+        //Ladder off first, so no map is greyed out while the template is chosen.
+        if ($("#laddercheck").is(":checked")) {
+            $("#laddercheck").prop("checked", false);
+            createGame.doLadderCheck();
+        }
+
+        if (typeof settings.gamename === "string" && settings.gamename.trim()) $("#gamename").val(settings.gamename);
+
+        const background = $("input[name='background']").filter(function () { return this.value === settings.background; });
+        if (background.length) {
+            background.prop("checked", true);
+            createGame.mapSelect();
+            const strip = background.closest(".cg-bg-strip")[0];
+            const tile = background.closest(".cg-bg-tile")[0];
+            strip.scrollLeft += tile.getBoundingClientRect().left - strip.getBoundingClientRect().left - 2;
+        }
+
+        //Scenario: a select's own change handler opens or closes its "Other" box.
+        const scenario = settings.scenario || {};
+        scenarioCard.FIELDS.forEach(function (field) {
+            const ui = createGame.scenarioUI[field.key];
+            const el = $("#" + ui.id);
+            if (field.options) {
+                if (choose(el, scenario[field.key])) el.trigger("change");
+            } else {
+                el.val(scenario[field.key] != null ? scenario[field.key] : (ui.value || ""));
+            }
+            const customKey = field.otherKey || field.pointsKey;
+            if (customKey) $("#" + ui.id + "_custom").val(scenario[customKey] || "");
+        });
+
+        //Terrain: each count clamps itself on change, and readTerrain() follows it.
+        $(".cg-terrain-count").each(function () {
+            const count = settings.terrain ? parseInt(settings.terrain[this.id], 10) : 0;
+            $(this).val(count > 0 ? count : 0).trigger("change");
+        });
+
+        //Map: a template brings its size, teams and any pre-placed terrain; a Custom map - or a
+        //template this page no longer has - takes the saved size.
+        const map = settings.map || {};
+        const template = $("#mapDimensionsSelect");
+        if (!choose(template, map.template)) template.val("custom");
+        createGame.onMapDimensionsChange();
+        const width = parseInt(map.width, 10), height = parseInt(map.height, 10);
+        if (template.val() === "custom" && width > 0 && height > 0) {
+            createGame.gamespace_data.width = width;
+            createGame.gamespace_data.height = height;
+            $(".spacex").val(width);
+            $(".spacey").val(height);
+        }
+
+        const unlimited = checked("unlimitedPointsCheck");
+        if ($("#unlimitedPointsCheck").is(":checked") !== unlimited) {
+            $("#unlimitedPointsCheck").prop("checked", unlimited).trigger("change");
+        }
+
+        const slots = createGame.presetSlots(settings.slots);
+        if (slots) {
+            createGame.slots = slots;
+            createGame.slotid = slots.length;
+        }
+        createGame.refreshSlotsUI();
+
+        createGame.presetSelects.forEach(id => choose($("#" + id), settings.selects && settings.selects[id]));
+        Object.keys(createGame.presetChecks).forEach(function (id) {
+            $("#" + id).prop("checked", checked(id));
+            createGame[createGame.presetChecks[id]]();
+        });
+
+        if (checked("laddercheck")) {
+            $("#laddercheck").prop("checked", true);
+            createGame.doLadderCheck();
+        }
+    },
+
+    //Saved slots, checked over and numbered 1..n in their saved order (the creator takes slot 1).
+    //Null - keep the template's own - unless they still make up Teams 1 and 2.
+    presetSlots: function presetSlots(saved) {
+        if (!Array.isArray(saved) || !saved.length) return null;
+        const int = function (value, fallback) {
+            const n = parseInt(value, 10);
+            return isNaN(n) ? fallback : n;
+        };
+
+        const slots = saved.filter(slot => slot && typeof slot === "object")
+            .sort((a, b) => int(a.id, 0) - int(b.id, 0))
+            .map(function (slot, i) {
+                return {
+                    id: i + 1, team: int(slot.team, 0), name: String(slot.name == null ? "" : slot.name),
+                    points: int(slot.points, 0), depx: int(slot.depx, 0), depy: int(slot.depy, 0), deptype: "box",
+                    depwidth: int(slot.depwidth, 0), depheight: int(slot.depheight, 0),
+                    depavailable: Math.max(1, int(slot.depavailable, 1))
+                };
+            });
+
+        const teams = new Set(slots.map(slot => slot.team));
+        if (slots.some(slot => slot.team < 1) || !teams.has(1) || !teams.has(2)) return null;
+        return slots;
+    },
+
+    initPresets: function initPresets() {
+        $("#cgLoadToggle").on("click", function () {
+            if ($("#cgPresetMenu").prop("hidden")) createGame.openPresetMenu();
+            else createGame.closePresetMenu(false);
+        });
+        $("#cgPresetList").on("click", ".cg-preset-load", function () {
+            createGame.loadPreset($(this).closest(".cg-preset").data("name"));
+        }).on("click", ".cg-preset-delete", function () {
+            createGame.deletePreset($(this).closest(".cg-preset").data("name"));
+        });
+
+        //Escape, a click or tap elsewhere, or Tab out of it closes the menu - but not a click in
+        //the delete confirmation, which is a dialog of its own (.confirm) over the page.
+        $(".cg-presets").on("keydown", function (e) {
+            if (e.key === "Escape" && !$("#cgPresetMenu").prop("hidden")) {
+                e.preventDefault();
+                createGame.closePresetMenu(true);
+            }
+        }).on("focusout", function (e) {
+            const to = e.relatedTarget;
+            if (to && !this.contains(to) && !$(to).closest(".confirm").length) createGame.closePresetMenu(false);
+        });
+        $(document).on("mousedown touchstart", function (e) {
+            if (!$(e.target).closest(".cg-presets, .confirm").length) createGame.closePresetMenu(false);
+        });
+
+        $("#cgSave").on("click", function () {
+            if ($("#cgSavePanel").prop("hidden")) createGame.openSavePanel();
+            else createGame.closeSavePanel(true);
+        });
+        $("#cgSaveConfirm").on("click", createGame.savePreset);
+        $("#cgSaveCancel").on("click", function () { createGame.closeSavePanel(true); });
+        $("#cgPresetName").on("input", createGame.updateSaveNote).on("keydown", function (e) {
+            //⚠️ Enter must not reach the form: on this step its implicit submit CREATES the game.
+            if (e.key === "Enter") {
+                e.preventDefault();
+                createGame.savePreset();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                createGame.closeSavePanel(true);
+            }
+        });
+    },
+
+    openPresetMenu: function openPresetMenu() {
+        createGame.renderPresetList();
+        $("#cgPresetMenu").prop("hidden", false);
+        $("#cgLoadToggle").attr("aria-expanded", "true");
+    },
+
+    closePresetMenu: function closePresetMenu(refocus) {
+        if ($("#cgPresetMenu").prop("hidden")) return;
+        $("#cgPresetMenu").prop("hidden", true);
+        $("#cgLoadToggle").attr("aria-expanded", "false");
+        if (refocus) $("#cgLoadToggle").trigger("focus");
+    },
+
+    //Newest first. A row loads on a click; its × deletes it, after a confirmation.
+    renderPresetList: function renderPresetList() {
+        const list = createGame.readPresets();
+        const ul = $("#cgPresetList").empty();
+        if (!list.length) {
+            $('<li class="cg-preset-empty"></li>').text("No saved settings yet. Save them with Save Settings on the Confirm step.").appendTo(ul);
+            return;
+        }
+
+        list.forEach(function (preset) {
+            const saved = new Date(preset.saved);
+            const date = isNaN(saved.getTime()) ? "" : saved.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+            const meta = [typeof preset.mapLabel === "string" ? preset.mapLabel : "", date].filter(Boolean).join(" · ");
+
+            const row = $('<li class="cg-preset"></li>').data("name", preset.name);
+            $('<button type="button" class="cg-preset-load"></button>')
+                .append($('<span class="cg-preset-name"></span>').text(preset.name))
+                .append($('<span class="cg-preset-meta"></span>').text(meta))
+                .appendTo(row);
+            $('<button type="button" class="cg-preset-delete" title="Delete"><span aria-hidden="true">&times;</span></button>')
+                .attr("aria-label", "Delete " + preset.name)
+                .appendTo(row);
+            ul.append(row);
+        });
+    },
+
+    loadPreset: function loadPreset(name) {
+        const list = createGame.readPresets();
+        const index = createGame.findPreset(list, name);
+        if (index < 0) { //deleted in another tab since the list was drawn
+            createGame.renderPresetList();
+            return;
+        }
+
+        const preset = list[index];
+        createGame.closePresetMenu(true);
+        try {
+            createGame.applySettings(preset.settings);
+        } catch (e) {
+            console.error("Create Game: saved settings could not be applied", e);
+            createGame.showNavStatus("Those saved settings could not be loaded in full.");
+            return;
+        }
+        createGame.presetName = preset.name;
+        createGame.showNavStatus("Loaded “" + preset.name + "”.");
+    },
+
+    deletePreset: function deletePreset(name) {
+        //confirm() builds its message as HTML
+        window.confirm.confirm("Delete the saved settings “" + scenarioCard.escapeHtml(name) + "”?", function () {
+            const list = createGame.readPresets();
+            const index = createGame.findPreset(list, name);
+            if (index >= 0) {
+                list.splice(index, 1);
+                createGame.writePresets(list);
+            }
+            if (createGame.presetKey(createGame.presetName) === createGame.presetKey(name)) createGame.presetName = "";
+
+            //The row's buttons are gone: focus the first row left, or the toggle.
+            createGame.renderPresetList();
+            const next = $("#cgPresetMenu").prop("hidden") ? $() : $("#cgPresetList .cg-preset-load").first();
+            (next.length ? next : $("#cgLoadToggle")).trigger("focus");
+        });
+    },
+
+    openSavePanel: function openSavePanel() {
+        createGame.clearStepError();
+        const input = $("#cgPresetName");
+        input.val(createGame.presetName || String($("#gamename").val() || "").trim()).removeAttr("aria-invalid");
+        $("#cgSavePanel").prop("hidden", false);
+        $("#cgSave").attr("aria-expanded", "true");
+        createGame.updateSaveNote();
+        input[0].focus();
+        input[0].select();
+    },
+
+    closeSavePanel: function closeSavePanel(refocus) {
+        if ($("#cgSavePanel").prop("hidden")) return;
+        $("#cgSavePanel").prop("hidden", true);
+        $("#cgSave").attr("aria-expanded", "false");
+        if (refocus) $("#cgSave").trigger("focus");
+    },
+
+    //A name already saved is replaced - the note and the button both say so.
+    updateSaveNote: function updateSaveNote() {
+        const list = createGame.readPresets();
+        const index = createGame.findPreset(list, $("#cgPresetName").val());
+        $("#cgSaveNote").text(index >= 0 ? "Replaces your saved “" + list[index].name + "”." : "Saved in this browser only.");
+        $("#cgSaveConfirm").text(index >= 0 ? "Replace" : "Save");
+    },
+
+    savePreset: function savePreset() {
+        const input = $("#cgPresetName");
+        const name = String(input.val() || "").trim();
+        if (!name) {
+            $("#cgSaveNote").text("Give these settings a name.");
+            input.attr("aria-invalid", "true").trigger("focus");
+            return;
+        }
+
+        const list = createGame.readPresets();
+        const index = createGame.findPreset(list, name);
+        if (index >= 0) list.splice(index, 1);
+        list.unshift({ name: name, saved: Date.now(), mapLabel: createGame.presetMapLabel(), settings: createGame.readSettings() });
+
+        if (!createGame.writePresets(list)) {
+            $("#cgSaveNote").text("This browser would not store them (private browsing, or its storage is full).");
+            return;
+        }
+        createGame.presetName = name;
+        createGame.closeSavePanel(true);
+        createGame.showNavStatus("Settings saved as “" + name + "”.");
+    },
+
+    presetMapLabel: function presetMapLabel() {
+        if ($("#mapDimensionsSelect").val() === "custom") {
+            return "Custom " + createGame.gamespace_data.width + "x" + createGame.gamespace_data.height;
+        }
+        return $("#mapDimensionsSelect option:selected").text();
+    },
+
+    //A short confirmation floating just above the nav bar.
+    showNavStatus: function showNavStatus(text) {
+        clearTimeout(createGame.navStatusTimer);
+        $("#cgNavStatus").text(text);
+        createGame.navStatusTimer = setTimeout(function () { $("#cgNavStatus").empty(); }, 4000);
     },
 
     submitFleetTest: function () {

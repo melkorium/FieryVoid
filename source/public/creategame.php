@@ -128,9 +128,21 @@
         <h2 class="cg-section-head" id="cgOptionsHead" tabindex="-1">Game Options</h2>
         <div class="cg-section-body">
 
-          <div class="cg-field cg-name-field">
-            <label for="gamename" class="cg-label">Game Name</label>
-            <input id="gamename" class="gamename cg-input" type="text" name="gamename" value="<?php print(htmlspecialchars($defaultGameName)); ?>">
+          <div class="cg-name-row">
+            <div class="cg-field cg-name-field">
+              <label for="gamename" class="cg-label">Game Name</label>
+              <input id="gamename" class="gamename cg-input" type="text" name="gamename" value="<?php print(htmlspecialchars($defaultGameName)); ?>">
+            </div>
+
+            <!-- Saved settings (plan §3.2): kept in this browser only. Saving is on the Confirm
+                 step, so only a form that passed every step is saved. createGame.initPresets(). -->
+            <div class="cg-presets">
+              <button type="button" id="cgLoadToggle" class="cg-btn" aria-expanded="false" aria-controls="cgPresetMenu">Load Settings <span class="cg-chevron" aria-hidden="true"></span></button>
+              <div id="cgPresetMenu" class="cg-preset-menu" hidden>
+                <ul id="cgPresetList" class="cg-preset-list" aria-label="Saved settings"></ul>
+                <div class="cg-preset-foot">Saved in this browser only.</div>
+              </div>
+            </div>
           </div>
 
           <!-- Background: the thumbnails ARE the choice. A radio group, so it is one Tab stop
@@ -405,12 +417,27 @@
            the reason a step cannot be left yet (createGame.showStepError) - it sits in the bar,
            not at the foot of a step that may be scrolled far out of view. -->
       <div class="cg-nav">
+        <!-- "Saved as ..." / "Loaded ..." - floats just above the bar, so it moves nothing. -->
+        <div id="cgNavStatus" class="cg-nav-status" role="status"></div>
+        <!-- Save Settings' name box (Confirm step only). No `name`: nothing here is posted. -->
+        <div id="cgSavePanel" class="cg-save-panel" hidden>
+          <label for="cgPresetName" class="cg-label">Save these settings as</label>
+          <div class="cg-save-row">
+            <input id="cgPresetName" class="cg-input" type="text" maxlength="60" autocomplete="off" aria-describedby="cgSaveNote">
+            <span class="cg-save-actions">
+              <button type="button" id="cgSaveConfirm" class="cg-btn">Save</button>
+              <button type="button" id="cgSaveCancel" class="cg-btn cg-btn--ghost">Cancel</button>
+            </span>
+          </div>
+          <div id="cgSaveNote" class="cg-caption" aria-live="polite"></div>
+        </div>
         <div id="cgStepError" class="cg-step-error" role="alert" hidden></div>
         <div class="cg-nav-row">
           <a href="games.php" id="cgCancel" class="cg-btn cg-btn--ghost">Cancel</a>
           <button type="button" id="cgBack" class="cg-btn cg-btn--ghost" hidden><span aria-hidden="true">&larr;</span>&nbsp;Back</button>
           <span class="cg-nav-spacer"></span>
           <button type="button" id="cgNext" class="cg-btn cg-btn--create"><span class="cg-next-long">Next: Scenario Description</span><span class="cg-next-short">Next</span>&nbsp;<span aria-hidden="true">&rarr;</span></button>
+          <button type="button" id="cgSave" class="cg-btn" aria-expanded="false" aria-controls="cgSavePanel" hidden><span class="cg-next-long">Save Settings</span><span class="cg-next-short">Save</span></button>
           <button type="submit" id="cgConfirm" class="cg-btn cg-btn--create cg-btn--confirm create-game-btn" hidden><span class="cg-next-long">Confirm &amp;&nbsp;</span>Create Game&nbsp;<span aria-hidden="true">&rarr;</span></button>
         </div>
       </div>
@@ -423,7 +450,10 @@
             <button type="button" class="btn-remove-team remove-team-btn cg-link">Remove Team</button>
           </div>
           <div class="slotcontainer"></div>
-          <div class="add-slot-wrapper"><button type="button" class="addslotbutton btn-add-slot cg-btn cg-btn--small">+ Add Slot</button></div>
+          <div class="add-slot-wrapper">
+            <button type="button" class="addslotbutton btn-add-slot cg-btn cg-btn--small">+ Add Slot</button>
+            <button type="button" class="copy-team-btn cg-btn cg-btn--small" title="Add a new team with a copy of each of this team's slots">Copy Team</button>
+          </div>
         </div>
       </div>
 
@@ -435,7 +465,10 @@
               <span class="cg-mini-label">Slot Name</span>
               <input class="name cg-input" type="text" name="name" value="BLUE">
             </label>
-            <button type="button" class="close remove-btn cg-link">Remove Slot</button>
+            <div class="cg-slot-actions">
+              <button type="button" class="copy-slot-btn cg-btn cg-btn--ghost cg-btn--small" title="Add a copy of this slot to its team">Copy Slot</button>
+              <button type="button" class="close remove-btn cg-link">Remove Slot</button>
+            </div>
           </div>
           <div class="cg-slot-grid">
             <label class="cg-slot-field">
