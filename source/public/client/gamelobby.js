@@ -26,6 +26,11 @@ window.gamedata = {
 	   Read through gamedata.getMaxPoints() and nowhere else. */
 	builderMaxPoints: null,
 
+	/* The game's In-Service Date cutoff (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md Stage 6): a year, or
+	   null for none. Set once by gamelobby.php (tac_game.in_service_date). The Store's ISD box is
+	   locked to it, and doLoadFleet leaves out any saved unit that entered service later. */
+	inServiceDate: null,
+
 
 	getPowerRating: function getPowerRating(factionName) {
 		var powerRating = '';
@@ -3019,15 +3024,20 @@ window.gamedata = {
 	   Create Game's Summary step previewed - and, for a game created with the structured scenario
 	   (tac_game.scenario, the raw JSON text gamelobby.php hands over), its fact grid. A game created
 	   before that has none: gamelobby.php has already filled the grid from its free-text
-	   description, and it is left alone. Nothing here changes in a lobby, so this runs once. */
-	renderScenarioPanel: function renderScenarioPanel(scenarioRaw) {
+	   description, and it is left alone. Nothing here changes in a lobby, so this runs once.
+	   inServiceDate: the game's In-Service Date year, or null - a chip here; gamelobby.php has
+	   already locked the Store's ISD filter to it (Stage 6). */
+	renderScenarioPanel: function renderScenarioPanel(scenarioRaw, inServiceDate) {
 		var chips = $("#lbRuleChips");
 		if (!chips.length) return;
 
 		var slots = [];
 		for (var i in gamedata.slots) slots.push(gamedata.slots[i]);
 		var unlimited = slots.length > 0 && slots.every(function (slot) { return slot.points == -1; });
-		chips.html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(gamedata.rules, { unlimitedPoints: unlimited })));
+		chips.html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(gamedata.rules, {
+			unlimitedPoints: unlimited,
+			inServiceDate: inServiceDate
+		})));
 
 		var facts = scenarioCard.render(scenarioRaw);
 		if (facts) $("#lbScenarioFacts").html(facts);
@@ -4873,21 +4883,37 @@ window.gamedata = {
 			return;
 		}
 
-		/* 'Allow Mines' is a per-scenario rule, and a saved fleet outlives the game it was
-		   saved from: a fleet built where mines were allowed will happily carry its mine
-		   bulks into one where the buy panel never offers them (constructStore skips mines
-		   on the same test). Refuse the WHOLE load rather than quietly dropping the
-		   offending units - the fleet's stored `points` counted them, so a partial load
-		   would put a fleet on the table that the player never saved, at a cost the
-		   affordability check has already approved. Checked here because doLoadFleet is the
-		   one funnel both load paths (dropdown and load-by-#ID) come through. */
-		if (gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest) {
-			for (var m = 0; m < fleet.length; m++) {
-				if (fleet[m] && fleet[m].mine) {
-					confirm.fleetNotice("Saved fleet contains units not available for this scenario");
-					return;
-				}
+		/* A saved fleet outlives the game it was saved from, so it can carry units this scenario
+		   does not allow. Those units are LEFT OUT, one by one - the rest of the fleet still loads -
+		   and one window says what was left out (showLeftOutNotice); nothing loads only when nothing
+		   is left. Leaving units out only lowers the fleet's cost, so the caller's affordability
+		   check still holds. Checked here because doLoadFleet is the one funnel both load paths
+		   (dropdown and load-by-#ID) come through.
+		   - Mines, without the 'Allow Mines' rule (constructStore skips mines on the same test).
+		     This used to refuse the WHOLE fleet; per unit since 2026-09-25 (user), like the ISD.
+		   - In-Service Date (Stage 6): a numeric ISD above the game's cutoff - the Store's own
+		     test (applyCustomShipFilter), so a unit loads exactly when it could have been bought,
+		     and an ISD of 0 or text ("Ancient") always passes. */
+		var minesBarred = !!(gamedata.rules && !gamedata.rules.allowMines && !gamedata.rules.fleetTest);
+		var minesLeftOut = false;
+		var tooLate = [];
+		fleet = fleet.filter(function (listShip) {
+			if (!listShip) return true; // holes are skipped below
+			if (minesBarred && listShip.mine) {
+				minesLeftOut = true;
+				return false;
 			}
+			if (gamedata.inServiceDate && parseInt(listShip.isd, 10) > gamedata.inServiceDate) {
+				tooLate.push(listShip);
+				return false;
+			}
+			return true;
+		});
+
+		if (minesLeftOut || tooLate.length) {
+			var loadsNothing = !fleet.some(function (listShip) { return !!listShip; });
+			gamedata.showLeftOutNotice(minesLeftOut, tooLate, loadsNothing);
+			if (loadsNothing) return;
 		}
 
 		//Pre-battle damage (D3): kinds this fleet HAD that the player chose not to load.
@@ -4996,6 +5022,39 @@ window.gamedata = {
 		}
 
 		//gamedata.populateFleetDropdown();
+	},
+
+	/* doLoadFleet's one window for the units it left out of a saved fleet: mines as a single
+	   sentence (a mine fleet can carry dozens), units past the In-Service Date as a list (.fleetNotice*
+	   in confirm.css). The names are the player's own text, so they are escaped. */
+	showLeftOutNotice: function showLeftOutNotice(minesLeftOut, tooLate, loadsNothing) {
+		var esc = scenarioCard.escapeHtml;
+		var html = "";
+
+		if (loadsNothing) {
+			html += '<p class="fleetNoticeLead">Nothing was loaded: no unit in this fleet is allowed in this scenario.</p>';
+		}
+		if (minesLeftOut) {
+			html += '<p class="fleetNoticeReason">Mines were not loaded with this fleet, as mines are not allowed in this scenario.</p>';
+		}
+		if (tooLate.length) {
+			html += '<p class="fleetNoticeReason">These units entered service after this game\'s In-Service Date of '
+				+ '<span class="fleetNoticeYear">' + esc(gamedata.inServiceDate) + '</span>, so they were not loaded:</p>'
+				+ '<ul class="fleetNoticeList">'
+				+ tooLate.map(function (listShip) {
+					var shipClass = String(listShip.shipClass || "");
+					var name = String(listShip.name || shipClass);
+					return '<li class="fleetNoticeItem">'
+						+ '<span class="fleetNoticeName">' + esc(name)
+						+ (shipClass && shipClass !== name ? '<span class="fleetNoticeClass">' + esc(shipClass) + "</span>" : "")
+						+ "</span>"
+						+ '<span class="fleetNoticeMeta">ISD ' + esc(listShip.isd) + "</span>"
+						+ "</li>";
+				}).join("")
+				+ "</ul>";
+		}
+
+		confirm.fleetNoticeHtml(html, loadsNothing ? "Fleet Not Loaded" : "Units Not Loaded");
 	},
 
 	//To change the availability of a saved fleet

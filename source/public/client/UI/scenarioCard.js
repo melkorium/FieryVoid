@@ -165,6 +165,8 @@ window.scenarioCard = {
      * wizard is about to post it (createGame.rules); the two share every key.
      * options.unlimitedPoints: the slots are unlimited - a slot setting, not a rule, so the caller
      * says so.
+     * options.inServiceDate: the In-Service Date cutoff year, or null - a column of its own
+     * (tac_game.in_service_date), not a rule, so likewise.
      *
      * Every count goes through parseInt: the lobby payload is JSON_NUMERIC_CHECKed, the wizard's is
      * not, so a count can arrive as either. The terrain map's name is the creator's text (the
@@ -190,6 +192,8 @@ window.scenarioCard = {
         }
         if (r.friendlyFire) add("rule", "Friendly Fire");
         if (options && options.unlimitedPoints) add("rule", "Unlimited Points");
+        var inServiceDate = count(options && options.inServiceDate);
+        if (inServiceDate > 0) add("rule", "In-Service Date: " + inServiceDate);
 
         //The random terrain (Create Game's Terrain Features rows) as ONE chip, then the terrain map
         //as its own - the Map Preview shows what the map places.

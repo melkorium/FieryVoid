@@ -61,6 +61,12 @@ jQuery(function ($) {
     $(".cg-terrain-count").on("change", createGame.readTerrain);
     createGame.readTerrain();
 
+    // In-Service Date: a year, so digits only and four at most (the lobby's own ISD box does the same).
+    $("#inServiceDate").on("input", function () {
+        const digits = this.value.replace(/\D/g, "").slice(0, 4);
+        if (digits !== this.value) this.value = digits;
+    });
+
     // UNLIMITED POINTS LOGIC
     $("#unlimitedPointsCheck").on("change", function () {
         const isUnlimited = $(this).is(":checked");
@@ -1713,6 +1719,11 @@ window.createGame = {
             if (!String($("#gamename").val() || "").trim()) {
                 return { message: "Give the game a name.", field: "#gamename" };
             }
+            //A short year would lock the lobby's ISD filter below every unit there is.
+            const isd = String($("#inServiceDate").val() || "").trim();
+            if (isd && !(/^\d{4}$/.test(isd) && parseInt(isd, 10) >= 1000)) {
+                return { message: "In-Service Date: enter a four-digit year, or leave it blank.", field: "#inServiceDate" };
+            }
         }
 
         if (step === 2) {
@@ -1756,6 +1767,13 @@ window.createGame = {
         $("#createGameForm [aria-invalid='true']").removeAttr("aria-invalid");
     },
 
+    //The In-Service Date cutoff as a year, or null for none (blank). It is not a rule: it is posted
+    //on its own and stored in tac_game.in_service_date (plan §4.4).
+    readInServiceDate: function readInServiceDate() {
+        const year = parseInt(String($("#inServiceDate").val() || "").trim(), 10);
+        return year > 0 ? year : null;
+    },
+
     //Step 4: a read-only recap, grouped the way the lobby will show the game.
     renderSummary: function renderSummary() {
         const background = $("input[name='background']:checked");
@@ -1765,7 +1783,8 @@ window.createGame = {
 
         //The lobby's Game Rules chips, from the same function, so this is exactly what it will show.
         $("#sumRules").html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(createGame.rules, {
-            unlimitedPoints: $("#unlimitedPointsCheck").is(":checked")
+            unlimitedPoints: $("#unlimitedPointsCheck").is(":checked"),
+            inServiceDate: createGame.readInServiceDate()
         })));
 
         $("#sumScenario").html(scenarioCard.render(createGame.readScenario(), { plain: true })
@@ -1882,6 +1901,7 @@ window.createGame = {
             v: createGame.PRESET_VERSION,
             gamename: String($("#gamename").val() || ""),
             background: $("input[name='background']:checked").val() || "",
+            inServiceDate: String($("#inServiceDate").val() || "").trim(),
             checks: checks,
             selects: selects,
             terrain: terrain,
@@ -1914,6 +1934,9 @@ window.createGame = {
         }
 
         if (typeof settings.gamename === "string" && settings.gamename.trim()) $("#gamename").val(settings.gamename);
+
+        //Blank for settings saved before the field existed - they had no cutoff.
+        $("#inServiceDate").val(settings.inServiceDate == null ? "" : String(settings.inServiceDate).replace(/\D/g, "").slice(0, 4));
 
         const background = $("input[name='background']").filter(function () { return this.value === settings.background; });
         if (background.length) {
@@ -2219,7 +2242,7 @@ window.createGame = {
             createGame.rules.fleetTest = 1;
         }
 
-        var data = { gamename: gamename, background: background, slots: createGame.slots, gamespace: gamespace, flight: flight, rules: createGame.rules, description: description, scenario: scenario };
+        var data = { gamename: gamename, background: background, slots: createGame.slots, gamespace: gamespace, flight: flight, rules: createGame.rules, description: description, scenario: scenario, inServiceDate: createGame.readInServiceDate() };
         data = JSON.stringify(data);
         $("#createGameData").val(data);
     }

@@ -1778,7 +1778,14 @@ window.confirm = {
        generic confirm.warning so restyling the fleet family cannot reskin every warning
        in the game. */
     fleetNotice: function fleetNotice(msg, title) {
-        var e = confirm.fleetDialogShell(title || "Saved Fleets", "", '<p>' + msg + '</p>', "Close");
+        confirm.fleetNoticeHtml('<p>' + msg + '</p>', title);
+    },
+
+    /* fleetNotice with a body of the caller's own markup - several paragraphs, a list - rather
+       than one message in a <p>, which cannot hold a list. The saved-fleet load's "Units Not
+       Loaded" report is the first (gamedata.showLeftOutNotice; .fleetNotice* in confirm.css). */
+    fleetNoticeHtml: function fleetNoticeHtml(bodyHtml, title) {
+        var e = confirm.fleetDialogShell(title || "Saved Fleets", "", bodyHtml, "Close");
         $(".confirmcancel", e).remove();
 
         $(".confirmok", e).on("click", function () {

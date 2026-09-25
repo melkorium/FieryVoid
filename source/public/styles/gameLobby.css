@@ -774,6 +774,19 @@
   text-align: right;
 }
 
+/* The ISD filter when the game's In-Service Date fixes it (Stage 6, plan §4.4): readonly, in the
+   page's accent, with a padlock - the mockup's locked field. */
+.lb-field--locked .lb-input {
+  color: var(--fv-accent);
+  border-color: var(--fv-accent);
+  cursor: default;
+}
+
+.lb-lock {
+  font-size: 11px;
+  color: var(--fv-accent);
+}
+
 /* A checkbox and its label - the picker's tier / Show Custom boxes, and the Purchase bar's Show
    Custom. The text is the bar's dim label text ("Filter by:") in both places (user, Stage 5). */
 .lb-check {

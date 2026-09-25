@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-5 BUILT 2026-09-25
-(see §12); Stages 6-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-6 BUILT 2026-09-25
+(see §12); Stages 7-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -462,8 +462,9 @@ against those directly rather than re-deriving layout from this section's prose 
   to one faction needed it) and four user refinements: Check as a Recent-Games-coloured button
   opening its report in a window, a Store that grows to fit, a wider Store column, and variant
   links not italic.
-- **Stage 6 — In-Service Date end-to-end.** Create Game field + Gamelobby locked filter
-  (§3.2/§4.4). Small, once Stage 0's column exists.
+- **Stage 6 — In-Service Date end-to-end. ✅ BUILT 2026-09-25 — §12.7.** Create Game field +
+  Gamelobby locked filter (§3.2/§4.4), plus an "In-Service Date: N" rule chip on the Confirm step
+  and in the lobby.
 - **Stage 7 — FV faction randomiser.** Replaces the Wheel links (§4.5). Purely additive, no
   dependency on other stages.
 - **Stage 8 — Private/password games.** Held to last deliberately — the only change touching
@@ -1507,3 +1508,100 @@ bought ships (hull rows, bad rows, rails), no Fleet Checker link left in the pan
   `appearance: base-select` / `::picker(select)` where supported (Chrome 135+), with a dark native
   list (`color-scheme: dark`) elsewhere. ⚠️ The windows' Escape handler now stands aside while a
   `select:open` exists: it used to close the whole Faction Picker and leave the list floating.
+
+### 12.7 Stage 6 — In-Service Date end-to-end (built 2026-09-25)
+
+No schema change (Stage 0's `tac_game.in_service_date`, INT NULL, is written and read for the first
+time). No new class. The lobby legacy bundle needs rebuilding (`gamelobby.js`, `scenarioCard.js`).
+
+**What landed** (plan §3.2 / §4.4, mockup Step 1 + Gamelobby_Main):
+
+- **Create Game:** the LAST row of Rules & Options, as the mockup draws it: a year box standing where
+  the other rows' checkboxes stand (§11.6 — measured: same left edge on desktop and phone), label "In-
+  Service Date", caption "Locks the lobby's ISD filter to this year, so only units in service by then
+  can be bought. Blank = no cutoff." `#inServiceDate`, `type=text inputmode=numeric`, placeholder
+  "e.g. 2258"; digits only, four at most (the lobby's ISD box's own sanitiser). 6.75em wide, so it
+  still fits the placeholder at a phone's 16px.
+- **Validation** (`validateStep(1)`): blank is fine; anything else must be a four-digit year ≥ 1000 —
+  "In-Service Date: enter a four-digit year, or leave it blank." A short year would lock the lobby's
+  filter below every unit there is (ISDs run 1700s-2280s; a few are text — see below).
+- **Posted** as its own top-level `inServiceDate` (a number, or null) beside `scenario` — not a rule
+  and not a scenario fact. `Manager::cleanInServiceDate` keeps one to four digits (booleans, floats,
+  "22a8", 0 → null) and `DBManager::createGame` writes it (a null binds as SQL NULL).
+- **Presets:** `readSettings` stores the box's text; `applySettings` restores it — blank for settings
+  saved before this stage (they had no cutoff). No `PRESET_VERSION` bump needed.
+- **Rule chip** (`scenarioCard.ruleChips(rules, {inServiceDate})`, blue "rule" kind, after Unlimited
+  Points): "In-Service Date: 2258" — on the Confirm step AND under the lobby's Map Preview, so the
+  Confirm step still previews the lobby exactly and a player sees the cutoff before opening the Store.
+- **Lobby transport:** `Manager::getGameScenario` / `DBManager::getGameScenario` now read BOTH creation-
+  time settings in the one per-page-load query and return `array('scenario' => text|null,
+  'inServiceDate' => int|null)` (gamelobby.php was its only caller). Never in TacGamedata / the polled
+  payload: it never changes, and game.php does not need it.
+- **Locked filter** (gamelobby.php): with a cutoff, `#isdFilter` is printed pre-filled and `readonly`,
+  in a `.lb-field--locked` label (accent text + border, a Font Awesome padlock, title "Fixed by the
+  scenario's In-Service Date") — the mockup's locked field. `readonly`, not the mockup's `disabled`:
+  it stays focusable and a screen reader reads "ISD, read only, 2258". The filtering is the untouched
+  `applyCustomShipFilter`, which already runs when each faction loads, so later ships never appear.
+  **Reset Filters** now clears `.not('[readonly]')`. Without a cutoff the old editable box is printed,
+  byte-for-byte as before.
+- The filter's long-standing rule is unchanged: a ship whose ISD is 0 or text ("Ancient",
+  "Primordial", "Variable" — Triad, Shadow customs, Kirishiac, jump gates, shipyards) always passes,
+  so a cutoff never hides those.
+
+**Verified:** `php -l` on the four PHP files. `cleanInServiceDate` on 15 inputs. A real
+`DBManager::createGame` + `getGameScenario` round trip on the local DB (2258 and null) inside a
+transaction that was ROLLED BACK (no game left; ids 4388/4389 were consumed). `Manager::getGameScenario`
+read-only on games 4387 / 4381 / a missing id. **Create Game** CLI-rendered and driven over CDP with real
+input: "22ab" → "22"; Next refused with the message, field flagged and focused; "22587" → "2258"; Next;
+Confirm chip; Save Settings by Enter (nothing posted) and Load; a pre-Stage-6 preset loads blank; the
+posted `data` carries `inServiceDate: 2258` (a number) or `null`, never inside `rules`; Enter on Step 1
+refused; 390px phone (true emulation): no overflow, box 108×44 at 16px, aligned. **Lobby**: the
+bundled gamelobby.php rendered from game 4387's real payload through a stub `Manager` returning 2258 /
+null, served over a local HTTP server with a stand-in `gamelobbyloader.php`: field readonly + padlock +
+accent, chip present; Earth Alliance loaded → all 15 ships with ISD > 2258 hidden, none of the rest;
+typing into the box changes nothing; a Name filter + Reset Filters → name cleared, year and hiding kept;
+390px phone: no overflow. The no-cutoff lobby: editable empty box, no chip, typed 2245 + Enter hides
+the later ships, Reset shows them again. No console errors anywhere. Screenshots desktop + phone.
+**Not verified:** a game created through the real form on the local server and opened in its lobby.
+
+**Saved fleets respect the cutoff (user, same day)** — first built, the cutoff only filtered the Store,
+so Load a Fleet / Load Fleet by #ID could field a later ship. Now `gamedata.doLoadFleet` (the one funnel
+both load paths go through; buys come from the filtered Store and copy / edit act on ships already
+bought) leaves out every saved unit whose numeric ISD is above `gamedata.inServiceDate` — the Store's
+own test, so text / 0 ISDs pass — loads the rest, and says which (the window is described in the next
+paragraph). If no unit is left, nothing loads. Per UNIT: leaving units out only lowers the cost, so
+the caller's affordability check still holds. `gamedata.inServiceDate` (null by default) is set once by gamelobby.php's inline script;
+`renderScenarioPanel` reads it from there for the chip. The Fleet Checker still does not look at ISD
+(nothing can reach the fleet past the cutoff now).
+**Verified** over CDP with real `loadSavedFleet.php` responses dumped read-only from the local DB
+(fleets #105 Centauri, #106 Narn, #108 Ancients) through the page's own load paths — only
+`ajaxInterface.loadSavedFleet` stubbed, the slot made unlimited and #106 made public so the existing
+gates let them through: cutoff 2242 → Narn loads 6 of 9 (G'Quan at exactly 2242 stays; Bin'Tak 2245,
+G'Karith 2253, Frazi 2249 listed), by #ID and via the dropdown alike, 3100 of 5198 pts; Ancients
+(ISD text) and Centauri (≤ 2202) load whole with no notice; an all-late fleet loads nothing; no cutoff
+→ all 9; a `<b>` ship name shown as text. No console errors.
+
+**Mines per unit too, and a "Units Not Loaded" window (user, same day).** The Allow Mines check in
+`doLoadFleet` used to refuse the WHOLE fleet ("Saved fleet contains units not available for this
+scenario") when any mine was in it. Now it works like the ISD check: ONE per-unit pass drops mines
+(without Allow Mines; Fleet Builder still loads them) and then late units (a mine is reported as a
+mine, never twice), loads the rest, and `gamedata.showLeftOutNotice` opens one window:
+
+- Title **"Units Not Loaded"**, or **"Fleet Not Loaded"** when nothing is left, which also leads with
+  a bold "Nothing was loaded: no unit in this fleet is allowed in this scenario."
+- Mines as ONE sentence, not a list (a mine fleet can carry dozens): "Mines were not loaded with this
+  fleet, as mines are not allowed in this scenario."
+- Late units as a real list under "These units entered service after this game's In-Service Date of
+  **2242**, so they were not loaded:" — each row in the Fleet Checker report's "bad" look (red rail,
+  faint red tint): the name bold in `--fv-enemy` red, the hull under it in dim text when the name
+  differs, "ISD 2250" right-aligned in mono red. The list scrolls past 45vh so Close stays on screen.
+- `confirm.fleetNoticeHtml(bodyHtml, title)` is new — the same window with the caller's own markup (a
+  `<ul>` cannot sit in fleetNotice's `<p>`); `fleetNotice` now calls it, unchanged in output. Styles:
+  `.fleetNotice*` in confirm.css's `.fleetDialog` block.
+
+Verified the same way (fleet #99: a bulk ×2 DEW mine + EA ships ISD 2240-2259): cutoff 2242 without
+mines → only the Orion Starbase loads, mines sentence + a 5-row list; no cutoff → everything but the
+mine (6264 of 6418 pts), mines sentence only; a mines-only fleet → "Fleet Not Loaded", nothing loaded;
+Allow Mines on, or Fleet Builder → all 7 rows, no window; Narn at 2242 → list only; a plain
+fleetNotice still renders `<p>…</p>` with Close alone. Desktop 420px and phone 340px windows, nothing
+overflowing. No console errors.

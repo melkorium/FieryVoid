@@ -1323,9 +1323,10 @@ class DBManager
 
     /* $scenario: the validated Scenario Description JSON text (Manager::cleanScenario), or null
        for a game created without one - the Fleet Builder, or an old cached createGame.js.
+       $inServiceDate: the In-Service Date cutoff year (Manager::cleanInServiceDate), or null.
        ⚠️ Needs db/createGameRedesign.sql applied first: naming a column that does not exist
        fails the whole INSERT, and with it every game creation. */
-    public function createGame($gamename, $background, $slots, $userid, $gamespace, $description, $rules = '{}', $scenario = null)
+    public function createGame($gamename, $background, $slots, $userid, $gamespace, $description, $rules = '{}', $scenario = null, $inServiceDate = null)
     {
         //Name the columns explicitly: a column-less INSERT ... VALUES breaks at
         //prepare() time with "Column count doesn't match value count" the moment
@@ -1334,7 +1335,7 @@ class DBManager
             INSERT INTO
                 tac_game
                 (name, turn, phase, activeship, background, points, status,
-                 slots, creator, submitLock, gamespace, rules, description, scenario)
+                 slots, creator, submitLock, gamespace, rules, description, scenario, in_service_date)
             VALUES
             (
                 ?,
@@ -1350,6 +1351,7 @@ class DBManager
                 ?,
                 ?,
 		?,
+                ?,
                 ?
             )
         ");
@@ -1360,8 +1362,9 @@ class DBManager
             $background = $this->DBEscape($background);
             $slotnum = count($slots);
             $gamespace = $this->DBEscape($gamespace);
+            //A null $inServiceDate binds as SQL NULL (no cutoff), whatever the 'i'.
             $stmt->bind_param(
-                'ssiissss',
+                'ssiissssi',
                 $gamename,
                 $background,
                 $slotnum,
@@ -1369,7 +1372,8 @@ class DBManager
                 $gamespace,
                 $rules,
 		$description,
-                $scenario
+                $scenario,
+                $inServiceDate
             );
             if ($stmt->execute())
                 $gameid = $this->getLastInstertID();
@@ -2706,21 +2710,23 @@ class DBManager
 
     }
     */        
-    /* tac_game.scenario as stored (JSON text), or null. See Manager::getGameScenario. */
+    /* tac_game.scenario as stored (JSON text) and tac_game.in_service_date, each null when unset,
+       as array('scenario' => ..., 'inServiceDate' => ...). See Manager::getGameScenario. */
     public function getGameScenario($gameid)
     {
         $scenario = null;
+        $inServiceDate = null;
 
-        $stmt = $this->connection->prepare("SELECT scenario FROM tac_game WHERE id = ?");
+        $stmt = $this->connection->prepare("SELECT scenario, in_service_date FROM tac_game WHERE id = ?");
         if ($stmt) {
             $stmt->bind_param('i', $gameid);
-            $stmt->bind_result($scenario);
+            $stmt->bind_result($scenario, $inServiceDate);
             $stmt->execute();
             $stmt->fetch();
             $stmt->close();
         }
 
-        return $scenario;
+        return array('scenario' => $scenario, 'inServiceDate' => $inServiceDate);
     }
 
     public function getTacGame($gameid, $playerid)

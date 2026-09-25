@@ -258,6 +258,18 @@
                   <div class="cg-caption">No fleet points cap for any slot.</div>
                 </div>
               </div>
+
+              <!-- In-Service Date (plan §3.2 / §4.4, Stage 6): no checkbox - blank is off - so the year
+                   box sits where the others' boxes do (§11.6). Stored as tac_game.in_service_date. -->
+              <div class="cg-check-row cg-isd-row">
+                <input id="inServiceDate" class="cg-input cg-input--year" type="text" name="inServiceDate"
+                       inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="e.g. 2258"
+                       autocomplete="off" aria-describedby="inServiceDateHelp">
+                <div class="cg-check-body">
+                  <label for="inServiceDate" class="cg-check-label">In-Service Date</label>
+                  <div class="cg-caption" id="inServiceDateHelp">Locks the lobby's ISD filter to this year, so only units in service by then can be bought. Blank = no cutoff.</div>
+                </div>
+              </div>
             </div>
 
             <!-- Terrain Features: one fixed row per type (plan §8.4). Zero = none of that type;

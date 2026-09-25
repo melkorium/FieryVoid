@@ -175,20 +175,29 @@ class Manager{
         return null; // Always return *something*
     }
     
-    /* The lobby's Scenario Description: tac_game.scenario as its stored JSON TEXT, or null for a
-       game created before it existed (the lobby then parses `description` as it always did).
-       Read on its own, not through TacGamedata: it never changes after creation, so the lobby
-       needs it once per page load rather than on every poll, and game.php never needs it. Kept as
-       text - the page hands it to scenarioCard.normalise - so the JSON_NUMERIC_CHECK on every
-       gamedata payload can never rewrite the player's free text inside it (plan §12.1 trap 1). */
+    /* The lobby's scenario, as array('scenario' => ..., 'inServiceDate' => ...):
+       - scenario: the Scenario Description, tac_game.scenario as its stored JSON TEXT, or null for a
+         game created before it existed (the lobby then parses `description` as it always did). Kept
+         as text - the page hands it to scenarioCard.normalise - so the JSON_NUMERIC_CHECK on every
+         gamedata payload can never rewrite the player's free text inside it (plan §12.1 trap 1).
+       - inServiceDate: the In-Service Date cutoff (tac_game.in_service_date), an int year, or null
+         for none - which the lobby's ISD ship filter is locked to (plan §4.4).
+       Read on their own, not through TacGamedata: neither changes after creation, so the lobby needs
+       them once per page load rather than on every poll, and game.php never needs them. */
     public static function getGameScenario($gameid){
+        $none = array('scenario' => null, 'inServiceDate' => null);
         try {
             self::initDBManager();
-            $scenario = self::$dbManager->getGameScenario((int)$gameid);
-            return (is_string($scenario) && trim($scenario) !== '') ? $scenario : null;
+            $row = self::$dbManager->getGameScenario((int)$gameid);
+            $scenario = $row['scenario'];
+            $inServiceDate = ($row['inServiceDate'] === null) ? 0 : (int)$row['inServiceDate'];
+            return array(
+                'scenario' => (is_string($scenario) && trim($scenario) !== '') ? $scenario : null,
+                'inServiceDate' => ($inServiceDate > 0) ? $inServiceDate : null
+            );
         } catch(Exception $e) {
             Debug::error($e);
-            return null; //the lobby falls back to the description, as for an old game
+            return $none; //the lobby falls back to the description, as for an old game, and no cutoff
         }
     }
 
@@ -388,6 +397,7 @@ class Manager{
         $gamespace = $data["gamespace"];
         $description = $data["description"];
         $scenario = self::cleanScenario($data["scenario"] ?? null);
+        $inServiceDate = self::cleanInServiceDate($data["inServiceDate"] ?? null);
         $slots = array();
         $pointsA = $data["slots"][0]["points"];
         $poinstB = $data["slots"][1]["points"];
@@ -400,7 +410,7 @@ class Manager{
         try {
             self::initDBManager();
             self::$dbManager->startTransaction();
-            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules), $scenario);
+            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules), $scenario, $inServiceDate);
             //SystemData::initSystemData(0, $gameid);
             self::takeSlot($userid, $gameid, 1);
             self::$dbManager->endTransaction(false);
@@ -450,6 +460,15 @@ class Manager{
 
         $json = json_encode($clean, JSON_INVALID_UTF8_SUBSTITUTE);
         return ($json === false) ? null : $json;
+    }
+
+    /* The submitted In-Service Date -> tac_game.in_service_date: a year of one to four digits, or
+       null for no cutoff (blank, 0, anything else - and the Fleet Builder, which sends none). The
+       lobby locks its ISD ship filter to it. CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §3.2 / §4.4. */
+    public static function cleanInServiceDate($raw){
+        if (!is_scalar($raw) || is_bool($raw) || !preg_match('/^\s*(\d{1,4})\s*$/', (string)$raw, $match)) return null;
+        $year = (int)$match[1];
+        return ($year > 0) ? $year : null;
     }
 
     public static function takeSlot($userid, $gameid, $slot){

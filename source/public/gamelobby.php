@@ -66,7 +66,11 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 	// scenario as its stored JSON TEXT, handed to the page's JS as a string for scenarioCard to
 	// parse - or null for a game created before it existed, whose description is parsed below
 	// instead. The JSON_HEX_* flags keep the text inert inside the inline <script>.
-	$scenarioText = $isFleetTest ? null : Manager::getGameScenario($gamelobbydata->id);
+	// With it, the In-Service Date (Stage 6, plan §4.4): the year the Store's ISD filter is locked
+	// to, or null for none. Neither is ever set on a Fleet Builder lobby.
+	$scenarioInfo = $isFleetTest ? array('scenario' => null, 'inServiceDate' => null) : Manager::getGameScenario($gamelobbydata->id);
+	$scenarioText = $scenarioInfo['scenario'];
+	$inServiceDate = $scenarioInfo['inServiceDate'];
 	$scenarioJS = json_encode($scenarioText, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 	if ($scenarioJS === false) $scenarioJS = 'null';
 
@@ -272,8 +276,12 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
             // the gamelobbyloader.php fetch. See $factionVersions in gamelobby.php.
             window.factionVersions = <?php print($factionVersionsJSON); ?>;
             gamedata.parseServerData(lobbyData);
-            // The structured Scenario Description (tac_game.scenario) as its raw JSON text, or null.
-            gamedata.renderScenarioPanel(<?php print($scenarioJS); ?>);
+            // The In-Service Date cutoff, a year or null: the Store's ISD box is printed locked to it,
+            // and a saved fleet loads without the units that entered service later (doLoadFleet).
+            gamedata.inServiceDate = <?php print($inServiceDate === null ? 'null' : (int)$inServiceDate); ?>;
+            // The structured Scenario Description (tac_game.scenario) as its raw JSON text, or null;
+            // then the In-Service Date again, for its Game rules chip.
+            gamedata.renderScenarioPanel(<?php print($scenarioJS); ?>, gamedata.inServiceDate);
             gamedata.parseFactions(<?php print($factions); ?>);
             
             var customWarningShown = false; 
@@ -357,11 +365,12 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 
 
             // Reset Filters (the Purchase bar's chip): the Store's own filters - the three text
-            // fields and its Show Custom - and nothing of the Faction Picker's.
+            // fields and its Show Custom - and nothing of the Faction Picker's. An ISD box the game's
+            // In-Service Date has locked (readonly) keeps its year.
             var shipFilterFields = "#isdFilter, #nameFilter, #costFilter";
 
             $('.resetFilters').on('click', function () {
-                $(shipFilterFields).val('');
+                $(shipFilterFields).not('[readonly]').val('');
                 $('#toggleCustomShips').prop('checked', false);
                 gamedata.applyCustomShipFilter();
             });
@@ -622,11 +631,23 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 					<input type="text" id="costFilter" value="" class="lb-input lb-input--num"
 					       inputmode="numeric" pattern="[0-9]*">
 				</label>
+				<?php if ($inServiceDate !== null): ?>
+				<!-- Locked to the game's In-Service Date (plan §4.4, Stage 6): the same field, pre-filled
+				     and readonly, so gamedata.applyCustomShipFilter filters by it exactly as by a typed
+				     year, from the first faction loaded, and Reset Filters leaves it be. -->
+				<label class="lb-field lb-field--locked" title="Fixed by the scenario's In-Service Date">
+					<span>ISD</span>
+					<input type="text" id="isdFilter" value="<?php print((int)$inServiceDate); ?>" class="lb-input lb-input--num"
+					       readonly>
+					<i class="fa-solid fa-lock lb-lock" aria-hidden="true"></i>
+				</label>
+				<?php else: ?>
 				<label class="lb-field">
 					<span>ISD</span>
 					<input type="text" id="isdFilter" value="" class="lb-input lb-input--num"
 					       inputmode="numeric" pattern="[0-9]*">
 				</label>
+				<?php endif; ?>
 				<!-- The Store's own Show Custom (user, Stage 5): the CUSTOM ships an official faction
 				     carries. The Faction Picker's box (#toggleCustom) is a separate setting - which
 				     factions can be picked. -->
