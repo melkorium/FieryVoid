@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stage 4 BUILT 2026-09-25
-(see §12); Stages 5-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-5 BUILT 2026-09-25
+(see §12); Stages 6-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -457,9 +457,11 @@ against those directly rather than re-deriving layout from this section's prose 
   Game Name.
 - **Stage 4 — Gamelobby scenario/map rendering. ✅ BUILT 2026-09-25 — §12.5.** Structured-JSON render + legacy fallback
   (§4.1), map preview legend (§4.2). Depends on Stage 0's `scenario` column existing.
-- **Stage 5 — Gamelobby faction picker overhaul.** Search, custom sub-groups, mobile sheet
-  (§4.3). Independent of every other stage — could ship first if the mobile complaint is the
-  most urgent one; ordered here only because it's the largest single chunk of new JS.
+- **Stage 5 — Gamelobby faction picker overhaul. ✅ BUILT 2026-09-25 — §12.6.** Search, custom
+  sub-groups, mobile sheet (§4.3). Grew the whole Purchase Fleet panel restyle (the Store scoped
+  to one faction needed it) and four user refinements: Check as a Recent-Games-coloured button
+  opening its report in a window, a Store that grows to fit, a wider Store column, and variant
+  links not italic.
 - **Stage 6 — In-Service Date end-to-end.** Create Game field + Gamelobby locked filter
   (§3.2/§4.4). Small, once Stage 0's column exists.
 - **Stage 7 — FV faction randomiser.** Replaces the Wheel links (§4.5). Purely additive, no
@@ -1318,3 +1320,190 @@ since `description` is still written).
   either way. A label touching one with the SAME text is dropped: Create Game labels every SLOT,
   so two slots of one team in one zone would otherwise list "TEAM 1" twice. Non-overlapping maps
   are pixel-identical to before (canvas hashes, 2-team and 4-team distinct-zone setups).
+
+### 12.6 Stage 5 — Faction Picker + Purchase Fleet panel (built 2026-09-25)
+
+No schema or server change. `gamelobby.php`, `client/gamelobby.js`, `styles/gameLobby.css`
+(new sections at the bottom), `styles/lobby.css` (dead rules removed). The lobby legacy bundle
+must be rebuilt (the watcher was not running: `FV_NO_MINIFY=1 node scripts/bundle-legacy.js`).
+
+**What landed** (plan §4.3 + the mockup's Purchase Fleet panel + four user refinements):
+
+- **Faction Picker** (`#lbFactionPicker`): a window on a desktop (540px, fixed height so it does not
+  jump as filters change), a full-screen sheet at ≤600px. Search box ("Filter factions…", Enter picks
+  the first match; focused on open only where `(pointer: fine)`), the tier boxes + Show Custom + its
+  Show Customs / Show Only Customs select (MOVED here with their old ids/classes, so gamelobby.php's
+  handlers and the custom-allowed warning are unchanged), then the six groups with ▾/▸ disclosure
+  buttons and live counts, stopping at faction level. Rows are buttons: name + tier tag (T1/T2/T3/
+  Ancient/Other; "· current" on the Store's faction) + the power rating as a tooltip. Closed by ×,
+  overlay click or Escape (not while a `.confirm` dialog sits over it); focus returns to the opener.
+- **Custom sub-groups** (`gamedata.customSubgroups`, name-pattern table): Nexus (14), Escalation Wars
+  (7), Other Universe (11: BSG, 12 Colonies of Kobol, Star Trek, Star Wars, ZStarTrek, ZStarWars,
+  ZTrek). Four custom factions match none — Great Crusade Orieni Imperium, House Valheru, The System,
+  What If — and are listed straight under Custom Factions, ahead of the sub-groups. The six groups
+  start open (the old list's request); the sub-groups start closed; a typed search shows matches in
+  closed groups (`.is-searching`). Custom rows and the Custom group carry the `--fv-warn` rail, names
+  `--fv-custom`; every other row one neutral rail; the current row `--fv-accent`.
+- **Store scoped to one faction** (`selectStoreFaction`): a bar naming it ("Tier 1 · Major Faction ·
+  62 ships") with Choose / Switch Faction; `#store` keeps one `.lb-store-faction` per faction loaded
+  (lazily, `getShipsForFaction` as before), only the chosen one shown, so switching back is instant.
+  Nothing is chosen on load (a lobby is served no bought ships, so there is no faction to default to).
+  Size categories are disclosure buttons with counts; a category the Name/Cost/ISD filters empty is
+  hidden, and its count follows the filters. Rows: name (+ fighter size tag), cost, **Show details ·
+  Add to fleet** (mockup order; the links are buttons). One row builder, `storeShipRow`, for base
+  designs and variants (the variant's Show details still passes its BASE design's id, as before).
+- **Purchase Fleet panel**: the lobby panel grammar (`.lb-panel`), 1422px like `.lb-top`. Head =
+  "Purchase Fleet" + "0 / 3500 pts · 3500 pts left" (Fleet Builder's cap input + Unlimited box sit
+  there). One bar: ship filters left (All / No Filters, Name, Cost, ISD, Reset) | fleet tools right
+  (Buy as Reinforcement — it stayed here, it is a buy mode not a faction filter — Load Fleet by #ID,
+  Load a Fleet ▾, Save Fleet, Ready). Store | Fleet columns (Store 1.25 : 1, 1.6 : 1 at ≤1180px, stacked
+  at ≤760px). Actions: Fleet Checker rules · Check · Save Fleet · Ready.
+- **User refinements:** (1) **Check** wears games.php's Recent Games colours (`.fv-btn--recent`:
+  rgba(61,92,92,.5)); Save Fleet games.php's fleet blue, Ready Create Game's green. Its report opens
+  in a window (`#fleetcheck`, "Fleet Correctness Report", the tournament-rules line + rules link in
+  its sub-head) instead of the panel below the buy panel — `checkChoices` now only fills
+  `#fleetchecktxt` and calls `openLobbyModal`. (2) The Store has no max-height: the panel grows to the
+  whole faction list. (3) The Store is the wider column — no row wraps at 1280px+ (fighters' "348 (58
+  ea.)" included); 2 of 50 wrap at 1000px, onto a clean second line. (4) Only a variant's NAME is
+  italic (`prepareClassName`'s `<i>`, whose `&nbsp;` indent moved to CSS).
+- **Chat panel** below now matches the width (1422px, phone width on a phone) — it was the last thing
+  widening a phone page.
+
+**Traps found:**
+
+1. **jQuery `show()` on an element hidden by a stylesheet writes the element type's DEFAULT display**
+   (`block` for a section). `gamedata.enableBuy` show()s `.buy`, so the flex panel is wrapped in a
+   plain block `.lb-buy-wrap.buy.buy-panel-container`. Keep that wrapper.
+2. **`hidden` loses to any author `display`** — every hidden-toggled lb- element that is flex
+   (`.lb-modal`, `.lb-faction`, `.lb-fgroup`, `.lb-store-faction`, `.lb-picker-empty`) needs its own
+   `[hidden] { display: none }`.
+3. **lobby.css styles the bought rows through `.store`** (`.store .ship`, `.store span`, `.store .ship
+   .clickable` — the last is why the fleet's links are #DEEBFF, not `.ship-actions`' #578bec). `store`
+   therefore stays on the FLEET column only; the Store column dropped it so none of those rules reach
+   its rows.
+4. Test-harness trap: the first `.showship` in the Store may sit in a collapsed category (zero-size
+   box) — a CDP click at its centre lands on `<html>`. Show details itself works.
+
+**Removed from lobby.css** (451 lines, every class grep-checked unused across source/public): the
+old faction tree (`.factiongroup-header`, `.store .faction*`, `.factionsubgroup-header`,
+`.faction-display-name.custom-faction`, `.shipshidden`), the old store rows (`.store .shipsizehdr*`,
+`.categoryType`, `.category-container`, `.pointcost`, `.store .storeship`, `.store .variant`), the old
+buy header / filter / tier rows, `.points-readout*`, `.max-points-input` (restyled in gameLobby.css),
+the store table, the top Save/Ready and their 600px block, the fleetcheck panel, `.Load-Fleet-by-ID`,
+`.fleetIdInput` and the `.tier-label-style` reinforcement rules (moved to `.lb-check`).
+
+**Verified** (headless Chrome over CDP, real gamelobby.php rendered via CLI for games 4387 / 4381
+(every rule, Reinforcements, Mines) / 4382 (Fleet Builder) / 4386 (5 teams), `?debug` scripts AND the
+rebuilt bundle): picker open/filter/search/Enter/Escape/overlay-click/focus return; Show Custom with
+the "not allowed" warning up (Escape does not close the picker behind it); sub-group counts; No /
+All Filters; custom faction bar; Narn store at 1600 / 1280 / 1000 / 390 (page 390 wide, nothing
+overflowing); buying a G'Quan + a Frazi flight into Main Fleet with the Reinforcements headers;
+Fleet Builder cap; Check window on desktop and phone; Show details opening the ship window.
+**Not verified:** a real server session — polling, Load a Fleet / load by #ID, Save Fleet, Ready,
+a real touch device.
+
+**Found, not fixed:** `ajaxInterface._sendRequest` never calls the error callback when the loader
+answers `{error: …}`, so the Store says "Loading ships…" until the faction is picked again (the old
+tree stayed open-and-empty the same way).
+
+**Decisions the user may revisit** (as first built - all but the Fleet column were settled by the
+review below): Show Custom in the picker only; no "Jump to" chips; the Fleet column's bought rows
+keep their legacy look (§11.5's restyle not done); four un-grouped custom factions; link order Show
+details · Add to fleet.
+
+**Review refinements (user, 2026-09-25, same day)** — supersede the bullets above where they differ:
+
+- **Link order back to Add to fleet · Show details** (the live page's order).
+- **Every custom faction is a Custom Faction** — the "Minor > Major > … > Custom" priority now puts
+  `isCustom` first, so Drakh (was Major), Barada Imperium and Ch'Lonas Cooperative (Minor),
+  Thirdspace (Ancients) and Custom Ships (Other) moved in; their tier still comes from the rating.
+  `forceCustomGroup` is gone. Sub-groups, in order: **Babylon 5 Wars** (no name test — it takes every
+  custom faction the others do not: What If, Great Crusade Orieni Imperium, House Valheru, Custom
+  Ships, Drakh, Thirdspace, Barada Imperium, Ch'Lonas Cooperative), Nexus (14), Escalation Wars (7),
+  Other Universe (12, now with The System). A future custom faction whose name matches none of the
+  three patterns lands in Babylon 5 Wars.
+- **Scrollbars** in both windows (`.lb-modal`, `.lb-modal-body`, `.lb-picker-list`) are the chat
+  panel's: 8px, transparent track, `--fv-scroll-thumb` / `-hover`. Firefox gets `scrollbar-color`
+  only under `@supports not selector(::-webkit-scrollbar)` — a Chromium that sees `scrollbar-color`
+  ignores the pseudo-elements.
+- **"Buy as Reinforcement" removed.** `#reinforcementModeToggle` stays, `hidden`, at the top of the
+  Fleet column: it IS the buy-mode state (`buyingReinforcement`, `setBuyTarget`,
+  `applyFleetGrouping`); the MAIN FLEET / REINFORCEMENTS headers are its only control now.
+  `applyReinforcementRule` just forces it off without the rule; lobby.css's `.cyan-tick` rule went.
+- **Show Custom back in the Purchase bar** (`#toggleCustomShips`, row 1 after ISD): a SECOND BOX for
+  the picker's `#toggleCustom`, not a second setting — ticking either ticks both (inline handlers in
+  gamelobby.php), the not-allowed warning fires from either, All / No Filters and the
+  customs-allowed default set both. So it reveals CUSTOM ships in an official faction and custom
+  factions in the picker together, exactly as the one old box did. (Splitting them into two
+  settings would need a rule for a custom faction's own ships, which are all "custom".)
+- **Load a Fleet, Save Fleet and the top Ready are one equal set**: 150px on a desktop; on a phone a
+  third of the row each (`flex: 1 1 4.5rem` — a basis of 0 let the padded buttons start 28px ahead
+  of the unpadded menu wrapper) with 8.5px type; "Load a Fleet" still wraps at ≤360px, inside the
+  same 40px height.
+- **Report restyled** (`fleetCheckRowsHtml` + `.fc-*` in gameLobby.css). The checker's RULES are
+  untouched; only its markup changed: the inline colour spans became `.fc-ok` / `.fc-bad` /
+  `.fc-warn` (the R_ constants and 15 inline copies), "Jump engine: present / NOT present!",
+  "Static structures present!", "Non-Combat units present!", the unescorted-10% line and
+  "CORRECTNESS NOT CHECKED!" now carry a verdict class, and the old "Overall" / CAUTION prefixes are
+  built as an `.fc-overall` band and an `.fc-caution` block. `fleetCheckRowsHtml` splits the `<br>`
+  lines into rows: `<u>/<b>` headings → `.fc-section`, a `<i>` hull name → `.fc-line--hull`, a " - "
+  line → an indented item, and a row with a verdict takes its rail (green / yellow / red, red also
+  tinted); blank lines are dropped.
+- **Fleet Checker rules** left the Purchase panel; it is a Useful-Links-style chip (`.lb-link`) in the
+  report window's sub-head.
+- **Category chips** (the mockup's, row 2 of the bar, "Show: All · Fighters · Light Combat · Medium ·
+  Heavy · Capital · Structures · Mines"): a FILTER, not a scroll — one pressed shows only that
+  category of the Store's faction, opened; All shows every category as it was (so the label is
+  "Show:", not the mockup's "Jump to:"). A chip whose category the faction has none of is disabled;
+  a pressed chip the next faction lacks falls back to All (`applyStoreCategory`). parseShips now wraps
+  each category's header + body in a `.lb-cat` (`data-cat` = its index); the ship filters' "emptied"
+  state moved onto it too (`.lb-cat.is-empty`).
+- Row 1 of the bar is the ship filters; row 2 the chips (left) and the fleet tools (right).
+
+Verified the same way as above (debug scripts and rebuilt bundle, 1600 / 1400 / 390 / 360 / 320,
+scrollbars captured with `--hide-scrollbars` off): picker groups and every sub-group's members,
+Show Custom sync both ways, chips incl. the fallback on Terrain, equal buttons, a report with
+bought ships (hull rows, bad rows, rails), no Fleet Checker link left in the panel.
+
+**Second review round (user, 2026-09-25):**
+
+- The category chips run in the Store's own order: All, Mines, Structures, Capital, Heavy, Medium,
+  Light Combat, Fighters.
+- **Reset Filters removed** (link and handler); All / No Filters still clear the three text fields.
+  All / No Filters are now chips too - one shared `.lb-chip` style (the category chips add
+  `.lb-cat-chip` only as their JS hook); `.lb-textlink` is gone.
+- `.lb-check` text is the bar's dim label colour ("Filter by:") everywhere - the Purchase bar's Show
+  Custom and the picker's tier / Show Custom boxes - and so is the picker's "Filter factions…"
+  placeholder.
+- Custom sub-groups are listed alphabetically (sorted at render): Babylon 5 Wars, Escalation Wars,
+  Nexus, Other Universe.
+- Both Show Custom ticks are `--fv-warn`, the Custom Factions rail colour, instead of base.css's
+  pure yellow `.yellow-tick` (scoped to `.lb-check`; Fleet Builder's Unlimited tick keeps base.css's).
+
+**Third review round (user, 2026-09-25)** — supersedes the Show Custom and All / No Filters bullets above:
+
+- **All / No Filters removed from the Purchase panel** (markup and handlers) - they set the Faction
+  Picker's boxes. Row 1 is now: Filter by: Name · Cost · ISD · Show Custom | **Reset Filters** (a
+  `.lb-chip`), which clears the three fields and unticks the Store's Show Custom only.
+- **The two Show Custom boxes are now two settings** (plan §4.3's separate toggle, finally built):
+  the picker's `#toggleCustom` decides which FACTIONS can be picked; the Purchase bar's
+  `#toggleCustomShips` decides whether the Store shows CUSTOM ships of an OFFICIAL faction
+  (`applyCustomShipFilter` reads it). The rule that made the split possible: a row's `data-custom`
+  is now `!isCustomFaction && ship.unofficial === true` - the same rows `.highlight-custom-ship`
+  marks - so a custom faction's own ships always show once it is picked. Both default on where
+  customs are allowed or in Fleet Builder; the not-allowed warning (`warnIfCustomsNotAllowed`)
+  fires once, from whichever is ticked first.
+- **Load a Fleet menu restyled** (`populateFleetDropdown` builds classed rows, `.lb-fleetmenu-*` in
+  gameLobby.css; lobby.css's white `#fleetDropdownList` rule is gone): the windows' dark panel, rows
+  with a hover, padlock yellow (private) / green (public) with titles, the name with its `#id` in dim
+  mono (the number Load Fleet by #ID takes), damage badge in the fleet list's `--fv-crit`, points in
+  mono, a dim ✖ that reddens on hover, a "Default fleets" head in place of the dashed divider (default
+  rows padded so names and points line up), the chat scrollbar. On a phone it opens rightwards from
+  the Load a Fleet button, which is the left third of its row there.
+- **The picker's Show Customs / Show Only Customs select** wears the same look (`.lb-select` in
+  gameLobby.css): closed, the Load a Fleet button (display type, ▼ drawn by `.lb-custom-mode::after`);
+  open, the saved-fleet menu's panel and rows. It is still the native `<select id="customSelect">` -
+  every handler, the keyboard and a phone's own picker are unchanged - styled through
+  `appearance: base-select` / `::picker(select)` where supported (Chrome 135+), with a dark native
+  list (`color-scheme: dark`) elsewhere. ⚠️ The windows' Escape handler now stands aside while a
+  `select:open` exists: it used to close the whole Faction Picker and leave the list floating.

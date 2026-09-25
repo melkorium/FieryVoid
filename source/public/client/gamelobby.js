@@ -489,14 +489,12 @@ window.gamedata = {
 		return Boolean(gamedata.rules && gamedata.rules.allowReinforcements);
 	},
 
-	/* Show or hide the buy-mode toggle, and force it off when the rule is not in play.
-	   Called from parseServerData, i.e. on every poll, because gamedata.rules only exists
-	   once the first payload has landed - the checkbox ships hidden in the markup. Cheap and
-	   idempotent: .toggle() and .prop() are no-ops when nothing has changed. */
+	/* Force the buy mode off when the rule is not in play. Called from parseServerData, i.e. on
+	   every poll, because gamedata.rules only exists once the first payload has landed. Cheap
+	   and idempotent. The checkbox itself is hidden (Stage 5): its control is the fleet list's
+	   MAIN FLEET / REINFORCEMENTS headers (setBuyTarget). */
 	applyReinforcementRule: function applyReinforcementRule() {
-		var allowed = gamedata.reinforcementsAllowed();
-		$(".reinforcement-mode-label").toggle(allowed);
-		if (!allowed) $("#reinforcementModeToggle").prop("checked", false);
+		if (!gamedata.reinforcementsAllowed()) $("#reinforcementModeToggle").prop("checked", false);
 	},
 
 	/* Is the buy panel currently minting reinforcements? Read at PURCHASE time only - never
@@ -1010,12 +1008,12 @@ window.gamedata = {
 
 		//Reused result snippets (Item 8). Each constant is the exact string —
 		//including the leading space — that previously appeared inline dozens of
-		//times. Substituting them is a pure string-for-string swap, so the report
-		//output is byte-identical; only the visual noise and typo risk drop.
-		var R_OK = " <span style='color: #33cc33;'>OK</span>";
-		var R_TOOMANY = " <b><span style='color: red;'>TOO MANY!</span></b>";
-		var R_FAILURE = " <b><span style='color: red;'>FAILURE!</span></b>";
-		var R_FAILED = " <b><span style='color: red;'>FAILED!</span></b>";
+		//times. The verdicts are classes, not inline colours: .fc-ok / .fc-bad /
+		//.fc-warn in gameLobby.css, where the report window styles them (Stage 5).
+		var R_OK = " <span class='fc-ok'>OK</span>";
+		var R_TOOMANY = " <span class='fc-bad'>TOO MANY!</span>";
+		var R_FAILURE = " <span class='fc-bad'>FAILURE!</span>";
+		var R_FAILED = " <span class='fc-bad'>FAILED!</span>";
 
 		var warningText = ""
 		var checkResult = "";
@@ -1597,9 +1595,9 @@ window.gamedata = {
 		//check: overall fleet traits
 		checkResult += "Jump engine: "; //Jump Engine present?
 		if (jumpDrivePresent) {
-			checkResult += " present";
+			checkResult += " <span class='fc-ok'>present</span>";
 		} else {
-			checkResult += " NOT present! (at least one is required)";
+			checkResult += " <span class='fc-bad'>NOT present!</span> (at least one is required)";
 			problemFound = true;
 		}
 		checkResult += "<br>";
@@ -1656,13 +1654,13 @@ window.gamedata = {
 
 		//Static structures present?
 		if (staticPresent) {
-			checkResult += "Static structures present! They're not allowed in pickup battle.<br>";
+			checkResult += "<span class='fc-bad'>Static structures present!</span> They're not allowed in pickup battle.<br>";
 			problemFound = true;
 		}
 
 		//non-combat units present?
 		if (nonCombatPresent) {
-			checkResult += "Non-Combat units present! They're not allowed in pickup battle.<br>";
+			checkResult += "<span class='fc-bad'>Non-Combat units present!</span> They're not allowed in pickup battle.<br>";
 			problemFound = true;
 		}
 
@@ -1673,7 +1671,7 @@ window.gamedata = {
 
 			var potProblemEntry = outOfTierList[problemName];
 			if (potProblemEntry && (potProblemEntry.count > potProblemEntry.limit)) {
-				checkResult += potProblemEntry.text + " <b><span style='color: red;'>NOT OK!</span></b>" + "<br>";
+				checkResult += potProblemEntry.text + " <span class='fc-bad'>NOT OK!</span>" + "<br>";
 				problemFound = true;
 			}
 		}
@@ -1701,9 +1699,9 @@ window.gamedata = {
 			checkResult += R_OK;
 		} else {
 			if (units10 == 1) { //only 1 unit - allowed to break limit
-				checkResult += "<span style='color: #33cc33;'>OK</span> (one single ship is allowed to break limit)";
+				checkResult += "<span class='fc-ok'>OK</span> (one single ship is allowed to break limit)";
 			} else {
-				checkResult += "<b><span style='color: red;'>FAILED!</span></b> (too many points in this deployment bracket)";
+				checkResult += "<span class='fc-bad'>FAILED!</span> (too many points in this deployment bracket)";
 				problemFound = true;
 			}
 		}
@@ -1713,9 +1711,9 @@ window.gamedata = {
 			checkResult += R_OK;
 		} else {
 			if (units33 == 1) { //only 1 unit - allowed to break limit
-				checkResult += "<span style='color: #33cc33;'>OK</span> (one single ship is allowed to break limit)";
+				checkResult += "<span class='fc-ok'>OK</span> (one single ship is allowed to break limit)";
 			} else {
-				checkResult += "<b><span style='color: red;'>FAILED!</span></b> (too many points in this deployment bracket)";
+				checkResult += "<span class='fc-bad'>FAILED!</span> (too many points in this deployment bracket)";
 				problemFound = true;
 			}
 		}
@@ -1725,16 +1723,16 @@ window.gamedata = {
 			checkResult += R_OK;
 		} else {
 			if (units50 == 1) { //only 1 unit - allowed to break limit
-				checkResult += "<span style='color: #33cc33;'>OK</span> (one single ship is allowed to break limit)";
+				checkResult += "<span class='fc-ok'>OK</span> (one single ship is allowed to break limit)";
 			} else {
-				checkResult += "<b><span style='color: red;'>FAILED!</span></b> (too many points in this deployment bracket)";
+				checkResult += "<span class='fc-bad'>FAILED!</span> (too many points in this deployment bracket)";
 				problemFound = true;
 			}
 		}
 		//The escort rule is a rule about RESTRICTED (10%) units only - it must not
 		//learn about the 33% or 50% brackets.
 		if (points10 > 0 && totalShips < 2) {
-			checkResult += "<br>Restricted (10%) ship present without escort! Such a rare ship needs to be accompanied by at least one other unit, unless it's Dargan or a Minbari ship.";
+			checkResult += "<br><span class='fc-bad'>Restricted (10%) ship present without escort!</span> Such a rare ship needs to be accompanied by at least one other unit, unless it's Dargan or a Minbari ship.";
 			problemFound = true;
 		}
 		checkResult += "<br><br>";
@@ -1791,7 +1789,7 @@ window.gamedata = {
 			sumVar = currHull.X;
 			if (sumVar > 0) {
 				checkResult += " - Special: " + sumVar;
-				checkResult += " CORRECTNESS NOT CHECKED!";
+				checkResult += " <span class='fc-warn'>CORRECTNESS NOT CHECKED!</span>";
 				warningFound = true;
 				checkResult += "<br>";
 			}
@@ -1811,8 +1809,8 @@ window.gamedata = {
 
 		limitUTotal = Math.max(limitUTotal, 2); //always allow at least 2!
 		limitRTotal = Math.floor(limitUTotal / 2); //limit Rare units per fleet; turnament rules: 1, but it's for 3500 points
-		var limitUTotalResult = "<span style='color: #33cc33;'>OK</span>";
-		var limitRTotalResult = "<span style='color: #33cc33;'>OK</span>";
+		var limitUTotalResult = "<span class='fc-ok'>OK</span>";
+		var limitRTotalResult = "<span class='fc-ok'>OK</span>";
 		if (totalU > limitUTotal) {
 			limitUTotalResult = R_TOOMANY;
 			//checkResult += "FAILED: You have " + totalU + " Uncommon units, out of " + limitUTotal + " allowed for fleet.<br><br>" ;
@@ -1950,7 +1948,7 @@ window.gamedata = {
 		if (noSmallFlights > 0) {
 			checkResult += " - Small Flights (< 6 craft): " + noSmallFlights;
 			if (noSmallFlights > 1) { //fighter total is not within limits
-				checkResult += " <b><span style='color: red;'>TOO MANY!</span></b> (up to 1 allowed)";
+				checkResult += " <span class='fc-bad'>TOO MANY!</span> (up to 1 allowed)";
 				problemFound = true;
 			} else {
 				checkResult += R_OK;
@@ -2004,7 +2002,7 @@ window.gamedata = {
 					}
 					if (match == false) {
 						checkResult += " - " + totalSpecialFighters[i][0] + ": " + totalSpecialFighters[i][1];
-						checkResult += " (allowed up to 0) <b><span style='color: red;'>FAILURE!</span></b><br>";
+						checkResult += " (allowed up to 0) <span class='fc-bad'>FAILURE!</span><br>";
 						problemFound = true;
 					}
 				}
@@ -2211,26 +2209,49 @@ window.gamedata = {
 		}
 		checkResult += "<br>";
 
+		//The report opens in its own window (#fleetcheck, gamelobby.php), whose head carries the
+		//"Fleet Correctness Report" title and the tournament-rules line this used to start with:
+		//the verdict, then any caution, then the checks, laid out by fleetCheckRowsHtml.
+		var report = problemFound
+			? '<div class="fc-overall fc-overall--bad"><span class="fc-overall-label">Overall</span><span class="fc-overall-value">Failed</span></div>'
+			: '<div class="fc-overall fc-overall--ok"><span class="fc-overall-label">Overall</span><span class="fc-overall-value">OK</span></div>';
+
 		if (warningFound) {
-			checkResult = "<u>CAUTION: Unchecked or non-canon elements found - check text below details.</u>" + warningText + "<br><br>" + checkResult;
+			report += '<div class="fc-caution"><div class="fc-caution-head">Caution: unchecked or non-canon elements found - check the details below</div>'
+				+ gamedata.fleetCheckRowsHtml(warningText) + '</div>';
 		}
-
-		if (problemFound) {
-			checkResult = "Overall: <b><span style='color: red; font-weight: 850;'>FAILED!</span></b><br><br>" + checkResult;
-		} else {
-			checkResult = "Overall: <b><span style='color: #33cc33;'>OK!</span></b><br><br>" + checkResult;
-		}
-
-		checkResult = "<span style='font-size:14px; font-weight:bold; text-decoration: underline;'>FLEET CORRECTNESS REPORT</span><br><i>(Based on tournament rules, modified for scalability)</i><br><br>" + checkResult;
 
 		//alert(checkResult); //alert will be truncated by browser
-		var targetDiv = document.getElementById("fleetcheck");
-		targetDiv.style.display = "block";
-		var targetSpan = document.getElementById("fleetchecktxt");
-		targetSpan.innerHTML = checkResult;
-
-		//alert("Fleet check updated!");
+		document.getElementById("fleetchecktxt").innerHTML = report + gamedata.fleetCheckRowsHtml(checkResult);
+		gamedata.openLobbyModal("fleetcheck");
 	}, //endof function checkChoices
+
+	/* The Fleet Correctness Report's lines as rows. checkChoices writes them as it always has,
+	   with <br> between them; this only lays them out: a <u>/<b> heading becomes a section title,
+	   an <i> hull name a sub-title, a " - " line an indented item, a line carrying a verdict takes
+	   that verdict's rail, and the blank lines that used to space the report are dropped (the CSS
+	   spaces it now). */
+	fleetCheckRowsHtml: function fleetCheckRowsHtml(text) {
+		return String(text).split(/<br\s*\/?>/i).map(function (line) {
+			line = line.trim();
+			if (line === "") return "";
+			if (/^<(u|b)>\s*<(u|b)>/i.test(line)) {
+				return '<h3 class="fc-section">' + line.replace(/<\/?(u|b)>/gi, "").replace(/:\s*$/, "") + '</h3>';
+			}
+
+			var cls = "fc-line";
+			if (/^-\s/.test(line)) {
+				cls += " fc-line--item";
+				line = line.replace(/^-\s*/, "");
+			} else if (/^<i>[^<]*<\/i>$/i.test(line)) {
+				cls += " fc-line--hull";
+			}
+			if (line.indexOf("fc-bad") !== -1) cls += " fc-line--bad";
+			else if (line.indexOf("fc-warn") !== -1) cls += " fc-line--warn";
+			else if (line.indexOf("fc-ok") !== -1) cls += " fc-line--ok";
+			return '<div class="' + cls + '">' + line + '</div>';
+		}).join("");
+	},
 
 
 
@@ -2445,8 +2466,36 @@ window.gamedata = {
 	},
 
 
+	/* ── The Faction Picker and the Store (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §4.3, Stage 5) ──
+	   Picking a faction and browsing its ships are two steps. The picker (#lbFactionPicker, a window
+	   on a desktop and a full-screen sheet on a phone) holds the six groups and stops at FACTION
+	   level; choosing a row closes it and scopes the Store column to that one faction
+	   (selectStoreFaction). The tier / Show Custom boxes live in the picker because they decide which
+	   factions can be picked, and filterFactionList applies them together with its search box. */
+
+	//Custom Factions only: the sub-group a custom faction's name puts it in (plan §4.3); the picker
+	//lists them alphabetically. Babylon 5 Wars has no test - it takes every custom faction the others do not
+	//(user, Stage 5: What If, Great Crusade Orieni, House Valheru, Custom Ships, Drakh, Thirdspace,
+	//Barada Imperium, Ch'Lonas Cooperative).
+	customSubgroups: [
+		{ name: "Babylon 5 Wars", test: null },
+		{ name: "Nexus", test: /^Nexus\b/ },
+		{ name: "Escalation Wars", test: /^Escalation Wars\b/ },
+		{ name: "Other Universe", test: /^(BSG|12 Colonies of Kobol|Star Trek|Star Wars|ZStarTrek|ZStarWars|ZTrek)\b|^The System$/ }
+	],
+
+	//The short tier tag on a picker row.
+	factionTierTag: function factionTierTag(tier) {
+		var match = /^Tier ([123])$/.exec(tier);
+		if (match) return "T" + match[1];
+		if (tier === "Tier Ancients") return "Ancient";
+		if (tier === "Tier Other") return "Other";
+		return "";
+	},
+
 	parseFactions: function parseFactions(jsonFactions) {
-		$("#store").empty();
+		var list = $("#factionList");
+		list.empty();
 		let factionList = [];
 
 		const groups = {
@@ -2458,26 +2507,22 @@ window.gamedata = {
 			"Custom Factions": []
 		};
 
-		// Custom factions whose power rating also names a tier keyword (e.g. "Tier Ancients")
-		// would be grouped by that keyword instead of as customs. List them here to force
-		// them into Custom Factions while keeping their tier for the tier filter. Factions
-		// NOT listed here keep the keyword grouping (Thirdspace stays under Ancients).
-		const forceCustomGroup = ["The System"];
-
 		for (let faction of jsonFactions) {
 			const powerRating = gamedata.getPowerRating(faction);
 			const lowerPower = powerRating.toLowerCase();
 			const isCustom = lowerPower.includes("custom");
 
-			// ✅ Grouping prioritizes Minor > Major > Ancients > Other > Custom
+			// Every CUSTOM faction is a Custom Faction (user, Stage 5) - Drakh, Thirdspace, Barada,
+			// Ch'Lonas and Custom Ships too, whatever group their power rating also names. Their
+			// tier still comes from the rating, for the tier filter. The rest: Minor > Major >
+			// League > Ancients > Other.
 			let groupName = "Other Factions";
-			if (isCustom && forceCustomGroup.includes(faction)) groupName = "Custom Factions";
+			if (isCustom) groupName = "Custom Factions";
 			else if (lowerPower.includes("minor")) groupName = "Minor Factions";
 			else if (lowerPower.includes("major")) groupName = "Major Factions";
 			else if (lowerPower.includes("league")) groupName = "League of Non-Aligned Worlds";
 			else if (lowerPower.includes("ancients")) groupName = "Ancients";
 			else if (lowerPower.includes("other")) groupName = "Other Factions";
-			else if (isCustom) groupName = "Custom Factions";
 
 			const tierMatch = powerRating.match(/Tier\s*([123]|Ancients|Other)/i);
 			const tier = tierMatch ? "Tier " + tierMatch[1] : "Unknown";
@@ -2485,181 +2530,507 @@ window.gamedata = {
 			groups[groupName].push({ faction, powerRating, isCustom, tier });
 		}
 
+		//A faction row: a button, so it is reachable and pickable from the keyboard.
+		const factionRow = function (entry) {
+			factionList.push(entry.faction);
+			const row = $('<button type="button" class="lb-faction"></button>').attr({
+				"data-faction": entry.faction,
+				"data-custom": entry.isCustom ? "true" : "false",
+				"data-tier": entry.tier,
+				"title": entry.powerRating
+			}).toggleClass("lb-faction--custom", entry.isCustom);
+			$('<span class="lb-faction-name"></span>').text(entry.faction).appendTo(row);
+			$('<span class="lb-faction-tag"></span>').text(gamedata.factionTierTag(entry.tier)).appendTo(row);
+			return row;
+		};
+
+		//A group: a disclosure header (its count is filterFactionList's) over a body of rows. Every
+		//group starts open, as the old list's did; a Custom sub-group starts closed.
+		const factionGroup = function (name, isSub) {
+			const group = $('<div class="lb-fgroup"></div>').toggleClass("lb-fgroup--sub", !!isSub)
+				.toggleClass("is-collapsed", !!isSub);
+			const head = $('<button type="button" class="lb-fgroup-head"><span class="lb-disclosure" aria-hidden="true"></span>'
+				+ '<span class="lb-fgroup-name"></span><span class="lb-fgroup-count"></span></button>')
+				.attr("aria-expanded", isSub ? "false" : "true");
+			head.find(".lb-fgroup-name").text(name);
+			group.append(head, '<div class="lb-fgroup-body"></div>');
+			return group;
+		};
+
 		// ✅ Fixed order of groups
 		const groupOrder = ["Major Factions", "League of Non-Aligned Worlds", "Minor Factions", "Ancients", "Other Factions", "Custom Factions"];
 
 		for (let groupName of groupOrder) {
 			const entries = groups[groupName];
 			if (entries.length === 0) continue;
-
-			const startClosed = false; // Factions start open as requested
-			const iconText = startClosed ? '[+]' : '[-]';
-			const groupHeader = $('<div class="factiongroup-header clickable" data-tier="' + groupName + '"><span class="faction-toggle-icon">' + iconText + '</span>' + groupName + '</div>').appendTo("#store");
-
-			const displayStyle = startClosed ? 'display:none;' : 'display:block;';
-			const groupContainer = $('<div class="faction-group-container" style="' + displayStyle + '"></div>').appendTo("#store");
-
-			groupHeader.on("click", function (container) {
-				return function () {
-					container.slideToggle(150);
-					var icon = $(this).find('.faction-toggle-icon');
-					if (icon.text() === '[+]') {
-						icon.text('[-]');
-					} else {
-						icon.text('[+]');
-					}
-				};
-			}(groupContainer));
-
 			entries.sort((a, b) => a.faction.localeCompare(b.faction));
 
-			entries.forEach(({ faction, powerRating, isCustom, tier }) => {
-				factionList.push(faction);
+			const group = factionGroup(groupName, false).toggleClass("lb-fgroup--custom", groupName === "Custom Factions");
+			const body = group.children(".lb-fgroup-body");
 
-				const group = $('<div id="' + faction +
-					'" class="' + faction +
-					' faction shipshidden listempty" data-faction="' + faction +
-					'" data-custom="' + (isCustom ? "true" : "false") +
-					'" data-tier="' + tier +
-					'"><div class="factionname name"><span class="faction-toggle-icon">[+]</span><span class="faction-display-name' +
-					(isCustom ? ' custom-faction' : '') + '">' + faction +
-					'</span><span class="tooltip">' + powerRating +
-					'</span></div></div>');
+			if (groupName !== "Custom Factions") {
+				entries.forEach(entry => body.append(factionRow(entry)));
+			} else {
+				const subBodies = gamedata.customSubgroups.map(function (sub) {
+					return factionGroup(sub.name, true);
+				});
+				const catchAll = gamedata.customSubgroups.findIndex(sub => !sub.test);
+				entries.forEach(function (entry) {
+					let index = gamedata.customSubgroups.findIndex(sub => sub.test && sub.test.test(entry.faction));
+					if (index === -1) index = catchAll;
+					subBodies[index].children(".lb-fgroup-body").append(factionRow(entry));
+				});
+				//Listed alphabetically (user, Stage 5), whatever order the table above is in.
+				subBodies.slice().sort(function (a, b) {
+					return a.find(".lb-fgroup-name").text().localeCompare(b.find(".lb-fgroup-name").text());
+				}).forEach(function (sub) {
+					if (sub.find(".lb-faction").length) body.append(sub);
+				});
+			}
 
-				group.find('.factionname').on("click", this.expandFaction);
-
-				groupContainer.append(group);
-			});
+			list.append(group);
 		}
 
 		gamedata.allShips = factionList;
 
-		if (typeof window.updateTierFilter === "function") {
-			window.updateTierFilter();  // ✅ Auto-filter after parsing
-		}
-
+		gamedata.filterFactionList();
+		gamedata.markStoreFaction();
 	},
 
-	drawMapPreview: function drawMapPreview() {
-		const canvas = document.getElementById("mapPreview");
-		const ctx = canvas.getContext("2d");
-		if (!ctx) return;
+	/* The picker's filters: a row shows when its tier is ticked, it passes Show Custom (and its
+	   Show Only Customs mode), and its name contains the search text. A group shows while any row in
+	   it does, and its count is how many. While a search is typed every group is shown open
+	   (.is-searching), so a match is never hidden inside a closed one. */
+	filterFactionList: function filterFactionList() {
+		var list = $("#factionList");
+		if (!list.length) return;
 
-		//const isLimited = $("#gamespacecheck").is(":checked");
+		var tiers = $(".tier-filter:checked").map(function () { return $(this).attr("data-tier"); }).get();
+		var showCustom = $("#toggleCustom").is(":checked");
+		var onlyCustom = showCustom && $("#customSelect").val() === "showOnlyCustom";
+		var search = String($("#factionSearch").val() || "").trim().toLowerCase();
 
-		// Use fixed width/height if unlimited is selected
-		var mapWidth = 0;
-		var mapHeight = 0;
-
-		const match = gamedata.gamespace?.match(/^(-?\d+)x(-?\d+)$/);
-		if (match) {
-			mapWidth = parseInt(match[1]);
-			mapHeight = parseInt(match[2]);
-		}
-
-		if (mapWidth == -1) mapWidth = 84;
-		if (mapHeight == -1) mapHeight = 60;
-
-		// Clear canvas
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		// Margins and scale
-		const margin = 10;
-		const scaleX = (canvas.width - margin * 2) / mapWidth;
-		const scaleY = (canvas.height - margin * 2) / mapHeight;
-		const scale = Math.min(scaleX, scaleY); // Uniform scale
-
-		// Calculate offset to center the map in the canvas
-		const offsetX = (canvas.width - mapWidth * scale) / 2;
-		const offsetY = (canvas.height - mapHeight * scale) / 2;
-
-		// Draw black background inside the blue outline
-		ctx.fillStyle = "#000000";
-		ctx.fillRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
-
-		// Draw dotted white center lines, avoiding cross-over at center
-		ctx.save();
-		ctx.globalAlpha = 0.4; // Semi-transparent
-		ctx.strokeStyle = "#496791";
-		ctx.lineWidth = 1;
-		ctx.setLineDash([4, 4]); // Dotted pattern: 6px line, 6px gap
-
-		const centerX = offsetX + (mapWidth / 2) * scale;
-		const centerY = offsetY + (mapHeight / 2) * scale;
-
-		// Vertical line: from center up
-		ctx.beginPath();
-		ctx.moveTo(centerX + 6, centerY);
-		ctx.lineTo(centerX + 6, offsetY);
-		ctx.stroke();
-
-		// Vertical line: from center down
-		ctx.beginPath();
-		ctx.moveTo(centerX + 6, centerY);
-		ctx.lineTo(centerX + 6, offsetY + mapHeight * scale);
-		ctx.stroke();
-
-		// Horizontal line: from center left
-		ctx.beginPath();
-		ctx.moveTo(centerX + 6, centerY);
-		ctx.lineTo(offsetX, centerY);
-		ctx.stroke();
-
-		// Horizontal line: from center right
-		ctx.beginPath();
-		ctx.moveTo(centerX + 6, centerY);
-		ctx.lineTo(offsetX + mapWidth * scale, centerY);
-		ctx.stroke();
-
-		ctx.restore(); // Restore default dash       
-
-		// Draw deployment zones
-		$(".slot").each(function () {
-			const slot = $(this);
-			const slotId = slot.data("slotid");
-			const data = gamedata.getSlotData(slotId);
-			if (!data) return;
-			const team = data.team;
-			const player = gamedata.thisplayer;
-			var playerTeam = gamedata.getPlayerTeam(slotId);
-
-			const x = parseInt(data.depx) || 0;
-			const y = parseInt(data.depy) || 0;
-			const w = parseInt(data.depwidth) || 0;
-			const h = parseInt(data.depheight) || 0;
-
-			if (data.playerid == player) {
-				ctx.fillStyle = "rgba(50, 200, 50, 0.4)"
-				ctx.strokeStyle = "#66ff66";
-			} else if (data.team == playerTeam) {
-				ctx.fillStyle = "rgba(50, 50, 200, 0.4)";
-				ctx.strokeStyle = "#6666ff";
-			} else {
-				ctx.fillStyle = "rgba(200, 50, 50, 0.4)";
-				ctx.strokeStyle = "#ff6666";
-			}
-			// Adjust position to treat (x, y) as center
-			const drawX = offsetX + (x - w / 2 + mapWidth / 2) * scale;
-			const drawY = offsetY + (mapHeight / 2 - y - h / 2) * scale;
-
-			ctx.fillRect(drawX + 6, drawY, w * scale, h * scale);
-
-			ctx.strokeRect(drawX + 6, drawY, w * scale, h * scale);
-
-			// Draw slot number in the center
-			ctx.save(); // Save context state
-			ctx.fillStyle = "white";
-			ctx.font = "bold 14px Arial";
-			ctx.textAlign = "center";
-			ctx.textBaseline = "middle";
-			ctx.fillText(team, (drawX + 6) + (w * scale) / 2, (drawY + 3) + (h * scale) / 2);
-			ctx.restore(); // Restore to default state
+		list.find(".lb-faction").each(function () {
+			var isCustom = this.getAttribute("data-custom") === "true";
+			var visible = tiers.indexOf(this.getAttribute("data-tier")) !== -1
+				&& (showCustom ? (!onlyCustom || isCustom) : !isCustom)
+				&& (search === "" || this.getAttribute("data-faction").toLowerCase().indexOf(search) !== -1);
+			this.hidden = !visible;
 		});
 
-		// Draw map border (blue rectangle)
-		ctx.strokeStyle = "#deebffaf";
-		ctx.lineWidth = 2;
-		ctx.strokeRect(offsetX, offsetY, mapWidth * scale, mapHeight * scale);
+		list.find(".lb-fgroup").each(function () {
+			var shown = $(this).find(".lb-faction").filter(function () { return !this.hidden; }).length;
+			this.hidden = shown === 0;
+			$(this).children(".lb-fgroup-head").find(".lb-fgroup-count").text(shown);
+		});
+
+		list.toggleClass("is-searching", search !== "");
+		$("#factionListEmpty").prop("hidden", list.find(".lb-faction").filter(function () { return !this.hidden; }).length > 0);
+	},
+
+	//The picker row of the Store's faction reads "current".
+	markStoreFaction: function markStoreFaction() {
+		$("#factionList .lb-faction").each(function () {
+			var current = this.getAttribute("data-faction") === gamedata.storeFaction;
+			$(this).toggleClass("is-current", current).attr("aria-current", current ? "true" : null);
+			var tag = gamedata.factionTierTag(this.getAttribute("data-tier"));
+			$(this).find(".lb-faction-tag").text(current ? (tag ? tag + " · current" : "current") : tag);
+		});
+	},
+
+	openFactionPicker: function openFactionPicker() {
+		//The search box takes focus where a keyboard is at hand; on a touch screen that would throw
+		//the on-screen keyboard over the list, so the window itself takes it instead.
+		var fine = window.matchMedia && window.matchMedia("(pointer: fine)").matches;
+		gamedata.openLobbyModal("lbFactionPicker", fine ? "#factionSearch" : null);
+
+		//The Store's faction in view - its closed Custom sub-group opened if need be.
+		var current = $("#factionList .lb-faction.is-current");
+		if (!current.length || current[0].hidden) return;
+		current.parents(".lb-fgroup.is-collapsed").removeClass("is-collapsed")
+			.children(".lb-fgroup-head").attr("aria-expanded", "true");
+		current[0].scrollIntoView({ block: "nearest" });
+	},
+
+	//The Store's faction: null until one is picked.
+	storeFaction: null,
+
+	//The Store's container for one faction's ships, made on first use unless noCreate.
+	storeFactionNode: function storeFactionNode(faction, noCreate) {
+		var store = document.getElementById("store");
+		if (!store) return null;
+		for (var i = 0; i < store.children.length; i++) {
+			if (store.children[i].getAttribute("data-faction") === faction) return store.children[i];
+		}
+		if (noCreate) return null;
+
+		var node = document.createElement("div");
+		node.className = "lb-store-faction";
+		node.setAttribute("data-faction", faction);
+		store.appendChild(node);
+		return node;
+	},
+
+	/* Scope the Store to one faction. Its ships are fetched the first time it is picked
+	   (ajaxInterface.getShipsForFaction, one faction at a time as before) and kept, so switching
+	   back to it is instant. A failed or unanswered fetch is retried by picking the faction again. */
+	selectStoreFaction: function selectStoreFaction(faction) {
+		if (!faction) return;
+		gamedata.storeFaction = faction;
+
+		var node = gamedata.storeFactionNode(faction);
+		$("#store").children(".lb-store-faction").each(function () {
+			this.hidden = this !== node;
+		});
+
+		if (node.getAttribute("data-state") !== "loaded") {
+			node.setAttribute("data-state", "loading");
+			$(node).html('<p class="lb-store-note">Loading ships…</p>');
+
+			window.ajaxInterface.getShipsForFaction(faction, function (factionShips) {
+				$(node).empty();
+				gamedata.parseShips(factionShips);
+				node.setAttribute("data-state", "loaded");
+				gamedata.applyCustomShipFilter();
+				gamedata.applyStoreCategory();
+				gamedata.updateStoreBar();
+			}, function () {
+				node.setAttribute("data-state", "failed");
+				$(node).html('<p class="lb-store-note">Could not load this faction\'s ships. Choose it again to retry.</p>');
+				gamedata.applyStoreCategory();
+			});
+		}
+
+		gamedata.markStoreFaction();
+		gamedata.applyStoreCategory();
+		gamedata.updateStoreBar();
+	},
+
+	//The bar over the Store: the faction's name, its power rating and, once loaded, its ship count.
+	updateStoreBar: function updateStoreBar() {
+		var bar = $("#lbStoreBar");
+		if (!bar.length) return;
+
+		var faction = gamedata.storeFaction;
+		if (!faction) {
+			$("#lbStoreFaction").text("No faction chosen");
+			$("#lbStoreMeta").text("Choose a faction to see its ships.");
+			$("#lbSwitchFaction").text("Choose Faction");
+			bar.removeClass("lb-store-bar--custom lb-store-bar--set");
+			return;
+		}
+
+		var rating = gamedata.getPowerRating(faction);
+		var meta = rating ? rating.split(/\s*[;,]\s*/).filter(Boolean) : [];
+		var node = gamedata.storeFactionNode(faction, true);
+		if (node && node.getAttribute("data-state") === "loaded") {
+			var count = $(node).find(".ship").length;
+			meta.push(count + (count === 1 ? " ship" : " ships"));
+		}
+
+		$("#lbStoreFaction").text(faction);
+		$("#lbStoreMeta").text(meta.join(" · "));
+		$("#lbSwitchFaction").text("Switch Faction");
+		bar.addClass("lb-store-bar--set").toggleClass("lb-store-bar--custom", rating.toLowerCase().indexOf("custom") !== -1);
+	},
+
+	//The Purchase bar's pressed category chip: a parseShips category index as a string, or null
+	//for All.
+	storeCategory: null,
+
+	showStoreCategory: function showStoreCategory(cat) {
+		gamedata.storeCategory = (cat === null || cat === undefined || cat === "") ? null : String(cat);
+		gamedata.applyStoreCategory();
+	},
+
+	/* The category chips (user, Stage 5; the mockup's): one pressed shows only that size category
+	   of the Store's faction, opened; All shows every category as it was. A chip whose category the
+	   faction has none of is disabled, and if the pressed one is among them - after a switch of
+	   faction - All takes over. Called on a chip, on a switch of faction and once its ships load. */
+	applyStoreCategory: function applyStoreCategory() {
+		var node = gamedata.storeFaction ? gamedata.storeFactionNode(gamedata.storeFaction, true) : null;
+		var loaded = !!node && node.getAttribute("data-state") === "loaded";
+		var present = {};
+		$(node).find(".lb-cat").each(function () {
+			present[this.getAttribute("data-cat")] = true;
+		});
+		if (loaded && gamedata.storeCategory !== null && !present[gamedata.storeCategory]) gamedata.storeCategory = null;
+
+		$(".lb-cat-chip").each(function () {
+			var cat = this.getAttribute("data-cat");
+			var pressed = cat === "" ? gamedata.storeCategory === null : cat === gamedata.storeCategory;
+			this.setAttribute("aria-pressed", pressed ? "true" : "false");
+			this.disabled = cat !== "" && !present[cat];
+		});
+
+		$("#store .lb-cat").each(function () {
+			var match = gamedata.storeCategory === null || this.getAttribute("data-cat") === gamedata.storeCategory;
+			this.hidden = !match;
+			if (match && gamedata.storeCategory !== null) {
+				$(this).children(".lb-cat-body").show();
+				$(this).children(".lb-cat-head").attr("aria-expanded", "true");
+			}
+		});
+	},
+
+	/* ── Lobby windows: the Faction Picker and the Fleet Correctness Report ──────────────────
+	   One shell (.lb-modal in gameLobby.css). Closed by ×, a click on the overlay or Escape, and
+	   focus goes back to whatever opened it. */
+	lobbyModalOpener: {},
+
+	openLobbyModal: function openLobbyModal(id, focusSelector) {
+		var modal = document.getElementById(id);
+		if (!modal) return;
+		if (modal.hidden) gamedata.lobbyModalOpener[id] = document.activeElement;
+		modal.hidden = false;
+		document.body.classList.add("lb-modal-open");
+
+		var target = (focusSelector && modal.querySelector(focusSelector)) || modal.querySelector(".lb-modal-panel");
+		if (target) target.focus();
+	},
+
+	closeLobbyModal: function closeLobbyModal(id) {
+		var modal = document.getElementById(id);
+		if (!modal || modal.hidden) return;
+		modal.hidden = true;
+		if (!document.querySelector(".lb-modal:not([hidden])")) document.body.classList.remove("lb-modal-open");
+
+		var opener = gamedata.lobbyModalOpener[id];
+		if (opener && document.contains(opener) && opener.focus) opener.focus();
+	},
+
+	//Called once from gamelobby.php's ready handler.
+	initPurchasePanel: function initPurchasePanel() {
+		$("#lbSwitchFaction").on("click", gamedata.openFactionPicker);
+
+		$(".lb-modal").on("click", function (e) {
+			if (e.target === this) gamedata.closeLobbyModal(this.id);
+		}).on("click", "[data-close]", function () {
+			gamedata.closeLobbyModal($(this).closest(".lb-modal").attr("id"));
+		});
+
+		//Escape closes the top window - unless a confirm dialog sits over it, which it would
+		//otherwise close behind, or a <select>'s list is open (the picker's Show Customs), whose own
+		//Escape closes just the list. :open is not supported everywhere; where it is not, the
+		//browser's native list keeps its keys to itself anyway.
+		$(document).on("keydown.lbmodal", function (e) {
+			if (e.key !== "Escape" || $(".confirm:visible").length) return;
+			try {
+				if (document.querySelector("select:open")) return;
+			} catch (err) { /* no :open */ }
+			var open = $(".lb-modal").filter(function () { return !this.hidden; }).last();
+			if (!open.length) return;
+			e.preventDefault();
+			gamedata.closeLobbyModal(open.attr("id"));
+		});
+
+		$("#factionList").on("click", ".lb-fgroup-head", function () {
+			var group = $(this).parent().toggleClass("is-collapsed");
+			$(this).attr("aria-expanded", group.hasClass("is-collapsed") ? "false" : "true");
+		}).on("click", ".lb-faction", function () {
+			gamedata.selectStoreFaction(this.getAttribute("data-faction"));
+			gamedata.closeLobbyModal("lbFactionPicker");
+		});
+
+		//Enter in the search box picks the first faction it leaves.
+		$("#factionSearch").on("input", gamedata.filterFactionList).on("keydown", function (e) {
+			if (e.key !== "Enter") return;
+			e.preventDefault();
+			var first = $("#factionList .lb-faction").filter(function () { return !this.hidden; }).first();
+			if (this.value.trim() !== "" && first.length) first.trigger("click");
+		});
+
+		//A size category's header opens and closes it.
+		$("#store").on("click", ".lb-cat-head", function () {
+			var body = $(this).next(".lb-cat-body");
+			$(this).attr("aria-expanded", body.css("display") === "none" ? "true" : "false");
+			body.stop(true, true).slideToggle(150);
+		});
+
+		$(".lb-cat-chip").on("click", function () {
+			gamedata.showStoreCategory(this.getAttribute("data-cat"));
+		});
+
+		gamedata.applyStoreCategory();
+		gamedata.updateStoreBar();
+	},
+
+	/* ── Top of the page: Teams | Scenario Description | Map Preview ─────────────────────────
+	   CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §4.1 / §4.2 / §11.3 (Stage 4). A Fleet Builder lobby has
+	   none of the three - no teams, no map, no scenario - so each of these returns quietly when its
+	   element is not on the page. */
+
+	/* Team colours, by the game's own rule (the gate in gamedata.js, plan §11.4): a participant in a
+	   2-team game sees them RELATIVE - their own team green, the other team red, and on the map a
+	   team-mate's slot ally blue; an observer, or anyone in a 3+-team game, sees each team by its
+	   NUMBER (mapPreview.teamColor). The lobby's colours are therefore the VIEWER's, and change the
+	   moment they take a slot - which is why they are repainted on every poll. */
+	getLobbyTeams: function getLobbyTeams() {
+		var teams = [];
+		for (var i in gamedata.slots) {
+			var team = parseInt(gamedata.slots[i].team, 10);
+			if (teams.indexOf(team) === -1) teams.push(team);
+		}
+		return teams.sort(function (a, b) { return a - b; });
+	},
+
+	//The viewer's team, or null for an observer. Taking a slot on the other team moves a player out
+	//of their old one (DBManager::takeSlot), so a player only ever holds slots on one team.
+	getLobbyViewerTeam: function getLobbyViewerTeam() {
+		for (var i in gamedata.slots) {
+			if (gamedata.slots[i].playerid == gamedata.thisplayer) return parseInt(gamedata.slots[i].team, 10);
+		}
+		return null;
+	},
+
+	isLobbyColourRelative: function isLobbyColourRelative() {
+		return gamedata.getLobbyViewerTeam() !== null && gamedata.getLobbyTeams().length === 2;
+	},
+
+	getLobbyTeamColor: function getLobbyTeamColor(team) {
+		if (gamedata.isLobbyColourRelative()) {
+			return team == gamedata.getLobbyViewerTeam() ? mapPreview.RELATIVE.own : mapPreview.RELATIVE.enemy;
+		}
+		return mapPreview.teamColor(team, gamedata.getLobbyTeams().length);
+	},
+
+	getLobbySlotColor: function getLobbySlotColor(slot) {
+		if (gamedata.isLobbyColourRelative()) {
+			if (slot.playerid == gamedata.thisplayer) return mapPreview.RELATIVE.own;
+			return slot.team == gamedata.getLobbyViewerTeam() ? mapPreview.RELATIVE.ally : mapPreview.RELATIVE.enemy;
+		}
+		return mapPreview.teamColor(slot.team, gamedata.getLobbyTeams().length);
+	},
+
+	//The map's size in hexes; an open map (-1x-1) is drawn at 84 x 60, as it always was here.
+	getLobbyMapSize: function getLobbyMapSize() {
+		var match = String(gamedata.gamespace || "").match(/^(-?\d+)x(-?\d+)$/);
+		var width = match ? parseInt(match[1], 10) : -1;
+		var height = match ? parseInt(match[2], 10) : -1;
+		if (width > 0 && height > 0) return { width: width, height: height };
+		return { width: 84, height: 60 };
+	},
+
+	/* The Map Preview panel: every slot's deployment zone in its colour and the map template's
+	   pre-placed terrain (rules.terrainLayout), drawn by mapPreview.js - the same drawing as Create
+	   Game's Teams & Map step. Random terrain has no markers: it is not placed until the game starts. */
+	drawMapPreview: function drawMapPreview() {
+		var canvas = document.getElementById("mapPreview");
+		if (!canvas || !window.mapPreview) return;
+
+		var me = gamedata.thisplayer;
+		var slots = [];
+		for (var i in gamedata.slots) slots.push(gamedata.slots[i]);
+		//The viewer's own zones last, so they sit on top where zones overlap.
+		slots.sort(function (a, b) {
+			return ((a.playerid == me) - (b.playerid == me)) || (a.slot - b.slot);
+		});
+
+		//One label per team, on its first slot's zone - the viewer's own, on their team. Team-mates
+		//usually share a zone, and a label per slot would print them over each other.
+		var labelSlot = {};
+		slots.forEach(function (slot) {
+			var current = labelSlot[slot.team];
+			if (!current || (slot.playerid == me && current.playerid != me)) labelSlot[slot.team] = slot;
+		});
+
+		var size = gamedata.getLobbyMapSize();
+		mapPreview.paint(canvas, {
+			width: size.width,
+			height: size.height,
+			zones: slots.map(function (slot) {
+				return {
+					x: slot.depx, y: slot.depy, w: slot.depwidth, h: slot.depheight,
+					rgb: gamedata.getLobbySlotColor(slot),
+					label: labelSlot[slot.team] === slot ? "TEAM " + slot.team : null
+				};
+			}),
+			terrain: gamedata.rules ? gamedata.rules.terrainLayout : null
+		});
+
+		gamedata.renderMapLegend();
+	},
+
+	renderMapLegend: function renderMapLegend() {
+		var legend = $("#lbMapLegend");
+		if (!legend.length) return;
+
+		var item = function (swatchHtml, text) {
+			return '<span class="lb-legend-item">' + swatchHtml + text + "</span>";
+		};
+		var teamSwatch = function (rgb) {
+			return '<span class="lb-swatch" style="background:rgb(' + rgb.join(",") + ')"></span>';
+		};
+		var terrainSwatch = function (alpha) {
+			return '<span class="lb-swatch lb-swatch--terrain" style="opacity:' + alpha + '"></span>';
+		};
+
+		var relative = gamedata.isLobbyColourRelative();
+		var viewerTeam = gamedata.getLobbyViewerTeam();
+		var html = "";
+		gamedata.getLobbyTeams().forEach(function (team) {
+			html += item(teamSwatch(gamedata.getLobbyTeamColor(team)), "Team " + team + (relative && team === viewerTeam ? " (you)" : ""));
+		});
+
+		//A team-mate's slot is drawn ally blue - say so, when there is one.
+		if (relative) {
+			for (var i in gamedata.slots) {
+				var slot = gamedata.slots[i];
+				if (slot.team == viewerTeam && slot.playerid != gamedata.thisplayer) {
+					html += item(teamSwatch(mapPreview.RELATIVE.ally), "Ally");
+					break;
+				}
+			}
+		}
+
+		var kinds = mapPreview.terrainKinds(gamedata.rules ? gamedata.rules.terrainLayout : null);
+		if (kinds.solid) html += item(terrainSwatch(mapPreview.TERRAIN_ALPHA), "Asteroids &amp; Moons");
+		if (kinds.fields) html += item(terrainSwatch(mapPreview.FIELD_TERRAIN_ALPHA), "Dust &amp; Meteor Swarms");
+
+		legend.html(html);
+	},
+
+	/* After createSlots, on every poll: each team block in its colour, and the counts in the Teams
+	   panel's head. */
+	paintLobbyTeams: function paintLobbyTeams() {
+		var container = $("#lobbyTeamsContainer");
+		if (!container.length) return;
+
+		var teams = gamedata.getLobbyTeams();
+		container.toggleClass("lb-teams-grid--multi", teams.length > 2);
+		container.find(".team-section").each(function () {
+			var team = parseInt($(this).attr("data-team-id"), 10);
+			this.style.setProperty("--rail", "rgb(" + gamedata.getLobbyTeamColor(team).join(",") + ")");
+		});
+
+		var total = 0, filled = 0, ready = 0;
+		for (var i in gamedata.slots) {
+			var slot = gamedata.slots[i];
+			total++;
+			if (playerManager.isOccupiedSlot(slot)) {
+				filled++;
+				if (slot.lastphase >= "-2") ready++;
+			}
+		}
+		$("#lbTeamsMeta").text(filled + " / " + total + " filled" + (ready ? " · " + ready + " ready" : ""));
+	},
+
+	/* The Scenario Description panel: the Game Rules chips - scenarioCard.ruleChips, the very list
+	   Create Game's Summary step previewed - and, for a game created with the structured scenario
+	   (tac_game.scenario, the raw JSON text gamelobby.php hands over), its fact grid. A game created
+	   before that has none: gamelobby.php has already filled the grid from its free-text
+	   description, and it is left alone. Nothing here changes in a lobby, so this runs once. */
+	renderScenarioPanel: function renderScenarioPanel(scenarioRaw) {
+		var chips = $("#lbRuleChips");
+		if (!chips.length) return;
+
+		var slots = [];
+		for (var i in gamedata.slots) slots.push(gamedata.slots[i]);
+		var unlimited = slots.length > 0 && slots.every(function (slot) { return slot.points == -1; });
+		chips.html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(gamedata.rules, { unlimitedPoints: unlimited })));
+
+		var facts = scenarioCard.render(scenarioRaw);
+		if (facts) $("#lbScenarioFacts").html(facts);
 	},
 
 	getPlayerTeam: function getPlayerTeam(id) {
@@ -2730,8 +3101,9 @@ window.gamedata = {
 		}
 
 		displayName = displayName + ' (' + addOn + ')';
+		//A variant's row is indented by the Store's CSS (.lb-ship.variant); only its NAME is italic.
 		if (ship.variantOf != '') {
-			displayName = '&nbsp;&nbsp;&nbsp;<i>' + displayName + '</i>';
+			displayName = '<i>' + displayName + '</i>';
 		} else {
 			displayName = '<b>' + displayName + '</b>';
 		}
@@ -2755,25 +3127,52 @@ window.gamedata = {
 			case 'light': case 'light fighters': return '[L]';
 			case 'medium': case 'medium fighters': return '[M]';
 			case 'heavy': case 'heavy fighters': case 'normal': return '[H]';
-			case 'superheavy': case 'superheavy fighters': return '[SHF]';			
+			case 'superheavy': case 'superheavy fighters': return '[SHF]';
 			default: return '';
 		}
+	},
+
+	/* One Store row: name (+ fighter size), cost, then Add to fleet · Show details. A base design and
+	   its variant differ only in rowClass ('storeship' / 'variant' - the variant is indented and its
+	   NAME italic, prepareClassName) and in detailsId, the id "Show details" passes (a variant has
+	   always passed its base design's). The links are buttons, so they can be reached by keyboard. */
+	storeShipRow: function storeShipRow(ship, rowClass, isCustomFaction, faction, isFighter, detailsId) {
+		//"Custom" for the Store's Show Custom = a CUSTOM ship in an OFFICIAL faction (the ones it
+		//highlights). A custom faction's own ships always show: the Faction Picker's Show Custom,
+		//a separate setting, is what let it be picked (Stage 5).
+		var isCustomShip = !isCustomFaction && ship.unofficial === true;
+		var customShipHighlight = isCustomShip ? ' highlight-custom-ship' : '';
+		var pointCostFull = ship.pointCost;
+		if (ship.flight && (ship.maxFlightSize != 1)) pointCostFull = pointCostFull + ' (' + pointCostFull / 6 + ' ea.)';//for fighters: display price per craft, too!
+		var sizeTag = isFighter ? this.getFighterSizeTag(ship) : '';
+
+		//data-cost is the BASE point cost the Cost filter reads (for a flight,
+		//the full-flight price shown in the row, not the per-craft one).
+		var h = $('<div oncontextmenu="return false;" class="ship lb-ship ' + rowClass + '" data-custom="' + isCustomShip
+			+ '" data-isd="' + ship.isd + '" data-cost="' + ship.pointCost + '">'
+			+ '<span class="lb-ship-name"><span class="shiptype' + customShipHighlight + '">' + this.prepareClassName(ship) + '</span>'
+			+ (sizeTag ? ' <span class="fightersize">' + sizeTag + '</span>' : '') + '</span>'
+			+ '<span class="lb-ship-cost">' + pointCostFull + '</span>'
+			+ '<span class="lb-ship-links"><button type="button" class="lb-linkbtn addship">Add to fleet</button>'
+			+ '<span class="lb-ship-sep" aria-hidden="true">·</span>'
+			+ '<button type="button" class="lb-linkbtn showship">Show details</button></span></div>');
+
+		var buyHandler = gamedata.isBulkRow(ship) ? this.buyBulk.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
+		$(".addship", h).on("click", buyHandler);
+		$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, ship.phpclass, faction, detailsId, false));
+		return h;
 	},
 
 	/*prepares fleet list for purchases for display*/
 	parseShips: function (jsonShips) {
 		for (var faction in jsonShips) {
-			var targetNode = document.getElementById(faction);
-			var h;
+			//The Store's container for this faction (gamedata.selectStoreFaction).
+			var targetNode = gamedata.storeFactionNode(faction);
 			var ship;
 			var shipV;
-			var shipDisplayName;
 			var shipList = Object.values(jsonShips[faction]);
-			var pointCostFull = '';
 			var powerRating = gamedata.getPowerRating(faction);
 			var isCustomFaction = powerRating.toLowerCase().includes("custom");
-			var isCustomShip;
-			var isd;
 
 			this.orderShipListOnPV(shipList); //perhaps more appropriate here, as alphabetical order will be shot to hell anyway
 
@@ -2788,33 +3187,18 @@ window.gamedata = {
 				// Create a fragment for this size category
 				var fragment = document.createDocumentFragment();
 
-				//display header
-				var isCollapsible = true; // All categories are collapsible now
-				var startClosed = ((categoryIndex === 1 && ship.faction !== "Deneth Tribes" && ship.faction !== "Thirdspace" && ship.faction !== "Usuuth Coalition" && ship.faction !== "Civilians" && ship.faction !== "Barada Imperium" && ship.faction.indexOf("Nexus") === -1) || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
+				//display header - a disclosure button (gamedata.initPurchasePanel opens and closes it)
+				//with the category's count
+				var startClosed = ((categoryIndex === 1 && faction !== "Deneth Tribes" && faction !== "Thirdspace" && faction !== "Usuuth Coalition" && faction !== "Civilians" && faction !== "Barada Imperium" && faction.indexOf("Nexus") === -1) || categoryIndex === 5 || categoryIndex === 6); // 1 = LCVs, 5 = Immobile Structures, 6 = Mines
 				if (faction === "Terrain") {
 					startClosed = false;
 				}
 
-				var iconText = startClosed ? '[+]' : '[-]';
-				var headerElem = $('<div class="shipsizehdr clickable" data-faction="' + faction + '"><span class="toggleicon">' + iconText + '</span><span class="categoryType">' + sizeClassHeaders[categoryIndex] + ':</span></div>');
-
-				var displayStyle = startClosed ? 'display:none;' : 'display:block;';
-				var categoryContainer = $('<div class="category-container" style="' + displayStyle + '"></div>');
-				var hasShips = false; // Track if we actually add anything to this category
-
-				h = null; // We use headerElem for the header, and h for the ships later
-
-				headerElem.on("click", function (container) {
-					return function () {
-						container.slideToggle(150);
-						var icon = $(this).find('.toggleicon');
-						if (icon.text() === '[+]') {
-							icon.text('[-]');
-						} else {
-							icon.text('[+]');
-						}
-					};
-				}(categoryContainer));
+				var headerElem = $('<button type="button" class="lb-cat-head" aria-expanded="' + (startClosed ? 'false' : 'true') + '">'
+					+ '<span class="lb-disclosure" aria-hidden="true"></span><span class="lb-cat-name">' + sizeClassHeaders[categoryIndex] + '</span>'
+					+ '<span class="lb-cat-count"></span></button>');
+				var categoryContainer = $('<div class="lb-cat-body"' + (startClosed ? ' style="display:none"' : '') + '></div>');
+				var shipCount = 0; // Track if we actually add anything to this category
 
 				// Don't append to fragment yet, wait to see if it's empty
 
@@ -2828,9 +3212,6 @@ window.gamedata = {
 					ship = activeShipList[index];
 					if (gamedata.rules && !gamedata.rules.allowMines && ship.mine && !gamedata.rules.fleetTest) continue; //Skip mines if not allowed in scenario
 
-					isCustomShip = isCustomFaction || ship.unofficial === true;
-					let customShipHighlight = (!isCustomFaction && ship.unofficial === true) ? ' highlight-custom-ship' : '';
-					isd = ship.isd;
 					if (categoryIndex == 6) { //Mines
 						if (ship.mine != true) continue;
 					} else if (categoryIndex == 5) { //bases and OSATs, size does not matter
@@ -2857,67 +3238,30 @@ window.gamedata = {
 					}
 					if (ship.variantOf != '') continue;//check if it's not a variant, we're looking only for base designs here...
 					//ok, display...
-					shipDisplayName = this.prepareClassName(ship);
-					pointCostFull = ship.pointCost;
-					if (ship.flight && (ship.maxFlightSize != 1)) pointCostFull = pointCostFull + ' (' + pointCostFull / 6 + ' ea.)';//for fighters: display price per craft, too!
-					var sizeTag = (categoryIndex === 0) ? this.getFighterSizeTag(ship) : '';
-					var sizeTagHtml = sizeTag ? ' <span class="fightersize">' + sizeTag + '</span>' : '';
-					//data-cost is the BASE point cost the Cost filter reads (for a flight,
-					//the full-flight price shown in the row, not the per-craft one).
-					h = $('<div oncontextmenu="return false;" class="ship storeship" data-custom="'
-						+ isCustomShip + '" data-isd="'
-						+ ship.isd
-						+ '" data-cost="'
-						+ ship.pointCost
-						+ '"><span class="shiptype' + customShipHighlight + '">'
-						+ shipDisplayName + '</span>'
-						+ sizeTagHtml
-						+ '<span class="pointcost">'
-						+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
-
-					let buyHandler = gamedata.isBulkRow(ship) ? this.buyBulk.bind(this, ship.phpclass) : this.buyShip.bind(this, ship.phpclass);
-					$(".addship", h).on("click", buyHandler);
-					$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, ship.phpclass, faction, ship.id, false));
-
-					categoryContainer.append(h); // We always use categoryContainer now
-					hasShips = true;
+					categoryContainer.append(this.storeShipRow(ship, 'storeship', isCustomFaction, faction, categoryIndex === 0, ship.id));
+					shipCount++;
 					//search for variants of the base design above...
 					for (var indexV = 0; indexV < activeShipList.length; indexV++) {
 						shipV = activeShipList[indexV];
 						if (shipV.variantOf != ship.shipClass) continue;//that's not a variant of current base ship
 
-						isCustomShip = isCustomFaction || shipV.unofficial === true;
-						let customShipHighlight = (!isCustomFaction && shipV.unofficial === true) ? ' highlight-custom-ship' : '';
-						shipDisplayName = this.prepareClassName(shipV);
-						pointCostFull = shipV.pointCost;
-						if (shipV.flight && (shipV.maxFlightSize != 1)) pointCostFull = pointCostFull + ' (' + pointCostFull / 6 + ' ea.)';//for fighters: display price per craft, too!
-						var sizeTagV = (categoryIndex === 0) ? this.getFighterSizeTag(shipV) : '';
-						var sizeTagHtmlV = sizeTagV ? ' <span class="fightersize">' + sizeTagV + '</span>' : '';
-						h = $('<div oncontextmenu="return false;" class="ship variant" data-custom="'
-							+ isCustomShip
-							+ '" data-isd="'
-							+ shipV.isd
-							+ '" data-cost="'
-							+ shipV.pointCost
-							+ '"><span class="shiptype' + customShipHighlight + '">'
-							+ shipDisplayName + '</span>'
-							+ sizeTagHtmlV
-							+ '<span class="pointcost">'
-							+ pointCostFull + '</span> -<span class="addship clickable">Add to fleet</span> -<span class="showship clickable">Show details</span></div>');
-
-						let buyHandlerV = gamedata.isBulkRow(shipV) ? this.buyBulk.bind(this, shipV.phpclass) : this.buyShip.bind(this, shipV.phpclass);
-						$(".addship", h).on("click", buyHandlerV);
-						$(".showship", h).on("click", gamedata.onShipContextMenu.bind(this, shipV.phpclass, faction, ship.id, false));
-
-						categoryContainer.append(h); // We always use categoryContainer now
-						hasShips = true;
+						//"Show details" passes the BASE design's id, as it always has.
+						categoryContainer.append(this.storeShipRow(shipV, 'variant', isCustomFaction, faction, categoryIndex === 0, ship.id));
+						shipCount++;
 					} //end of variant
 				} //end of base design
 
 				// Only append the header and container if this category actually has ships
-				if (hasShips) {
-					fragment.appendChild(headerElem[0]);
-					fragment.appendChild(categoryContainer[0]);
+				//One .lb-cat per category, carrying its index for the Purchase bar's category chips
+				//(gamedata.showStoreCategory).
+				if (shipCount > 0) {
+					headerElem.find(".lb-cat-count").text(shipCount);
+					var category = document.createElement("div");
+					category.className = "lb-cat";
+					category.setAttribute("data-cat", categoryIndex);
+					category.appendChild(headerElem[0]);
+					category.appendChild(categoryContainer[0]);
+					fragment.appendChild(category);
 				}
 
 				// Append the entire fragment for this size class to the DOM at once
@@ -2930,50 +3274,19 @@ window.gamedata = {
 	}, //endof parseShips
 
 
-	expandFaction: function expandFaction(event) {
-		const clickedElement = $(this);
-		const factionElement = clickedElement.parent();
-		const faction = factionElement.data("faction");
-
-		const isCurrentlyHidden = factionElement.hasClass("shipshidden");
-
-		// Optimistic UI: Toggle immediately
-		factionElement.toggleClass("shipshidden");
-
-		var icon = clickedElement.find('.faction-toggle-icon');
-		if (factionElement.hasClass("shipshidden")) {
-			icon.text('[+]');
-		} else {
-			icon.text('[-]');
-		}
-
-		if (isCurrentlyHidden && factionElement.hasClass("listempty")) {
-			window.ajaxInterface.getShipsForFaction(faction, function (factionShips) {
-				gamedata.parseShips(factionShips);
-				factionElement.removeClass("listempty"); // Only remove after successful load
-				gamedata.applyCustomShipFilter(); // run after ships load
-			}, function () {
-				// Error Callback: Revert optimistic toggle if load fails
-				factionElement.toggleClass("shipshidden");
-			});
-		}
-
-		// Apply ship filter AFTER visibility toggled
-		gamedata.applyCustomShipFilter();
-	},
-
-	//Function called by the Custom toggle and the Name / Cost / ISD filters.
+	//Function called by the Store's Show Custom and the Name / Cost / ISD filters. Show Custom is the
+	//Purchase bar's own box (#toggleCustomShips), not the Faction Picker's (Stage 5).
 	applyCustomShipFilter: function () {
-		const showCustom = $("#toggleCustom").is(":checked");
+		const showCustom = $("#toggleCustomShips").is(":checked");
 		const isdValue = parseInt($("#isdFilter").val(), 10);
 		//Cost filter: hide anything that costs MORE than the figure typed. Read once,
 		//outside the per-ship loop, like the other two.
 		const costValue = parseInt($("#costFilter").val(), 10);
 		const nameFilter = $("#nameFilter").val().toLowerCase().trim();
 
-		$(".faction").each(function () {
+		//Every faction the Store has loaded, shown or not, so a switch back finds it filtered.
+		$("#store .lb-store-faction").each(function () {
 			const $faction = $(this);
-			const isHidden = $faction.hasClass("shipshidden");
 
 			$faction.find(".ship").each(function () {
 				const $ship = $(this);
@@ -2993,7 +3306,16 @@ window.gamedata = {
 					if (shipName.indexOf(nameFilter) === -1) visible = false;
 				}
 
-				$ship.toggle(visible && !isHidden);
+				$ship.toggle(visible);
+			});
+
+			//A size category the filters have emptied is left out, header and all; the count is
+			//what is left in it.
+			$faction.find(".lb-cat").each(function () {
+				const shown = $(this).find(".ship").filter(function () {
+					return this.style.display !== "none";
+				}).length;
+				$(this).toggleClass("is-empty", shown === 0).find(".lb-cat-count").text(shown);
 			});
 		});
 	},
@@ -3046,6 +3368,7 @@ window.gamedata = {
 			//this.drawMapPreview();						
 		} else {
 			this.createSlots();
+			this.paintLobbyTeams();
 			this.enableBuy();
 			this.constructFleetList();
 			this.drawMapPreview();
@@ -3061,8 +3384,13 @@ window.gamedata = {
 			var teamTemplate = $("#lobbyTeamTemplate").children().clone();
 			teamTemplate.attr("data-team-id", teamId);
 			teamTemplate.find(".team-number").text(teamId);
-			// Optional: color coding could be added here similar to createGame.js if desired
-			$("#lobbyTeamsContainer").append(teamTemplate);
+			//In team order, whatever order the slots come in - a copied team's slots can be numbered
+			//below another team's. Colours are paintLobbyTeams' job.
+			var later = $("#lobbyTeamsContainer .team-section").filter(function () {
+				return parseInt($(this).attr("data-team-id"), 10) > parseInt(teamId, 10);
+			}).first();
+			if (later.length) teamTemplate.insertBefore(later);
+			else $("#lobbyTeamsContainer").append(teamTemplate);
 			teamSection = teamTemplate;
 		}
 
@@ -3136,14 +3464,12 @@ window.gamedata = {
 		var slot = $(".slot.slotid_" + data.slot);
 		$(".name", slot).html(data.name);
 		if (gamedata.rules && gamedata.rules.fleetTest === 1) data.points = -1;
-		$(".points", slot).html(data.points == -1 ? '<span class="unlimited-points-text">UNLIMITED</span>' : data.points);
+		$(".points", slot).text(data.points == -1 ? "Unlimited" : data.points + " pts");
 
-		$(".depx", slot).html(data.depx);
-		$(".depy", slot).html(data.depy);
-		$(".deptype", slot).html(data.deptype);
-		$(".depwidth", slot).html(data.depwidth);
-		$(".depheight", slot).html(data.depheight);
-		$(".depavailable", slot).html(data.depavailable);
+		//The zone itself is on the Map Preview; the row only says when a slot arrives LATE
+		//(Delayed Deployment) - turn 1 is the norm and says nothing.
+		$(".depavailable", slot).text(data.depavailable);
+		slot.toggleClass("lb-slot--late", parseInt(data.depavailable, 10) > 1);
 	},
 
 	clickTakeslot: function clickTakeslot() {
@@ -4330,15 +4656,16 @@ window.gamedata = {
 	*/
 	// Populate dropdown list
 	populateFleetDropdown: function populateFleetDropdown() {
+		//The saved-fleet menu under Load a Fleet. Its look is gameLobby.css's .lb-fleetmenu-* (Stage 5:
+		//the page's dark window style, where it used to be white rows styled inline).
 		fleetDropdownList.innerHTML = '';
 
 		//let filteredFleets = gamedata.filterSavedFleet(cachedFleets);
 
 		if (!cachedFleets || cachedFleets.length === 0) {
 			const empty = document.createElement('div');
-			empty.textContent = '< No saved fleets available >';
-			empty.style.textAlign = 'center';
-			empty.style.padding = '4px 6px';
+			empty.className = 'lb-fleetmenu-note';
+			empty.textContent = 'No saved fleets available';
 			fleetDropdownList.appendChild(empty);
 			return;
 		}
@@ -4350,16 +4677,7 @@ window.gamedata = {
 		// Helper to render a fleet item
 		const renderFleetItem = (fleet) => {
 			const item = document.createElement('div');
-			item.style.display = 'flex';
-			item.style.justifyContent = 'space-between';
-			item.style.alignItems = 'center';
-			item.style.padding = '2px 2px';
-			item.style.cursor = 'pointer';
-			item.style.borderBottom = '1px solid #eee';
-
-			// Hover effect
-			item.addEventListener('mouseenter', () => item.style.background = '#f0f0f0');
-			item.addEventListener('mouseleave', () => item.style.background = 'white');
+			item.className = 'lb-fleetmenu-item' + (fleet.userid === 0 ? ' lb-fleetmenu-item--default' : '');
 
 			// ✅ Load fleet if you click anywhere on item (except lock/delete)
 			//Pre-battle damage (D3): the confirm carries a checkbox per kind of saved
@@ -4372,19 +4690,10 @@ window.gamedata = {
 				});
 			});
 
-			// Padlock
+			// Padlock - its own clickable area (public / private)
 			const lockSpan = document.createElement('span');
-			lockSpan.className = fleet.isPublic ? 'fa-solid fa-unlock' : 'fa-solid fa-lock';
-			lockSpan.style.color = fleet.isPublic ? 'green' : 'orange';
-			lockSpan.style.marginRight = '4px';
-			lockSpan.style.cursor = 'pointer';
-
-			// ✅ Make the clickable area bigger and isolated
-			lockSpan.style.display = 'inline-flex';
-			lockSpan.style.alignItems = 'center';
-			lockSpan.style.justifyContent = 'center';
-			lockSpan.style.width = '25px';
-			lockSpan.style.height = '25px';
+			lockSpan.className = 'lb-fleetmenu-lock ' + (fleet.isPublic ? 'is-public fa-solid fa-unlock' : 'fa-solid fa-lock');
+			lockSpan.title = fleet.isPublic ? 'Public - click to make it private' : 'Private - click to make it public';
 
 			lockSpan.addEventListener('click', (e) => {
 				e.stopPropagation();
@@ -4395,11 +4704,15 @@ window.gamedata = {
 				);
 			});
 
-			// Fleet name
+			// Fleet name, and a player's fleet's #id (what Load Fleet by #ID takes)
 			const nameSpan = document.createElement('span');
-			nameSpan.textContent = (fleet.userid !== 0) ? fleet.name + ' (#' + fleet.id + ')' : fleet.name;
-			if (fleet.userid == 0) {
-				nameSpan.style.marginLeft = '6px';
+			nameSpan.className = 'lb-fleetmenu-name';
+			nameSpan.textContent = fleet.name;
+			if (fleet.userid !== 0) {
+				const idSpan = document.createElement('span');
+				idSpan.className = 'lb-fleetmenu-id';
+				idSpan.textContent = '#' + fleet.id;
+				nameSpan.appendChild(idSpan);
 			}
 
 			//Pre-battle damage: badge a fleet that carries battle damage and/or critical
@@ -4409,42 +4722,27 @@ window.gamedata = {
 				damageSpan = document.createElement('span');
 				//Same icon as gamedata.damagedShipBadge, so the dropdown and the fleet list
 				//read as one idea - change BOTH or neither.
-				damageSpan.className = 'fa-solid fa-screwdriver-wrench';
-				damageSpan.style.color = '#c0392b';
-				damageSpan.style.marginLeft = '6px';
+				damageSpan.className = 'lb-fleetmenu-damage fa-solid fa-screwdriver-wrench';
 				damageSpan.title = fleet.hasDamage && fleet.hasCrits
 					? 'Carries battle damage and critical effects'
 					: (fleet.hasDamage ? 'Carries battle damage' : 'Carries critical effects');
 			}
 			// Points
 			const pointsSpan = document.createElement('span');
-			pointsSpan.textContent = `${fleet.points}pts`;
-			pointsSpan.style.margin = '0 6px';
-			pointsSpan.style.color = '#555';
-			pointsSpan.style.textAlign = 'right';
-
-			const spacer = document.createElement('span');
-			spacer.style.flexGrow = '1';
+			pointsSpan.className = 'lb-fleetmenu-points';
+			pointsSpan.textContent = `${fleet.points} pts`;
 
 			if (fleet.userid !== 0) item.appendChild(lockSpan);
 			item.appendChild(nameSpan);
 			if (damageSpan) item.appendChild(damageSpan);
-			item.appendChild(spacer);
 			item.appendChild(pointsSpan);
 
 			// Delete button (only for non-default fleets)
 			if (fleet.userid !== 0) {
 				const deleteBtn = document.createElement('span');
+				deleteBtn.className = 'lb-fleetmenu-delete';
 				deleteBtn.textContent = '✖';
-				deleteBtn.style.color = 'red';
-				deleteBtn.style.cursor = 'pointer';
-
-				// ✅ Isolate the clickable area
-				deleteBtn.style.display = 'inline-flex';
-				deleteBtn.style.alignItems = 'center';
-				deleteBtn.style.justifyContent = 'center';
-				deleteBtn.style.width = '25px';
-				deleteBtn.style.height = '25px';
+				deleteBtn.title = 'Delete this saved fleet';
 
 				deleteBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
@@ -4462,18 +4760,13 @@ window.gamedata = {
 		// Render user fleets first
 		userFleets.forEach(renderFleetItem);
 
-		// Add a divider if default fleets exist
+		// Then the default fleets (no lock, no delete), under their own heading
 		if (defaultFleets.length > 0) {
 			const divider = document.createElement('div');
-			divider.textContent = '-----------------------------------------------------------------------------------';
-			divider.style.textAlign = 'center';
-			divider.style.color = '#2b2b2bff';
-			divider.style.margin = '0px 0';
-			divider.style.fontSize = '8px';
-			divider.style.borderBottom = '1px solid #eee';
+			divider.className = 'lb-fleetmenu-head';
+			divider.textContent = 'Default fleets';
 			fleetDropdownList.appendChild(divider);
 
-			// Render default fleets (no delete button shown)
 			defaultFleets.forEach(renderFleetItem);
 		}
 	},
