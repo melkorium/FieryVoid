@@ -2476,7 +2476,8 @@ window.gamedata = {
 	   on a desktop and a full-screen sheet on a phone) holds the six groups and stops at FACTION
 	   level; choosing a row closes it and scopes the Store column to that one faction
 	   (selectStoreFaction). The tier / Show Custom boxes live in the picker because they decide which
-	   factions can be picked, and filterFactionList applies them together with its search box. */
+	   factions can be picked, and filterFactionList applies them together with its search box. Its
+	   footer is the faction randomiser (rollFaction, Stage 7). */
 
 	//Custom Factions only: the sub-group a custom faction's name puts it in (plan §4.3); the picker
 	//lists them alphabetically. Babylon 5 Wars has no test - it takes every custom faction the others do not
@@ -2630,7 +2631,66 @@ window.gamedata = {
 		});
 
 		list.toggleClass("is-searching", search !== "");
-		$("#factionListEmpty").prop("hidden", list.find(".lb-faction").filter(function () { return !this.hidden; }).length > 0);
+		var anyShown = list.find(".lb-faction").filter(function () { return !this.hidden; }).length > 0;
+		$("#factionListEmpty").prop("hidden", anyShown);
+
+		//The randomiser rolls from these rows: nothing to roll with none, and a roll the filters now
+		//hide is forgotten.
+		$("#lbRollFaction").prop("disabled", !anyShown);
+		var rolled = gamedata.rolledFactionRow();
+		if (gamedata.rolledFaction !== null && (!rolled || rolled.hidden)) gamedata.showRolledFaction(null);
+	},
+
+	/* The randomiser (plan §4.5, Stage 7), in place of the three off-site Wheel of Names links. It
+	   rolls one of the rows the list shows right now - whatever the tier boxes, Show Custom and the
+	   search leave (a row in a closed group counts; it is only folded away) - so it can only suggest a
+	   faction the player could pick by hand. It points the faction out rather than picking it: the
+	   row is marked, its group opened and scrolled to, and the footer names it beside Choose, so
+	   rolling again costs nothing (picking would close the window and fetch the faction's ships). */
+	rolledFaction: null,
+
+	rolledFactionRow: function rolledFactionRow() {
+		if (gamedata.rolledFaction === null) return null;
+		return $("#factionList .lb-faction").filter(function () {
+			return this.getAttribute("data-faction") === gamedata.rolledFaction;
+		})[0] || null;
+	},
+
+	rollFaction: function rollFaction() {
+		var rows = $("#factionList .lb-faction").filter(function () { return !this.hidden; });
+		if (!rows.length) return;
+		gamedata.showRolledFaction(rows[Math.floor(Math.random() * rows.length)]);
+	},
+
+	//Mark a rolled row and name it in the footer; null forgets the roll.
+	showRolledFaction: function showRolledFaction(row) {
+		$("#factionList .lb-faction.is-rolled").removeClass("is-rolled");
+		gamedata.rolledFaction = row ? row.getAttribute("data-faction") : null;
+
+		var text = $("#lbRollResult");
+		$("#lbRollChoose").prop("hidden", !row);
+		if (!row) {
+			text.text("Rolls one of the factions listed above.");
+			return;
+		}
+
+		var tag = gamedata.factionTierTag(row.getAttribute("data-tier"));
+		text.empty().append("Rolled ",
+			$('<b class="lb-roll-name"></b>').text(gamedata.rolledFaction)
+				.toggleClass("lb-roll-name--custom", row.getAttribute("data-custom") === "true"),
+			tag ? $('<span class="lb-faction-tag"></span>').text(tag) : null);
+
+		//Its closed group opened, and the row centred in the list. The list is scrolled directly:
+		//scrollIntoView could also move the page under the window.
+		$(row).parents(".lb-fgroup.is-collapsed").removeClass("is-collapsed")
+			.children(".lb-fgroup-head").attr("aria-expanded", "true");
+		var list = document.getElementById("factionList");
+		list.scrollTop += row.getBoundingClientRect().top - list.getBoundingClientRect().top
+			- (list.clientHeight - row.offsetHeight) / 2;
+
+		//Re-added after a reflow, so its flash plays again when the same faction comes up twice running.
+		void row.offsetWidth;
+		$(row).addClass("is-rolled");
 	},
 
 	//The picker row of the Store's faction reads "current".
@@ -2833,8 +2893,15 @@ window.gamedata = {
 			var group = $(this).parent().toggleClass("is-collapsed");
 			$(this).attr("aria-expanded", group.hasClass("is-collapsed") ? "false" : "true");
 		}).on("click", ".lb-faction", function () {
+			gamedata.showRolledFaction(null); //a faction is picked: the roll has done its job
 			gamedata.selectStoreFaction(this.getAttribute("data-faction"));
 			gamedata.closeLobbyModal("lbFactionPicker");
+		});
+
+		//The randomiser, and its Choose - the rolled row's own click.
+		$("#lbRollFaction").on("click", gamedata.rollFaction);
+		$("#lbRollChoose").on("click", function () {
+			$(gamedata.rolledFactionRow()).trigger("click");
 		});
 
 		//Enter in the search box picks the first faction it leaves.

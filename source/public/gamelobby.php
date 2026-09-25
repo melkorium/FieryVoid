@@ -464,8 +464,9 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		   Scenario Description's structured facts once, on load (gamedata.renderScenarioPanel).
 		   A Fleet Builder lobby has no teams, no map and no scenario - only the reference links. */
 
-		/* The reference pages - the same three as game.php's USEFUL LINKS - and, until the lobby's
-		   own faction randomiser replaces them (plan §4.5, Stage 7), the three random-faction wheels. */
+		/* The reference pages - the same three as game.php's USEFUL LINKS. (The three off-site
+		   random-faction wheels that sat under them are gone: the Faction Picker has its own
+		   randomiser, plan §4.5, Stage 7.) */
 		$lobbyLinks = '
 		<div class="lb-links">
 		  <div class="lb-links-row">
@@ -476,12 +477,6 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		       title="Overview of Fiery Void factions and their approximate strengths">Factions &amp; Tiers</a>
 		    <a class="lb-link" href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer"
 		       title="Details of all the extras available to Fiery Void units, e.g. missiles">Ammo &amp; Options</a>
-		  </div>
-		  <div class="lb-links-row">
-		    <span class="lb-links-label">Random faction</span>
-		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/fx3-uje" target="_blank" rel="noopener noreferrer">Tier 1</a>
-		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/rmq-7ds" target="_blank" rel="noopener noreferrer">Tier 2</a>
-		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/sgd-5zq" target="_blank" rel="noopener noreferrer">Tier 3</a>
 		  </div>
 		</div>';
 
@@ -864,6 +859,18 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 				</div>
 				<div class="lb-picker-list" id="factionList"></div>
 				<p class="lb-picker-empty" id="factionListEmpty" hidden>No faction matches these filters.</p>
+				<!-- The randomiser (plan §4.5, Stage 7): rolls one of the factions the list above shows,
+				     so the tier boxes, Show Custom and the search decide what it can suggest
+				     (gamedata.rollFaction). It only points the faction out - Choose, or its row, picks it. -->
+				<div class="lb-picker-random">
+					<div class="lb-roll">
+						<span class="lb-roll-text" id="lbRollResult" aria-live="polite">Rolls one of the factions listed above.</span>
+						<button type="button" class="lb-btn lb-btn--small lb-roll-choose" id="lbRollChoose" hidden>Choose</button>
+					</div>
+					<button type="button" class="lb-btn lb-roll-btn" id="lbRollFaction">
+						<i class="fa-solid fa-dice" aria-hidden="true"></i>Randomise My Faction
+					</button>
+				</div>
 			</div>
 		</div>
 

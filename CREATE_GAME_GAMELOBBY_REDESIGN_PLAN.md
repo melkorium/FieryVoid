@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-6 BUILT 2026-09-25
-(see §12); Stages 7-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-7 BUILT 2026-09-25
+(see §12); Stages 8-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -465,8 +465,8 @@ against those directly rather than re-deriving layout from this section's prose 
 - **Stage 6 — In-Service Date end-to-end. ✅ BUILT 2026-09-25 — §12.7.** Create Game field +
   Gamelobby locked filter (§3.2/§4.4), plus an "In-Service Date: N" rule chip on the Confirm step
   and in the lobby.
-- **Stage 7 — FV faction randomiser.** Replaces the Wheel links (§4.5). Purely additive, no
-  dependency on other stages.
+- **Stage 7 — FV faction randomiser. ✅ BUILT 2026-09-25 — §12.8.** Replaces the Wheel links
+  (§4.5): the Faction Picker's sticky footer, rolling from the rows the picker's filters leave.
 - **Stage 8 — Private/password games.** Held to last deliberately — the only change touching
   the JOIN flow and therefore auth-adjacent code (games.php's Join Games list, the slot-take
   path). Wants its own focused review pass rather than riding along with a UI stage.
@@ -1605,3 +1605,56 @@ mine (6264 of 6418 pts), mines sentence only; a mines-only fleet → "Fleet Not 
 Allow Mines on, or Fleet Builder → all 7 rows, no window; Narn at 2242 → list only; a plain
 fleetNotice still renders `<p>…</p>` with Close alone. Desktop 420px and phone 340px windows, nothing
 overflowing. No console errors.
+
+### 12.8 Stage 7 — the faction randomiser (built 2026-09-25)
+
+No schema or server change. `gamelobby.php`, `client/gamelobby.js`, `styles/gameLobby.css`. The lobby
+legacy bundle needs rebuilding (`gamelobby.js`).
+
+**What landed** (plan §4.5, the mockup's two picker artboards):
+
+- **The three Wheel of Names links are gone** (the "Random faction" row of `$lobbyLinks`, and its
+  `.lb-link--quiet` style). Nothing on the page sends a player off-site to pick a faction. The links
+  block is one row now — Scenario Description panel and Fleet Builder's Rules & Info alike.
+- **The Faction Picker's footer** (`.lb-picker-random`), the mockup's sticky "🎲 Randomise My
+  Faction" — a full-width `.lb-btn` with Font Awesome's `fa-dice` (FA 6.5 is already on the page)
+  rather than an emoji. It is pinned to the window's foot (`margin-top: auto`) however short the
+  filtered list is, on a desktop and in the phone sheet.
+- **What it rolls from** (`gamedata.rollFaction`): the rows the list shows right now — whatever the
+  tier boxes, Show Custom (+ Show Only Customs) and the search box leave; a row in a CLOSED group
+  counts (folding is not filtering). Uniform `Math.random`; repeats allowed. So it can only suggest a
+  faction the player could pick by hand, and the scenario's limits are the ones the player set there.
+  **Decision:** no separate "Restrict to: current tier filters / all allowed factions" toggle (§4.5's
+  first sketch) — the mockup dropped it, and §4.5's own last bullet says the filters ARE that toggle.
+- **It points the faction out, it does not pick it** (`gamedata.showRolledFaction`): the row gets
+  `.is-rolled` — `--fv-mine` green rail and tint, the "yours" colour, apart from the current faction's
+  blue and the custom yellow, winning over both — with a 0.9s flash (`lb-roll-flash`, restarted by a
+  reflow so a repeat still flashes; off under `prefers-reduced-motion`). Its closed group (a Custom
+  sub-group) is opened and the LIST is scrolled to centre it — set directly, not `scrollIntoView`,
+  which could also move the page under the window. The footer line changes from "Rolls one of the
+  factions listed above." to "Rolled **name** [T1]" (custom names `--fv-custom`), and a green
+  **Choose** (Ready's colours) appears beside it. Focus stays on the button: Enter / Space roll again.
+  **Why not pick at once:** picking closes the window and fetches the faction's ships — a re-roll
+  would then mean reopening the picker each time; this way rolling again costs nothing.
+- **Choose** triggers the rolled row's own click, so it is exactly a hand pick (Store scoped, window
+  closed, focus back to the opener). Any pick — Choose or a row — forgets the roll.
+- **Filters vs the roll** (`filterFactionList`): with no row left the button is `disabled` (and the
+  list's "No faction matches these filters." shows); a filter change that hides the rolled row
+  forgets it; one that keeps it leaves it. The result text is the only `aria-live` part; Choose is a
+  static button toggled with `hidden` (it has its own `[hidden] { display: none }` — `.lb-btn` is
+  inline-flex, §12.6 trap 2). On a touch screen Choose is 40px tall, the button 44px.
+
+**Verified** (headless Chrome over CDP, the bundled gamelobby.php rendered from game 4387's payload
+through the Stage 6 stub `Manager`, served with the stand-in `gamelobbyloader.php`): links = one row,
+no wheel links; a real click rolls one row, marked, shown, inside the list's view, its footer line and
+Choose shown, focus kept; a real Enter re-rolls. Pools, each rolled 800-2000 times: default filters
+(customs not allowed in this scenario) 47 of 47 factions came up, no stray, no custom; Tier 3 +
+Ancients only → 19 of 19, only those two tiers; search "narn" → 1 of 1; Show Only Customs → 41 of 41,
+and a roll inside a closed sub-group opens it (`aria-expanded` true). A search that hides the rolled
+row forgets it, disables the button and a roll then does nothing; one that keeps it keeps it. Choose →
+Narn Regime in the Store (62 ships loaded), window closed, roll forgotten, focus on Switch Faction.
+Rolling the current faction shows the roll (green rail, "T1 · current" tag green). A row click forgets
+the roll. Reduced motion → `animation-name: none`. 1600 (540×780 window) and a 390 phone (full sheet,
+footer flush with its foot, button 358×44, Choose 77×40, the longest custom name — "Nexus Dalithorn
+Commonwealth (early)" — wraps inside the footer, no overflow anywhere). No console errors.
+**Not verified:** a real server session and a real touch device.

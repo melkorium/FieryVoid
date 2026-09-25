@@ -12,7 +12,8 @@
  *
  * Stage 5 added the Purchase Fleet panel (.lb-buy: Store | Fleet, the Store scoped to one
  * faction), the two lobby windows (.lb-modal: the Faction Picker and the Fleet Correctness
- * Report) and the chat panel's width, all at the bottom of this file.
+ * Report) and the chat panel's width, all at the bottom of this file. Stage 7 added the Faction
+ * Picker's footer, the faction randomiser (.lb-picker-random).
  */
 
 /* ── Frame ─────────────────────────────────────────────────────────────────── */
@@ -465,14 +466,7 @@
   border-color: var(--fv-accent);
 }
 
-/* The faction wheels: an off-site stop-gap until Stage 7's randomiser, so a step quieter. */
-.lb-link--quiet {
-  color: var(--fv-text-dim);
-  background: transparent;
-  border-color: var(--fv-line-scs);
-}
-
-/* Fleet Builder: the links are the whole panel, so the two rows sit side by side. */
+/* Fleet Builder: the links are the whole panel, so they run in one row. */
 .lb-builder .lb-links {
   flex-direction: row;
   flex-wrap: wrap;
@@ -1928,6 +1922,108 @@ body.lb-modal-open {
   color: var(--fv-accent);
 }
 
+/* The randomiser's roll (gamedata.showRolledFaction): the "yours" green, so it reads apart from
+   the current faction's blue and the custom yellow, with a flash as it lands. After is-current:
+   a roll of the Store's own faction shows as the roll. */
+.lb-faction.is-rolled {
+  --rail: var(--fv-mine);
+  background: rgba(82, 179, 82, 0.14);
+  animation: lb-roll-flash 0.9s ease-out;
+}
+
+.lb-faction.is-rolled .lb-faction-tag {
+  color: var(--fv-mine-soft);
+}
+
+@keyframes lb-roll-flash {
+  from {
+    background: rgba(82, 179, 82, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-faction.is-rolled {
+    animation: none;
+  }
+}
+
+/* ── The randomiser (plan §4.5, Stage 7): the picker's footer, pinned to its foot however short
+   the filtered list is - the mockup's sticky "Randomise My Faction". Over the button, a line that
+   says what it rolls from and then what it rolled, beside Choose. ── */
+.lb-picker-random {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 16px 12px;
+  background: rgba(4, 22, 28, 0.9);
+  border-top: 1px solid var(--fv-line-soft);
+}
+
+.lb-roll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.lb-roll-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--fv-text-dim);
+}
+
+.lb-roll-name {
+  color: var(--fv-text-bright);
+}
+
+.lb-roll-name--custom {
+  color: var(--fv-custom);
+}
+
+.lb-roll-text .lb-faction-tag {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: 1px;
+  color: var(--fv-mine-soft);
+}
+
+/* Choose takes the roll: Ready's green, the colour of the rolled row. */
+.lb-roll-choose {
+  flex: none;
+  color: #e6f4e6;
+  background: rgba(60, 122, 60, 0.671);
+  border-color: #66b266;
+}
+
+.lb-roll-choose[hidden] {
+  display: none;
+}
+
+.lb-modal .lb-roll-choose:hover {
+  color: #fff;
+  background: rgba(82, 179, 82, 0.5);
+  border-color: #8cd48c;
+}
+
+.lb-roll-btn {
+  gap: 8px;
+  width: 100%;
+}
+
+.lb-roll-btn .fa-dice {
+  font-size: 13px;
+}
+
+/* Every faction filtered out: nothing to roll. */
+.lb-roll-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* ── The chat panel under it all: the same width, and a phone's width on a phone. ─────────── */
 
 .global-chat-wrapper.panel.large.lobby {
@@ -2080,5 +2176,9 @@ body.lb-modal-open {
 
   .lb-chip {
     min-height: 32px;
+  }
+
+  .lb-roll-choose {
+    min-height: 40px;
   }
 }
