@@ -167,13 +167,16 @@ window.scenarioCard = {
      * says so.
      * options.inServiceDate: the In-Service Date cutoff year, or null - a column of its own
      * (tac_game.in_service_date), not a rule, so likewise.
+     * options.isPrivate: the game has a password (tac_game.password_hash, Stage 8) - likewise. It
+     * leads the row: it decides who can be in the game at all.
      *
      * Every count goes through parseInt: the lobby payload is JSON_NUMERIC_CHECKed, the wizard's is
      * not, so a count can arrive as either. The terrain map's name is the creator's text (the
      * template's name, but it came from a POST) - renderRuleChips escapes it.
      *
      * `kind` is the chip's colour (user, 2026-09-25): ladder gold, terrain white, simultaneous
-     * movement green, reinforcements cyan, mines purple, anything else the page's blue.
+     * movement green, reinforcements cyan, mines purple, private yellow (the Load a Fleet menu's
+     * private padlock), anything else the page's blue.
      */
     ruleChips: function ruleChips(rules, options) {
         var r = rules || {};
@@ -181,6 +184,7 @@ window.scenarioCard = {
         var add = function (kind, text) { chips.push({ kind: kind, text: text }); };
         var count = function (value) { return Math.max(0, parseInt(value, 10) || 0); };
 
+        if (options && options.isPrivate) add("private", "Private Game");
         if (r.ladder) add("ladder", "Ladder Game");
         var brackets = count(r.initiativeCategories);
         if (brackets > 0) add("simmove", "Simultaneous Movement (" + brackets + (brackets === 1 ? " bracket)" : " brackets)"));

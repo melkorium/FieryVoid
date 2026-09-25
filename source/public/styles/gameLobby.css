@@ -13,7 +13,8 @@
  * Stage 5 added the Purchase Fleet panel (.lb-buy: Store | Fleet, the Store scoped to one
  * faction), the two lobby windows (.lb-modal: the Faction Picker and the Fleet Correctness
  * Report) and the chat panel's width, all at the bottom of this file. Stage 7 added the Faction
- * Picker's footer, the faction randomiser (.lb-picker-random).
+ * Picker's footer, the faction randomiser (.lb-picker-random). Stage 8 added a private game's
+ * password form (.lb-gate), the page a player sees instead of the lobby until they enter it.
  */
 
 /* ── Frame ─────────────────────────────────────────────────────────────────── */
@@ -2180,5 +2181,121 @@ body.lb-modal-open {
 
   .lb-roll-choose {
     min-height: 40px;
+  }
+}
+
+/* ══ A private game's password form (plan §3.2, Stage 8) ══════════════════════════════════════
+   What gamelobby.php prints INSTEAD of the lobby to a player who holds no slot in a private game
+   and has not entered its password this session: one panel, centred, in the lobby's grammar. */
+
+/* A short page: without this, a phone (where base.css scrolls the backdrop with the page) shows the
+   backdrop only as far down as the panel. The UA's 8px margin moves inside, so 100vh never scrolls. */
+.lb-gate-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  margin: 0;
+  padding: 8px;
+}
+
+.lb-gate {
+  box-sizing: border-box;
+  width: 440px;
+  max-width: calc(100% - 32px);
+  margin: 48px auto;
+}
+
+.lb-gate *,
+.lb-gate *::before,
+.lb-gate *::after {
+  box-sizing: border-box;
+}
+
+/* The Load a Fleet menu's private padlock, and the Private Game chip's yellow. */
+.lb-gate-lock {
+  margin-right: 8px;
+  color: var(--fv-warn);
+}
+
+.lb-gate-form {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.lb-gate-name {
+  margin: 0 0 6px;
+  font-family: var(--fv-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--fv-text-bright);
+  overflow-wrap: anywhere;
+}
+
+.lb-gate-text {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fv-text-dim);
+}
+
+.lb-gate-label {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--fv-text-dim);
+}
+
+.lb-gate-input {
+  width: 100%;
+  height: 36px;
+  font-size: 14px;
+}
+
+.lb-gate-input[aria-invalid="true"] {
+  border-color: var(--fv-enemy);
+}
+
+.lb-gate-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--fv-enemy);
+}
+
+.lb-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.lb-gate .lb-btn:hover {
+  color: #fff;
+  background: rgba(198, 226, 255, 0.14);
+  border-color: var(--fv-accent);
+}
+
+.lb-gate .lb-btn--ready:hover {
+  background: rgba(82, 179, 82, 0.5);
+  border-color: #8cd48c;
+}
+
+@media screen and (max-width: 600px) {
+  .lb-gate {
+    margin-top: 24px;
+  }
+
+  /* 16px: anything smaller and iOS Safari zooms the whole page when the field takes focus. */
+  .lb-gate-input {
+    font-size: 16px;
+  }
+}
+
+@media (pointer: coarse) {
+  .lb-gate-input {
+    height: 44px;
   }
 }

@@ -3094,7 +3094,7 @@ window.gamedata = {
 	   description, and it is left alone. Nothing here changes in a lobby, so this runs once.
 	   inServiceDate: the game's In-Service Date year, or null - a chip here; gamelobby.php has
 	   already locked the Store's ISD filter to it (Stage 6). */
-	renderScenarioPanel: function renderScenarioPanel(scenarioRaw, inServiceDate) {
+	renderScenarioPanel: function renderScenarioPanel(scenarioRaw, inServiceDate, isPrivate) {
 		var chips = $("#lbRuleChips");
 		if (!chips.length) return;
 
@@ -3103,7 +3103,8 @@ window.gamedata = {
 		var unlimited = slots.length > 0 && slots.every(function (slot) { return slot.points == -1; });
 		chips.html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(gamedata.rules, {
 			unlimitedPoints: unlimited,
-			inServiceDate: inServiceDate
+			inServiceDate: inServiceDate,
+			isPrivate: isPrivate
 		})));
 
 		var facts = scenarioCard.render(scenarioRaw);

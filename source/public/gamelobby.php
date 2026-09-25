@@ -1,12 +1,28 @@
 <?php
 // Load global config and classes
 require_once 'global.php';
-session_write_close(); // Prevent session locking for concurrent loads
 
 if (!isset($_SESSION["user"]) || $_SESSION["user"] == false){
+    session_write_close();
     header('Location: index.php');
     exit;
 }
+
+// A private game's password, posted by the form this page shows in place of the lobby (below).
+// Handled while the session is still open: a right one unlocks the game for the rest of the
+// session (Manager::markGameUnlocked), then the lobby loads by GET, so a reload never re-posts.
+$gamePasswordResult = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gamePassword']) && isset($_GET['gameid'])) {
+    $gamePasswordResult = Manager::checkGamePassword($_SESSION["user"], $_GET['gameid'], $_POST['gamePassword']);
+    if ($gamePasswordResult === 'ok') {
+        Manager::markGameUnlocked($_GET['gameid']);
+        session_write_close();
+        header('Location: gamelobby.php?gameid=' . (int)$_GET['gameid'], true, 303);
+        exit;
+    }
+}
+
+session_write_close(); // Prevent session locking for concurrent loads
 
 // Never cache this HTML document — it inlines a player-specific, point-in-time
 // lobby snapshot ($gamelobbydataJSON below). Without this the browser can
@@ -27,7 +43,67 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 	if (isset($_GET["gameid"])){
 		$gameid = $_GET["gameid"];
 	}
-	
+
+	/* ── Private game (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §3.2, Stage 8) ───────────────────────
+	   A player who holds no slot in a private game and has not entered its password this session gets
+	   this password form instead of the lobby. Checked BEFORE the lobby's data is built, so none of it
+	   reaches them. Leaving (above) needs no password; slot.php refuses them a slot as well. */
+	$gameAccess = ($gameid !== null) ? Manager::getGameAccess($_SESSION["user"], $gameid) : null;
+	if ($gameAccess && $gameAccess['status'] === 'LOBBY' && $gameAccess['locked']):
+		$gateGameId = (int)$gameid;
+		$gateError = '';
+		if ($gamePasswordResult === 'wrong') $gateError = 'That is not this game&rsquo;s password.';
+		else if ($gamePasswordResult === 'throttled') $gateError = 'Too many wrong passwords. Wait a few minutes, then try again.';
+?>
+<!DOCTYPE HTML>
+<html lang="en">
+	<head>
+		<title>Fiery Void - Private Game</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link href="<?php echo AssetLoader::getAssetUrl('styles/tokens.css'); ?>" rel="stylesheet" type="text/css">
+		<link href="<?php echo AssetLoader::getAssetUrl('styles/base.css'); ?>" rel="stylesheet" type="text/css">
+		<link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">
+		<link href="<?php echo AssetLoader::getAssetUrl('styles/gameLobby.css'); ?>" rel="stylesheet" type="text/css">
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	</head>
+	<body class="lb-gate-page" style="background-image:url(img/maps/14.PlanetsNear.jpg)">
+		<header class="pageheader">
+			<img src="img/logo.png" alt="Fiery Void Logo" class="logo">
+			<div class="top-right-row">
+				<a href="games.php">Back to Lobby</a>
+				<a href="logout.php" class="btn btn-primary">Logout</a>
+			</div>
+		</header>
+
+		<main class="lb-gate">
+			<section class="lb-panel" aria-labelledby="lbGateHead">
+				<h1 class="lb-panel-head" id="lbGateHead"><span><i class="fa-solid fa-lock lb-gate-lock" aria-hidden="true"></i>Private Game</span><span class="lb-panel-meta">#<?php print($gateGameId); ?></span></h1>
+				<!-- autocomplete off: a browser should not offer the player's own account password here. -->
+				<form class="lb-panel-body lb-gate-form" method="post" action="gamelobby.php?gameid=<?php print($gateGameId); ?>">
+					<!-- The game name is player-supplied and stored unescaped, so it must be escaped here. -->
+					<p class="lb-gate-name"><?php print(htmlspecialchars($gameAccess['name'])); ?></p>
+					<p class="lb-gate-text">This game&rsquo;s creator has set a password. Enter it to open the lobby and take a slot.</p>
+					<label class="lb-gate-label" for="gamePassword">Password</label>
+					<input id="gamePassword" class="lb-input lb-gate-input" type="password" name="gamePassword"
+					       maxlength="<?php print(Manager::GAME_PASSWORD_MAX_LENGTH); ?>" required autofocus
+					       autocomplete="off" autocapitalize="off" spellcheck="false"<?php if ($gateError !== '') print(' aria-invalid="true" aria-describedby="lbGateError"'); ?>>
+					<?php if ($gateError !== ''): ?>
+					<p class="lb-gate-error" id="lbGateError" role="alert"><?php print($gateError); ?></p>
+					<?php endif; ?>
+					<div class="lb-gate-actions">
+						<a class="lb-btn" href="games.php">Back to Games</a>
+						<button type="submit" class="lb-btn lb-btn--ready">Open Lobby</button>
+					</div>
+				</form>
+			</section>
+		</main>
+	</body>
+</html>
+<?php
+		exit;
+	endif;
+
   // Use cached JSON to reduce server load
   $gamelobbydataJSON = Manager::getGameLobbyDataJSON( $_SESSION["user"], $gameid);
   $gamelobbydata = json_decode($gamelobbydataJSON);
@@ -280,8 +356,8 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
             // and a saved fleet loads without the units that entered service later (doLoadFleet).
             gamedata.inServiceDate = <?php print($inServiceDate === null ? 'null' : (int)$inServiceDate); ?>;
             // The structured Scenario Description (tac_game.scenario) as its raw JSON text, or null;
-            // then the In-Service Date again, for its Game rules chip.
-            gamedata.renderScenarioPanel(<?php print($scenarioJS); ?>, gamedata.inServiceDate);
+            // then the In-Service Date again and whether the game is private, for their Game rules chips.
+            gamedata.renderScenarioPanel(<?php print($scenarioJS); ?>, gamedata.inServiceDate, <?php print(($gameAccess && $gameAccess['private']) ? 'true' : 'false'); ?>);
             gamedata.parseFactions(<?php print($factions); ?>);
             
             var customWarningShown = false; 

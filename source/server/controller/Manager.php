@@ -398,6 +398,7 @@ class Manager{
         $description = $data["description"];
         $scenario = self::cleanScenario($data["scenario"] ?? null);
         $inServiceDate = self::cleanInServiceDate($data["inServiceDate"] ?? null);
+        $passwordHash = self::hashGamePassword($data["password"] ?? null);
         $slots = array();
         $pointsA = $data["slots"][0]["points"];
         $poinstB = $data["slots"][1]["points"];
@@ -410,9 +411,13 @@ class Manager{
         try {
             self::initDBManager();
             self::$dbManager->startTransaction();
-            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules), $scenario, $inServiceDate);
+            $gameid = self::$dbManager->createGame($gamename, $background, $slots, $userid, $gamespace, $description, json_encode($rules), $scenario, $inServiceDate, $passwordHash);
             //SystemData::initSystemData(0, $gameid);
-            self::takeSlot($userid, $gameid, 1);
+            //No password asked: a private game's password is checked in slot.php, not in takeSlot,
+            //and the creator needs none for their own game. A brand-new game's slot 1 is always free,
+            //so a refusal means something is badly wrong - roll the game back rather than leave it empty.
+            if (!self::takeSlot($userid, $gameid, 1))
+                throw new Exception("Manager::createGame: could not seat the creator in slot 1 of game $gameid");
             self::$dbManager->endTransaction(false);
             return $gameid;
         }
@@ -471,13 +476,108 @@ class Manager{
         return ($year > 0) ? $year : null;
     }
 
+    /* ── Private games (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §3.2, Stage 8) ─────────────────────
+       A private game has a password (tac_game.password_hash, password_hash(PASSWORD_DEFAULT) - the
+       player accounts' scheme). Until a player enters it, gamelobby.php shows them a password form
+       instead of the lobby and slot.php refuses them a slot. A player who holds a slot in the game
+       (its creator, from the start) never needs it; one who has entered it keeps the game unlocked
+       for the rest of their session ($_SESSION['unlockedGames']).
+       The hash is read by getGameAccess alone and never leaves this class: not into TacGamedata,
+       the games list (only a "private" flag) or any payload (plan §12.1 trap 5).
+       It guards the lobby PAGE and the slot, not the data: chatdata.php and gamedata.php serve any
+       game to any logged-in player, as they always have (spectating). */
+    const GAME_PASSWORD_MAX_LENGTH = 64;
+    const GAME_PASSWORD_TRIES = 10;          //wrong passwords per player and game...
+    const GAME_PASSWORD_TRIES_WINDOW = 900;  //...in this many seconds (APCu; none without it)
+
+    /* The password as it is compared: trimmed - it is passed on by hand, and a space picked up in
+       a copy and paste must not lock anybody out - and cut to 64 characters, and to bcrypt's 72
+       bytes. Creation and entry both come through here, so a longer paste still matches. '' = none. */
+    public static function normaliseGamePassword($raw){
+        if (!is_string($raw)) return '';
+        $password = mb_substr(trim($raw), 0, self::GAME_PASSWORD_MAX_LENGTH);
+        while (strlen($password) > 72) $password = mb_substr($password, 0, -1);
+        return $password;
+    }
+
+    //The submitted password -> the hash stored for a private game, or null for a public one.
+    public static function hashGamePassword($raw){
+        $password = self::normaliseGamePassword($raw);
+        return ($password === '') ? null : password_hash($password, PASSWORD_DEFAULT);
+    }
+
+    /* The game as far as its lobby's door is concerned, or null when there is no such game:
+       array('name', 'status', 'private', 'member', 'locked') - `locked` = private, and this player
+       neither holds a slot in it nor has entered its password this session. */
+    public static function getGameAccess($userid, $gameid){
+        if (!is_numeric($userid) || !is_numeric($gameid)) return null;
+        self::initDBManager();
+        $row = self::$dbManager->getGameAccess((int)$gameid, (int)$userid);
+        if (!$row) return null;
+
+        $private = ($row['passwordHash'] !== null);
+        return array(
+            'name' => $row['name'],
+            'status' => $row['status'],
+            'private' => $private,
+            'member' => $row['member'],
+            'locked' => $private && !$row['member'] && !self::isGameUnlocked($gameid)
+        );
+    }
+
+    public static function isGameLocked($userid, $gameid){
+        $access = self::getGameAccess($userid, $gameid);
+        return $access !== null && $access['locked'];
+    }
+
+    public static function isGameUnlocked($gameid){
+        return !empty($_SESSION['unlockedGames'][(int)$gameid]);
+    }
+
+    /* Remember that this player entered the game's password. ⚠️ Writes $_SESSION: the caller must
+       not have closed the session yet (gamelobby.php closes it early on purpose). */
+    public static function markGameUnlocked($gameid){
+        if (!isset($_SESSION['unlockedGames']) || !is_array($_SESSION['unlockedGames'])) {
+            $_SESSION['unlockedGames'] = array();
+        }
+        $_SESSION['unlockedGames'][(int)$gameid] = true;
+    }
+
+    /* A password typed into gamelobby.php's form: 'ok' (right, or the game is not private),
+       'wrong', or 'throttled' - too many wrong ones lately, and this one was not even checked. */
+    public static function checkGamePassword($userid, $gameid, $raw){
+        if (!is_numeric($userid) || !is_numeric($gameid)) return 'wrong';
+        self::initDBManager();
+        $row = self::$dbManager->getGameAccess((int)$gameid, (int)$userid);
+        if (!$row) return 'wrong';
+        if ($row['passwordHash'] === null) return 'ok';
+
+        $key = self::getCachePrefix() . 'gamepassword_fail_' . (int)$gameid . '_' . (int)$userid;
+        $useApcu = function_exists('apcu_fetch');
+        if ($useApcu && (int)apcu_fetch($key) >= self::GAME_PASSWORD_TRIES) return 'throttled';
+
+        $password = self::normaliseGamePassword($raw);
+        if ($password !== '' && password_verify($password, $row['passwordHash'])) {
+            if ($useApcu) apcu_delete($key);
+            return 'ok';
+        }
+
+        if ($useApcu) {
+            apcu_add($key, 0, self::GAME_PASSWORD_TRIES_WINDOW); //the window starts at the first miss
+            apcu_inc($key);
+        }
+        return 'wrong';
+    }
+
+    //True, or false when the slot cannot be taken (DBManager::takeSlot: no such slot, the game has
+    //left its lobby, or another player holds it).
     public static function takeSlot($userid, $gameid, $slot){
-        
+
         try {
             self::initDBManager();
             //self::$dbManager->startTransaction();
             $ret = self::$dbManager->takeSlot($userid, $gameid, $slot);
-            self::touchGame($gameid);
+            if ($ret) self::touchGame($gameid);
             return $ret;
             //self::$dbManager->endTransaction();
             

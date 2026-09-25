@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-7 BUILT 2026-09-25
-(see §12); Stages 8-10 not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stages 4-8 BUILT 2026-09-25
+(see §12); Stages 9-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -467,9 +467,11 @@ against those directly rather than re-deriving layout from this section's prose 
   and in the lobby.
 - **Stage 7 — FV faction randomiser. ✅ BUILT 2026-09-25 — §12.8.** Replaces the Wheel links
   (§4.5): the Faction Picker's sticky footer, rolling from the rows the picker's filters leave.
-- **Stage 8 — Private/password games.** Held to last deliberately — the only change touching
+- **Stage 8 — Private/password games. ✅ BUILT 2026-09-25 — §12.9.** Held to last deliberately — the only change touching
   the JOIN flow and therefore auth-adjacent code (games.php's Join Games list, the slot-take
-  path). Wants its own focused review pass rather than riding along with a UI stage.
+  path). Wants its own focused review pass rather than riding along with a UI stage. As built:
+  a password page in place of the lobby, and slot.php refusing a slot, until the password is
+  entered; a Private tag in Join Games; a Private Game chip.
 - **Stage 9 — Buy/Edit/Bulk-Buy dialog restructure** (§10.2). Accordion sections + sticky
   total-cost bar, built once against `confirm.showShipBuy`/`showBuyBulk` since both dialogs
   share the same row-building code. Independent of every Create Game/Gamelobby-page stage
@@ -826,7 +828,7 @@ convention.
    so a property it doesn't name stays server-side — but that payload is inlined into
    gamelobby.php and polled by game.php, so one careless `$strippedGamedata->… = $this->…` would
    hand a private game's hash to everyone who opens it. Stage 8: give the join path its own
-   narrow query.
+   narrow query. **Done at Stage 8: `DBManager::getGameAccess` is the only read (§12.9).**
 6. **creategame.php has NO `<meta name="viewport">`** (gamelobby.php does). Without it a phone
    lays the page out at ~980px and scales it down, so NO responsive CSS on that page can ever
    take effect. Not added at Stage 0 because it changes how today's fixed-width page renders on
@@ -1658,3 +1660,118 @@ the roll. Reduced motion → `animation-name: none`. 1600 (540×780 window) and 
 footer flush with its foot, button 358×44, Choose 77×40, the longest custom name — "Nexus Dalithorn
 Commonwealth (early)" — wraps inside the footer, no overflow anywhere). No console errors.
 **Not verified:** a real server session and a real touch device.
+
+### 12.9 Stage 8 — private / password games (built 2026-09-25)
+
+No schema change: Stage 0's `tac_game.password_hash` (VARCHAR(255) NULL) is written and read for the
+first time, so `db/createGameRedesign.sql` must be applied wherever this runs (it already must be, since
+Stage 1). No new class; the autoload map is unchanged. Both legacy bundles need rebuilding
+(`ajaxInterface.js` is in the game bundle too; `gamelobby.js` / `scenarioCard.js` in the lobby's).
+
+**What "private" means (decision).** A private game has a password. A player who holds no slot in it
+and has not entered the password this session gets a **password page in place of the lobby** — the
+lobby's own data is never built for them — and **slot.php refuses them a slot**. The creator holds
+slot 1 from creation, so never needs it; a player who has taken a slot never needs it again; one who
+entered it keeps the game unlocked until their session ends (`$_SESSION['unlockedGames'][gameid]`), so
+leaving a slot and coming back costs nothing. The page gate, not a prompt on games.php: gamelobby.php
+has to guard a typed-in URL anyway, so there is one door, it works without JS, and a player arriving
+from a link someone pasted meets it too. **It guards the lobby PAGE and the slot, not the data:**
+`chatdata.php` and `gamedata.php` still serve any game to any logged-in player, as they always have
+(spectating) — gating those would put a DB read on the busiest endpoints.
+
+**What landed:**
+
+- **Create Game** (the mockup's Step 1): "Private Game" between Game Name and Load Settings — a
+  "Require password" box, and while it is ticked (§11.6) a password field (placeholder "Password to
+  join", `maxlength` 64, autocomplete off) with a **Show / Hide** button: the creator has to pass the
+  password on and can never change it, so they can check what they typed. On a phone it takes its own
+  line and the field the rest of the width (16px, 44px tall).
+- **Validation** (`validateStep(1)`): ticked with nothing typed → "Private Game: enter a password, or
+  untick Require password."
+- **Posted** as a top-level `password` (trimmed string, or null) beside `inServiceDate` — not a rule,
+  not a scenario fact. The field has no `name`, so it is never posted on its own, and the submit
+  handler **empties it** once the JSON holds it, so a browser does not take the form for a sign-up and
+  offer to save it over the player's account password (not verifiable headless — see below).
+- **Server** (`Manager`): `normaliseGamePassword` (trim, 64 characters, and bcrypt's 72 bytes — used
+  on creation AND on entry, so a longer paste still matches) → `hashGamePassword`
+  (`password_hash(PASSWORD_DEFAULT)`, the player accounts' scheme; blank → null = public) →
+  `DBManager::createGame`'s new last parameter. `getGameAccess($userid, $gameid)` returns
+  `name / status / private / member / locked` and never the hash; `isGameLocked`, `markGameUnlocked`,
+  `checkGamePassword` → `'ok' | 'wrong' | 'throttled'`. **Throttle:** 10 wrong passwords per player per
+  game in 15 minutes (APCu; the window starts at the first miss), after which even the right one is
+  not checked until it expires; a right one clears the count.
+- **The ONE read of the hash** is `DBManager::getGameAccess` (name, status, hash, and whether the player
+  holds a slot, in one query). `getLobbyGames` selects only `password_hash IS NOT NULL` as a `private`
+  flag. Nothing reaches TacGamedata (§12.1 trap 5 holds).
+- **gamelobby.php:** the password POST is handled BEFORE `session_write_close()` (it writes the
+  session) and a right one redirects 303 to the lobby by GET, so a reload never re-posts. The gate is
+  checked after the leave handling and BEFORE `getGameLobbyDataJSON`: a locked player gets a small
+  page of its own — the lobby's `.lb-panel` grammar, a "Private Game #id" head with a Font Awesome
+  padlock in `--fv-warn`, the game's name, one line of explanation, the password field (autofocused),
+  Back to Games and a green Open Lobby; "That is not this game's password." / "Too many wrong
+  passwords. Wait a few minutes, then try again." in `--fv-enemy`. Styles `.lb-gate*` at the foot of
+  gameLobby.css; `.lb-gate-page` fills the viewport (base.css scrolls the backdrop on a phone, so a
+  short page showed black under it).
+- **slot.php:** `takeslot` on a locked game → `{"error": "This game is private. Open it again from the
+  Games page and enter its password to take a slot."}`; `ajaxInterface.submitSlotAction` now shows a
+  slot.php error as written (escaped) instead of "AJAX error: success". Leaving is never gated.
+- **games.php Join Games:** a yellow "Private" tag with a padlock drawn inline (no icon font on that
+  page), title "Needs a password to join", before the Ladder tag. The rail stays the joinable green —
+  it can be joined, with the password.
+- **Private Game chip** (`scenarioCard.ruleChips(rules, {isPrivate})`, new yellow `private` kind, the
+  Load a Fleet menu's private padlock colour) LEADS the Game rules row — on the Confirm step and under
+  the lobby's Map Preview (`renderScenarioPanel`'s new third argument).
+- **Saved settings:** `readSettings` keeps `privateGame` (the tick) — the password never goes into
+  localStorage (players reuse passwords). Loading brings the tick back with the field empty (a password
+  already typed stays); Next then asks for one. Settings saved before this stage load public. Save's
+  note adds "The password is not saved." while the box is ticked. No `PRESET_VERSION` bump.
+
+**Verified.** `php -l` on the five PHP files. A server scratch script (34 checks, APCu on): the
+normaliser (trim, 64-character cap, a 64 × "é" paste cut to 36 characters / 72 bytes, non-strings),
+hashing, a real `Manager::createGame` private + public pair (bcrypt stored / NULL), creator member and
+unlocked, stranger locked, a public or missing game never locked, wrong / blank / padded-right / public
+/ missing-game password results, the session unlock, the throttle (10 misses, the 11th refused even when
+right, other players unaffected, TTL 900, a success clears), the games list flag with no hash in its
+JSON, the gamedata payload with no hash and no "password" at all, take slot → member → leave → locked
+again; both games deleted. **End to end on the REAL local site** (nginx, headless Chrome over CDP,
+three players logged in by session files planted in the php container — 28 checks, no console errors):
+the Create Game box / Show / Hide / validation / Enter creating nothing / the Confirm chip / Save
+(note, storage without the password) / Load (tick back, empty, Next asks) / the posted JSON (trimmed,
+top-level, not in rules, field emptied) → the creator straight into the lobby with the chip; a second
+player sees the Private tag, clicking the card gives the gate (focused, no lobby data in the page), a
+direct `slot.php` takeslot is refused, a wrong password by Enter shows the message, the right one
+(padded) lands in the lobby by GET, Take Slot works, leaving goes to games.php and reopening needs no
+password; a third player on a 390px phone: gate 16px / 44px / buttons 44px / no overflow, eleven wrong
+passwords → throttled, the right one still throttled; Create Game's row on the phone; the Fleet
+Builder still opens straight into its lobby. Screenshots desktop + phone. `fvbuild -Check`: autoload
+map up to date, ship validator clean (no new errors), replay 129/130 — the one failure is game
+**4251**, the known pre-existing drift (§12.2). Test games 4391-4394 and the session files are deleted.
+**Not verified:** a browser's password manager (whether emptying the field really stops "save this
+password?"), a real touch device, the live server.
+
+**Found and fixed (user, same day) — pre-existing, and bigger than this stage:** `DBManager::takeSlot`
+never checked that the slot was free or that the game was still in its lobby (`UPDATE tac_playeringame
+SET playerid = … WHERE gameid = … AND slot = …`). The page hides Take Slot on a taken slot, but a
+hand-made POST to slot.php could move a player out of their slot — in an ACTIVE game too, handing over
+their fleet. Nothing relied on the overwrite (changeUser.php only swaps the session's user; takeSlot
+is the only writer of a slot's player besides leaveSlot). Now `takeSlot` returns **true / false**:
+
+- **Refused** (false): no such slot, the game is not LOBBY, or ANOTHER player holds the slot. Retaking
+  one's own slot (a double click) is fine.
+- **Claimed first, by a conditional UPDATE** (`… AND (playerid IS NULL OR playerid <= 0 OR playerid =
+  caller)`), so of two players taking a slot at once exactly one wins (0 rows affected → re-read: still
+  the caller's is fine, anyone else's is a refusal). **Only then** are the caller's slots on the other
+  team left — one `leaveSlot` per slot — where the old code left them FIRST, so a refused team switch
+  would have cost the player the slot they had. The ladder handicap still runs last, after the old
+  slots are gone (it takes "whoever else holds a slot" as the opponent). Ids are `(int)`-cast.
+- `Manager::takeSlot` touches the game only on success; `Manager::createGame` throws (rolling the new
+  game back) if the creator cannot be seated. slot.php answers a refusal with `{"error": "That slot
+  cannot be taken: another player has it, or the game has already started."}`, which the lobby shows
+  as written (the `submitSlotAction` change above).
+
+Verified: a scratch script on the local DB (14 checks — stranger vs the creator's slot, a free slot,
+double click, a taken other-team slot refused WITH the old slot kept, a second same-team slot, a team
+switch leaving every old-team slot, missing slot / game, string ids, an ACTIVE game refusing free and
+taken slots alike, a ladder join still getting the opponent's points); over HTTP, slot.php refuses a
+taken slot and seats a free one; in the lobby, Take Slot on a slot taken behind the page's back shows
+the message and seats nobody. `fvbuild -Check` unchanged (only game 4251). Test games 4395-4397 deleted.

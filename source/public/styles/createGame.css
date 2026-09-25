@@ -388,6 +388,58 @@ textarea.cg-input {
   flex: 1 1 260px;
 }
 
+/* ── Private Game, between Game Name and Load Settings (the mockup's Step 1) ── */
+
+/* Its control row is as tall as the name field, so the three bottoms line up. */
+.cg-private-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 36px;
+}
+
+.cg-private-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--fv-text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* base.css nudges every checkbox down 2px; this row aligns its own (as .cg-check-row does). */
+.cg-private-check input[type=checkbox] {
+  flex: none;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--fv-accent);
+  cursor: pointer;
+}
+
+.cg-private-password {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cg-private-password[hidden] {
+  display: none;
+}
+
+.cg-private-password .cg-input {
+  width: 190px;
+}
+
+/* Show / Hide keep one width, so the row does not shift as it flips. */
+#gamePasswordShow {
+  flex: none;
+  min-width: 58px;
+}
+
 .cg-presets {
   position: relative;
   flex: none;
@@ -1494,6 +1546,18 @@ div[data-team-id="2"] .remove-team-btn {
   .cg-name-field,
   .cg-template-field {
     max-width: none;
+  }
+
+  /* Private Game takes its own line; ticked, the password box has the rest of the width. */
+  .cg-private-field,
+  .cg-private-password {
+    flex: 1 1 100%;
+  }
+
+  .cg-private-password .cg-input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
 
   /* 16px: anything smaller and iOS Safari zooms the whole page when the field takes focus. */

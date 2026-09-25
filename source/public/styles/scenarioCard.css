@@ -83,7 +83,8 @@
    The lobby's Game Rules row and the wizard's Summary step - one look, one set of colours, so
    the Summary really is a preview of the lobby. Colour by kind (user, 2026-09-25): Ladder takes
    games.php's ladder gold, terrain white, Simultaneous Movement green, Reinforcements cyan, Mines
-   purple, and everything else the page's own blue. Each kind only sets the three --chip values. */
+   purple, Private Game yellow (Stage 8), and everything else the page's own blue. Each kind only
+   sets the three --chip values. */
 
 .fv-rule-chips {
   display: flex;
@@ -141,6 +142,13 @@
   --chip: var(--fv-purple);
   --chip-fill: rgba(178, 140, 240, 0.1);
   --chip-line: rgba(178, 140, 240, 0.6);
+}
+
+/* A password-protected game (Stage 8): the yellow of the Load a Fleet menu's private padlock. */
+.fv-rule-chip--private {
+  --chip: var(--fv-warn);
+  --chip-fill: rgba(225, 176, 0, 0.1);
+  --chip-line: rgba(225, 176, 0, 0.6);
 }
 
 .fv-rule-chip--none {

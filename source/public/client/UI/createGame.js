@@ -67,6 +67,9 @@ jQuery(function ($) {
         if (digits !== this.value) this.value = digits;
     });
 
+    // Private Game: the password box (and Show) only while Require password is ticked.
+    createGame.initPrivateGame();
+
     // UNLIMITED POINTS LOGIC
     $("#unlimitedPointsCheck").on("change", function () {
         const isUnlimited = $(this).is(":checked");
@@ -134,6 +137,9 @@ jQuery(function ($) {
         createGame.setData();
         createGame.submitting = true;
         $("#cgConfirm").prop("disabled", true);
+        //The password is in the posted JSON now. Emptied so a browser does not take this form for a
+        //sign-up and offer to save it as the player's own account password.
+        $("#gamePassword").val("");
     });
 
     //Back from the lobby can restore this page from the bfcache with Confirm still disabled.
@@ -1719,6 +1725,10 @@ window.createGame = {
             if (!String($("#gamename").val() || "").trim()) {
                 return { message: "Give the game a name.", field: "#gamename" };
             }
+            //A private game with no password could never be joined.
+            if ($("#privateGameCheck").is(":checked") && createGame.readPassword() === null) {
+                return { message: "Private Game: enter a password, or untick Require password.", field: "#gamePassword" };
+            }
             //A short year would lock the lobby's ISD filter below every unit there is.
             const isd = String($("#inServiceDate").val() || "").trim();
             if (isd && !(/^\d{4}$/.test(isd) && parseInt(isd, 10) >= 1000)) {
@@ -1774,6 +1784,39 @@ window.createGame = {
         return year > 0 ? year : null;
     },
 
+    /* ── Private Game (plan §3.2, Stage 8) ──────────────────────────────────────────────────────
+       Ticked, the game is created with a password (tac_game.password_hash); players need it to
+       open the lobby. It is posted on its own, like the In-Service Date - not a rule - and it is
+       never saved with the settings (Save Settings keeps only the tick). */
+    initPrivateGame: function initPrivateGame() {
+        $("#privateGameCheck").on("change", function () {
+            createGame.showPrivatePassword();
+            if (this.checked) $("#gamePassword").trigger("focus");
+        });
+
+        //Shown, so the creator can check what they are about to hand on - it cannot be changed later.
+        $("#gamePasswordShow").on("click", function () {
+            const input = $("#gamePassword");
+            const show = input.attr("type") === "password";
+            input.attr("type", show ? "text" : "password");
+            $(this).text(show ? "Hide" : "Show");
+        });
+
+        createGame.showPrivatePassword(); //a restored form may arrive ticked
+    },
+
+    showPrivatePassword: function showPrivatePassword() {
+        $("#privatePasswordWrap").prop("hidden", !$("#privateGameCheck").is(":checked"));
+    },
+
+    /* The password as the server will store it - trimmed (Manager::normaliseGamePassword does the
+       same, and the lobby's password form too) - or null: not private, or nothing typed. */
+    readPassword: function readPassword() {
+        if (!$("#privateGameCheck").is(":checked")) return null;
+        const password = String($("#gamePassword").val() || "").trim();
+        return password === "" ? null : password;
+    },
+
     //Step 4: a read-only recap, grouped the way the lobby will show the game.
     renderSummary: function renderSummary() {
         const background = $("input[name='background']:checked");
@@ -1784,7 +1827,8 @@ window.createGame = {
         //The lobby's Game Rules chips, from the same function, so this is exactly what it will show.
         $("#sumRules").html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(createGame.rules, {
             unlimitedPoints: $("#unlimitedPointsCheck").is(":checked"),
-            inServiceDate: createGame.readInServiceDate()
+            inServiceDate: createGame.readInServiceDate(),
+            isPrivate: createGame.readPassword() !== null
         })));
 
         $("#sumScenario").html(scenarioCard.render(createGame.readScenario(), { plain: true })
@@ -1902,6 +1946,8 @@ window.createGame = {
             gamename: String($("#gamename").val() || ""),
             background: $("input[name='background']:checked").val() || "",
             inServiceDate: String($("#inServiceDate").val() || "").trim(),
+            //the tick only - a password never goes into localStorage
+            privateGame: $("#privateGameCheck").is(":checked"),
             checks: checks,
             selects: selects,
             terrain: terrain,
@@ -1937,6 +1983,12 @@ window.createGame = {
 
         //Blank for settings saved before the field existed - they had no cutoff.
         $("#inServiceDate").val(settings.inServiceDate == null ? "" : String(settings.inServiceDate).replace(/\D/g, "").slice(0, 4));
+
+        //Private: the tick comes back, the password does not (it was never saved) - one already typed
+        //stays, and Next asks for one if the box is empty. Settings saved before Stage 8 were public.
+        $("#privateGameCheck").prop("checked", settings.privateGame === true);
+        if (settings.privateGame !== true) $("#gamePassword").val("");
+        createGame.showPrivatePassword();
 
         const background = $("input[name='background']").filter(function () { return this.value === settings.background; });
         if (background.length) {
@@ -2174,7 +2226,8 @@ window.createGame = {
     updateSaveNote: function updateSaveNote() {
         const list = createGame.readPresets();
         const index = createGame.findPreset(list, $("#cgPresetName").val());
-        $("#cgSaveNote").text(index >= 0 ? "Replaces your saved “" + list[index].name + "”." : "Saved in this browser only.");
+        $("#cgSaveNote").text((index >= 0 ? "Replaces your saved “" + list[index].name + "”." : "Saved in this browser only.")
+            + ($("#privateGameCheck").is(":checked") ? " The password is not saved." : ""));
         $("#cgSaveConfirm").text(index >= 0 ? "Replace" : "Save");
     },
 
@@ -2242,7 +2295,7 @@ window.createGame = {
             createGame.rules.fleetTest = 1;
         }
 
-        var data = { gamename: gamename, background: background, slots: createGame.slots, gamespace: gamespace, flight: flight, rules: createGame.rules, description: description, scenario: scenario, inServiceDate: createGame.readInServiceDate() };
+        var data = { gamename: gamename, background: background, slots: createGame.slots, gamespace: gamespace, flight: flight, rules: createGame.rules, description: description, scenario: scenario, inServiceDate: createGame.readInServiceDate(), password: createGame.readPassword() };
         data = JSON.stringify(data);
         $("#createGameData").val(data);
     }

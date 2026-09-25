@@ -136,6 +136,25 @@
               <input id="gamename" class="gamename cg-input" type="text" name="gamename" value="<?php print(htmlspecialchars($defaultGameName)); ?>">
             </div>
 
+            <!-- Private Game (plan §3.2, Stage 8): ticked, players need the password to open the
+                 lobby. The box and Show appear only while ticked (§11.6). No `name`s: the password
+                 travels in the posted JSON (createGame.readPassword), never as a form field of its own. -->
+            <div class="cg-field cg-private-field" role="group" aria-labelledby="privateGameLabel">
+              <span class="cg-label" id="privateGameLabel">Private Game</span>
+              <div class="cg-private-row">
+                <label class="cg-private-check">
+                  <input id="privateGameCheck" type="checkbox">
+                  Require password
+                </label>
+                <span id="privatePasswordWrap" class="cg-private-password" hidden>
+                  <label for="gamePassword" class="cg-sr">Game password</label>
+                  <input id="gamePassword" class="cg-input" type="password" maxlength="<?php print(Manager::GAME_PASSWORD_MAX_LENGTH); ?>"
+                         placeholder="Password to join" autocomplete="off" autocapitalize="off" spellcheck="false">
+                  <button type="button" id="gamePasswordShow" class="cg-btn cg-btn--ghost cg-btn--small" aria-controls="gamePassword">Show</button>
+                </span>
+              </div>
+            </div>
+
             <!-- Saved settings (plan §3.2): kept in this browser only. Saving is on the Confirm
                  step, so only a form that passed every step is saved. createGame.initPresets(). -->
             <div class="cg-presets">
