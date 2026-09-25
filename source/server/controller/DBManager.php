@@ -2706,6 +2706,23 @@ class DBManager
 
     }
     */        
+    /* tac_game.scenario as stored (JSON text), or null. See Manager::getGameScenario. */
+    public function getGameScenario($gameid)
+    {
+        $scenario = null;
+
+        $stmt = $this->connection->prepare("SELECT scenario FROM tac_game WHERE id = ?");
+        if ($stmt) {
+            $stmt->bind_param('i', $gameid);
+            $stmt->bind_result($scenario);
+            $stmt->execute();
+            $stmt->fetch();
+            $stmt->close();
+        }
+
+        return $scenario;
+    }
+
     public function getTacGame($gameid, $playerid)
     {
          $sql = "SELECT * FROM `tac_game` where id = $gameid";

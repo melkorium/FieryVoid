@@ -158,6 +158,79 @@ window.scenarioCard = {
         return '<dl class="fv-scn-grid' + (plain ? " fv-scn-grid--plain" : "") + '">' + facts + "</dl>";
     },
 
+    /*
+     * The game's optional rules, one chip each: the lobby's Game Rules row (under its Map Preview)
+     * and the wizard's Summary step, which previews it - one list, so the two can never
+     * disagree. `rules` is the rules object as the server publishes it (gamedata.rules) or as the
+     * wizard is about to post it (createGame.rules); the two share every key.
+     * options.unlimitedPoints: the slots are unlimited - a slot setting, not a rule, so the caller
+     * says so.
+     *
+     * Every count goes through parseInt: the lobby payload is JSON_NUMERIC_CHECKed, the wizard's is
+     * not, so a count can arrive as either. The terrain map's name is the creator's text (the
+     * template's name, but it came from a POST) - renderRuleChips escapes it.
+     *
+     * `kind` is the chip's colour (user, 2026-09-25): ladder gold, terrain white, simultaneous
+     * movement green, reinforcements cyan, mines purple, anything else the page's blue.
+     */
+    ruleChips: function ruleChips(rules, options) {
+        var r = rules || {};
+        var chips = [];
+        var add = function (kind, text) { chips.push({ kind: kind, text: text }); };
+        var count = function (value) { return Math.max(0, parseInt(value, 10) || 0); };
+
+        if (r.ladder) add("ladder", "Ladder Game");
+        var brackets = count(r.initiativeCategories);
+        if (brackets > 0) add("simmove", "Simultaneous Movement (" + brackets + (brackets === 1 ? " bracket)" : " brackets)"));
+        if (r.allowMines) add("mines", "Mines Allowed");
+        if (r.allowReinforcements) add("reinforcements", "Reinforcements Allowed");
+        if (r.desperate != null) {
+            var teams = parseInt(r.desperate, 10);
+            add("rule", "Desperate Scenario (" + (teams === 1 ? "Team 1" : teams === 2 ? "Team 2" : "Both teams") + ")");
+        }
+        if (r.friendlyFire) add("rule", "Friendly Fire");
+        if (options && options.unlimitedPoints) add("rule", "Unlimited Points");
+
+        //The random terrain (Create Game's Terrain Features rows) as ONE chip, then the terrain map
+        //as its own - the Map Preview shows what the map places.
+        var terrain = [];
+        if (count(r.asteroids) > 0) terrain.push("Asteroids (" + count(r.asteroids) + ")");
+        if (r.moons) {
+            var moons = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]]
+                .filter(function (size) { return count(r.moons[size[0]]) > 0; })
+                .map(function (size) { return count(r.moons[size[0]]) + " " + size[1]; });
+            if (moons.length) terrain.push("Moons (" + moons.join(", ") + ")");
+        }
+        if (r.dustAndMeteors) {
+            if (count(r.dustAndMeteors.dust) > 0) terrain.push("Dust (" + count(r.dustAndMeteors.dust) + ")");
+            if (count(r.dustAndMeteors.meteors) > 0) terrain.push("Meteor Swarms (" + count(r.dustAndMeteors.meteors) + ")");
+        }
+        //No-break spaces inside each type, and before each dot, so a long chip wraps only between
+        //types, the dot ending the line.
+        if (terrain.length) {
+            add("terrain", "Random Terrain: " + terrain.map(function (type) {
+                return type.replace(/ /g, " ");
+            }).join(" · "));
+        }
+        var layout = r.terrainLayout;
+        if (layout && layout.units && layout.units.length) {
+            var name = String(layout.name == null ? "" : layout.name).trim() || "Pre-placed";
+            add("terrain", "Terrain Map: " + name);
+        }
+
+        return chips;
+    },
+
+    //ruleChips() as the <li>s of a .fv-rule-chips list; one dashed "No optional rules" when empty.
+    renderRuleChips: function renderRuleChips(chips) {
+        if (!chips || !chips.length) {
+            return '<li class="fv-rule-chip fv-rule-chip--none">No optional rules</li>';
+        }
+        return chips.map(function (chip) {
+            return '<li class="fv-rule-chip fv-rule-chip--' + chip.kind + '">' + scenarioCard.escapeHtml(chip.text) + "</li>";
+        }).join("");
+    },
+
     //Same as games.js's escapeHtml - that file is not loaded on either page that uses this one.
     escapeHtml: function escapeHtml(value) {
         return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {

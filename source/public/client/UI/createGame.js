@@ -244,239 +244,26 @@ window.createGame = {
         createGame.renderLegend(createGame.getTeamIds().length);
     },
 
-    /* The map preview's look, after the mockup's Teams & Map artboard (plan §11): the map a dark
-       well under a faint grid, each deployment zone a light wash of its team colour behind a
-       dashed edge, labelled in the corner nearest the map's rim, and terrain as grey discs.
-       Colours are tokens.css values (a canvas cannot read var()); terrain grey is the mockup's. */
-    mapPreviewColors: {
-        well: "#04161c",        //--fv-well
-        grid: "#0b2330",        //a shade above --fv-card, which vanishes once the canvas is scaled down
-        axis: "#15374a",        //the centre lines, between the grid and the rim
-        rim: "#215a7a",         //--fv-line
-        terrain: "90, 106, 118" //#5a6a76, as rgb for the alpha
-    },
-
-    //Logical width of the drawing; its height follows the map. Drawn at PIXEL_RATIO times that,
-    //so the thin lines stay sharp however CSS scales the canvas (width 100%, height auto).
-    MAP_PREVIEW_WIDTH: 545,
-    MAP_PREVIEW_PIXEL_RATIO: 2,
-
-    //The map preview's drawing, onto any canvas: Step 3's preview and the Summary's copy of it.
+    /* The map preview, onto any canvas: Step 3's preview and the Summary's copy of it. The
+       drawing is mapPreview.js's, shared with the lobby's Map Preview so both show one map; this
+       page supplies what goes on it - every slot's zone in its team's colour, labelled with its
+       team, and the template's pre-placed terrain. */
     paintMap: function paintMap(canvas) {
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        const colors = createGame.mapPreviewColors;
         const isLimited = $("#mapDimensionsSelect").val() !== "unlimited";
-
-        // Use fixed width/height if unlimited is selected
-        const mapWidth = isLimited ? (createGame.gamespace_data.width || 1) : 84;
-        const mapHeight = isLimited ? (createGame.gamespace_data.height || 1) : 60;
-
-        //The canvas takes the map's own proportions, so the map fills the frame as in the mockup -
-        //within limits, so a long strip or a tall custom map is letterboxed instead.
-        const width = createGame.MAP_PREVIEW_WIDTH;
-        const height = Math.round(width * Math.min(1, Math.max(0.45, mapHeight / mapWidth)));
-        const ratio = createGame.MAP_PREVIEW_PIXEL_RATIO;
-        if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
-            canvas.width = width * ratio; //resizing also clears it
-            canvas.height = height * ratio;
-        }
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        ctx.clearRect(0, 0, width, height);
-
-        const margin = 1; //room for the rim's own line
-        const scale = Math.min((width - margin * 2) / mapWidth, (height - margin * 2) / mapHeight);
-        const mapW = mapWidth * scale, mapH = mapHeight * scale;
-        const left = (width - mapW) / 2, top = (height - mapH) / 2;
-        const centerX = left + mapW / 2, centerY = top + mapH / 2;
-        const snap = v => Math.round(v * ratio) / ratio; //a 1px line (ratio device px) centred here is sharp
-
-        //Hex column x -> canvas. The map's true centre is half a hex left of x = 0 (plan §12.3), so
-        //x sits half a hex right of where the box would put it; y runs up the map, in rows.
-        const toX = x => centerX + (x + 0.5) * scale;
-        const toY = y => centerY - y * scale;
-
-        ctx.save();
-        ctx.fillStyle = colors.well;
-        ctx.fillRect(left, top, mapW, mapH);
-        ctx.beginPath();
-        ctx.rect(left, top, mapW, mapH);
-        ctx.clip(); //zones and terrain past the rim are cut there, as the game cuts them
-
-        //A grid every few hexes - about 24px apart at any map size - on the centre lines, which
-        //are drawn a little brighter.
-        const step = [1, 2, 3, 4, 5, 10, 20].find(n => n * scale >= 24) || 20;
-        const pitch = step * scale;
-        ctx.lineWidth = 1;
-        for (let k = -Math.ceil(mapW / 2 / pitch); k <= Math.ceil(mapW / 2 / pitch); k++) {
-            const x = snap(centerX + k * pitch);
-            ctx.strokeStyle = k === 0 ? colors.axis : colors.grid;
-            ctx.beginPath();
-            ctx.moveTo(x, top);
-            ctx.lineTo(x, top + mapH);
-            ctx.stroke();
-        }
-        for (let k = -Math.ceil(mapH / 2 / pitch); k <= Math.ceil(mapH / 2 / pitch); k++) {
-            const y = snap(centerY + k * pitch);
-            ctx.strokeStyle = k === 0 ? colors.axis : colors.grid;
-            ctx.beginPath();
-            ctx.moveTo(left, y);
-            ctx.lineTo(left + mapW, y);
-            ctx.stroke();
-        }
-
-        // Draw deployment zones
-        // Iterate data model directly to ensure we catch all teams even if DOM is lagging
         const teamCount = createGame.getTeamIds().length;
-        const labels = [];
-        createGame.slots.forEach(function (slot) {
-            const x = parseInt(slot.depx) || 0;
-            const y = parseInt(slot.depy) || 0;
-            const w = parseInt(slot.depwidth) || 0;
-            const h = parseInt(slot.depheight) || 0;
-            if (w <= 0 || h <= 0) return;
 
-            // (x, y) is the zone's centre
-            const rgb = createGame.teamColor(slot.team, teamCount).join(",");
-            const zx = toX(x - w / 2), zy = toY(y + h / 2);
-            const zw = w * scale, zh = h * scale;
-
-            ctx.fillStyle = "rgba(" + rgb + ", 0.14)";
-            ctx.fillRect(zx, zy, zw, zh);
-
-            //Dashed on the sides facing into the map; a side lying on the rim is left to the rim,
-            //as in the mockup. Inset by half the line, which is 1.5px.
-            const x0 = zx + 0.75, y0 = zy + 0.75, x1 = zx + zw - 0.75, y1 = zy + zh - 0.75;
-            const sides = [
-                [x0, y0, x1, y0, zy <= top + 0.5],
-                [x1, y0, x1, y1, zx + zw >= left + mapW - 0.5],
-                [x0, y1, x1, y1, zy + zh >= top + mapH - 0.5],
-                [x0, y0, x0, y1, zx <= left + 0.5]
-            ];
-            ctx.save();
-            ctx.strokeStyle = "rgb(" + rgb + ")";
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([6, 4]);
-            sides.forEach(function (side) {
-                if (side[4]) return;
-                ctx.beginPath();
-                ctx.moveTo(side[0], side[1]);
-                ctx.lineTo(side[2], side[3]);
-                ctx.stroke();
-            });
-            ctx.restore();
-
-            labels.push({ text: "TEAM " + slot.team, rgb: rgb, zx: zx, zy: zy, zw: zw, zh: zh, right: x + 0.5 > 1, bottom: y < 0 });
+        mapPreview.paint(canvas, {
+            // Use fixed width/height if unlimited is selected
+            width: isLimited ? (createGame.gamespace_data.width || 1) : 84,
+            height: isLimited ? (createGame.gamespace_data.height || 1) : 60,
+            // Iterate data model directly to ensure we catch all teams even if DOM is lagging
+            zones: createGame.slots.map(slot => ({
+                x: slot.depx, y: slot.depy, w: slot.depwidth, h: slot.depheight,
+                rgb: mapPreview.teamColor(slot.team, teamCount),
+                label: "TEAM " + slot.team
+            })),
+            terrain: createGame.rules.terrainLayout
         });
-
-        //Hex (q, r) -> canvas, on the same axes as the zones (an odd row sits half a hex left).
-        createGame.paintTerrain(ctx, scale, function (q, r) {
-            return { x: toX(q - 0.5 * (r & 1)), y: toY(r) };
-        });
-
-        //Labels last, over the terrain: in the zone's corner nearest the map's rim, running on
-        //into the map when the zone is narrower than the label.
-        ctx.font = "11px Consolas, 'Lucida Console', monospace";
-        ctx.textBaseline = "alphabetic";
-        ctx.shadowColor = colors.well; //lifts it off a dashed edge or a marker it crosses
-        ctx.shadowBlur = 3;
-        labels.forEach(function (label) {
-            const pad = 6;
-            ctx.textAlign = label.right ? "right" : "left";
-            ctx.fillStyle = "rgb(" + label.rgb + ")";
-            ctx.fillText(label.text,
-                label.right ? label.zx + label.zw - pad : label.zx + pad,
-                label.bottom ? label.zy + label.zh - pad : label.zy + pad + 9);
-        });
-        ctx.restore(); //the clip
-
-        ctx.strokeStyle = colors.rim;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(snap(left) + 0.5, snap(top) + 0.5, snap(mapW) - 1, snap(mapH) - 1); //just inside the map
-    },
-
-    /* ── Pre-placed terrain (Maps with Terrain) ────────────────────────────────────────────
-       A template in mapData with `terrain` places those units on those hexes, every game: the
-       list travels as rules.terrainLayout (server: TerrainLayoutRule, placed by
-       BuyingGamePhase::advance before any random terrain). `type` is a TerrainLayoutRule::$types
-       key - keep the two lists in step. Here each type only needs its footprint, to be drawn:
-       `huge` is the disc radius (0 = one hex), `offsets` an irregular shape turned by the unit's
-       facing `h`, and `field` marks the fainter Dust / Meteor Swarm markers. */
-    terrainTypes: {
-        asteroidS: { huge: 0 },
-        asteroidM: { huge: 0 },
-        asteroidL: { huge: 0 },
-        asteroid2: { offsets: [{ q: 1, r: 0 }] },
-        asteroid3: { offsets: [{ q: 0, r: 1 }, { q: -1, r: 0 }] },
-        moonS: { huge: 1, moon: true },
-        moonM: { huge: 2, moon: true },
-        moonL: { huge: 3, moon: true },
-        dust: { huge: 0, field: true },
-        meteors: { huge: 0, field: true }
-    },
-
-    //Marker opacity: solid terrain, and the fainter dust / meteor fields.
-    TERRAIN_ALPHA: 1,
-    FIELD_TERRAIN_ALPHA: 0.55,
-
-    /* Mathlib::getRotatedHex (server), which BuyingGamePhase uses for the same footprint: hex ->
-       pixel, turn the offset by facing * -60 degrees, pixel -> nearest hex (odd-r offset). */
-    rotatedHex: function rotatedHex(center, offset, facing) {
-        const s3 = Math.sqrt(3);
-        const toPx = (q, r) => ({ x: s3 * (q - 0.5 * (r & 1)), y: 1.5 * r });
-        const c = toPx(center.q, center.r), o = toPx(offset.q, offset.r), z = toPx(0, 0);
-        const vx = o.x - z.x, vy = o.y - z.y;
-        const a = -facing * Math.PI / 3;
-        const px = c.x + vx * Math.cos(a) - vy * Math.sin(a);
-        const py = c.y + vx * Math.sin(a) + vy * Math.cos(a);
-
-        //axial, cube-rounded, then back to odd-r offset
-        const fq = (s3 / 3) * px - py / 3, fr = (2 / 3) * py, fs = -fq - fr;
-        let rq = Math.round(fq), rr = Math.round(fr), rs = Math.round(fs);
-        const dq = Math.abs(rq - fq), dr = Math.abs(rr - fr), ds = Math.abs(rs - fs);
-        if (dq > dr && dq > ds) rq = -rr - rs;
-        else if (ds <= dr) rr = -rq - rs;
-        return { q: rq + (rr + (rr & 1)) / 2, r: rr };
-    },
-
-    /* Grey markers of each unit's real size: a disc for a moon, a dot per hex for the rest. A
-       marker big enough to carry one gets the mockup's halo - a fainter ring INSIDE the unit's
-       footprint, so a moon still reads at its true size. Dust / meteor fields: fainter, no halo. */
-    paintTerrain: function paintTerrain(ctx, scale, toCanvas) {
-        const layout = createGame.rules.terrainLayout;
-        if (!layout || !layout.units) return;
-
-        const grey = createGame.mapPreviewColors.terrain;
-        ctx.save();
-        layout.units.forEach(function (unit) {
-            const type = createGame.terrainTypes[unit.type];
-            if (!type) return;
-
-            const alpha = type.field ? createGame.FIELD_TERRAIN_ALPHA : createGame.TERRAIN_ALPHA;
-            const hexes = [{ q: unit.q, r: unit.r }];
-            if (type.offsets) {
-                type.offsets.forEach(offset => hexes.push(createGame.rotatedHex(unit, offset, unit.h || 0)));
-            }
-            const radius = Math.max((type.offsets ? 0.5 : type.huge + 0.5) * scale * (type.moon ? 1 : 0.8), 1.5);
-            const halo = (type.field || radius < 6) ? 0 : Math.min(6, radius * 0.3);
-
-            hexes.forEach(function (hex) {
-                const p = toCanvas(hex.q, hex.r);
-                if (halo) {
-                    ctx.fillStyle = "rgba(" + grey + ", " + (alpha * 0.3) + ")";
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                ctx.fillStyle = "rgba(" + grey + ", " + alpha + ")";
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, radius - halo, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        });
-        ctx.restore();
     },
 
     /* The template's layout becomes rules.terrainLayout (or none), and both terrain notes and the
@@ -506,38 +293,18 @@ window.createGame = {
         return [...new Set(createGame.slots.map(s => s.team))].sort((a, b) => a - b);
     },
 
-    /* One colour per team for the map zones, the team cards' rails and the legend, so the three
-       always agree - and agree with the colours the game itself will use. Copied from
-       gamedata.js (not loaded on this page), plan §11.4:
-         2 teams  - RELATIVE, as seen by the creator (who takes slot 1 on Team 1): own green,
-                    enemy red. teamBaseColors[0] / [1].
-         3+ teams - ABSOLUTE, by team number: teamBaseColorsMultiTeam.
-       ⚠️ Keep in step with gamedata.teamBaseColors / teamBaseColorsMultiTeam. */
-    teamColorsMultiTeam: [
-        [50, 205, 50], [255, 150, 40], [40, 230, 230], [170, 90, 230],
-        [240, 230, 60], [51, 173, 255], [230, 40, 230], [255, 80, 80]
-    ],
-
-    teamColor: function teamColor(team, teamCount) {
-        if (teamCount <= 2) return (team === 1) ? [50, 205, 50] : [255, 80, 80];
-        const palette = createGame.teamColorsMultiTeam;
-        return palette[(team - 1) % palette.length];
-    },
-
+    /* Team colours: mapPreview.teamColor, the game's own rule as the creator will see it (they
+       take slot 1 on Team 1) - so the map zones, the team cards' rails and the legend always agree,
+       and agree with the colours the game itself will use (plan §11.4). */
     renderLegend: function renderLegend(teamCount) {
         let html = createGame.getTeamIds().map(function (team) {
-            const rgb = createGame.teamColor(team, teamCount);
+            const rgb = mapPreview.teamColor(team, teamCount);
             return '<span class="cg-legend-item"><span class="cg-swatch" style="background:rgb(' + rgb.join(",") + ')"></span>Team ' + team + "</span>";
         }).join("");
 
-        const layout = createGame.rules.terrainLayout;
-        if (layout) {
-            const types = createGame.terrainTypes;
-            const solid = layout.units.some(unit => types[unit.type] && !types[unit.type].field);
-            const fields = layout.units.some(unit => types[unit.type] && types[unit.type].field);
-            if (solid) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + createGame.TERRAIN_ALPHA + '"></span>Asteroids &amp; Moons</span>';
-            if (fields) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + createGame.FIELD_TERRAIN_ALPHA + '"></span>Dust &amp; Meteor Swarms</span>';
-        }
+        const kinds = mapPreview.terrainKinds(createGame.rules.terrainLayout);
+        if (kinds.solid) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + mapPreview.TERRAIN_ALPHA + '"></span>Asteroids &amp; Moons</span>';
+        if (kinds.fields) html += '<span class="cg-legend-item"><span class="cg-swatch cg-swatch--terrain" style="opacity:' + mapPreview.FIELD_TERRAIN_ALPHA + '"></span>Dust &amp; Meteor Swarms</span>';
         $("#mapLegend").html(html);
     },
 
@@ -968,7 +735,7 @@ window.createGame = {
         },
 
         /* Maps with Terrain: a `base` template's size and teams, plus terrain that is placed on
-           exactly these hexes every game (see terrainTypes / setTerrainLayout). Each layout is
+           exactly these hexes every game (see mapPreview.TERRAIN_TYPES / setTerrainLayout). Each layout is
            symmetric about the map's true centre - half a hex left of hex 0,0 on an even width -
            so both sides of a two-team map see the same ground, keeps two hexes clear of every
            deployment zone and never overlaps itself (non-field terrain keeps a one-hex gap).
@@ -1384,9 +1151,9 @@ window.createGame = {
         });
 
         // Repaint EVERY team, not just new ones: going from 2 teams to 3 switches the palette
-        // (Team 2 goes from enemy red to its absolute orange), see teamColor().
+        // (Team 2 goes from enemy red to its absolute orange), see mapPreview.teamColor().
         container.find(".team-section").each(function () {
-            const rgb = "rgb(" + createGame.teamColor(parseInt($(this).data("team-id")), teams.length).join(",") + ")";
+            const rgb = "rgb(" + mapPreview.teamColor(parseInt($(this).data("team-id")), teams.length).join(",") + ")";
             this.style.setProperty("--rail", rgb);
             $(this).find(".cg-team-name").css("color", rgb);
         });
@@ -1991,17 +1758,15 @@ window.createGame = {
 
     //Step 4: a read-only recap, grouped the way the lobby will show the game.
     renderSummary: function renderSummary() {
-        const esc = scenarioCard.escapeHtml;
-
         const background = $("input[name='background']:checked");
         $("#sumBackground").attr("src", background.length ? "img/maps/" + background.val() : "");
         $("#sumName").text(String($("#gamename").val() || "").trim());
         $("#sumBackgroundName").text("Background: " + (background.closest(".cg-bg-tile").attr("title") || background.val() || ""));
 
-        const rules = createGame.summaryRules();
-        $("#sumRules").html(rules.length
-            ? rules.map(rule => '<li class="cg-chip">' + esc(rule) + "</li>").join("")
-            : '<li class="cg-chip cg-chip--none">No optional rules</li>');
+        //The lobby's Game Rules chips, from the same function, so this is exactly what it will show.
+        $("#sumRules").html(scenarioCard.renderRuleChips(scenarioCard.ruleChips(createGame.rules, {
+            unlimitedPoints: $("#unlimitedPointsCheck").is(":checked")
+        })));
 
         $("#sumScenario").html(scenarioCard.render(createGame.readScenario(), { plain: true })
             || '<p class="cg-caption">No scenario details.</p>');
@@ -2009,36 +1774,6 @@ window.createGame = {
         createGame.paintMap(document.getElementById("sumMap"));
         $("#sumMapMeta").html(createGame.summaryMap());
         $("#sumTeams").html(createGame.summaryTeams());
-    },
-
-    //The active rules and options, one chip each - the lobby's "Options Selected", itemised.
-    summaryRules: function summaryRules() {
-        const r = createGame.rules;
-        const out = [];
-
-        if (r.ladder) out.push("Ladder Game");
-        if (r.initiativeCategories) {
-            out.push("Simultaneous Movement (" + r.initiativeCategories + (r.initiativeCategories === 1 ? " bracket)" : " brackets)"));
-        }
-        if (r.allowMines) out.push("Mines Allowed");
-        if (r.allowReinforcements) out.push("Reinforcements Allowed");
-        if (r.desperate !== undefined) {
-            out.push("Desperate Scenario (" + (r.desperate === 1 ? "Team 1" : r.desperate === 2 ? "Team 2" : "Both teams") + ")");
-        }
-        if (r.friendlyFire) out.push("Friendly Fire");
-        if ($("#unlimitedPointsCheck").is(":checked")) out.push("Unlimited Points");
-
-        if (r.asteroids) out.push("Asteroids (" + r.asteroids + ")");
-        if (r.moons) {
-            const moons = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]]
-                .filter(size => r.moons[size[0]] > 0)
-                .map(size => r.moons[size[0]] + " " + size[1]);
-            out.push("Moons (" + moons.join(", ") + ")");
-        }
-        if (r.dustAndMeteors && r.dustAndMeteors.dust) out.push("Dust (" + r.dustAndMeteors.dust + ")");
-        if (r.dustAndMeteors && r.dustAndMeteors.meteors) out.push("Meteor Swarms (" + r.dustAndMeteors.meteors + ")");
-
-        return out;
     },
 
     summaryMap: function summaryMap() {
@@ -2063,7 +1798,7 @@ window.createGame = {
         const unlimited = $("#unlimitedPointsCheck").is(":checked");
 
         return teams.map(function (team) {
-            const rgb = "rgb(" + createGame.teamColor(team, teams.length).join(",") + ")";
+            const rgb = "rgb(" + mapPreview.teamColor(team, teams.length).join(",") + ")";
             const slots = createGame.slots.filter(slot => slot.team === team);
             const rows = slots.map(function (slot) {
                 let meta = (unlimited || slot.points == -1) ? "Unlimited" : esc(slot.points) + " pts";

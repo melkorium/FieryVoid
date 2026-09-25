@@ -88,28 +88,10 @@
     padding-right: 5px;
 }
 
-.slot .status {
-    display: none;
-}
-
-.slot.ready .status {
-    display: inline;
-}
-
-.slot .status {
-    color: #00d100;
-    /* Bright green */
-    font-weight: bold;
-    /* Makes the text bold */
-}
-
-.slot .playername {
-    font-size: 14px;
-    color: #DEEBFF;
-    /* Original value  #496791 */
-    font-weight: bold;
-    /* Makes the text bold */
-}
+/* The lobby's slot row - its Ready badge, player name and the Take Slot / Select / Leave Slot
+   buttons, with the .taken / .ready / .selected states that show and hide them - is styled in
+   gameLobby.css since the Stage 4 redesign (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md). The old
+   rules for them are gone from here: two carried !important, and all were lobby-only. */
 
 .clickable {
     cursor: pointer;
@@ -117,19 +99,6 @@
 
 .clickable:hover {
     text-decoration: underline;
-}
-
-.takeslot {
-    color: red;
-    font-weight: bold;
-    margin-bottom: 5px;
-    margin-left: -5px;
-    vertical-align: auto;
-    font-size: 13px !important;
-}
-
-.taken .takeslot {
-    display: none;
 }
 
 .points-bracket-style,
@@ -409,59 +378,10 @@
 }
 
 
-.leaveslot {
-    position: absolute;
-    right: 3px;
-    /* sits to the left of the 10px icon at right:5px */
-    top: 1px;
-    /* align vertically with the icon */
-    cursor: pointer;
-    /* so it feels clickable like the icon */
-    color: #DEEBFF !important;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: background 0.2s;
-    margin-top: 2px !important;
-    background: #7a2121;
-    font-size: 0.85em;
-    /* Smaller than Add Team */
-    border: 1px solid #a77272;
-    width: auto;
-    text-align: center;
-    box-sizing: border-box;
-    height: auto;
-    line-height: normal;
-    padding: 2px 8px;
-    display: inline-block;
-    vertical-align: middle;
-}
-
 .value {
     /*color:#6e9cdc; Original value  #496791 */
     color: #90b1ee;
     /* previous value #81a7ec */
-}
-
-.selectslot {
-    color: orange;
-    display: none;
-}
-
-.taken .selectslot {
-
-    display: inline;
-}
-
-.slot.selected .selectslot {
-    display: none;
-}
-
-.slot.selected {
-    background-color: rgb(18, 61, 115, 0.7);
-    -moz-box-shadow: 0px 0px 1px #0099ff;
-    -webkit-box-shadow: 0px 0px 1px #0099ff;
-    box-shadow: 0px 0px 1px #0099ff;
-
 }
 
 .store .shipshidden .ship {

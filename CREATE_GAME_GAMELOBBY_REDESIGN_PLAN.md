@@ -1,7 +1,7 @@
 # Create Game & Gamelobby Redesign Plan
 
-**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24 (see §12); Stages 4-10
-not started.** Covers two pages:
+**Build status: Stages 0-1 BUILT 2026-09-23, Stages 2-3 BUILT 2026-09-24, Stage 4 BUILT 2026-09-25
+(see §12); Stages 5-10 not started.** Covers two pages:
 `source/public/creategame.php` (+ `client/UI/createGame.js`) and `source/public/gamelobby.php`
 (+ `client/gamelobby.js`, `client/lobbyEnhancements.js`).
 
@@ -455,7 +455,7 @@ against those directly rather than re-deriving layout from this section's prose 
   Small, isolated, no schema dependency. User placement change: Save Settings sits beside
   Confirm & Create Game on the Confirm step, not in Game Options; Load Settings stays beside
   Game Name.
-- **Stage 4 — Gamelobby scenario/map rendering.** Structured-JSON render + legacy fallback
+- **Stage 4 — Gamelobby scenario/map rendering. ✅ BUILT 2026-09-25 — §12.5.** Structured-JSON render + legacy fallback
   (§4.1), map preview legend (§4.2). Depends on Stage 0's `scenario` column existing.
 - **Stage 5 — Gamelobby faction picker overhaul.** Search, custom sub-groups, mobile sheet
   (§4.3). Independent of every other stage — could ship first if the mobile complaint is the
@@ -1173,3 +1173,148 @@ custom 50x36 map) each loaded over the others — **the posted `data` and every 
 identical to when saved**, ladder on→off and off→on included; delete confirm/cancel, menu close
 paths, corrupt and throwing storage; Confirm & Create Game still submits. `php -l` clean, CLI
 render clean. Screenshots: desktop steps 1/3/4, phone 390 and 360 steps 1/3/4.
+
+### 12.5 Stage 4 — Gamelobby top of page: Teams | Scenario | Map (built 2026-09-25)
+
+No schema change (Stage 0's `scenario` column is read, nothing new is written). One server
+addition: `Manager::getGameScenario` / `DBManager::getGameScenario`. The lobby legacy bundle needs
+rebuilding (a new script, `client/UI/mapPreview.js`, is in gamelobby.php's `$debug` list) — a
+normal deploy build does it.
+
+**What landed** (plan §4.1 / §4.2 / §11.3, plus three user asks):
+
+- **Layout:** the old name panel, Rules & Info / scenario split and the separate full-width Teams
+  panel are replaced by `.lb-top`: a title bar (game name, **Leave Game** moved up here) and one
+  row — **Teams | Scenario Description | Map Preview**. Teams keeps its own height; Scenario and
+  Map match each other. 1422px wide (the Purchase panel's outer edge — `.panel.large.lobby` is
+  content-box); narrower screens keep Create Game's ~18px gutter. ≤1180px: Teams beside
+  Scenario-over-Map; ≤760px: one column. New page stylesheet `styles/gameLobby.css` (`.lb-`
+  prefix, createGame.css's grammar), linked after lobby.css and gamesNew.css.
+- **Fleet Builder** (user ask): no teams, map or scenario, so the row is replaced by one slim
+  "Rules & Info" panel holding the links; title "Fleet Builder".
+- **Teams:** the slot template is now a compact row — player (or "Open slot"), a mono meta line
+  (slot name · points · "deploys on turn N" only when N > 1), and pill buttons. **Every JS hook is
+  kept** (`.slot`, `.takeslot`, `.selectslot`, `.leaveslot`, `.status`, `.playername`, `.name`,
+  `.points`, `.depavailable`): the handlers are bound to the TEMPLATE at load and cloned with
+  `clone(true)`. Deployment-zone coordinates are no longer printed on the row (the map shows the
+  zones). The old slot rules in lobby.css were deleted (two carried `!important`); their
+  show/hide logic (`.taken` / `.ready` / `.selected`) lives in gameLobby.css, plus a guard so an
+  OPEN slot never shows Select (a `show()` left from before the slot was left used to leak).
+  Team blocks are inserted in team order (a copied team's slots can be numbered below another's).
+  Head: "N / M filled · K ready".
+- **Team colours** (`gamedata.getLobbyTeamColor` / `getLobbySlotColor`, §11.4 + the game's gate):
+  a participant in a 2-team game sees own team green / other red, and on the map a team-mate's
+  slot ally blue; an observer or anyone in a 3+-team game sees `teamBaseColors` /
+  `teamBaseColorsMultiTeam` by number. Repainted on every poll (`paintLobbyTeams` after
+  `createSlots`) — the colours are the viewer's and flip the moment they take a slot.
+- **Map Preview:** Create Game's drawing, moved into the shared **`client/UI/mapPreview.js`**
+  (`window.mapPreview`: palette, `teamColor`, `TERRAIN_TYPES`, `rotatedHex`, `terrainKinds`,
+  `paint(canvas, {width, height, zones, terrain})`); createGame.js keeps a thin `paintMap`
+  adapter. The lobby draws every slot's zone (the viewer's last, on top), one "TEAM n" label per
+  team, and the **rules.terrainLayout** markers (the Stage 2 ask); random terrain has no markers —
+  it is not placed until the game starts. Legend: one swatch per team ("(you)" on the viewer's),
+  "Ally" when a team-mate slot exists, and the two terrain kinds when present. Map size
+  ("42 × 30" / "No boundaries") in the panel head, replacing the old "Map 42x30" option.
+  Zone labels are now sized for the canvas's DISPLAYED width (~10px as shown; 11 min, 18 max
+  logical): scaled into a ~360px column, a fixed 11px label read at 7px. A desktop Create Game
+  still computes 11, so it is unchanged there; on a phone its labels get bigger.
+- **Scenario Description:** Game Rules chips above the fact grid (§11.3), then the facts, then the
+  links. New game → `scenarioCard.render(tac_game.scenario)`; old game (NULL scenario) → the old
+  first-colon parser, unchanged, now emitting scenarioCard's own `.fv-scn-*` markup server-side
+  (`lobbyLegacyScenarioFacts` in gamelobby.php; a colon-less line continues the fact above;
+  Additional Info wide + multi-line; empty facts left out).
+- **Scenario transport:** `Manager::getGameScenario` — ONE indexed read per page load (not per
+  poll, and not in TacGamedata: it never changes, and game.php never needs it). Printed into the
+  inline script as a JS string with `JSON_HEX_*` and parsed by `scenarioCard.normalise`, so
+  JSON_NUMERIC_CHECK never touches it (§12.1 trap 1: "0012" stays "0012"). A DB error returns
+  null and the page falls back to the description parse. Skipped entirely in Fleet Builder.
+- **Rule chips** (user ask 1): `scenarioCard.ruleChips(rules, {unlimitedPoints})` +
+  `renderRuleChips` — ONE list for the lobby and Create Game's Confirm step (its old
+  `summaryRules` is gone); styles are `.fv-rule-chip` in scenarioCard.css (Create Game's
+  `.cg-chip` rules deleted). Colours: **Ladder gold `--fv-ladder`** (games.php's), **terrain
+  white** (Asteroids, Moons, Dust, Meteor Swarms, Terrain Map), **Simultaneous Movement green**
+  (`--fv-mine-soft` text, #52b352 line), **Reinforcements cyan #00b8e6**, **Mines purple
+  `--fv-purple`**, everything else the page blue. Wording is Create Game's ("Desperate Scenario
+  (Both teams)"). Changes from the old "OPTIONS SELECTED" line: Reinforcements now shown;
+  Unlimited Points shown when every slot is unlimited; "Standard Movement" and "No Terrain"
+  dropped (defaults); "Terrain Map: … (N features)" is a chip on BOTH pages now, so the Confirm
+  step previews the lobby exactly.
+- **Links** (user ask 2): FAQ · Factions & Tiers · Ammo & Options (game.php's USEFUL LINKS set —
+  FAQ is new to the lobby), then the three random-faction wheels, kept (quieter) until Stage 7's
+  randomiser replaces them.
+
+**Side effect fixed:** the old `drawMapPreview` called `getContext` on a missing canvas in Fleet
+Builder, so every bulk buy/edit/copy there ended in a TypeError; it now returns quietly.
+
+**Traps found:**
+
+1. **Harness recipe for gamelobby.php without a lobby game** (the local DB had none): a CLI
+   script that declares a stub `class Manager` (`getGameLobbyDataJSON`, `getGameScenario`,
+   `getAllFactions`, `__callStatic`) BEFORE including global.php, so the page never reaches the
+   DB, with payloads taken read-only from real games' `stripForJson()` (status → LOBBY,
+   ships → []). Load the HTML with a `<base href>` and a deferred `data:` script after the bundle
+   tag that no-ops `ajaxInterface.startPollingGamedata`.
+2. **A CLI script calling `Manager::` under `/usr/src/current` gets the PRODUCTION varconfig**
+   (localhost/aatu): the container's varconfig symlink exists only in the rsync copy. Require
+   `docker/php/varconfig.php`. Manager caches the first connect failure (`$dbUnavailable`), so
+   every later call in that process fails the same way — it looks like the feature is broken.
+3. **CDP phone emulation on this page reports `innerWidth` 1430** — the 1400px Purchase panel
+   widens the visual viewport — while the layout viewport is still 390 (media queries match).
+   Measure `.lb-top`, not `innerWidth`. And once touch emulation had been on, `(pointer: coarse)`
+   stayed on in that browser after switching it off: measure desktop sizes in a fresh one.
+
+**Verified:** `php -l` on the four PHP files; five lobby variants rendered through the REAL
+gamelobby.php (global.php turns warnings into exceptions — none): 2 teams with every chip kind
+and a hostile scenario (`<script>`, `&`, colons, "0012" all shown as text), the viewer on two
+slots, a legacy description-only game on an open map seen by an observer, 4 teams, Fleet
+Builder. Driven in headless Chrome over CDP at 1600, 1000, 390 and 360 (true device emulation):
+chip classes and computed colours, facts, team rails, slot button visibility, legend, nothing
+overflowing `.lb-top`, no console errors. Select Slot moves the selection and flips the Select
+buttons; Take / Leave Slot reach `submitSlotAction`; Leave Game navigates to `?leave=true`; a poll
+that seats an observer flips the rails and legend to relative. **Create Game:** the map preview is
+**pixel-identical** to the HEAD code (Step 3 and Summary canvases hashed, old vs new
+createGame.js, six setups incl. Twin Moons, Crossroads, Meteor Storm, No Boundaries, 3 teams);
+Confirm chips checked for class and colour on desktop and phone.
+**Not verified:** a real lobby on the local server — polling, slot.php take/leave, a game created
+through the wizard and opened in its lobby, and Fleet Builder purchases end to end.
+
+**Found, not fixed:** `setSlotData` writes the creator's slot name with `.html()` (pre-existing);
+the Crossroads template logs "Target container for team 3/4 not found!" on Create Game
+(identical in the HEAD code); lobby.css keeps dead rules for the removed markup
+(`.lobby-split-container`, `.rules-info-*`, `.mapPreviewContainer*`, `.unlimited-points-text`…);
+the custom-factions default still regex-matches `description` (§12.1 trap 3 — still correct,
+since `description` is still written).
+
+**Review refinements (user, 2026-09-25, same day)** — supersede the layout bullets above:
+
+- **Column order is now Map Preview | Scenario Description | Teams** (DOM order too), and **no
+  panel is stretched to match another** (`.lb-pair` is `align-items: flex-start`; the links'
+  `margin-top: auto` pin is gone). The Map is usually the tallest (chips under it), so it leads
+  and the row steps down left to right with no gap inside Scenario. Stacked (≤1180px) Scenario
+  comes back BEFORE the Map (`.lb-scenario { order: -1 }`) and the pair re-stretches its panels'
+  WIDTH (`align-items: stretch` — flex-start in a column shrinks them). On a phone (≤760px) Teams
+  is still stacked FIRST (`order: -1`) — it is where a phone player takes a slot.
+- **Slot meta says "deploys T3"** (was "deploys on turn 3"; the fleet list's "Deploys T3"): beside
+  Leave Slot the meta line has 210px and "Team 1 · Unlimited · deploys turn 3" needed 214 (220
+  for turn 12); "deploys T12" needs 197. Still wraps in two cases: the viewer's own slot when it
+  is ALSO Ready (the badge leaves the meta 148px), and a two-digit turn on a 390px phone.
+- **Teams is a fixed 380px** (`flex: 0 0 380px`) instead of a 1/2.8 share (~502px at 1422); the
+  122px it gave up went to the Map Preview (`flex: 1.05` vs Scenario's 1), so Scenario keeps its
+  ~493px. Measured at 1600: Scenario 493 · Map 517 · Teams 380. `.lb-slot-main`'s basis dropped
+  10rem → 9rem so the viewer's own **Ready badge + Leave Slot** stay on the player's line at
+  380px (they wrapped by 12px). ≤1180px Teams shares the width again (`flex: 1`, max 380px).
+- **Rule chips moved under the Map Preview** (below the legend, in the same panel), with a small
+  "Game rules" label (`.lb-rules-label`, the links' label style) since the panel head no longer
+  says what they are.
+- **One white "Terrain Features" chip** on both pages (`scenarioCard.ruleChips`) replaces the four
+  per-type chips: "Terrain Features: Asteroids (2) · Moons (2 Small, 2 Medium, 2 Large) · Dust (3)
+  · Meteor Swarms (2)", only the types present. No-break spaces inside each type and before each
+  dot, so a long chip wraps only BETWEEN types. **"Terrain Map: <name>"** stays its own chip but
+  lost its "(N features)" — the Map Preview shows them.
+- **Zone labels stack instead of overprinting** (`mapPreview.paint`, so both pages): a label whose
+  box would touch one already placed moves one line (1.25 × label size) away from the rim — down
+  from a top corner, UP from a bottom one — until clear. Labels are placed in team order (numeric
+  compare on the text; bottom-anchored ones in reverse) so a stack reads Team 1, 2, 3 top to bottom
+  either way. A label touching one with the SAME text is dropped: Create Game labels every SLOT,
+  so two slots of one team in one zone would otherwise list "TEAM 1" twice. Non-overlapping maps
+  are pixel-identical to before (canvas hashes, 2-team and 4-team distinct-zone setups).

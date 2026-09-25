@@ -1,0 +1,610 @@
+/*
+ * gameLobby.css - gamelobby.php only. CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md Stage 4: the top of
+ * the page - the game's name, then one row of Map Preview | Scenario Description | Teams (plan
+ * §11.3), or, in a Fleet Builder lobby (no teams, map or scenario), the reference links alone.
+ *
+ * The same grammar as createGame.css - panel + micro-cap head bar, 3px rail, Consolas numerals -
+ * under an .lb- prefix, because the two pages are a pair and createGame.css is not linked here.
+ * Tokens only; tokens.css is the one :root. Linked after lobby.css and gamesNew.css, which it
+ * overrides where the two meet (the slot row, #mapPreview).
+ *
+ * MOBILE: three columns while they fit, then Scenario-over-Map beside Teams, then one column.
+ * The panels further down (Purchase Fleet, chat) are still the fixed 1400px lobby panels until
+ * their own stage.
+ */
+
+/* ── Frame ─────────────────────────────────────────────────────────────────── */
+
+.lb-top {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  /* .panel.large.lobby's 1400px plus its padding and border: the Purchase panel's outer edge, so
+     the two line up. Narrower screens keep Create Game's gutter. */
+  width: 1422px;
+  max-width: calc(100% - 20px);
+  margin: 4px auto 12px;
+}
+
+.lb-top *,
+.lb-top *::before,
+.lb-top *::after {
+  box-sizing: border-box;
+}
+
+.lb-titlebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+/* font-family on each element itself, here and below: gamesNew.css's `* { font-family: Arial }`
+   matches every element directly, so an inherited display face would lose to it. */
+.lb-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--fv-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--fv-text-bright);
+  overflow-wrap: anywhere;
+}
+
+.lb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 16px;
+  font-family: var(--fv-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--fv-text);
+  background: rgba(73, 103, 145, 0.25);
+  border: 1px solid var(--fv-line-scs);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+/* Leave Game keeps the red it has always had: it is the one control here that walks away from
+   the game. */
+.lb-btn--leave {
+  color: #f3dcd8;
+  background: rgba(122, 33, 33, 0.8);
+  border-color: #a77272;
+}
+
+.lb-btn--leave:hover {
+  background: #8e2a2a;
+}
+
+.lb-btn:focus-visible,
+.lb-pill:focus-visible,
+.lb-link:focus-visible {
+  outline: 2px solid var(--fv-accent);
+  outline-offset: 2px;
+}
+
+/* ── Panels (createGame.css's .cg-section) ─────────────────────────────────── */
+
+.lb-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: linear-gradient(180deg, rgba(27, 45, 62, 0.94), rgba(18, 32, 45, 0.94));
+  border: 1px solid #2a6b8f;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(139, 202, 242, 0.1);
+  overflow: hidden;
+}
+
+.lb-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 16px 8px;
+  font-family: var(--fv-display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: var(--fv-text-accent);
+  background: linear-gradient(180deg, rgba(73, 103, 145, 0.58), rgba(73, 103, 145, 0.22));
+  border-bottom: 1px solid #2a6b8f;
+}
+
+.lb-panel-head span {
+  font-family: inherit;
+}
+
+.lb-panel-head .lb-panel-meta {
+  font-family: var(--fv-mono);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  color: var(--fv-text-dim);
+  white-space: nowrap;
+}
+
+.lb-panel-body {
+  padding: 14px 16px;
+}
+
+.lb-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fv-text-dim);
+}
+
+/* ── The row: Map Preview | Scenario Description | Teams ───────────────────── */
+
+/* Every panel keeps its own height. Stretching one to match a taller neighbour only opens a gap
+   inside it; the Map Preview, usually the tallest, leads so the row steps down left to right. */
+.lb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* A slot row's natural width - player, meta line, Ready + Leave Slot on one line - not a share of
+   the row: the width it gives up goes to the Map Preview. */
+.lb-teams {
+  flex: 0 0 380px;
+}
+
+.lb-pair {
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lb-scenario {
+  flex: 1 1 0;
+}
+
+/* Scenario Description keeps the width it had beside a wider Teams; the Map takes the rest. */
+.lb-map {
+  flex: 1.05 1 0;
+}
+
+/* ── Teams ─────────────────────────────────────────────────────────────────── */
+
+.lb-teams-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Three or more teams: two across where they fit (the mockup's multi-team panel). */
+.lb-teams-grid--multi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 14px 16px;
+}
+
+/* --rail is the team's colour, set by gamedata.paintLobbyTeams - the VIEWER's colours
+   (own green / other red in a 2-team game they play in; by team number otherwise). */
+.lb-team {
+  --rail: var(--fv-accent);
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--rail);
+}
+
+.lb-team-head {
+  margin: 0 0 7px;
+  font-family: var(--fv-display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--rail);
+}
+
+.lb-team-head span {
+  font-family: inherit;
+}
+
+.lb-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* One slot. The .slot rules in lobby.css (5px radius, padding, span padding, .value blue) are the
+   old row's and are overridden here. */
+.lb-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--fv-text);
+  background: #081420;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+/* An open slot is an outline, waiting to be filled. */
+.lb-slot:not(.taken) {
+  background: transparent;
+  border: 1px dashed var(--fv-line-scs);
+}
+
+/* The slot whose fleet the Purchase panel is showing - the viewer's own. */
+.lb-slot.selected {
+  background: rgba(139, 202, 242, 0.1);
+  border-color: var(--fv-accent);
+  box-shadow: inset 3px 0 0 var(--fv-accent);
+}
+
+.lb-slot span {
+  padding-right: 0;
+}
+
+/* 9rem: the most that leaves the viewer's own Ready badge + Leave Slot on the player's line in a
+   380px Teams panel. */
+.lb-slot-main {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+.lb-slot-player {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.lb-slot .playername {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fv-text-bright);
+}
+
+.lb-slot-open {
+  /*font-style: italic;*/
+  color: var(--fv-text-accent);
+}
+
+.lb-slot.taken .lb-slot-open {
+  display: none;
+}
+
+.lb-slot-meta {
+  margin-top: 2px;
+  font-family: var(--fv-mono);
+  font-size: 10.5px;
+  color: var(--fv-text-dim);
+  overflow-wrap: anywhere;
+}
+
+.lb-slot-meta span,
+.lb-slot-meta .value {
+  font-family: inherit;
+  color: inherit;
+}
+
+.lb-slot-sep {
+  margin: 0 3px;
+}
+
+/* Delayed Deployment: said only when the slot arrives after turn 1. */
+.lb-slot-late {
+  display: none;
+}
+
+.lb-slot--late .lb-slot-late {
+  display: inline;
+}
+
+.lb-slot-meta .lb-slot-late,
+.lb-slot-meta .lb-slot-late .value {
+  color: var(--fv-text);
+}
+
+.lb-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.lb-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  margin: 0;
+  padding: 4px 9px;
+  font-family: var(--fv-display);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fv-text-dim);
+  background: transparent;
+  border: 1px solid var(--fv-line-scs);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.lb-pill:hover {
+  color: var(--fv-text);
+  background: rgba(73, 103, 145, 0.3);
+}
+
+.lb-pill--take {
+  color: var(--fv-accent);
+  background: rgba(139, 202, 242, 0.2);
+  border-color: var(--fv-accent);
+}
+
+.lb-pill--take:hover {
+  color: var(--fv-text-bright);
+  background: rgba(139, 202, 242, 0.32);
+}
+
+.lb-pill--leave {
+  color: #e8b4ad;
+  border-color: #a77272;
+}
+
+.lb-pill--leave:hover {
+  color: #f3dcd8;
+  background: rgba(122, 33, 33, 0.6);
+}
+
+/* Which buttons a slot shows. Take Slot: only while it is open. Select: on the viewer's OTHER
+   slots - createSlots show()s and hide()s it on a taken slot, and an open slot never shows it
+   (the !important also beats a show() left over from before the slot was left). Leave Slot:
+   createSlots show()s it on the viewer's own slots and hide()s it everywhere else. */
+.lb-slot.taken .takeslot {
+  display: none;
+}
+
+.lb-slot .selectslot {
+  display: none;
+}
+
+.lb-slot.taken .selectslot {
+  display: inline-flex;
+}
+
+.lb-slot:not(.taken) .selectslot {
+  display: none !important;
+}
+
+.lb-slot.selected .selectslot {
+  display: none;
+}
+
+.lb-slot .status {
+  display: none;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  font-family: var(--fv-display);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--fv-own-signal);
+  background: rgba(82, 179, 82, 0.2);
+  border: 1px solid var(--fv-own-signal);
+  border-radius: 2px;
+}
+
+.lb-slot.ready .status {
+  display: inline-flex;
+}
+
+/* ── Scenario Description ──────────────────────────────────────────────────── */
+
+/* The reference links close the panel, straight after the facts. */
+.lb-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--fv-line-soft);
+}
+
+.lb-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.lb-links-label,
+.lb-rules-label {
+  margin-right: 4px;
+  font-family: var(--fv-mono);
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--fv-text-dim);
+}
+
+/* game.php's USEFUL LINKS chips (.fv-log-chip--link): navigation, painted in the accent. */
+.lb-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--fv-accent);
+  background: rgba(139, 202, 242, 0.14);
+  border: 1px solid rgba(139, 202, 242, 0.55);
+  border-radius: 2px;
+}
+
+.lb-link:hover {
+  color: var(--fv-text-bright);
+  background: rgba(139, 202, 242, 0.26);
+  border-color: var(--fv-accent);
+}
+
+/* The faction wheels: an off-site stop-gap until Stage 7's randomiser, so a step quieter. */
+.lb-link--quiet {
+  color: var(--fv-text-dim);
+  background: transparent;
+  border-color: var(--fv-line-scs);
+}
+
+/* Fleet Builder: the links are the whole panel, so the two rows sit side by side. */
+.lb-builder .lb-links {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  border-top: 0;
+}
+
+/* ── Map Preview ───────────────────────────────────────────────────────────── */
+
+/* No fill of its own: mapPreview.paint draws the map's well and rim, and sizes the canvas to the
+   map's proportions. The canvas is only SCALED to fit - nothing on it is clickable. lobby.css pins
+   #mapPreview to min-width: 480px, which alone would push a phone layout sideways. */
+.lb-map-frame {
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.lb-map #mapPreview {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+}
+
+.lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+}
+
+.lb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--fv-mono);
+  font-size: 10.5px;
+  color: var(--fv-text-dim);
+}
+
+.lb-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Pre-placed terrain is drawn as grey discs (mapPreview.COLORS.terrain); the swatch's opacity is
+   set inline from mapPreview.TERRAIN_ALPHA / FIELD_TERRAIN_ALPHA so it matches the map. */
+.lb-swatch--terrain {
+  background: #5a6a76;
+  border-radius: 50%;
+}
+
+/* The Game Rules chips (scenarioCard.css), under the map and its legend. Labelled, since the
+   panel's head no longer says what they are. */
+.lb-rules {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--fv-line-soft);
+}
+
+.lb-rules-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ── Narrower screens ──────────────────────────────────────────────────────── */
+
+/* Scenario Description over Map Preview, beside Teams - which shares the width again, up to its
+   desktop size. */
+@media screen and (max-width: 1180px) {
+  .lb-teams {
+    flex: 1 1 0;
+    max-width: 380px;
+  }
+
+  .lb-pair {
+    flex: 1.8 1 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lb-pair > .lb-panel {
+    flex: none;
+  }
+
+  /* Stacked, nothing sits beside the map, so its height no longer decides the order. */
+  .lb-scenario {
+    order: -1;
+  }
+}
+
+/* One column: Teams (first - it is where a phone player takes a slot), Scenario Description,
+   Map Preview. */
+@media screen and (max-width: 760px) {
+  .lb-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lb-teams,
+  .lb-pair {
+    flex: none;
+  }
+
+  .lb-teams {
+    order: -1;
+    max-width: none;
+  }
+
+  .lb-panel-body,
+  .lb-rules {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .lb-links {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .lb-title {
+    font-size: 15px;
+    letter-spacing: 1.4px;
+  }
+}
+
+@media (pointer: coarse) {
+  .lb-btn {
+    min-height: 44px;
+  }
+
+  .lb-pill,
+  .lb-link {
+    min-height: 36px;
+  }
+}

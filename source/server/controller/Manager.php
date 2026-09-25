@@ -175,6 +175,23 @@ class Manager{
         return null; // Always return *something*
     }
     
+    /* The lobby's Scenario Description: tac_game.scenario as its stored JSON TEXT, or null for a
+       game created before it existed (the lobby then parses `description` as it always did).
+       Read on its own, not through TacGamedata: it never changes after creation, so the lobby
+       needs it once per page load rather than on every poll, and game.php never needs it. Kept as
+       text - the page hands it to scenarioCard.normalise - so the JSON_NUMERIC_CHECK on every
+       gamedata payload can never rewrite the player's free text inside it (plan §12.1 trap 1). */
+    public static function getGameScenario($gameid){
+        try {
+            self::initDBManager();
+            $scenario = self::$dbManager->getGameScenario((int)$gameid);
+            return (is_string($scenario) && trim($scenario) !== '') ? $scenario : null;
+        } catch(Exception $e) {
+            Debug::error($e);
+            return null; //the lobby falls back to the description, as for an old game
+        }
+    }
+
     public static function getGameLobbyDataJSON($userid, $gameid){
         try {
             $timestamp = 0;

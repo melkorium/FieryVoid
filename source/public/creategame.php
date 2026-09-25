@@ -76,6 +76,8 @@
         <script src="client/mathlib.js"></script>
         <script src="client/UI/confirm.js"></script>
         <script src="<?php echo AssetLoader::getAssetUrl('client/UI/scenarioCard.js'); ?>"></script>
+        <!-- The map preview's drawing, shared with the lobby's Map Preview. -->
+        <script src="<?php echo AssetLoader::getAssetUrl('client/UI/mapPreview.js'); ?>"></script>
         <!-- Versioned: this script and the markup below change together, and a browser holding
              yesterday's copy against today's page would find none of its ids. -->
         <script src="<?php echo AssetLoader::getAssetUrl('client/UI/createGame.js'); ?>"></script>
@@ -385,7 +387,7 @@
                     <div id="sumBackgroundName" class="cg-sum-meta"></div>
                   </div>
                 </div>
-                <ul id="sumRules" class="cg-chips" aria-label="Rules and options"></ul>
+                <ul id="sumRules" class="fv-rule-chips" aria-label="Rules and options"></ul>
               </div>
 
               <div class="cg-card cg-sum-card">

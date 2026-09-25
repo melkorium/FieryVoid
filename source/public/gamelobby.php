@@ -58,7 +58,18 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
     }
   
     // $gamelobbydataJSON is already set/cached, no need to encode again
-	
+
+	// Fleet Builder (FleetTestRule): a one-slot lobby with no teams, map or scenario.
+	$isFleetTest = isset($gamelobbydata->rules->fleetTest);
+
+	// Scenario Description (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md Stage 4): the structured
+	// scenario as its stored JSON TEXT, handed to the page's JS as a string for scenarioCard to
+	// parse - or null for a game created before it existed, whose description is parsed below
+	// instead. The JSON_HEX_* flags keep the text inert inside the inline <script>.
+	$scenarioText = $isFleetTest ? null : Manager::getGameScenario($gamelobbydata->id);
+	$scenarioJS = json_encode($scenarioText, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+	if ($scenarioJS === false) $scenarioJS = 'null';
+
 	// Getting all ships in one go causes memory overload on the server.
 	// Get the factions first. When a faction is opened to buy ships,
 	// go bother the server for the ships of that faction only.
@@ -106,6 +117,8 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 		<link href="<?php echo AssetLoader::getAssetUrl('styles/confirm.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesNew.css'); ?>" rel="stylesheet" type="text/css">
         <link href="<?php echo AssetLoader::getAssetUrl('styles/scenarioCard.css'); ?>" rel="stylesheet" type="text/css">
+        <!-- The redesigned top of the page (Stage 4). After lobby.css and gamesNew.css, which it overrides. -->
+        <link href="<?php echo AssetLoader::getAssetUrl('styles/gameLobby.css'); ?>" rel="stylesheet" type="text/css">
         <!-- jQuery + jQuery-UI self-hosted (same-origin HTTP/2 + cache-control, no 3rd-party
              TLS). Both kept SYNCHRONOUS: the lobby's synchronous client/*.js scripts run
              during parse and expect $.fn.draggable present, so jQuery-UI must not defer
@@ -154,6 +167,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         <script src="client/UI/fleetList.js"></script>
         <script src="client/UI/gameInfo.js"></script>
         <script src="client/UI/scenarioCard.js"></script>
+        <script src="client/UI/mapPreview.js"></script>
         <script src="client/model/ship.js"></script>
         <script src="client/model/shipSystem.js"></script>
         <script src="client/model/systemFactory.js"></script>
@@ -258,6 +272,8 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
             // the gamelobbyloader.php fetch. See $factionVersions in gamelobby.php.
             window.factionVersions = <?php print($factionVersionsJSON); ?>;
             gamedata.parseServerData(lobbyData);
+            // The structured Scenario Description (tac_game.scenario) as its raw JSON text, or null.
+            gamedata.renderScenarioPanel(<?php print($scenarioJS); ?>);
             gamedata.parseFactions(<?php print($factions); ?>);
             
             var customWarningShown = false; 
@@ -504,302 +520,128 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         <img id="helphideimg" src="img/greyvir.jpg" height="30" width="30">	
         </div>-->
 <main class="container"></main>        
-		<div class="panel large lobby">
-            <?php 
-                $isFleetTest = false;
-                // Using isset/property check instead of hasRuleName for JSON object
-                if (isset($gamelobbydata->rules->fleetTest)) {
-                    $isFleetTest = true;
-                }
-            ?>
-            <div class="">
-                <!--<span class="panelheader">GAME NAME: </span>-->
-                <!-- The game name is player-supplied and stored unescaped, so it must be
-                     escaped here (the scenario description below does the same). -->
-                <span class="panelsubheader game-name"> <?php print($isFleetTest ? '<span class="fleet-test-text">Fleet Builder</span>' : htmlspecialchars($gamelobbydata->name)); ?></span>
-            </div>
+		<?php
+		/* ── Top of the page (CREATE_GAME_GAMELOBBY_REDESIGN_PLAN.md §4.1 / §4.2 / §11.3, Stage 4) ──
+		   The game's name, then one row: Map Preview | Scenario Description | Teams. Teams and the
+		   Map Preview are filled by gamelobby.js on every poll; the rule chips (under the map) and the
+		   Scenario Description's structured facts once, on load (gamedata.renderScenarioPanel).
+		   A Fleet Builder lobby has no teams, no map and no scenario - only the reference links. */
 
-    <div class="lobby-split-container">
-        <!-- Left Column: Scenario Description -->
-        <div class="lobby-description-column">
+		/* The reference pages - the same three as game.php's USEFUL LINKS - and, until the lobby's
+		   own faction randomiser replaces them (plan §4.5, Stage 7), the three random-faction wheels. */
+		$lobbyLinks = '
+		<div class="lb-links">
+		  <div class="lb-links-row">
+		    <span class="lb-links-label">Useful links</span>
+		    <a class="lb-link" href="./faq.php" target="_blank" rel="noopener noreferrer"
+		       title="Aide-memoire of specific rules and differences from Babylon 5 Wars">FAQ</a>
+		    <a class="lb-link" href="./factions-tiers.php" target="_blank" rel="noopener noreferrer"
+		       title="Overview of Fiery Void factions and their approximate strengths">Factions &amp; Tiers</a>
+		    <a class="lb-link" href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer"
+		       title="Details of all the extras available to Fiery Void units, e.g. missiles">Ammo &amp; Options</a>
+		  </div>
+		  <div class="lb-links-row">
+		    <span class="lb-links-label">Random faction</span>
+		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/fx3-uje" target="_blank" rel="noopener noreferrer">Tier 1</a>
+		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/rmq-7ds" target="_blank" rel="noopener noreferrer">Tier 2</a>
+		    <a class="lb-link lb-link--quiet" href="https://old.wheelofnames.com/sgd-5zq" target="_blank" rel="noopener noreferrer">Tier 3</a>
+		  </div>
+		</div>';
 
+		/* A game created before tac_game.scenario existed has only its free-text description:
+		   "LABEL: value" lines, recovered by splitting each on its first colon - the old parser,
+		   unchanged - and written out in scenarioCard.js's own fact-grid markup, so an old game reads
+		   like a new one (plan §4.1). A line with no colon continues the fact above it (Additional
+		   Info's extra lines). Everything is escaped: it is the creator's text. */
+		function lobbyLegacyScenarioFacts($description) {
+			$desc = str_replace(array('<br>', '<br/>', '<br />'), "\n", (string)$description);
+			$desc = preg_replace('/^\*{3}.*\*{3}\s*/m', '', $desc); //the old "*** ... ***" header line
 
-<?php
-//define options list
-$optionsUsed = '';
+			$facts = array();
+			foreach (preg_split("/\r\n|\n|\r/", trim($desc)) as $line) {
+				$line = trim($line);
+				if ($line === '') continue;
 
-    if ($gamelobbydata->gamespace == '-1x-1'){ //open map
-        $optionsUsed .= 'Open Map';
-    }else{ //fixed map
-        $optionsUsed .= 'Map ' . $gamelobbydata->gamespace;
-    }
+				$pos = strpos($line, ':');
+				if ($pos !== false) {
+					$facts[] = array('label' => trim(substr($line, 0, $pos)), 'value' => trim(substr($line, $pos + 1)));
+				} else if (!empty($facts)) {
+					$last = count($facts) - 1;
+					$facts[$last]['value'] .= ($facts[$last]['value'] === '' ? '' : "\n") . $line;
+				} else {
+					$facts[] = array('label' => '', 'value' => $line);
+				}
+			}
 
-    $ladder = false;
-    $simMv = false;
-    $desperate = false;
-    $friendlyFire = false;    
-    $allowMines = false;
-    $asteroids = false;
-    $moons = false;
-    $initiativeCategories = null;
-    $desperateTeams = null;
-    $asteroidsNo = 0;
-    $moonData = [];
-    $dustNo = 0;
-    $meteorsNo = 0;
-    $layoutName = '';
-    $layoutCount = 0;
+			$html = '';
+			foreach ($facts as $fact) {
+				if ($fact['value'] === '') continue; //as in the structured grid: an empty fact is left out
+				$isInfo = preg_match('/^ADDITIONAL INFO(RMATION)?$/i', $fact['label']) === 1;
+				$html .= '<div class="fv-scn-fact' . ($isInfo ? ' fv-scn-fact--wide' : '') . '">'
+					. '<dt class="fv-scn-label">' . htmlspecialchars($fact['label']) . '</dt>'
+					. '<dd class="fv-scn-value' . ($isInfo ? ' fv-scn-value--multiline' : '') . '">' . htmlspecialchars($fact['value']) . '</dd>'
+					. '</div>';
+			}
+			return $html === '' ? '' : '<dl class="fv-scn-grid">' . $html . '</dl>';
+		}
 
+		//A structured scenario is rendered by the page's JS; only a game without one is parsed here.
+		$scenarioFactsHtml = ($scenarioText === null) ? lobbyLegacyScenarioFacts($gamelobbydata->description) : '';
 
-    if (isset($gamelobbydata->rules)) {
+		$mapSizeText = 'No boundaries';
+		if (preg_match('/^(\d+)x(\d+)$/', (string)$gamelobbydata->gamespace, $mapSizeMatch)) {
+			$mapSizeText = $mapSizeMatch[1] . ' &times; ' . $mapSizeMatch[2];
+		}
+		?>
+		<div class="lb-top<?php if ($isFleetTest) echo ' lb-top--builder'; ?>">
+			<div class="lb-titlebar">
+				<!-- The game name is player-supplied and stored unescaped, so it must be escaped here. -->
+				<h1 class="lb-title"><?php print($isFleetTest ? 'Fleet Builder' : htmlspecialchars($gamelobbydata->name)); ?></h1>
+				<button type="button" class="lb-btn lb-btn--leave leave">Leave Game</button>
+			</div>
 
-        if (isset($gamelobbydata->rules->ladder)) {
-            $ladder = true;  
-        }        
+		<?php if ($isFleetTest): ?>
+			<section class="lb-panel lb-builder" aria-labelledby="lbBuilderHead">
+				<h2 class="lb-panel-head" id="lbBuilderHead"><span>Rules &amp; Info</span></h2>
+				<?php print($lobbyLinks); ?>
+			</section>
+		<?php else: ?>
+			<div class="lb-row">
+				<!-- Every panel keeps its own height. The Map Preview, usually the tallest, leads; stacked
+				     on a narrower screen, Scenario Description comes before it (gameLobby.css). -->
+				<div class="lb-pair">
+					<section class="lb-panel lb-map" aria-labelledby="lbMapHead">
+						<h2 class="lb-panel-head" id="lbMapHead"><span>Map Preview</span><span class="lb-panel-meta"><?php print($mapSizeText); ?></span></h2>
+						<div class="lb-panel-body">
+							<div class="lb-map-frame"><canvas id="mapPreview" width="545" height="390" aria-hidden="true"></canvas></div>
+							<div class="lb-legend" id="lbMapLegend"></div>
+						</div>
+						<div class="lb-rules">
+							<span class="lb-rules-label" id="lbRulesLabel">Game rules</span>
+							<ul class="fv-rule-chips" id="lbRuleChips" aria-labelledby="lbRulesLabel"></ul>
+						</div>
+					</section>
 
-        if (isset($gamelobbydata->rules->initiativeCategories)) {
-            $simMv = true;
-            $initiativeCategories = $gamelobbydata->rules->initiativeCategories;
-        }
+					<section class="lb-panel lb-scenario" aria-labelledby="lbScenarioHead">
+						<h2 class="lb-panel-head" id="lbScenarioHead"><span>Scenario Description</span></h2>
+						<div class="lb-panel-body" id="lbScenarioFacts"><?php
+							print($scenarioFactsHtml !== '' ? $scenarioFactsHtml : '<p class="lb-empty">No scenario details.</p>');
+						?></div>
+						<?php print($lobbyLinks); ?>
+					</section>
+				</div>
 
-        if (isset($gamelobbydata->rules->desperate)) {
-            $desperate = true;
-            $desperateTeams = $gamelobbydata->rules->desperate;     
-        }
-
-        if (isset($gamelobbydata->rules->friendlyFire)) {
-            $friendlyFire = true;  
-        }        
-
-        if (isset($gamelobbydata->rules->allowMines)) {
-            $allowMines = true;  
-        }    
-
-        if (isset($gamelobbydata->rules->asteroids)) {
-            $asteroids = true;
-            $asteroidsNo = $gamelobbydata->rules->asteroids;     
-        }  
-
-        if (isset($gamelobbydata->rules->moons)) {
-            $moons = true;
-            $rulesMoons = $gamelobbydata->rules->moons;
-            // Convert to array if object
-            if (is_object($rulesMoons)) {
-                $moonData = (array)$rulesMoons;
-            } else if (is_array($rulesMoons)) {
-                $moonData = $rulesMoons;
-            }
-        }
-
-        if (isset($gamelobbydata->rules->dustAndMeteors)) {
-            $dustNo = (int)($gamelobbydata->rules->dustAndMeteors->dust ?? 0);
-            $meteorsNo = (int)($gamelobbydata->rules->dustAndMeteors->meteors ?? 0);
-        }
-
-        //A map template's pre-placed terrain (TerrainLayoutRule).
-        if (isset($gamelobbydata->rules->terrainLayout)) {
-            $layoutName = (string)($gamelobbydata->rules->terrainLayout->name ?? '');
-            $layoutCount = count((array)($gamelobbydata->rules->terrainLayout->units ?? array()));
-        }
-    }
-
-    if ($ladder == true) { // Ladder game
-        $optionsUsed .= ', Ladder Game';
-    } else { 
-        $optionsUsed .= '';
-    }
-
-    if ($simMv == true) { // simultaneous movement
-        $optionsUsed .= ', Simultaneous Movement';
-        if ($initiativeCategories !== null) {
-            $optionsUsed .= ' (Brackets: ' . $initiativeCategories . ')';
-        }
-    } else { // standard movement
-        $optionsUsed .= ', Standard Movement';
-    }
-
-    if ($desperate == true) { // Desperate rules in play
-        $teamDisplay = null;
-    
-        if($desperateTeams == 1) {
-                $teamDisplay = "Team 1";
-        }else if($desperateTeams == 2){    
-            $teamDisplay = "Team 2";
-        }else{    
-            $teamDisplay = "Both Teams";
-        }
-        $optionsUsed .= ', Desperate Rules ('. $teamDisplay . ')';
-    } else { // standard rules
-        $optionsUsed .= '';
-    }
-
-    if ($friendlyFire == true) { // Desperate rules in play
-        $optionsUsed .= ', Friendly Fire';
-    } else { // standard rules
-        $optionsUsed .= '';
-    }
-
-    if ($allowMines == true) {
-        $optionsUsed .= ', Mines Allowed';
-    }
-
-    if ($asteroids == true) { // Asteroid terrain rules in play
-        $optionsUsed .= ', Asteroids ('. $asteroidsNo . ')';
-    }
-    if ($moons == true) { // Moon terrain rules in play
-
-        $small  = $moonData['small']  ?? 0;
-        $medium = $moonData['medium'] ?? 0;
-        $large  = $moonData['large']  ?? 0;
-
-            function formatMoonCount($count, $type) {
-                if ($count <= 0) return null;
-                return $count . ' ' . $type;
-            }
-
-            // Build each part with pluralization
-        $moonParts = array_filter([
-            formatMoonCount($small,  'Small'),
-            formatMoonCount($medium, 'Medium'),
-            formatMoonCount($large,  'Large'),
-        ]);
-
-        $optionsUsed .= empty($moonParts)
-            ? ', Moons (None)'
-            : ', Moons (' . implode(', ', $moonParts) . ')';
-    }
-
-    if ($dustNo > 0) {
-        $optionsUsed .= ', Dust (' . $dustNo . ')';
-    }
-    if ($meteorsNo > 0) {
-        $optionsUsed .= ', Meteor Swarms (' . $meteorsNo . ')';
-    }
-
-    if ($layoutCount > 0) { //the name is the creator's text: escaped here, where it becomes HTML
-        $optionsUsed .= ', Terrain Map: ' . htmlspecialchars($layoutName !== '' ? $layoutName : 'Pre-placed') . ' (' . $layoutCount . ' features)';
-    }
-
-    if ($asteroids == false && $moons == false && $dustNo == 0 && $meteorsNo == 0 && $layoutCount == 0) {
-        $optionsUsed .= ', No Terrain';
-    }
-
-?>
-<?php if(!$isFleetTest): ?>
-
-<?php endif; ?>
-
-<div class="rules-info-container <?php if($isFleetTest) echo 'fleet-test'; ?>">
-<div class="lobbyheader rules-info-header">RULES & INFO</div>
-
-<a href="./factions-tiers.php" target="_blank" class="lobby-link-blue">Fiery Void: Factions & Tiers</a> 
-<span class="lobby-desc-text"> - Overview of Fiery Void factions and their approximate strengths.</span>
-<br>
-<a href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer" class="lobby-link-blue">Ammo, Options & Enhancements</a> 
-<span class="lobby-desc-text"> - Details of all the extras available to Fiery Void units e.g. Missiles.</span>
-<br>
-
-<a href="https://old.wheelofnames.com/fx3-uje" target="_blank" class="lobby-link-blue">Tier 1</a> 
-<strong class="lobby-separator-strong">|</strong> 
-<a href="https://old.wheelofnames.com/rmq-7ds" target="_blank" class="lobby-link-blue">Tier 2</a>
-<strong class="lobby-separator-strong">|</strong> 
-<a href="https://old.wheelofnames.com/sgd-5zq" target="_blank" class="lobby-link-blue">Tier 3</a>
-<span class="lobby-dash-span">-</span>
-<span class="lobby-desc-text">Random Faction Wheels</span> 
-</div> 
-
-
-
-
-        <?php if (!$isFleetTest): ?>
-
-            <div class="lobbyheader rules-info-header">SCENARIO DESCRIPTION</div>
-
-            <div class="scenario-description">
-            <?php
-            $desc = $gamelobbydata->description;
-
-            // Replace <br> tags with newlines to normalize input
-            $desc = str_replace(['<br>', '<br/>', '<br />'], "\n", $desc);
-
-            // Remove the header line if it exists
-            $desc = preg_replace('/^\*{3}.*\*{3}\s*/m', '', $desc);
-
-            // Split into lines
-            $lines = preg_split("/\r\n|\n|\r/", trim($desc));
-
-            $inAdditionalInfo = false;
-
-            foreach ($lines as $line) {
-                // Trim whitespace for safety
-                $line = trim($line);
-                if ($line === '') continue; // skip empty lines
-
-                // Try to split on the first colon
-                $pos = strpos($line, ':');
-                if ($pos !== false) {
-                    $label = trim(substr($line, 0, $pos));
-                    $value = trim(substr($line, $pos + 1));
-
-                    $isAdditionalInfo = (strcasecmp($label, 'ADDITIONAL INFORMATION') === 0 || strcasecmp($label, 'ADDITIONAL INFO') === 0);
-
-                    if ($isAdditionalInfo) {
-                        $inAdditionalInfo = true;
-                        if ($value === '') {
-                            $value = 'None';
-                        }
-                        
-                        echo '<span class="scenariolabel">' . htmlspecialchars($label) . ':</span><br>' .
-                             '<span class="scenariovalue">' . htmlspecialchars($value) . '</span><br>';
-                    } else {
-                        $inAdditionalInfo = false;
-                        // Bold the label regardless of case (you can add uppercase check if you want)
-                        echo '<span class="scenariolabel">' . htmlspecialchars($label) . ':</span>&nbsp; ' .
-                             '<span class="scenariovalue">' . htmlspecialchars($value) . '</span><br>';
-                    }
-                } else {
-                    // Just print line if no colon found
-                    if ($inAdditionalInfo) {
-                         echo '<span class="scenariovalue">' . htmlspecialchars($line) . '</span><br>';
-                    } else {
-                         echo htmlspecialchars($line) . '<br>';
-                    }
-                }
-            }
-            ?>
-            </div>
-
-            <?php if(!$isFleetTest): ?>
-            <div><span class="scenariolabel">OPTIONS SELECTED: </span> <span class="scenariovalue"><?php print($optionsUsed); ?> </span></div>
-            <?php endif; ?>
-
-            <?php endif; ?>
-        </div>
-
-        <!-- Right Column: Map Preview -->
-        <?php if(!$isFleetTest): ?>
-        <div class="lobby-map-column">
-            <!--<div class="createsubheader deployment-header-style"><span>DEPLOYMENT ZONE PREVIEW:</span></div>-->
-            <div id="mapPreviewContainer" class="mapPreviewContainer">
-                <canvas id="mapPreview" width="400" height="300" class="mapPreviewContainerBox"></canvas>
-            </div>
-        </div>
-        <?php endif; ?>
-        <div class="lobby-leave-container">
-            <span class="btn btn-secondary-lobby leave lobby-leave-button">Leave Game</span>
-        </div>
-    </div>
-    
-
-</div>
-
-<?php if(!$isFleetTest): ?>
-<div class="panel large lobby lobby-teams-wrapper">
-    <div class="lobby-teams-container" id="lobbyTeamsContainer">
-        <!-- Teams injected by JS -->
-    </div>
-</div>
-<?php endif; ?>
+				<section class="lb-panel lb-teams" aria-labelledby="lbTeamsHead">
+					<h2 class="lb-panel-head" id="lbTeamsHead"><span>Teams</span><span class="lb-panel-meta" id="lbTeamsMeta"></span></h2>
+					<div class="lb-panel-body">
+						<div class="lb-teams-grid" id="lobbyTeamsContainer">
+							<!-- Teams injected by JS (gamedata.createSlots) -->
+						</div>
+					</div>
+				</section>
+			</div>
+		<?php endif; ?>
+		</div>
 
 <div class="panel large lobby buy buy-panel-container">
 
@@ -1105,45 +947,39 @@ $optionsUsed = '';
     <div id="systemInfoReact" style="position:fixed; inset:0; pointer-events:none; z-index:20000;"></div>
 
                     
+    <!-- Cloned by gamedata.createNewSlot, one per team; paintLobbyTeams sets its --rail colour. -->
     <div id="lobbyTeamTemplate" style="display:none;">
-        <div class="team-section" data-team-id="">
-             <div class="createsubheader team-header">Team <span class="team-number"></span>:</div>
-             <div class="subpanel slotcontainer"></div>
+        <div class="team-section lb-team" data-team-id="">
+             <h3 class="lb-team-head">Team <span class="team-number"></span></h3>
+             <div class="slotcontainer lb-slots"></div>
         </div>
     </div>
 
+    <!-- Cloned WITH its events (clone(true)) by gamedata.createNewSlot: the Take / Select / Leave
+         handlers are bound to these template buttons at load, so the classes must stay. Which of
+         them shows is the .taken / .ready / .selected classes plus createSlots' show() / hide(). -->
     <div id="slottemplatecontainer" class="hidden-template-container">
-        <div class="slot" >
-            <div class="leaveslot">Leave Slot</div>
-            <div>
-                <span class="smallSize headerSpan">Name:</span>
-                <span class ="value name"></span>
-                <span class="smallSize headerSpan">Points:</span>
-                <span class ="value points"></span>
-                <span class="smallSize headerSpan">Player:</span>
-                <span class="playername"></span><span class="status">READY</span>
-                <span class="takeslot clickable">TAKE SLOT</span>
-                <span class="selectslot clickable">SELECT</span>
+        <div class="slot lb-slot">
+            <div class="lb-slot-main">
+                <div class="lb-slot-player">
+                    <span class="playername"></span><span class="lb-slot-open">[Open slot]</Open></span>
+                </div>
+                <div class="lb-slot-meta">
+                    <span class="value name"></span>
+                    <span class="lb-slot-sep" aria-hidden="true">&middot;</span>
+                    <span class="value points"></span>
+                    <span class="lb-slot-late"><span class="lb-slot-sep" aria-hidden="true">&middot;</span> deploys T<span class="value depavailable"></span></span>
+                </div>
             </div>
-            <div>
-                <span class="smallSize headerSpan">Deployment Zone:</span>
-                <span>X:</span>
-                <span class ="value depx"></span>
-                <span>Y:</span>
-                <span class ="value depy"></span>
-                <!---<span>Type:</span>
-                <span class ="value deptype"></span> --->
-                <span>Width:</span>
-                <span class ="value depwidth"></span>
-                <span>Height:</span>
-                <span class ="value depheight"></span>
-                <span>Deploys on Turn:</span>
-                <span class ="value depavailable"></span>
+            <div class="lb-slot-actions">
+                <span class="status">Ready</span>
+                <button type="button" class="takeslot lb-pill lb-pill--take">Take Slot</button>
+                <button type="button" class="selectslot lb-pill">Select</button>
+                <button type="button" class="leaveslot lb-pill lb-pill--leave">Leave Slot</button>
             </div>
         </div>
     </div>
-                    
-                    
+
     <div id="systemtemplatecontainer" class="hidden-template-container">
 
         <div class="structure system">

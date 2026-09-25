@@ -755,31 +755,8 @@ textarea.cg-input {
   color: var(--fv-text);
 }
 
-.cg-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cg-chip {
-  padding: 4px 9px;
-  font-family: var(--fv-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.3px;
-  color: var(--fv-text-accent);
-  background: rgba(139, 202, 242, 0.1);
-  border: 1px solid var(--fv-line-scs);
-  border-radius: 2px;
-}
-
-.cg-chip--none {
-  color: var(--fv-text-dim);
-  background: none;
-  border-style: dashed;
-}
+/* The Summary's rule chips are .fv-rule-chip (scenarioCard.css): the lobby's Game Rules row, so
+   they share one look and one set of colours. */
 
 .cg-sum-row {
   display: grid;
