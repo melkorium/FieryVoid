@@ -1475,6 +1475,59 @@
     }
 }
 
+/* ── The filter box (Stage 10, confirm.filterBuyRows): just above the first section's head, under
+   the Base Hull line (user - first built at the top of the window), as wide as the sections - the
+   Faction Picker's search box (gameLobby.css .lb-picker-search) in this window. ── */
+
+.confirm.buyDialog .buyDialogFilter {
+    margin-bottom: 8px;
+}
+
+.confirm.buyDialog .buyDialogFilter[hidden] {
+    display: none;
+}
+
+.confirm.buyDialog .buyFilterInput {
+    display: block;
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    padding: 4px 8px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: var(--fv-text);
+    background: #081420;
+    border: 1px solid var(--fv-line-soft);
+    border-radius: 2px;
+    /* iOS draws a search field rounded and padded in its own style without this. */
+    -webkit-appearance: textfield;
+    appearance: textfield;
+}
+
+.confirm.buyDialog .buyFilterInput::-webkit-search-decoration {
+    -webkit-appearance: none;
+}
+
+.confirm.buyDialog .buyFilterInput::placeholder {
+    color: var(--fv-text-dim);
+    opacity: 1;
+}
+
+.confirm.buyDialog .buyFilterInput:focus {
+    outline: none;
+    border-color: var(--fv-accent);
+}
+
+.confirm.buyDialog .buyFilterEmpty {
+    margin: 2px 4px 8px;
+    font-size: 12px;
+    color: var(--fv-text-dim);
+}
+
+.confirm.buyDialog .buyFilterEmpty q {
+    color: var(--fv-text);
+}
+
 /* ── The unit: name, flight size, quantity ── */
 
 .confirm.buyDialog .buyDialogUnit {
@@ -1600,6 +1653,21 @@
     border-bottom: 1px solid rgba(144, 177, 238, 0.45);
 }
 
+/* A section the filter leaves nothing in: folded and dimmed, with no band to click - but its badge
+   still says what is bought in it (after :hover, so hovering does not light it back up). */
+.confirm.buyDialog .buySectionHead:disabled {
+    color: var(--fv-text-dim);
+    text-shadow: none;
+    background-color: transparent;
+    background-image: none;
+    border-left-color: var(--fv-line-scs);
+    cursor: default;
+}
+
+.confirm.buyDialog .buySectionHead:disabled .buyDisclosure {
+    opacity: 0.45;
+}
+
 .confirm.buyDialog .buySectionTitle {
     flex: 1 1 auto;
     min-width: 0;
@@ -1666,8 +1734,14 @@
     border-bottom: 1px solid #0e222c;
 }
 
-.confirm.buyDialog .buyRow:last-child {
+.confirm.buyDialog .buyRow:last-child,
+.confirm.buyDialog .buyRow.is-lastShown {
     border-bottom: 0;
+}
+
+/* Filtered out: hidden, but still in the dialog - what it holds is still bought. */
+.confirm.buyDialog .buyRow.is-filtered {
+    display: none;
 }
 
 .confirm.buyDialog .selectText {
@@ -1991,8 +2065,13 @@
         height: 34px;
     }
 
+    .confirm.buyDialog .buyFilterInput {
+        height: 40px;
+    }
+
     /* 16px on everything that takes typing: iOS zooms the page into any smaller field on focus. */
     .confirm.buyDialog #buyShipName,
+    .confirm.buyDialog .buyFilterInput,
     .confirm.buyDialog #bulkQuantity,
     .confirm.buyDialog .selectAmount,
     .confirm.buyDialog .fighterAmount,

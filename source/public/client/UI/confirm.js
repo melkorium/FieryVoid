@@ -791,6 +791,10 @@ window.confirm = {
        closed section still says what is bought in it, and Base Hull + the section subtotals add up
        to the total shown.
 
+       A dialog with BUY_FILTER_AT rows or more also gets a filter box, just above the sections
+       (Stage 10, filterBuyRows) - it only ever HIDES rows, so what a hidden row holds is still
+       bought and still counted.
+
        ⭐ The DOM gamelobby.js reads back is unchanged, and has to stay so:
          .selectAmount.shpenh<N>          one per enhancementOptions[N]; data count / enhCost / enhPrice
          .confirm .selectAmount           fighter missiles as well; data firingMode / value
@@ -805,12 +809,17 @@ window.confirm = {
     //place: plan §10.2 reserves the slot, the feature itself is not designed yet.
     //Every section starts OPEN, however long (user, 2026-09-26 - plan §10.4's fold-past-8-rows default
     //was dropped): the player folds one away by hand if they want it out of the road.
+    //`word` is what the filter box's placeholder calls the section: "Filter ammo, enhancements, options…".
     BUY_SECTIONS: [
-        { key: 'ammo', title: 'Ammo &amp; Ordnance' },
-        { key: 'enhancements', title: 'Enhancements' },
-        { key: 'options', title: 'Options' },
-        { key: 'officers', title: 'Officers' }
+        { key: 'ammo', title: 'Ammo &amp; Ordnance', word: 'ammo' },
+        { key: 'enhancements', title: 'Enhancements', word: 'enhancements' },
+        { key: 'options', title: 'Options', word: 'options' },
+        { key: 'officers', title: 'Officers', word: 'officers' }
     ],
+
+    //The filter box shows from this many rows (in all sections together). A mine's three to seven
+    //rows or a flight's four read at a glance; nearly every ship has eight or more (median ten).
+    BUY_FILTER_AT: 8,
 
     //An ammunition row names its magazine in a tag - "(AMMO) Basic Missile", "(HEAVY AMMO) Flash
     //Shell" (each ammo class's enhancementDescription). The server files these as ENHANCEMENTS
@@ -895,14 +904,18 @@ window.confirm = {
             + '<div class="buyDialogHead">'
             + '<div class="buyDialogHeading">'
             + '<div class="buyDialogTitle" id="buyDialogTitle">' + opts.title + '</div>'
-            + '<div class="buyDialogSub">' + sub.join(' &middot; ') + '</div>'
+            //+ '<div class="buyDialogSub">' + sub.join(' &middot; ') + '</div>'
             + '</div>'
             + '<button type="button" class="buyDialogClose" aria-label="Close">&times;</button>'
             + '</div>'
             + '<div class="buyDialogBody">'
             + '<div class="buyDialogUnit"></div>'
             + '<div class="buyDialogBase"><span class="buyDialogBaseLabel"></span><span class="buyDialogBaseCost"></span></div>'
+            + '<div class="buyDialogFilter" hidden>'
+            + '<input type="search" class="buyFilterInput" aria-label="Filter the rows below" autocomplete="off" spellcheck="false" enterkeyhint="next">'
+            + '</div>'
             + '<div class="buyDialogSections">' + sections + '</div>'
+            + '<p class="buyFilterEmpty" hidden>Nothing here matches <q></q>.</p>'
             + '</div>'
             + '<div class="buyDialogFoot">'
             + '<div class="buyDialogTotals">' + totals + '</div>'
@@ -926,9 +939,8 @@ window.confirm = {
         //Any number open at once - this is not a tab switch, just a way to fold away what is not
         //being changed.
         e.on("click", ".buySectionHead", function () {
-            var open = $(this).attr("aria-expanded") !== "true";
-            $(this).attr("aria-expanded", open ? "true" : "false");
-            $(this).siblings(".buySectionBody").prop("hidden", !open);
+            var section = $(this).closest(".buySection");
+            confirm.setBuySectionOpen(section, $(this).attr("aria-expanded") !== "true");
         });
 
         return e;
@@ -936,6 +948,11 @@ window.confirm = {
 
     buySectionBody: function buySectionBody(e, key) {
         return $('.buySection[data-section="' + key + '"] .buySectionBody', e);
+    },
+
+    setBuySectionOpen: function setBuySectionOpen(section, open) {
+        $(".buySectionHead", section).attr("aria-expanded", open ? "true" : "false");
+        $(".buySectionBody", section).prop("hidden", !open);
     },
 
     /* One row: name over a price note | the row's cost | − value +. The cost sits LEFT of the
@@ -977,7 +994,7 @@ window.confirm = {
     //Set with .val(), never concatenated in: a player-typed name is not markup.
     addBuyNameRow: function addBuyNameRow(e, name) {
         $('<div class="buyNameRow">'
-            + '<label class="buyFieldLabel" for="buyShipName">Name</label>'
+            + '<label class="buyFieldLabel" for="buyShipName">Enter Name</label>'
             + '<input type="text" id="buyShipName" name="shipname" autocomplete="off" spellcheck="false">'
             + '</div>')
             .appendTo($(".buyDialogUnit", e))
@@ -1146,6 +1163,7 @@ window.confirm = {
             var initial = seed ? (missileOption[4] || 0) : 0;
 
             var item = confirm.buyRow(missileOption[0], 'up to ' + max + ', ' + missileOption[2] + 'pts each');
+            item.addClass("buyMissileRow"); //the section note above speaks for these rows (filterBuyRows)
             var selectAmountItem = $(".selectAmount", item);
 
             selectAmountItem.text(initial);
@@ -1169,7 +1187,7 @@ window.confirm = {
     },
 
     /* Show the sections that were given rows - open, as buyDialogShell builds them; a section never
-       starts folded (BUY_SECTIONS). */
+       starts folded (BUY_SECTIONS) - and the filter box, if there are enough rows to want one. */
     openBuySections: function openBuySections(e) {
         var used = $(".buySection", e).filter(function () {
             return $(".buyRow", this).length > 0;
@@ -1177,6 +1195,100 @@ window.confirm = {
 
         used.prop("hidden", false);
         $(".buyDialogSections", e).prop("hidden", used.length === 0);
+
+        confirm.addBuyFilter(e, used);
+    },
+
+    /* The filter box (plan §10.2, Stage 10), for "I know the name of the one I want" - which a B5W
+       player very often does. It sits just above the first section's head, under the Base Hull line
+       (user, 2026-09-26 - built first above the body, at the top of the window). Its
+       placeholder names the sections this unit actually has. */
+    addBuyFilter: function addBuyFilter(e, used) {
+        if ($(".buyRow", used).length < confirm.BUY_FILTER_AT) return;
+
+        var words = used.map(function () {
+            var key = this.getAttribute("data-section");
+            return confirm.BUY_SECTIONS.filter(function (s) { return s.key === key; })[0].word;
+        }).get();
+
+        var input = $(".buyFilterInput", e);
+        input.attr("placeholder", "Filter " + words.join(", ") + "…");
+
+        input.on("input", function () {
+            confirm.filterBuyRows(e);
+        });
+        input.on("keydown", function (ev) {
+            //Escape empties a filled box - it only closes the window from an empty one.
+            if (ev.key === "Escape" && input.val() !== "") {
+                ev.preventDefault();
+                ev.stopPropagation();
+                input.val("");
+                confirm.filterBuyRows(e);
+            } else if (ev.key === "Enter") {
+                //On to the first row it leaves (as Enter in the Faction Picker's search picks the
+                //first faction): its value box, its dropdown, or its + for a missile.
+                ev.preventDefault();
+                $(".buySection:not([hidden]) .buyRow:not(.is-filtered)", e).first()
+                    .find('[contenteditable="true"], select, .plusButton').first().trigger("focus");
+            }
+        });
+
+        $(".buyDialogFilter", e).prop("hidden", false);
+    },
+
+    //Lower case, accents off, and every run of punctuation one space: "K'Lan" and "Long-Range" are
+    //found by "k lan" and "long range", and "Heavy Ammo — Basic Shell" by "heavy shell".
+    buySearchText: function buySearchText(value) {
+        var text = String(value || '').toLowerCase();
+        if (text.normalize) text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return text.replace(/[^a-z0-9]+/g, ' ').trim();
+    },
+
+    /* Every word typed must be in a row's name, in any order. A row that does not match is only
+       hidden (.is-filtered): it stays in the dialog, so whatever it holds is still bought, counted
+       and read back by gamelobby.js.
+
+       While a filter is typed, every section with a match is shown OPEN - a match is never folded
+       away, as in the Faction Picker's search - and a section with none collapses itself: folded,
+       dimmed, its head disabled, its badge still saying what is bought in it. Emptying the box puts
+       every section back as the player had it before typing. */
+    filterBuyRows: function filterBuyRows(e) {
+        var query = String($(".buyFilterInput", e).val() || '');
+        var words = confirm.buySearchText(query).split(' ').filter(function (w) { return w !== ''; });
+        var filtering = words.length > 0;
+        var wasFiltering = e.hasClass("is-filtering");
+        var anyShown = false;
+
+        e.toggleClass("is-filtering", filtering);
+
+        $(".buySection", e).filter(function () { return !this.hidden; }).each(function () {
+            var section = $(this);
+            var rows = $(".buyRow", this);
+
+            rows.each(function () {
+                var name = confirm.buySearchText($(".buyRowName", this).text());
+                $(this).toggleClass("is-filtered", !words.every(function (w) { return name.indexOf(w) !== -1; }));
+            });
+            var shown = rows.not(".is-filtered");
+            anyShown = anyShown || shown.length > 0;
+
+            //:last-child cannot skip a hidden row, so the last one SHOWN drops its rule by class.
+            rows.removeClass("is-lastShown");
+            shown.last().addClass("is-lastShown");
+            //"Missiles are bought per missile launcher" goes with the missile rows.
+            $(".buySectionNote", this).prop("hidden", shown.filter(".buyMissileRow").length === 0);
+
+            if (filtering) {
+                if (!wasFiltering) section.data("openBeforeFilter", $(".buySectionHead", this).attr("aria-expanded") === "true");
+                confirm.setBuySectionOpen(section, shown.length > 0);
+            } else if (wasFiltering) {
+                confirm.setBuySectionOpen(section, section.data("openBeforeFilter") !== false);
+            }
+            $(".buySectionHead", this).prop("disabled", filtering && shown.length === 0);
+            confirm.paintBuyBadge(section);
+        });
+
+        $(".buyFilterEmpty", e).prop("hidden", !filtering || anyShown).find("q").text(query.trim());
     },
 
     /* Paint what getTotalCost / getTotalCostBulk worked out: the Base Hull line, each row's cost and
@@ -1193,7 +1305,7 @@ window.confirm = {
         var flightSize = $(".fighterAmount", dialog);
         if (flightSize.length) label = (parseInt(flightSize.text(), 10) || 1) + ' &times; ' + label;
         if (baseLine.data("perUnit")) label += ', each';
-        $(".buyDialogBaseLabel", dialog).html('Base Hull &mdash; ' + label);
+        $(".buyDialogBaseLabel", dialog).html('' + label);
         $(".buyDialogBaseCost", dialog).text(confirm.formatBuyPts(base));
 
         $(".buySection", dialog).each(function () {
@@ -1225,10 +1337,26 @@ window.confirm = {
                     .toggleClass("is-saving", isTaken && cost < 0);
             });
 
-            $(".buySectionBadge", this)
-                .text(taken ? taken + ' selected · ' + confirm.formatBuyPts(subtotal) : rows.length + ' available')
-                .toggleClass("is-taken", taken > 0);
+            $(this).data("taken", taken).data("subtotal", subtotal);
+            confirm.paintBuyBadge($(this));
         });
+    },
+
+    /* A section's badge: what is bought in it - "2 selected · 45 pts" - whenever anything is, filter
+       or no filter; otherwise its row count, or while a filter is typed how many of its rows match. */
+    paintBuyBadge: function paintBuyBadge(section) {
+        var rows = $(".buyRow", section);
+        var taken = section.data("taken") || 0;
+        var text = rows.length + ' available';
+
+        if (taken) {
+            text = taken + ' selected · ' + confirm.formatBuyPts(section.data("subtotal"));
+        } else if (section.closest(".buyDialog").hasClass("is-filtering")) {
+            var shown = rows.not(".is-filtered").length;
+            text = shown ? shown + ' of ' + rows.length + (shown === 1 ? ' matches' : ' match') : 'no match';
+        }
+
+        $(".buySectionBadge", section).text(text).toggleClass("is-taken", taken > 0);
     },
 
     getVariableSize: function getVariableSize(ship) {

@@ -476,8 +476,10 @@ against those directly rather than re-deriving layout from this section's prose 
   sections + a fixed foot holding the total, built once for `confirm.showShipBuy` / `showShipEdit` /
   `showBuyBulk` (one shell, one set of row builders). User placement change: the Total Cost sits on
   its own right-aligned row ABOVE Cancel / Buy Ship, not beside the buttons as in the mockup.
-- **Stage 10 — Filter box inside the buy dialog** (§10.2). Small, rides after Stage 9 since it
-  assumes the accordion sections exist to filter within.
+- **Stage 10 — Filter box inside the buy dialog. ✅ BUILT 2026-09-26 — §12.11.** (§10.2) Small,
+  rides after Stage 9 since it assumes the accordion sections exist to filter within. As built: a
+  search box just above the first section's head on any dialog with 8+ rows; while it holds text, every
+  section with a match opens and every section without one folds, dimmed, keeping its badge.
 - **"Dust and Meteorites"** rides with Stage 1 (the UI slot for it) plus a small
   `GameRules.php` addition any time before Stage 1 ships — content, not its own stage.
 - **Map background refresh** is art curation, not a coding stage — flagged for review once
@@ -1893,4 +1895,91 @@ no note, buttons hidden, same right edge as the steppers, a pick "1 selected · 
 `CHAM_DISG=1`. Phone (390 × 844, touch): 8px gutters, fits the height, nothing overflows, the two
 buttons share a row at 44px, 36px steppers, 44px heads, 16px fields. Screenshots desktop + phone.
 `php -l gamelobby.php`. Test games 4399-4403 and the session file deleted.
-**Not verified:** a real touch device / iOS; Stage 10's filter box (not built — §7).
+**Not verified:** a real touch device / iOS; Stage 10's filter box (built afterwards — §12.11).
+
+### 12.11 Stage 10 — the filter box in the Buy / Edit / Bulk-Buy dialogs (built 2026-09-26)
+
+Client only — `client/UI/confirm.js` and `styles/confirm.css`. No PHP, no schema, no `gamelobby.js`
+change (nothing there reads the dialog's inputs generically: the name is `input[name=shipname]` since
+Stage 9 for exactly this reason). The lobby legacy bundle needs rebuilding.
+
+**The box.** **Just above the first section's head** (user, same day) — inside the scrolling body,
+under the unit block and the Base Hull line, as wide as the sections, 8px above them: on most ships
+that is the Enhancements head, on one with ammunition Ammo & Ordnance (the box filters every section,
+so it goes above all of them). Built first where the mockup (`Gamelobby_BuyShipDialog`) drew it — a
+row of its own between the window's head and the body, so it never scrolled away; the user moved it
+down. `.buyDialogFilter`, in `buyDialogShell`, hidden until `openBuySections` → `confirm.addBuyFilter`
+shows it. It is the Faction Picker's search box in this
+window: a native `type="search"` (Chrome's own clear ×, as `#factionSearch`), 34px, `.lb-input`'s
+colours, dim placeholder. The placeholder names the sections the unit actually has — "Filter ammo,
+enhancements, options…" (`BUY_SECTIONS[].word`), "Filter enhancements, options…" on a ship with no
+ammunition. All three dialogs get it with no per-dialog code.
+
+**Matching (`buySearchText`).** Every word typed must be in a row's NAME, in any order and any case;
+accents are dropped and every run of punctuation is one space, so "range long" and "LONG-range" both
+find "Long Range Missile", "heavy shell" finds "Heavy Ammo — Basic Shell". The price note is not
+searched. The unit block (name / flight size / quantity) and the Base Hull line are never filtered.
+
+**What a filter does (`filterBuyRows`):**
+
+- A non-matching row gets `.is-filtered` (display none) — it stays in the DOM, so whatever it holds is
+  still bought, still in the badge and total, and still read back by `gamelobby.js`. (Verified: Elite +
+  Poor Crew taken under two different filters, bought under a third that matched nothing — both
+  recorded, at the dialog's total.)
+- **Every section with a match is OPENED, and every section without one collapses itself:** folded,
+  its head `disabled` and dimmed (no band, `--fv-line-scs` bar), but its badge still says what is
+  bought in it. Emptying the box puts every section back as the player had it BEFORE typing (the fold
+  is remembered on the section as `openBeforeFilter` when a filter starts).
+- Badges: "N selected · X pts" whenever anything in the section is taken, filter or no filter;
+  otherwise "3 of 17 match" / "1 of 8 matches" / "no match" while filtering, "17 available" when not
+  (`paintBuyBadge`, now shared by `paintBuySummary`, which parks `taken` / `subtotal` on the section).
+- Nothing anywhere: "Nothing here matches “zzqx”." under the sections (`.buyFilterEmpty`).
+- No scrolling on a change of the text: the matches sit directly under the box being typed in. (While
+  the box sat above the body, the body scrolled back to the top on every change; that went with the
+  move.)
+- A flight's "Missiles are bought per missile launcher" note shows only while a missile row does
+  (missile rows now carry `.buyMissileRow`).
+- `:last-child` cannot skip a hidden row, so the last row SHOWN in a section loses its rule by class
+  (`.is-lastShown`).
+
+**Keys.** Escape in a box with text empties it and keeps the window (stopPropagation, so the shell's
+Escape-closes handler does not see it); Escape in an empty box closes the window as before. Enter
+moves focus to the first row the filter leaves — its value box (type the count straight in), its
+dropdown (Chameleon) or, for a missile, its + — as Enter in the Faction Picker's search picks the first
+faction (`enterkeyhint="next"`).
+
+**Rulings (mine — the user may revisit):**
+
+- **Shown from 8 rows** (`confirm.BUY_FILTER_AT`, counting every section). Measured over every unit in
+  `static/json`: ships median 10 rows (10th percentile 8), flights median 4 (max 10), mines 2-7, bases
+  median 7. So nearly every ship has the box and small flights and mines do not. Unlike Stage 9's
+  collapse threshold the user dropped, this one hides nothing — it only decides whether the box is
+  drawn.
+- **§10.2 said "filters within whichever sections are open".** Built instead as above (a match OPENS
+  its section), because filtering only open sections would leave the very row being searched for
+  folded away inside a section the player had closed — and the Faction Picker's search already opens
+  every group with a match (`.is-searching`). A section with no match still "collapses itself", as
+  §10.2 asked; it is not hidden outright, because its badge is how a folded section says what is
+  bought in it.
+- A no-match section's head is disabled rather than openable onto an empty body.
+
+**Verified — end to end on the REAL local site** (Stage 9's recipe: nginx, headless Chrome over CDP,
+player 3 by a planted session file, a Fleet Builder game; driver `s10.mjs` in this session's
+scratchpad, 31 checks after the move, no JS errors): Verloka (28 rows) — the box inside the body,
+under Base Hull, 8px above the first section and exactly as wide; typing into it from a list scrolled
+to the bottom keeps the box and its first match in view; the placeholder, "elite" → Elite Crew alone with Ammo / Options folded + disabled + "no match", a disabled
+head that will not open, Enter onto Elite Crew's value box, "range long" / "LONG-range", a no-match
+Enhancements still showing "1 selected · 338 pts", the empty note, totals unchanged by any filter,
+Escape (filled → cleared, empty → closed), folds restored after a filter (Enhancements folded by hand →
+opened by "crew" → folded again when cleared), a buy under a no-match filter, Edit with the filter and
+seeded badges; D'Shal mines (6 rows) have no box; BA Starfox (threshold lowered in the test) — the
+missile note with "dogfight", gone with a non-missile word; Dargan — Enter onto the Chameleon dropdown;
+phone 390 × 844 touch — 16px text, 40px box, 13px in from the dialog's edges, nothing overflows.
+**Stage 9's own driver re-run: 47/47.** Test games 4407-4412 and the session files deleted. (After the move, Stage 9's driver: 46/47 — the one miss is its "Base Hull — 6 × …" label check, text the user removed from the Base Hull line by hand the same day.)
+
+⚠️ **Trap:** the Edit tool wrote the accent-stripping regex `/[\u0300-\u036f]/` as the two LITERAL
+combining characters (it still ran identically, which is why only the diff showed it). Rewritten as
+escapes with node; check the bytes (`cat -A`) after writing any `\u` escape into a file.
+
+**Not verified:** a real touch device / iOS (the native search field's own clear button there); Firefox
+(no native clear button — Escape still clears).
