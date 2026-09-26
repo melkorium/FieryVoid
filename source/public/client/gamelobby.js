@@ -428,11 +428,11 @@ window.gamedata = {
 		var maxPoints = gamedata.getMaxPoints();
 		if (maxPoints == -1) return true; // Unlimited points
 
-		/* ⚠️ Only the SHIP dialog is read back off the DOM here. The bulk dialog shows TWO
-		   spans carrying .totalUnitCostAmount - the per-unit cost and the whole row's total -
-		   so which one this picked up would come down to the order the templates happened to
-		   be prepended in. doEditBulk has already priced the ship through readBulkPurchase
-		   by the time it asks, which is the same arithmetic the dialog displays. */
+		/* ⚠️ Only the SHIP dialog is read back off the DOM here. The bulk dialog's
+		   .totalUnitCostAmount is the whole ROW's total (per-unit cost x quantity), not the
+		   single-unit pointCost this convention stores. doEditBulk has already priced the ship
+		   through readBulkPurchase by the time it asks, which is the same arithmetic the dialog
+		   displays. */
 		if (!$(".confirm #bulkQuantity").length && $(".confirm .totalUnitCostAmount").length > 0) {
 			ship.pointCost = $(".confirm .totalUnitCostAmount").data("value");
 		}
@@ -3903,7 +3903,7 @@ window.gamedata = {
 
 		$(".confirm").remove();
 
-		window.confirm.showBuyBulk(newShip, gamedata.doCopyBulk, true);
+		window.confirm.showBuyBulk(newShip, gamedata.doCopyBulk, true, 'copy');
 	},
 
 	doCopyBulk: function doCopyBulk(results, shipclass, ship, originalShipData) {
@@ -3960,7 +3960,7 @@ window.gamedata = {
 		var shipclass = $(this).data().shipclass;
 		var ship = gamedata.getShipByType(shipclass);
 
-		var name = $(".confirm input").val();
+		var name = $(".confirm input[name=shipname]").val();
 		ship.name = name;
 		ship.userid = gamedata.thisplayer;
 		//REINFORCEMENTS_PLAN.md §4 Stage 1. Read off the buy panel, NOT off `ship` - this is a
@@ -4152,7 +4152,7 @@ window.gamedata = {
 
 		$(".confirm").remove();
 
-		window.confirm.showShipEdit(newShip, gamedata.doCopyShip);
+		window.confirm.showShipEdit(newShip, gamedata.doCopyShip, 'copy');
 	},
 
 
@@ -4185,7 +4185,7 @@ window.gamedata = {
 
 		ship = gamedata.getShipByType(ship.phpclass); //Faction already set if not already when we called copyShip()
 
-		var name = $(".confirm input").val();
+		var name = $(".confirm input[name=shipname]").val();
 		ship.name = name;
 		ship.pointCost = newPointCost;
 		ship.userid = gamedata.thisplayer;
@@ -4405,7 +4405,7 @@ window.gamedata = {
 			lobbyEnhancements.resetEnhancementMarkersShip(ship);
 		}
 
-		var name = $(".confirm input").val();
+		var name = $(".confirm input[name=shipname]").val();
 		ship.name = name;
 		ship.pointCost = newPointCost;
 		ship.pointCostEnh = 0;

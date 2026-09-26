@@ -610,6 +610,9 @@ tracked as a future item, not part of this UI stage.
 
 ### 10.4 Open decision
 
+**RESOLVED 2026-09-26 (user): no collapse threshold at all** — every section starts open and the
+player folds it by hand (§12.10). The original proposal, kept for the record:
+
 **Collapse threshold** — I picked "~8 rows in a section" as the point where it defaults
 collapsed rather than open; this is a guess pending your eye on how the sections actually fill
 up once built. Easy to retune as a single constant once it's in front of real ship data (a
@@ -1826,11 +1829,9 @@ second `handleInputChangeEdit`) — deleted, as §10.1 asked.
   survives, as words: "(HEAVY AMMO) Basic Shell" → "Heavy Ammo — Basic Shell". The price note keeps
   its old wording ("up to 3 levels, 10pts plus 5pts per level"), except an ammunition row reads "up
   to 220, 4pts each" — its limit is magazine rounds, not levels.
-- **Collapse rule (§10.4):** a section with more than `confirm.BUY_COLLAPSE_AT` (8) rows opens
-  CLOSED; a lone section always opens; and **Ammo & Ordnance ALWAYS opens** (user, same day: "we
-  shouldn't start the Ordnance list as minimised" — `alwaysOpen: true` on its `BUY_SECTIONS` entry).
-  So the Verloka Mine Cruiser (17 ammo rows) opens with every section open; the > 8 rule now only
-  ever folds Enhancements or Options.
+- **No auto-collapse (§10.4 resolved by the user, same day):** every section starts OPEN, however
+  long, and the player folds one by hand. (Built first as "more than 8 rows opens closed"; the user
+  had Ammo & Ordnance exempted, then dropped the rule altogether — `BUY_COLLAPSE_AT` is gone.)
 - **Officers is reserved in `confirm.BUY_SECTIONS` but never shown** — a section no row is filed into
   is hidden, so a dead "coming soon" bar never reaches players (the mockup drew one, dimmed).
 - **Arithmetic is transparent:** in a ship dialog Base Hull + every section's subtotal = Total cost

@@ -801,17 +801,12 @@ window.confirm = {
          .confirmok                       data shipclass / ship / originalShipData; `this` in the callback
        getTotalCost / getTotalCostBulk work every figure out; paintBuySummary only shows them. */
 
-    //A section with more rows than this opens CLOSED (plan §10.4 - a first guess, to retune once
-    //real ships have been through it). Counted per section, not per dialog - and never for a
-    //section marked alwaysOpen.
-    BUY_COLLAPSE_AT: 8,
-
     //Top to bottom. A section no row is filed into is never shown - which is how Officers holds its
     //place: plan §10.2 reserves the slot, the feature itself is not designed yet.
-    //Ammo & Ordnance always opens, however long (user, 2026-09-26): a missile ship's whole reason
-    //for opening this window is usually its magazine, so folding that away cost a click every time.
+    //Every section starts OPEN, however long (user, 2026-09-26 - plan §10.4's fold-past-8-rows default
+    //was dropped): the player folds one away by hand if they want it out of the road.
     BUY_SECTIONS: [
-        { key: 'ammo', title: 'Ammo &amp; Ordnance', alwaysOpen: true },
+        { key: 'ammo', title: 'Ammo &amp; Ordnance' },
         { key: 'enhancements', title: 'Enhancements' },
         { key: 'options', title: 'Options' },
         { key: 'officers', title: 'Officers' }
@@ -1173,25 +1168,14 @@ window.confirm = {
         }
     },
 
-    /* Show the sections that were given rows, each open unless it is long (BUY_COLLAPSE_AT) - but an
-       alwaysOpen section (Ammo & Ordnance) always opens, and so does a lone section: folding away
-       the only thing in the window saves nothing. */
+    /* Show the sections that were given rows - open, as buyDialogShell builds them; a section never
+       starts folded (BUY_SECTIONS). */
     openBuySections: function openBuySections(e) {
         var used = $(".buySection", e).filter(function () {
             return $(".buyRow", this).length > 0;
         });
 
-        used.each(function () {
-            var key = this.getAttribute("data-section");
-            var alwaysOpen = confirm.BUY_SECTIONS.some(function (section) {
-                return section.key === key && section.alwaysOpen;
-            });
-            var open = alwaysOpen || used.length === 1 || $(".buyRow", this).length <= confirm.BUY_COLLAPSE_AT;
-            $(this).prop("hidden", false);
-            $(".buySectionHead", this).attr("aria-expanded", open ? "true" : "false");
-            $(".buySectionBody", this).prop("hidden", !open);
-        });
-
+        used.prop("hidden", false);
         $(".buyDialogSections", e).prop("hidden", used.length === 0);
     },
 
