@@ -472,11 +472,10 @@ against those directly rather than re-deriving layout from this section's prose 
   path). Wants its own focused review pass rather than riding along with a UI stage. As built:
   a password page in place of the lobby, and slot.php refusing a slot, until the password is
   entered; a Private tag in Join Games; a Private Game chip.
-- **Stage 9 — Buy/Edit/Bulk-Buy dialog restructure** (§10.2). Accordion sections + sticky
-  total-cost bar, built once against `confirm.showShipBuy`/`showBuyBulk` since both dialogs
-  share the same row-building code. Independent of every Create Game/Gamelobby-page stage
-  above — could ship any time, including before Stage 1, since it touches a different file
-  entirely (`confirm.js`/`confirm.css`, not `gamelobby.php`/`createGame.php`).
+- **Stage 9 — Buy/Edit/Bulk-Buy dialog restructure. ✅ BUILT 2026-09-26 — §12.10.** Accordion
+  sections + a fixed foot holding the total, built once for `confirm.showShipBuy` / `showShipEdit` /
+  `showBuyBulk` (one shell, one set of row builders). User placement change: the Total Cost sits on
+  its own right-aligned row ABOVE Cancel / Buy Ship, not beside the buttons as in the mockup.
 - **Stage 10 — Filter box inside the buy dialog** (§10.2). Small, rides after Stage 9 since it
   assumes the accordion sections exist to filter within.
 - **"Dust and Meteorites"** rides with Stage 1 (the UI slot for it) plus a small
@@ -1775,3 +1774,122 @@ switch leaving every old-team slot, missing slot / game, string ids, an ACTIVE g
 taken slots alike, a ladder join still getting the opponent's points); over HTTP, slot.php refuses a
 taken slot and seats a free one; in the lobby, Take Slot on a slot taken behind the page's back shows
 the message and seats nobody. `fvbuild -Check` unchanged (only game 4251). Test games 4395-4397 deleted.
+
+### 12.10 Stage 9 — the Buy / Edit / Bulk-Buy dialogs (built 2026-09-26)
+
+Client only — `client/UI/confirm.js`, `styles/confirm.css`, five lines of `client/gamelobby.js`, and
+two hidden templates deleted from `gamelobby.php`. No schema, no PHP logic, no autoload change. The
+lobby legacy bundle needs rebuilding (`confirm.js` is in it).
+
+**One dialog, three entry points.** `showShipBuy` (a new ship or flight), `showShipEdit` (a bought one,
+re-opened to edit — or, with a new third argument `'copy'`, to copy) and `showBuyBulk` (mines and bulk
+OSATs; its new fourth argument `'copy'` only renames the window) are all built from
+`confirm.buyDialogShell` plus shared row builders (`addBuyNameRow`, `addBuyFlightSizeRow`,
+`addBuyQuantityRow`, `setBuyBase`, `addBuyEnhancementRows`, `addBuyMissileRows`, `openBuySections`).
+The three near-identical copies of the enhancement loop are gone, and so are the two dead
+commented-out copies (§10.1's "defined twice" `showShipBuy` was in fact inside a `/* … */`, as was a
+second `handleInputChangeEdit`) — deleted, as §10.1 asked.
+
+**The window** (the mockup's `Gamelobby_BuyShipDialog`, in the lobby windows' `.lb-modal-panel` look):
+
+- **Head:** title (Buy Ship / Buy Flight / Edit Ship / Copy Ship / Bulk Buy / Edit Purchase / Copy
+  Purchase) over `Class · Faction · ISD year`, and a × close box.
+- **Body, the only part that scrolls:** the unit block — Name (every ship dialog; never on bulk, as
+  before), Flight size (a flight with a size selector: − / value / +, wheel), Quantity (bulk: typed,
+  wheeled or stepped, ≥ 1, a text box rather than `type=number`) — then a **Base Hull** line (the
+  mockup's §10.5 addition: "Base Hull — 6 × BA Starfox Fighters", "…, each" on bulk), then the
+  **sections**: Ammo & Ordnance, Enhancements, Options. Each head is a real `<button aria-expanded>`
+  with the lobby's disclosure box (as the Store's size categories — the mockup had a chevron on the
+  right) and a badge: "N available", or "N selected · X pts" once anything in it is taken. Any number
+  can be open at once. **The heads wear the Purchase panel's MAIN FLEET band** (user, same day: "a
+  brighter colour so they stand out"): bright title, a `#90b1ee` wash and a 3px `#90b1ee` accent bar —
+  on the LEFT, as these titles are left-aligned — and a `#90b1ee` rule under an open one. (A `#90b1ee`
+  TITLE was tried and rejected: it reads dimmer than the near-white MAIN FLEET text.) A row: name over
+  its price note | the row's cost | − value + — **the cost LEFT of the spinner** (user, same day), so
+  every spinner and dropdown keeps one right edge; the cost shows once taken, a saving such as Poor
+  Crew or Sluggish as "−169 pts" in `--fv-own`.
+- **Foot, never scrolls:** **the total on a row of its own above Cancel | Buy Ship, right-aligned**
+  (user, this stage — the mockup had it beside the buttons); the bulk dialog shows "Per unit" beside
+  "Total cost". Buy is Create Game's green, Cancel a quiet outline. The window is dimmed round by a
+  100vmax box-shadow rather than an overlay element, so every `$(".confirm").remove()` takes it away.
+
+**Rulings (mine — the user may revisit):**
+
+- **Sections by the data's own signals.** Ammo = the name carries an `(AMMO)` / `(HEAVY|MEDIUM|LIGHT
+  AMMO)` tag (every ammo class's `enhancementDescription`; the server files these as ENHANCEMENTS,
+  `enhIsOption` false), plus `EXT_AMMO` / `EXT_HAMMO` (extra shots for a fighter's gun — options by
+  the flag, ammunition by what they are), plus a flight's missiles (`getMissileOptions`, with the old
+  "PER MISSILE LAUNCHER" instruction as a section note). Otherwise `enhIsOption` → Options, else
+  Enhancements. Mine-UNIT enhancements (`MINE_ACC`, `MINE_DMG`, …) carry no tag, so they are
+  Enhancements; launcher mines (`MINE_BLB`, …) are "(AMMO) Basic Mine", so they are ammunition.
+- **Titles lose the coloured prefixes (§10.5):** no "(OPTION)", no "(AMMO)"; only a magazine SIZE
+  survives, as words: "(HEAVY AMMO) Basic Shell" → "Heavy Ammo — Basic Shell". The price note keeps
+  its old wording ("up to 3 levels, 10pts plus 5pts per level"), except an ammunition row reads "up
+  to 220, 4pts each" — its limit is magazine rounds, not levels.
+- **Collapse rule (§10.4):** a section with more than `confirm.BUY_COLLAPSE_AT` (8) rows opens
+  CLOSED; a lone section always opens; and **Ammo & Ordnance ALWAYS opens** (user, same day: "we
+  shouldn't start the Ordnance list as minimised" — `alwaysOpen: true` on its `BUY_SECTIONS` entry).
+  So the Verloka Mine Cruiser (17 ammo rows) opens with every section open; the > 8 rule now only
+  ever folds Enhancements or Options.
+- **Officers is reserved in `confirm.BUY_SECTIONS` but never shown** — a section no row is filed into
+  is hidden, so a dead "coming soon" bar never reaches players (the mockup drew one, dimmed).
+- **Arithmetic is transparent:** in a ship dialog Base Hull + every section's subtotal = Total cost
+  (row costs are for the whole flight, × flight size); the bulk dialog works per unit — Base Hull +
+  subtotals = Per unit, and Total = Per unit × quantity (rounded up, as before).
+- Escape (focus anywhere in the window) and the × close it like Cancel.
+
+**The DOM gamelobby.js reads back — unchanged, and listed in the block comment above
+`buyDialogShell`:** `.selectAmount.shpenh<N>` and its data keys, `.confirm .selectAmount`
+(missiles: `firingMode` / `value`), `.fighterAmount` (text), `.confirm .totalUnitCostAmount`
+(`data("value")`), `#bulkQuantity` (`.val()`), `.confirmok`'s data and `this`. The name box is read
+as `input[name=shipname]` now (was `.confirm input` — the FIRST input, which Stage 10's filter box
+would have become). `copyShip` / `copyBulk` pass `'copy'`.
+
+**Traps found and fixed along the way:**
+
+1. ⚠️ **`getTotalCost` priced from a HIDDEN PAGE TEMPLATE.** `fighterCost = $(".totalUnitCostAmount")
+   .data("value")` was unscoped, so by document order it hit gamelobby.php's hidden `.totalUnitCost`
+   template (which the dialog's setup had also written the base cost onto), never the dialog's own
+   span — that one holds the RUNNING total, and reading it would compound on every click. Now the
+   base rides on the dialog's own total as `data("baseCost")` (`setBuyBase`), and the flight
+   maximum on `.fighterAmount` as `data("maxSize")`. With both off the templates, the templates
+   (`.missileSelectItem`, `.totalUnitCost`) are deleted.
+2. **Only the LAST missile type's − / + and wheel worked** — the old code bound them once, after its
+   loop. Bound per row now.
+3. **Tab was swallowed** in every value box (`preventNonNumericInput` allowed digits, arrows,
+   Backspace / Delete / Enter only) — keyboard focus could not leave one. Tab and Escape allowed.
+4. **The bulk dialog carries ONE `.totalUnitCostAmount` now** (the row total; the per-unit figure is
+   `.costPerUnitSpan` alone). `canAffordEdit` still skips its DOM read for bulk (comment updated) —
+   that span is quantity × unit, never the single-unit `pointCost`.
+5. **An opaque panel.** At `.lb-modal-panel`'s 0.98 alpha the Store's text ghosted visibly through
+   the rows: that panel sits on a dimming overlay, but this dim is a shadow drawn only OUTSIDE the
+   box, so the page directly behind is at full brightness.
+6. On a phone, the typing fields (name, quantity, the value boxes, the Chameleon dropdown) are 16px
+   (iOS zooms into anything smaller on focus), steppers 36px, section heads and buttons 44px, and the
+   steppers' hover is behind `@media (hover: hover)` so a tapped one does not stay lit. "ISD&nbsp;2256"
+   so the year never wraps away from its label.
+
+Old CSS removed from `confirm.css` (all of it served only these dialogs): `.confirm .missileselect`,
+the `.missileSelectItem*` rules (incl. the `.enhChoiceItem` percentage arithmetic and a dead
+`.combo` widget), `.fighterAmount`, `.totalUnitCost*`. The new rules are one `.confirm.buyDialog`
+block at the foot of the file; it uses `--fv-display` (Orbitron), which gamelobby.php loads through
+gamesNew.css — these dialogs open nowhere else.
+
+**Verified — end to end on the REAL local site** (nginx, headless Chrome over CDP, local player 3 by a
+planted session file, a Fleet Builder game; 46 checks, no JS errors; driver `s9.mjs` in that session's
+scratchpad, on the Stage 8 `cdp.mjs`): the Verloka Mine Cruiser from the Store's own "Add to fleet" —
+title / subtitle / 17-8-3 rows / Ammo closed / Officers hidden / no prefixes / Base 675 = Total /
+the foot's total row above right-aligned buttons / Elite Crew + Poor Crew (green saving) + three
+typed Long Range Missiles with Base + subtotals = Total at each step / the body scrolling under a
+foot that does not move / Buy at the dialog's total with the typed name and every count recorded;
+Edit (seeded name, badges and total — no double charge) → Poor Crew off → saved at the new total;
+Copy (title, button, total) → a second row; × / Escape / Cancel close and buy nothing; Tab leaves a
+value box. BA Starfox: Buy Flight, 6 × per-craft base, the Dogfight missile in Ammo with its note,
+flight size 5 moving base and total, bought as 5 craft with missiles loaded. D'Shal DEW Mines: Bulk
+Buy, quantity ± and typed ("4x" → 4), per unit = base + subtotal, total = per unit × 4, bought at
+bulkBuy 4; Edit Purchase and Copy Purchase seeded. Dargan (Chameleon): the dropdown row in Options,
+no note, buttons hidden, same right edge as the steppers, a pick "1 selected · 0 pts", bought with
+`CHAM_DISG=1`. Phone (390 × 844, touch): 8px gutters, fits the height, nothing overflows, the two
+buttons share a row at 44px, 36px steppers, 44px heads, 16px fields. Screenshots desktop + phone.
+`php -l gamelobby.php`. Test games 4399-4403 and the session file deleted.
+**Not verified:** a real touch device / iOS; Stage 10's filter box (not built — §7).

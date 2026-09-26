@@ -944,7 +944,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
 						<button type="button" class="lb-btn lb-btn--small lb-roll-choose" id="lbRollChoose" hidden>Choose</button>
 					</div>
 					<button type="button" class="lb-btn lb-roll-btn" id="lbRollFaction">
-						<i class="fa-solid fa-dice" aria-hidden="true"></i>Randomise My Faction
+						<i class="fa-solid fa-dice" aria-hidden="true"></i>Pick a Random Faction
 					</button>
 				</div>
 			</div>
@@ -1120,30 +1120,7 @@ if (isset($_GET["leave"]) && isset($_GET["gameid"])){
         
     </div>
 
-    <div class="missileSelectItem" style="display:none">
-        <span>
-            <span class="selectText"></span>
-            <span class="selectAmount"></span>
-            <span class="selectButtons">
-                <table>
-                    <tr>
-                        <td><span class="plusButton"></span></td>
-                    </tr>
-                    <tr>
-                        <td><span class="minusButton"></span></td>
-                    </tr>
-                </table>
-            </span>
-        </span>
-    </div>
-        
-    <div class="totalUnitCost" style="display: none">
-        <span>
-            <span class="totalUnitCostText"></span>
-            <span class="totalUnitCostAmount"></span>
-        </span>
-    </div>   
-    </main>	
+    </main>
     
 <div id="global-blocking-overlay" class="blocking-overlay" style="display:none;">
     <span>
