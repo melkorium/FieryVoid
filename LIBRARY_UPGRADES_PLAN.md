@@ -9,8 +9,10 @@ Status (2026-10-08):
   (written to a temp folder), and a read-only fetch of the live UI bundle.
 - **Live PHP is already 8.4.24** (LiteSpeed LSAPI, alt-php; confirmed by you). That makes most of the
   original PHP plan unnecessary, and it turns the `round()` item (§2.4) into a bug that is live now.
-- **BUILT, uncommitted:** local Docker on `php:8.4-fpm` (§2.1), and the React build-mode fix (§5.1).
-- Open decisions: §6.
+- **Committed (cef9d634d):** local Docker on `php:8.4-fpm` (§2.1) and the React build-mode config (§5.1).
+- **BUILT 2026-10-08, uncommitted:** the `round()` fix on both sides (§2.4, options A and B), the pollStats fix (§2.3 #1),
+  React 19.3 (§5.2) and THREE r186 with its two fixes (§4). Verification for each is in its section.
+- Still open: §6.
 
 ## 1. Verdict at a glance
 
@@ -18,8 +20,8 @@ Status (2026-10-08):
 |---|---|---|---|
 | **PHP** | live 8.4.24; local now 8.4.26 | 8.5.11 (8.6 is at RC3) | **Done** — local matches live. Two follow-ups (§2.3); 8.4 is supported to 31 Dec 2028 |
 | **jQuery** | 4.0.0 + jQuery UI 1.14.2 | 4.0.0 (Jan 2026) + UI 1.14.2 (Jan 2026) | **Up to date** |
-| **THREE** | r160 (0.160.1, Jan 2024) | r186 (0.186.1, Sep 2026) | **Reasonable to do now, after React** — two known fixes, a visual QA pass (§4) |
-| **React** | 18.3.1 (the last 18.x, Apr 2024) | 19.3.0 (Sep 2026) | **Build mode fixed (−45%).** Version bump: cheap, worth doing now (§5) |
+| **THREE** | **r186** (0.186.1) | r186 (0.186.1, Sep 2026) | **Upgraded** — two fixes; pixel-identical to r160 (§4) |
+| **React** | **19.3.0** | 19.3.0 (Sep 2026) | **Upgraded**, with the build mode fixed (§5) |
 
 ## 2. PHP — live is on 8.4, local now matches
 
@@ -54,8 +56,8 @@ here. That includes compile-time ones: under 8.5, a `case 'x';` throws out of th
 
 | # | Where | Change | Status |
 |---|---|---|---|
-| 1 | `source/public/pollStats.php:36` | `str_getcsv($line)` → `str_getcsv($line, ',', '"', '\\')` — same behaviour, escape now explicit | **Live bug now:** the page throws on 8.4 once `logs/pollstats.csv` has rows |
-| 2 | `source/public/client/mathlib.js:394` (+ optionally `source/server/lib/HexZone.php:63`) | the rounding fix, §2.4 | **Live bug now** |
+| 1 | `source/public/pollStats.php:36` | `str_getcsv($line)` → `str_getcsv($line, ',', '"', '\\')` — same behaviour, escape now explicit | **DONE 2026-10-08.** Was a live bug: the page threw on 8.4 once `logs/pollstats.csv` had rows. On the container's 8.4 the old call throws under FV's handler; the new one parses a pollstats row identically |
+| 2 | `source/public/client/mathlib.js:394` + `source/server/lib/HexZone.php:63` | the rounding fix, §2.4 | **A and B DONE 2026-10-08** (A fixed a live bug; B makes it PHP-version-proof) |
 | 3 | `source/server/model/ships/Shuttle.php:95`, `:97` | `case '…';` → `case '…':` | before an 8.5 move |
 | 4 | `source/server/lib/Debug.php:75` | `->attach($e, $logid)` → `->offsetSet($e, $logid)`. On 8.5, `Debug::error` would log and then throw, so every caught-and-reported error becomes a second, uncaught one | before an 8.5 move |
 | 5 | `source/server/lib/DiscordNotifier.php:242` | delete `curl_close($ch);` (a no-op since 8.0); on 8.5 it breaks turn notifications | before an 8.5 move |
@@ -82,20 +84,41 @@ Measured on 100,000 seeded lines:
   makes the client match live, and local now that it's on 8.4.
 - **B — A plus future-proofing:** also replace the three `round()` calls in `HexZone::cubeRound()` with
   the helper below. The server's answer then no longer depends on PHP's `round()` at all, so a future PHP
-  change can't silently split client and server again. It was measured identical to native 8.4
-  `round()`, so it changes nothing on live today.
+  change can't silently split client and server again. It matches native 8.4 `round()`, so it changes
+  nothing on live today.
+
+**Option A BUILT 2026-10-08.** `phpRound()` is now just `v < 0 ? -Math.round(-v) : Math.round(v)`, with
+the comment rewritten. Against a fresh 100,000-line corpus generated on live's exact PHP (8.4.24), it
+agrees with the server on all 100,000; against 8.2 it differs on the expected 106. The legacy watcher
+rebuilt `game.legacy.bundle.js` with it. The Walkers plan and memory note carry a dated update.
+
+**Option B BUILT 2026-10-08.** `HexZone::cubeRound()` calls a private `roundHalfAwayFromZero()` instead of
+`round()`, and the file header records this as the one deliberate exception to its "verbatim move" rule:
 
 ```php
 private static function roundHalfAwayFromZero($x) {
+    if ($x < 0) return -self::roundHalfAwayFromZero(-$x);
     $f = floor($x);
-    $d = $x - $f;
-    if ($d > 0.5) return $f + 1;
-    if ($d < 0.5) return $f;
-    return $x < 0 ? $f : $f + 1;
+    return ($x - $f >= 0.5) ? $f + 1 : $f;
 }
 ```
 
-Either way, update the comment above `phpRound()` and the Walkers memory note that points at it.
+⚠️ This replaces the version drafted earlier in this plan, which subtracted `floor()` from negative
+values directly. Just above −0.5 that subtraction is inexact: −0.49999999999999994 came out at −1, where
+8.4's `round()` and the JS mirror give 0. The 100,000-line corpus never hit that value, but the edge test
+below did. Rounding |x| keeps the subtraction exact, and it is the same form as the JS mirror.
+
+Verified:
+- `php -l` is clean on 8.2, 8.4.24 and 8.5.
+- Edge test of 102,184 values (every double within ±4 bit-steps of each .5 and whole number from −60
+  to 60, plus 100,000 random ones): the helper matches native `round()` on 8.4.24 and 8.5 on all of
+  them, and matches the JS mirror on all of them. Its output is byte-identical on 8.2, 8.4 and 8.5.
+- The 100,000-line corpus through the real edited `HexZone::line()` is byte-identical on 8.2, 8.4.24 and
+  8.5, and identical to live's current output.
+- `fvbuild -Check`: class map up to date, validator PASS, harness unchanged apart from game 4229, which
+  the 3-month cleanup had deleted (§7).
+
+The JS comment now names the server helper as its pair: change one, change both.
 
 ### 2.5 The next hop (8.5 or 8.6)
 8.4 is supported to the end of 2028, so there's no hurry. When the time comes, do fixes 3–6 first; they
@@ -143,10 +166,26 @@ a visual QA pass across deployment zones, weapon FX, EW links, ballistics, the h
 and replay. That is the same size whether you jump 1 release or 26, which is why chasing every release
 isn't worth it either.
 
-### 4.3 Steps
-Bump `three` in `package.json` to ^0.186, make the two fixes, run `yarn build:three`, then do the visual
-pass: headless before/after screenshots of a deployment phase and a replay with weapon fire, plus a look
-by eye. Do it as a separate step after React, so a regression points at one change.
+### 4.3 BUILT 2026-10-08 (after React)
+- `three` ^0.186.1 in `package.json`, `yarn.lock` and `package-lock.json`. `yarn build:three` produces a
+  565 KB shim (141 KB gzipped).
+- `webglScene.js:84`: `stencil: true` on the `WebGLRenderer`. `PlainSprite.js:47`:
+  `texture.generateMipmaps = false`. Both carry a one-line reason, and both also work on r160.
+- Visual A/B, done headless as player 210 against the real local site with non-GET requests blocked and
+  `Math.random` seeded. Only the shim differed between runs: the committed r160 shim was served in place
+  of the new one at the network level.
+
+  | Scene | r160 vs r186 | r160 vs r160 (noise) |
+  |---|---|---|
+  | Deployment, mine zone with its stencil hole (game 4434) | 0 px (max delta 1/255) | 0 px (max delta 1) |
+  | Initial Orders (4444) | 0 px | 0 px |
+  | Movement, 26 units (4447) | 0 px | — |
+  | Firing replays (4372, 4069), frames after the effects finish | ≤187 px, max delta 12 | 516 px, max delta 17 |
+
+  During the effects themselves, frames differ because the FX run in real time; there were no console
+  errors, and the end-of-replay renderer stats (draw calls, programs, textures) were identical.
+- **Negative control:** r186 with the stencil forced off paints the mine zone straight over the hole (7%
+  of the screen changes). That proves the A/B can see the r163 regression, and that the fix removes it.
 
 ## 5. React
 
@@ -191,17 +230,31 @@ Notes:
   bad moment.
 - Cost: +23 KB gzipped over React 18 in production mode, which the build-mode fix more than pays for,
   plus the same headless smoke run used for §5.1.
-- **Verdict: worth doing now** — it's about as cheap as an upgrade gets. Steps: bump react and react-dom
-  to ^19.3, `vite build`, run the smoke test, then click through ship windows and the lobby by hand.
+- **BUILT 2026-10-08.** react and react-dom are ^19.3.0 (scheduler 0.28) in `package.json`, `yarn.lock` and
+  `package-lock.json`; no source changes. `UI.bundle.js` is 530 KB / 146 KB gzipped, production-only.
+- Verified headless as real players with non-GET requests blocked:
+  - game.php in Initial Orders (4444) and Movement (4447): ship windows, including a fighter flight and
+    mines, system-info hover, click, right-click and `closeAll`.
+  - gamelobby.php (4448): loaded the Narn store and opened a JaStat ship window with a Twin Array
+    tooltip.
+  - No console errors or warnings, **including with a React 19 development build swapped in** at the
+    network level, which is where React 19 would print its deprecation warnings.
+  - Click and right-click behaviour matches the React 18 bundle exactly.
 
 ## 6. Decisions for you
-1. **Round fix (§2.4), live bug:** A (JS-only) or B (A plus the server helper)?
-2. **pollStats fix (§2.3 #1), live bug:** do it?
-3. **React 19 now (§5.2)?** Recommended.
-4. **THREE r186 after React (§4)?** Reasonable; the cost is the visual QA.
-5. **Fixes 3–6** now, or when an 8.5 move comes up?
+1. ~~Round fix~~ — A and B done.
+2. ~~pollStats~~ — done. ~~React 19~~ — done. ~~THREE r186~~ — done.
+3. **Fixes 3–6** now, or when an 8.5 move comes up?
+4. **Deploying:** the deploy copy needs `yarn install` before `yarn build` to pick up React 19 and three
+   r186. Without it, the build silently ships React 18 / r160, which is still correct: every code change
+   here also works on the old versions.
 
 ## 7. Noticed, not in scope
+- **The local replay corpus is eroding.** `DBManager::getGamesToBeDeleted()` deletes any game where a
+  player has been inactive for 3 months, and it runs on every game.php load. Game 4229 went this way
+  during today's tests, as had 4213–4227 before it. As of 2026-10-08, **45 of the 137 corpus games** (ids
+  4069–4277) cross that line within 30 days, and the harness can't replay a deleted game. Their baselines
+  stay on disk, but the coverage goes.
 - Dead vendored files: `client/lib/three.min.js` (670 KB) and the jQuery UI 1.8.15 file above.
   `THREE.MeshLine.js` is still loaded by `game.php:133`, but its only user, `LineMeshSprite.js`, is
   never instantiated — and `MeshLineMaterial` would throw if anything did call it
