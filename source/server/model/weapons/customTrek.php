@@ -3996,7 +3996,7 @@ class TrekPhaserKellyType7 extends TrekPhaserBase{
         public $rangePenalty = 0.3; //1.5 per hex.
         public $rangePenaltyArray = array(1=> 0.3, 2=> 1);		
         public $fireControl = array(3, 3, 3);
-        public $fireControlArray = array(1=> array(3, 3, 3), 2=> array(6, 2, 0));		
+        public $fireControlArray = array(1=> array(3, 3, 3), 2=> array(3, 3, 3));		
 
         public $damageType = "Raking";
 		public $damageTypeArray = array( 1 => "Raking", 2=> "Standard");		
