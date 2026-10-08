@@ -125,12 +125,11 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     <script src="<?php echo AssetLoader::getAssetUrl('client/lib/jquery-ui-1.14.2.min.js'); ?>"></script>
     <!-- Tree-shaken THREE r160 global shim (perf #5): replaces the 670KB vendored
          three.min.js UMD with a ~500KB build of only the symbols FV uses, installed on
-         window.THREE so the legacy code + MeshLine are unchanged. Versioned (?v=mtime)
+         window.THREE so the legacy code is unchanged. Versioned (?v=mtime)
          because it regenerates per build, like the legacy bundle. Must stay before
-         MeshLine + the legacy bundle (both read window.THREE); document order + defer
+         the legacy bundle (it reads window.THREE); document order + defer
          preserve that. -->
     <script defer src="<?php echo AssetLoader::getAssetUrl('client/lib/three.shim.bundle.js'); ?>"></script>
-    <script defer src="client/lib/THREE.MeshLine.js"></script>
     <script defer src="<?php echo AssetLoader::getAssetUrl('client/UI/reactJs/UI.bundle.js'); ?>"></script>
 	<!-- replaced by php include below
     <script src="static/ships.js"></script>

@@ -130,8 +130,8 @@ switching live.
 
 ## 3. jQuery — up to date
 `client/lib/jquery-4.0.0.min.js` and `jquery-ui-1.14.2.min.js`, self-hosted, are the current releases.
-Nothing to do. Housekeeping only: `client/lib/jquery-ui-1.8.15.custom.min.js` (211 KB, from 2011) is
-dead — its only mention is a stale skip entry at `scripts/bundle-legacy.js:73`.
+Nothing to do. Housekeeping only: `client/lib/jquery-ui-1.8.15.custom.min.js` (211 KB, from 2011) was
+dead, with a stale skip entry at `scripts/bundle-legacy.js:73` as its only mention. **Deleted 2026-10-08** (see §7).
 
 ## 4. THREE — r160 → r186
 
@@ -255,14 +255,63 @@ Notes:
   during today's tests, as had 4213–4227 before it. As of 2026-10-08, **45 of the 137 corpus games** (ids
   4069–4277) cross that line within 30 days, and the harness can't replay a deleted game. Their baselines
   stay on disk, but the coverage goes.
+  **Fixed 2026-10-08 (local only):** `docker/php/varconfig.php` sets `$keep_idle_games = true`, and
+  `getGamesToBeDeleted()` then skips the 3-month rule. Idle LOBBY games still go after 5 days. Live's
+  varconfig doesn't set the flag, so live deletes as before.
 - Dead vendored files: `client/lib/three.min.js` (670 KB) and the jQuery UI 1.8.15 file above.
   `THREE.MeshLine.js` is still loaded by `game.php:133`, but its only user, `LineMeshSprite.js`, is
   never instantiated — and `MeshLineMaterial` would throw if anything did call it
   (`THREE.Material.call(this)` on an ES6 class).
+  **Deleted 2026-10-08:** all four files (`LineMeshSprite.js` was loaded by no page at all), the
+  `game.php` script tag and both stale `bundle-legacy.js` skip entries. Both legacy bundles' script lists
+  are unchanged (151 / 53). A real game.php load on games 4444 and 4430 made no MeshLine request and
+  logged no errors.
 - Local MariaDB is 10.3.39 (end of life May 2023) and nginx is 1.15. Both are local only; the live DB
   version is recorded nowhere.
+  **MariaDB done 2026-10-08.** Live is **11.4.5-MariaDB-log (FreeBSD Ports)**, `utf8mb4` /
+  `utf8mb4_unicode_ci`, and its sql_mode starts with the built-in default (only the first part was shown).
+  `docker/mariadb/Dockerfile` now uses `mariadb:11.4` (11.4.13) with that charset and collation, and
+  `MARIADB_AUTO_UPGRADE=1`. Steps taken:
+  1. Dumped B5CGM to `C:\FV_env\db_backups\B5CGM_mariadb-10.3.39_2026-10-08.sql` (SHA-256 checked
+     after the copy) and copied the whole 10.3 volume to `fieryvoid_mariadb_data_10_3_backup`.
+  2. Started on a fresh volume (`emptyDatabase.sql` still loads on 11.4) and restored the dump.
+  3. A per-table fingerprint (rows, CRC of every column, schema, indexes) matched 10.3 on all 31 tables.
+     The only differences were the database default (latin1 → utf8mb4, which nothing uses since every
+     `CREATE TABLE` names its charset) and one auto-increment counter the harness had moved.
+  4. The replay harness gave the same output line for line (97 passed / 20 failed both times), and
+     game.php and games.php load cleanly.
+  5. An in-place `MARIADB_AUTO_UPGRADE` on a copy of the 10.3 volume also gave identical data. That
+     covers the DouglasChanges stack and anyone else still on a 10.3 volume.
+  6. All 252 column names still parse unquoted. The container now has only the `mariadb*` commands.
+  **Then closed the remaining gaps from a second live query.** Live's sql_mode is exactly the default
+  and `character_set_collations` is empty, as local already was. Its clock is `CEST` / `SYSTEM`, and the
+  database default is `utf8mb3_general_ci`. Changes: the image is pinned to `mariadb:11.4.5` (the user's
+  edit), `ENV TZ Europe/Warsaw`, and `db/emptyDatabase.sql` creates B5CGM as `utf8mb3_general_ci`.
+  Rebuilt on a fresh volume from a dump of the 11.4.13 DB
+  (`db_backups\B5CGM_mariadb-11.4.13_2026-10-08.sql`). The fingerprint matched in a UTC session, since the
+  one TIMESTAMP column renders per session timezone. Harness output identical, pages load. Every
+  server variable queried on live now matches. Stored DATETIMEs from before the switch were written in
+  UTC, so they read 2h older. All time logic is SQL `NOW()` against values written by `NOW()`, and no
+  snapshot carries a timestamp, so nothing else is affected.
+  **Replay harness:** the 20 failures were never a regression. 5 games are the 10-03 Kelly Phaser rework,
+  which was never re-recorded. The other 15 are games played on after the 10-01 recording: 13 had player
+  210 commit the current phase between 21:00 and 21:02 local on 10-08, and 4255/4256 had ships moved. The
+  harness only treats a game as "advanced" when its turn or status changes. Re-recorded those 20 plus the 8
+  "advanced" SKIPs, merging the manifest; the old baseline is kept at
+  `db_backups\replay_baseline_before_rerecord_2026-10-08`. `fvbuild -Check` now passes: 125 passed / 0 failed,
+  plus 7 SKIPs for idle-deleted games.
 - Local Node is 23.8.0, an odd-numbered release out of support since mid-2025. Node 24 LTS is the
   natural choice if the toolchain is touched.
+  **Done 2026-10-08:** Node 24.20.0 LTS (official MSI via `winget install OpenJS.NodeJS.LTS`, replacing
+  23.8.0 in place; npm 11.19.0, Yarn 1.22.22 unchanged). `yarn build` gives byte-identical bundles on 23 and
+  24 (all four, by SHA-256). No `yarn install` was needed. The README's Node/Yarn steps now say Yarn 1:
+  its `corepack prepare yarn@stable` line activated Yarn 4, which rewrites the v1 `yarn.lock`, and Node 25+
+  has no Corepack anyway.
+- nginx 1.15 stays, and LiteSpeed in Docker was judged not worth it (2026-10-08). OpenLiteSpeed only reads
+  the rewrite rules in `.htaccess`. LiteSpeed Enterprise reads all of it but needs a licence. Neither
+  reproduces what has actually bitten FV on live: the host's lsphp memory limit, CloudLinux limits and the
+  nginx proxy in front. `fieryvoid.eu/testInstance/` already runs that real stack, so use it for
+  server-layer checks. The cheap local step is matching live's PHP limits (local `memory_limit` is 2048M).
 - Vite 5.4.21 is out of support (current: 8.3.4). FV only runs `vite build`, so 2025's dev-server CVEs
   don't apply.
 

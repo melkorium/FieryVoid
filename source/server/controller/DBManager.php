@@ -4728,20 +4728,25 @@ class DBManager
 
     public function getGamesToBeDeleted()
     {
+        global $keep_idle_games;
+        // Local Docker sets $keep_idle_games (docker/php/varconfig.php) so old test games survive:
+        // they are the replay harness corpus, and this runs on every game.php load. Idle LOBBY games
+        // are still cleared. Unset on live, so live behaviour is unchanged.
+        $idleRule = empty($keep_idle_games) ? "DATE_ADD(p.lastactivity, INTERVAL 3 MONTH) < NOW() OR" : "";
+
         $ids = array();
         $stmt = $this->connection->prepare("
-            SELECT 
+            SELECT
                 g.id
-            FROM 
+            FROM
                 tac_game g
-            JOIN 
+            JOIN
                 tac_playeringame p
             ON
                 p.gameid = g.id
             WHERE
-                DATE_ADD(p.lastactivity, INTERVAL 3 MONTH) < NOW()
-            OR
-                (DATE_ADD(p.lastactivity, INTERVAL 5 DAY) < NOW() 
+                $idleRule
+                (DATE_ADD(p.lastactivity, INTERVAL 5 DAY) < NOW()
                 AND
                 g.status = 'LOBBY')
 
