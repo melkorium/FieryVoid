@@ -84,6 +84,16 @@ var ElintScanner = function ElintScanner(json, ship) {
 ElintScanner.prototype = Object.create(Scanner.prototype);
 ElintScanner.prototype.constructor = ElintScanner;
 
+/* Kirishiac orbital refit (KIRISHIAC_ORBITAL_REFITS_PLAN.md) - mirrors KirishiacElintModule in
+   baseSystems.php. Deliberately NOT a Scanner (no isScanner): its points are a pool of their own,
+   never part of the ship's normal EW (plan D10, §8.1). It carries the "ELINT" special ability, which
+   is what makes shipManager.isElint answer true for its ship. */
+var KirishiacElintModule = function KirishiacElintModule(json, ship) {
+	ShipSystem.call(this, json, ship);
+};
+KirishiacElintModule.prototype = Object.create(ShipSystem.prototype);
+KirishiacElintModule.prototype.constructor = KirishiacElintModule;
+
 //Chameleon Sensor Suite - mirrors ChameleonSensors in baseSystems.php. Extends ElintScanner so
 //isScanner() stays true; the distinct class exists because createSystemFromJson does new window[Name].
 var ChameleonSensors = function ChameleonSensors(json, ship) {

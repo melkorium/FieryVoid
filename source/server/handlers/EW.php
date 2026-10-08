@@ -219,11 +219,12 @@
             $FDEW = 0;
             foreach ($gamedata->ships as $ship)
             {
-                if ( ($ship->team == $target->team) 
+                if ( ($ship->team == $target->team)
 					&& $ship->isElint()
                     && Mathlib::getDistanceHex($target, $ship) <= 20
 				){
-                    $blanket = $ship->getBlanketDEW($gamedata->turn);
+					//Kirishiac ELINT modules: only what the modules whose arc holds this friendly pay (refits plan R10)
+                    $blanket = empty($ship->getElintModules()) ? $ship->getBlanketDEW($gamedata->turn) : ElintModules::areaPointsReaching($ship, $target, 'BDEW', $gamedata);
                     if ( $blanket > $FDEW ) $FDEW = $blanket;
                 }
             }
@@ -654,7 +655,11 @@
 				if ($budget <= 0) continue;
 
 				$spent = 0;
+				$moduleShip = !empty($serverShip->getElintModules());
 				foreach (self::diffLateEw($serverShip, $postShip, $turn) as $delta){
+					/* KIRISHIAC_ORBITAL_REFITS_PLAN.md §8.2: late points come out of DEW - SCANNER
+					   points - and a module ship's scanner may not pay for an ELINT function (R8). */
+					if ($moduleShip && ElintModules::isModuleOnlyType($delta['type'])) continue;
 					/* ALL OR NOTHING PER ENTRY, deliberately. A Disruption allocation is 3 points
 					   (4 for ConstrainedEW) and means nothing at 1 or 2, so a budget that cannot
 					   take the whole entry takes none of it rather than writing a fragment. */

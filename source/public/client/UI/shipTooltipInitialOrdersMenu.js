@@ -200,17 +200,18 @@ window.ShipTooltipInitialOrdersMenu = function () {
             type = "OEW";
         }
 
+        //the target rides along for a Kirishiac ELINT module ship, whose module points pay for OEW only in arc
         do {
             var entry = ew.getEntryByTargetAndType(this.selectedShip, this.targetedShip, type, this.turn);
-            var before = ew.getEwLeftFor(this.selectedShip, type);
+            var before = ew.getEwLeftFor(this.selectedShip, type, this.targetedShip);
             if (!entry) {
                 ew.AssignOEW(this.selectedShip, this.targetedShip, type);
             } else {
                 ew.assignEW(this.selectedShip, entry);
             }
             if (!isMaxClick) return;
-            if (ew.getEwLeftFor(this.selectedShip, type) >= before) return;
-        } while (ew.getEwLeftFor(this.selectedShip, type) > 0);
+            if (ew.getEwLeftFor(this.selectedShip, type, this.targetedShip) >= before) return;
+        } while (ew.getEwLeftFor(this.selectedShip, type, this.targetedShip) > 0);
     }
 
     function getRemoveOEW(type) {

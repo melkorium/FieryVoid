@@ -2162,6 +2162,30 @@ class DBManager
         $this->update($sql);
     }
 
+    /* KIRISHIAC_ORBITAL_REFITS_PLAN.md §8.4 - the after-movement ELINT module check cuts a row to
+       what its modules can still carry, or deletes it. By ROW ID: the check holds the loaded
+       EWentry objects, and (type, targetid) is not unique enough to aim an UPDATE with. A row cut
+       to 0 must be DELETED, not kept - the client counts an OEW row as a target whatever its
+       amount (plan D11), which is why adjustEwAmount (clamps at 0, keeps the row) is not used. */
+    public function setEwAmountById($gameid, $id, $amount)
+    {
+        $gameid = (int)$gameid;
+        $id     = (int)$id;
+        $amount = (int)$amount;
+        if ($id <= 0 || $amount <= 0) return;
+
+        $this->update("UPDATE `tac_ew` SET amount = $amount WHERE gameid = $gameid AND id = $id LIMIT 1");
+    }
+
+    public function deleteEwEntryById($gameid, $id)
+    {
+        $gameid = (int)$gameid;
+        $id     = (int)$id;
+        if ($id <= 0) return;
+
+        $this->update("DELETE FROM `tac_ew` WHERE gameid = $gameid AND id = $id LIMIT 1");
+    }
+
 /* no longer needed, Adaptive Armor redone
     public function updateAdaptiveArmour($gameid, $shipid, $settings)
     {
@@ -3276,6 +3300,12 @@ class DBManager
                     $ship->pointCostSysEnh += (float)$entry[5];
                 }
             }
+
+            /* KIRISHIAC_ORBITAL_REFITS_PLAN.md D4 - a refit that swaps an orbital's weapon for a
+               system of another class has to do it HERE, after its rows are validated and before
+               the damage, critical, power and fire-order queries below resolve anything by id.
+               One empty() for every ship without a refit. */
+            Enhancements::mountSystemEnhancementSystems($ship);
         }
     } //endof function getEnhancementsForShips
 

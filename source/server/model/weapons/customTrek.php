@@ -2336,8 +2336,8 @@ class CloakingDevice extends ShipSystem implements SpecialAbility{
 					// Apply detection multiplier based on ship type
 					if ($otherShip->base) {
 						$totalDetection = floor($totalDetection * 1.5);
-					} elseif ($otherShip->hasSpecialAbility("ELINT")) {
-						//$totalDetection *= 1;				
+					} elseif ($otherShip->hasSpecialAbility("ELINT") && ElintModules::elintReaches($otherShip, $ship)) { //Kirishiac ELINT modules: in arc only (refits plan R10)
+						//$totalDetection *= 1;
 						$totalDetection = floor($totalDetection * 1.5);
 //						$bonusDSEW = $otherShip->getEWByType("Detect Stealth", $gameData->turn);	
 //						$totalDetection += $bonusDSEW;

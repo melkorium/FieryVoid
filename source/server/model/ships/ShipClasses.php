@@ -221,6 +221,29 @@ class BaseShip {
 	//pair. Transient, per object, never persisted.
 	public $enhancementSystemsAdded = false;
 
+	/* KIRISHIAC_ORBITAL_REFITS_PLAN.md - the refit mount step's once-per-object guard and the ELINT
+	   modules it mounted. ⚠️ Non-public on purpose (D14): the static blueprint serialises every
+	   PUBLIC property, so a flag here would ride all ~2,500 blueprints and an array of system objects
+	   would ride every Kirishiac one. Reached through the three methods below. */
+	protected $systemEnhancementSystemsMounted = false;
+	protected $elintModules = array();
+
+	//true the FIRST time it is asked on this object, false after - Enhancements::mountSystemEnhancementSystems
+	public function claimSystemEnhancementMount(){
+		if ($this->systemEnhancementSystemsMounted) return false;
+		$this->systemEnhancementSystemsMounted = true;
+		return true;
+	}
+
+	public function registerElintModule($module){
+		$this->elintModules[] = $module;
+	}
+
+	//the ELINT Sensor Modules this ship carries, alive or not; empty on every other ship in the game
+	public function getElintModules(){
+		return $this->elintModules;
+	}
+
 	//Pre-battle damage & fleet damage persistence (PREBATTLE_DAMAGE_PLAN.md).
 	//Compact wire-format payload: {sys:{<systemid>:{d,k,c}}, ftr:{<ordinal>:{d,k,c}}}.
 	//See PreBattleDamage for the format and all of its rules.
@@ -283,6 +306,15 @@ class BaseShip {
 		   uses a leaner 5-slot shape of its own (Enhancements::setSystemEnhancementOptions). */
 		public $systemEnhancements = array();       //PURCHASED per-system refits
 		public $systemEnhancementOffers = array();  //what MAY be bought - lobby only, never sent back (D3)
+		/* KIRISHIAC_ORBITAL_REFITS_PLAN.md §9.3 - for a refit that SWAPS a system's class:
+		   {mounts: {orbitalId: mountedSystemId}, templates: {jsClassName: compacted system}}. ONE
+		   template per class per hull, built at rating 1 on the hull's first eligible orbital; the
+		   lobby clones it per orbital and patches id, section, arcs, name and rating
+		   (systemEnhancements.buildSwapSystem), so the preview shows the system the game will really
+		   have. Lobby only, like the offers: written on the $offerSystemEnhancements path and dropped
+		   by ShipCompactor when empty. ~2KB on a Kirishiac hull; one entry PER ORBITAL measured
+		   ~35KB on a Mastership. */
+		public $systemEnhancementSwapPreviews = array();
 
     public $advancedArmor = false; //set to true if ship is equipped with advanced armor!
 	public $hardAdvancedArmor = false; // set to true if ship is equipped with hardented advanced armor - GTS
@@ -2440,6 +2472,25 @@ class BaseShip {
 		  the hull keeps the id its stored damage, power and fire orders refer to.*/
 		public function addEnhancementSystem($system, $loc){
 			$this->addSystem($system, $loc);
+		}
+
+		/*The other post-constructor mutation, and the only one that does not APPEND: a Kirishiac
+		  orbital refit swaps the orbital's weapon for a system of another class UNDER THE SAME ID
+		  (KIRISHIAC_ORBITAL_REFITS_PLAN.md §6.1, D5), so every damage, critical and power row stored
+		  against that id belongs to the replacement. Called only by Enhancements'
+		  mountSystemEnhancementSystems, at game load, before any of those rows are read.
+		  ⚠️ Deliberately NOT addSystem(): that would append (a new id), stamp a section arc over a
+		  0/0 arc and run the LCV and Structure bookkeeping. The replacement carries its own arc
+		  (R3) and is never a Structure. */
+		public function replaceEnhancementSystem($id, $system){
+			if (!isset($this->systems[$id])) return false;
+			$old = $this->systems[$id];
+			$system->setId($id);
+			$system->location = $old->location;
+			$system->setUnit($this);
+			if ($this->systemsSurviveStructureLoss) $system->setSurvivesStructureDestruction(true);
+			$this->systems[$id] = $system;
+			return true;
 		}
 
 		/* fill notes with information contained in various attributes, not so readily accessible to player*/

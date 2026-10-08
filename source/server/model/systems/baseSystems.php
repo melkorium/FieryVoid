@@ -271,9 +271,10 @@ class Stealth extends ShipSystem implements SpecialAbility{
 				// Apply detection multiplier based on ship type
 				if ($otherShip->base) {
 					$totalDetection *= 5;
-				} elseif ($otherShip->hasSpecialAbility("ELINT")) {
-					$totalDetection *= 3;				
-					$bonusDSEW = $otherShip->getEWByType("Detect Stealth", $gameData->turn);	
+				} elseif ($otherShip->hasSpecialAbility("ELINT") && ElintModules::elintReaches($otherShip, $ship)) { //Kirishiac ELINT modules: only toward a unit in a live module's arc (refits plan R10)
+					$totalDetection *= 3;
+					//Kirishiac ELINT modules: only the Detect Stealth points of the modules whose arc holds this unit (refits plan R10)
+					$bonusDSEW = empty($otherShip->getElintModules()) ? $otherShip->getEWByType("Detect Stealth", $gameData->turn) : ElintModules::areaPointsReaching($otherShip, $ship, 'Detect Stealth', $gameData);
 					$totalDetection += $bonusDSEW*2;
 				} else {
 					$totalDetection *= 2;
@@ -11102,6 +11103,14 @@ class KirishiacOrbital extends ShipSystem{
 
 	private $pairing = null;
 	protected $pairedWeapon= null;
+	/* KIRISHIAC_ORBITAL_REFITS_PLAN.md D8 - EVERY system mounted on this orbital, the paired
+	   weapon (or the refit that replaced it) FIRST. Without a refit this is exactly
+	   array($pairedWeapon), and every loop below over it does what the single-weapon code did.
+	   A refit can swap the first entry for another class and append a second generator; the
+	   sub-chart, the death coupling, regeneration and the docked state all read this list so
+	   they cannot drift apart. ⚠️ Non-public (D14): the static blueprint serialises PUBLIC
+	   properties, and an array of system objects would ride every Kirishiac blueprint. */
+	protected $mountedSystems = array();
 	protected $attachedSelfRepair = null; //Heavy Orbital only: its own Self Repair system (sub-chart band + destruction coupling)
 
 	public $targetProfile = 8; //flat defence profile ("targeted as if they were fighters"): 8 standard, 7 Light, 10 Heavy - replaces the ship's bearing profile on called shots, no called-shot penalty
@@ -11117,10 +11126,39 @@ class KirishiacOrbital extends ShipSystem{
 
 	function addOrbitalWeapon($pairedWeapon){ //Function used to assign the paired antigravity beam on the orbital
 		$this->pairedWeapon = $pairedWeapon;
-		$pairedWeapon->linkedOrbital = $this; //back-reference: overkill routing + stowed/power state
-		$pairedWeapon->isTargetable = false; //"called shots may not be made on orbitals or weapons attached to them"
-		$pairedWeapon->repairPriority = 0; //DEPLOYED default - SelfRepair may service the beam only while docked (priority 6, set on notes-load)
-		if ($this->structureHomeLocation !== null) $pairedWeapon->structureHomeLocation = $this->structureHomeLocation; //beam docks to the same block
+		$this->mountedSystems = array($pairedWeapon);
+		$this->wireMountedSystem($pairedWeapon);
+	}
+
+	/*the back-references every mounted system carries. ⚠️ D9: linkedOrbital must be DECLARED on
+	the mounted class - PHP 8.2 deprecates a dynamic property and Manager's error handler turns
+	that into a fatal game load*/
+	private function wireMountedSystem($system){
+		$system->linkedOrbital = $this; //back-reference: overkill routing + stowed/power state
+		$system->isTargetable = false; //"called shots may not be made on orbitals or weapons attached to them"
+		$system->repairPriority = 0; //DEPLOYED default - SelfRepair may service it only while docked (priority 6, set on notes-load)
+		if ($this->structureHomeLocation !== null) $system->structureHomeLocation = $this->structureHomeLocation; //docks to the same block
+	}
+
+	/* KIRISHIAC ORBITAL REFITS (plan §6.1) - the refit mount step swaps the paired weapon for a
+	   system of another class, IN PLACE (the ship's systems[] entry is replaced by
+	   BaseShip::replaceEnhancementSystem; this keeps the orbital's own references in step). Only
+	   ever called by Enhancements' mount step, at game load, before damage is read. */
+	public function replaceOrbitalWeapon($system){
+		$this->pairedWeapon = $system;
+		if (empty($this->mountedSystems)) $this->mountedSystems = array($system);
+		else $this->mountedSystems[0] = $system;
+		$this->wireMountedSystem($system);
+	}
+
+	//a second system on the same orbital (the redundant Advanced Gravitic Shield generator)
+	public function addMountedSystem($system){
+		$this->mountedSystems[] = $system;
+		$this->wireMountedSystem($system);
+	}
+
+	public function getMountedSystems(){
+		return $this->mountedSystems;
 	}
 
 	/*declutter support: the orbital (and its beam) may be DISPLAYED on the left/right section
@@ -11128,7 +11166,7 @@ class KirishiacOrbital extends ShipSystem{
 	regeneration and SelfRepair all follow the home block, not the display section*/
 	public function setStructureHome($location){
 		parent::setStructureHome($location);
-		if ($this->pairedWeapon !== null) $this->pairedWeapon->structureHomeLocation = $location;
+		foreach ($this->mountedSystems as $mounted) $mounted->structureHomeLocation = $location;
 	}
 
 	public function getOrbitalWeapon(){
@@ -11182,16 +11220,27 @@ class KirishiacOrbital extends ShipSystem{
 		if (!is_array($chart) || count($chart) == 0) return $this->orbitalStructureResult($docked);
 		ksort($chart);
 		$roll = Dice::d(20);
+		$bandFloor = 0; //highest roll of the PREVIOUS band
 		foreach ($chart as $maxRoll => $band){
 			if ($roll <= $maxRoll){
 				if ( (STRCASECMP($band,'Weapon')==0) || (STRCASECMP($band,'Antigravity Beam')==0) ){ //weapon band (legacy blueprint name accepted)
-					if ($this->pairedWeapon !== null) return $this->pairedWeapon; //may be destroyed - overkill routing then folds the hit onwards (deployed: into the orbital; docked: back to the ship)
+					//may be destroyed - overkill routing then folds the hit onwards (deployed: into the orbital; docked: back to the ship)
+					$mountCount = count($this->mountedSystems);
+					if ($mountCount == 1) return $this->mountedSystems[0];
+					if ($mountCount > 1){
+						/* REFITS R5: the band is shared out evenly between the mounted systems on
+						   the SAME roll - two Advanced Gravitic Shield generators take 1-3 and 4-6. */
+						$width = max(1, $maxRoll - $bandFloor);
+						$index = (int)floor(($roll - $bandFloor - 1) * $mountCount / $width);
+						return $this->mountedSystems[max(0, min($mountCount - 1, $index))];
+					}
 				}
 				if ( (STRCASECMP($band,'Self Repair')==0) && ($this->attachedSelfRepair !== null) ){ //Heavy Orbital: its own Self Repair system
 					return $this->attachedSelfRepair;
 				}
 				return $this->orbitalStructureResult($docked); //any other band ('Orbital'; legacy 'Structure') = the orbital's structure
 			}
+			$bandFloor = $maxRoll;
 		}
 		return $this->orbitalStructureResult($docked);
 	}
@@ -11211,19 +11260,22 @@ class KirishiacOrbital extends ShipSystem{
 		return null;
 	}
 
-	//Deployed: an orbital destroyed takes its mounted weapon with it.
+	//Deployed: an orbital destroyed takes every system mounted on it with it.
 	//Docked: abort regeneration if the structure block is lost; complete it after 5 full turns.
 	public function criticalPhaseEffects($ship, $gamedata)
 	{
 		parent::criticalPhaseEffects($ship, $gamedata);
-		$beam = $this->pairedWeapon;
 
 		if (!$this->activeEffective){ //DEPLOYED
-			if ($this->isDestroyed() && $beam !== null && !$beam->isDestroyed()){
-				$beamHealth = $beam->getRemainingHealth();
-				$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $beam->id, $beamHealth, 0, 0, -1, true, false, "Orbital destroyed - Antigravity Beam lost", "OrbitalLoss");
-				$damageEntry->updated = true;
-				$beam->damage[] = $damageEntry;
+			if ($this->isDestroyed()){
+				foreach ($this->mountedSystems as $mounted){
+					if ($mounted->isDestroyed()) continue;
+					//the weapon keeps its historical wording, so existing games' damage logs are unchanged
+					$lossNote = ($mounted instanceof Weapon) ? "Orbital destroyed - Antigravity Beam lost" : "Orbital destroyed - " . $mounted->displayName . " lost";
+					$damageEntry = new DamageEntry(-1, $ship->id, -1, $gamedata->turn, $mounted->id, $mounted->getRemainingHealth(), 0, 0, -1, true, false, $lossNote, "OrbitalLoss");
+					$damageEntry->updated = true;
+					$mounted->damage[] = $damageEntry;
+				}
 			}
 			return;
 		}
@@ -11245,8 +11297,7 @@ class KirishiacOrbital extends ShipSystem{
 	destroyed markers lifted, lingering criticals expired. Runs in the critical phase, so
 	post-firing state is what gets healed; the OrbitalRepairing marker expires via its turnend.*/
 	private function performRegeneration($ship, $gamedata){
-		$targets = array($this);
-		if ($this->pairedWeapon !== null) $targets[] = $this->pairedWeapon;
+		$targets = array_merge(array($this), $this->mountedSystems);
 		foreach ($targets as $sys){
 			$totalDamage = $sys->getTotalDamage();
 			if ( ($totalDamage > 0) || $sys->isDestroyed() ){
@@ -11288,10 +11339,10 @@ class KirishiacOrbital extends ShipSystem{
 	private function startRegeneration($ship, $gameData){
 		if (!$this->canRegenerate) return; //Heavy Orbital: too large to regenerate (has its own Self Repair instead)
 		if ($this->hasActiveRegenerationCrit($gameData)) return; //already regenerating - don't stack a second marker
-		$beam = $this->pairedWeapon;
 		$needsRepair = ($this->getTotalDamage() > 0) || $this->isDestroyed() || $this->hasClearableCrits($this, $gameData->turn);
-		if (!$needsRepair && $beam !== null){
-			$needsRepair = ($beam->getTotalDamage() > 0) || $beam->isDestroyed() || $this->hasClearableCrits($beam, $gameData->turn);
+		foreach ($this->mountedSystems as $mounted){
+			if ($needsRepair) break;
+			$needsRepair = ($mounted->getTotalDamage() > 0) || $mounted->isDestroyed() || $this->hasClearableCrits($mounted, $gameData->turn);
 		}
 		if (!$needsRepair) return; //pristine orbital - nothing to regenerate, no marker needed
 		$crit = new OrbitalRepairing(-1, $ship->id, $this->id, "OrbitalRepairing", $gameData->turn + 1, $gameData->turn + 5);
@@ -11450,10 +11501,13 @@ class KirishiacOrbital extends ShipSystem{
 		//SelfRepair may service orbital + weapon while DOCKED only (rules clarification 2026-07-04);
 		//deployed they are out of reach (priority 0 = not repairable)
 		$this->repairPriority = $this->activeEffective ? 3 : 0;
-		if ($this->pairedWeapon !== null){
-			$this->pairedWeapon->stowed = $this->activeEffective; //stowed beam: cannot fire or intercept
-			$this->pairedWeapon->canOffLine = $this->activeEffective; //may be powered down only while docked
-			$this->pairedWeapon->repairPriority = $this->activeEffective ? 6 : 0; //standard weapon repair priority while docked
+		foreach ($this->mountedSystems as $mounted){
+			//stowed weapon: cannot fire or intercept. A refit system (shield generator, ELINT module)
+			//keeps working while docked (refits plan A4, R11), so it is never stowed.
+			if ($mounted instanceof Weapon) $mounted->stowed = $this->activeEffective;
+			//may be powered down only while docked - anything that draws power (refits plan D9, D16)
+			if (($mounted instanceof Weapon) || ($mounted->powerReq > 0)) $mounted->canOffLine = $this->activeEffective;
+			$mounted->repairPriority = $this->activeEffective ? 6 : 0; //standard weapon repair priority while docked
 		}
 		//D3 docked merge: the orbital's remaining boxes join the section structure block
 		//(Structure::stripForJson always sends maxhealth, so the client sees the merged pool).
@@ -11497,6 +11551,18 @@ class KirishiacOrbital extends ShipSystem{
 		$this->data["Special"] .= "<br>DOCKED: Orbital hits strike Structure instead; reinforces section Structure health; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
 		$this->data["Special"] .= "<br>After 5 complete docked turns, orbital and weapon fully regenerate - unless the structure block has been destroyed.";
 		//$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
+		$this->addRefitDataLine();
+	}
+
+	/*KIRISHIAC_ORBITAL_REFITS_PLAN.md - a refitted orbital says what it carries instead of its weapon,
+	and how the weapon band of its hit chart now lands (R5). Nothing on an unrefitted orbital.*/
+	protected function addRefitDataLine(){
+		$mounted = $this->mountedSystems;
+		if (empty($mounted) || ($mounted[0] instanceof Weapon)) return;
+		$names = array();
+		foreach ($mounted as $system) $names[] = $system->displayName;
+		$this->data["Special"] .= "<br>REFIT: carries " . implode(" and ", $names) . " in place of its weapon, working docked or deployed.";
+		if (count($mounted) > 1) $this->data["Special"] .= " The weapon band of the Orbital chart is shared: 1-3 the first, 4-6 the second.";
 	}
 
 	public function getTargetProfileOverride(){
@@ -11566,6 +11632,7 @@ class KirishiacOrbitalLight extends KirishiacOrbital{
 		$this->data["Special"] .= "<br>Dock/Deploy is ordered in the Firing Phase and takes effect next turn.";
 		$this->data["Special"] .= "<br>DEPLOYED: May be called shot using Fighter FC and has profile " . $this->targetProfile . "; Hits roll on Orbital chart (1-6 weapon, 7-20 orbital). Weapon overkill passes to the orbital; orbital overkill is lost. Its weapon cannot be deactivated.";
 		$this->data["Special"] .= "<br>DOCKED: Orbital hits strike Structure instead; reinforces section Structure health; its weapon is stowed (cannot fire, may be deactivated). Self Repair may service orbital and weapon while docked.";
+		$this->addRefitDataLine();
 	}
 
 }
@@ -11679,6 +11746,206 @@ class KirishiacHeavyOrbital extends KirishiacOrbital{
 		$this->data["Special"] .= "<br>DOCKED: Cannot be targeted; its health reinforces its section Structure. Hits on the orbital still roll the Orbital chart.  Weapon remains operational with a reduced arc, and may be deactivated.";
 		$this->data["Special"] .= "<br>Too large to regenerate. Carries its own Self Repair system restricted to the orbital's systems - DOUBLED while docked. Ship's Self Repair may service the orbital as usual in docked state.";
 		$this->data["Special"] .= "<br>Deploying is refused while the Structure block depends on the orbital's merged boxes (undocking would reduce it to 0).";
+	}
+}
+
+/* ============================================================================================
+   KIRISHIAC ORBITAL REFITS - KIRISHIAC_ORBITAL_REFITS_PLAN.md
+   Two systems no hull constructor ever builds. Each REPLACES a Kirishiac orbital's mounted
+   weapon in place, under the same id (BaseShip::replaceEnhancementSystem), when a refit row names
+   that orbital; the shield refit may also APPEND a second generator. Both are built by the refit
+   mount step at game load, before damage, criticals and power are read (plan D4), so every row
+   stored against the id belongs to them.
+
+   ⚠️ D7 - POST-SIDE SHIPS ARE NOT SWAPPED. A submitted ship still carries the old weapon at this
+   id. That is safe only because neither class takes player input the old one could not carry:
+   no fire orders, no notes, and the module's one power toggle (docked only) is accepted by the
+   POST-side Gravitic Augmenter at the same id. Give either class any further per-system player
+   input and the mount has to run POST-side too (Manager::getShipsFromJSON).
+
+   ⚠️ D9 - linkedOrbital and stowed are DECLARED here because KirishiacOrbital writes them. PHP 8.2
+   deprecates a dynamic property, and Manager's error handler turns that into a failed game load.
+
+   ⚠️ `name` IS THE CLIENT CLASS NAME (SystemFactory upper-cases its first letter), and it differs
+   from the replaced weapon's - which is what stops the client merging these onto the weapon's
+   blueprint entry (D6). Both send their blueprint fields themselves (addedByEnhancement).
+   ============================================================================================ */
+
+/*Advanced Gravitic Shield generator. A Gravitic Shield in every rule that matters - the strongest
+"Shield" source covering a bearing is the only one that counts (BaseShip::getHitChanceMod), so two
+generators, or two orbitals covering one bearing, never add up (A3) - but it needs no Shield
+Generator and keeps working while its orbital is docked (A1, A4).*/
+class KirishiacAdvGravShield extends GraviticShield{
+	public $name = "KirishiacAdvGravShield";
+	public $displayName = "Adv. Gravitic Shield";
+	public $iconPath = "shield.png";
+	public $canOffLine = false; //draws no power (R13) - nothing to switch off
+	public $repairPriority = 0; //deployed default; the orbital sets it again on every load
+	public $linkedOrbital = null; //set by KirishiacOrbital (D9)
+	public $stowed = false; //declared for D9; never set - a shield generator is never stowed
+
+	const ARMOUR = 2;    //R2
+	const STRUCTURE = 3; //R2 - the same for every generator, however many an orbital carries (A9)
+
+	/*one generator for $orbital at shield rating $rating, covering $arcSource's arc - the mount it
+	replaces (R3), or the first generator for the appended second one. $ordinal 2 names the second
+	generator ("Adv. Gravitic Shield A2"). id and location are given by the ship when it is mounted.*/
+	public static function forOrbital($orbital, $arcSource, $rating, $ordinal = 1){
+		$generator = new KirishiacAdvGravShield(self::ARMOUR, self::STRUCTURE, 0, (int)$rating, (int)$arcSource->startArc, (int)$arcSource->endArc);
+		$generator->displayName = 'Adv. Gravitic Shield ' . $orbital->getPairing() . (($ordinal > 1) ? $ordinal : '');
+		$generator->addedByEnhancement = true;
+		return $generator;
+	}
+
+	//as the weapon it replaced: while deployed, overkill passes into the orbital (lost if the orbital is gone)
+	public function getOverkillDestination($target){
+		if ($this->linkedOrbital === null) return null;
+		if ($this->linkedOrbital->activeEffective) return null; //docked - folded into the hull anyway
+		if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false;
+		return $this->linkedOrbital;
+	}
+
+	/* The rating-dependent sentence lives in its OWN key, so the lobby preview (which builds the
+	   generator from a rating-1 template) can rewrite one line rather than parse "Special".
+	   ⚠️ MIRROR PAIR with systemEnhancements.agsRatingLine (JS). */
+	public static function ratingLine($rating){
+		return $rating . " (incoming shots -" . ($rating * 5) . " to hit, -" . $rating . " damage)";
+	}
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);
+		$this->data["Shield rating"] = self::ratingLine($this->output);
+		$this->data["Special"] = "Requires no Shield Generator and works whether its orbital is deployed or docked.";
+		$this->data["Special"] .= "<br>Only the strongest shield covering a shot counts.";
+		$this->data["Special"] .= "<br>Ignored by fighter direct fire at range 0.";
+		if ($this->linkedOrbital !== null){
+			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital while deployed. Lost with the Orbital, and regenerates with it.";
+		}
+	}
+
+	public function stripForJson(){
+		$strippedSystem = parent::stripForJson();
+		if ($this->linkedOrbital !== null){ //dynamic per-load state, as on the weapon it replaced
+			$strippedSystem->isTargetable = $this->isTargetable;
+			$strippedSystem->repairPriority = $this->repairPriority; //repairable while docked only
+			$strippedSystem->privateRepairOnly = $this->privateRepairOnly;
+			$strippedSystem->dockedWithOrbital = (bool)$this->linkedOrbital->activeEffective; //client docked visual
+			if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation;
+		}
+		if ($this->addedByEnhancement) $strippedSystem = $this->addBlueprintFieldsForJson($strippedSystem);
+		return $strippedSystem;
+	}
+}
+
+/*ELINT Sensor Module. Makes its ship an ELINT ship, but only toward units inside this module's arc
+(E2): the arc rule and the separate point pool are ElintModules' job (plan §8), this class only
+says what the module is and whether it covers a unit.
+⚠️ D10 - NOT a Scanner. outputType "EW" is what EW::getScannerOutput and the client's ew.js sum into
+the ship's normal pool, and a Scanner subclass would also join stealth detection and the jump-exit
+sensor rating. Module points are a pool of their own.*/
+class KirishiacElintModule extends ShipSystem implements SpecialAbility{
+	public $name = "KirishiacElintModule";
+	public $displayName = "ELINT Sensor Module";
+	public $iconPath = "elintArray.png";
+	public $outputType = "ELINT";
+	public $specialAbilities = array("ELINT");
+	public $specialAbilityValue = true;
+	public $canOffLine = false; //switchable only while docked - the orbital sets it on every load (D9, D16)
+	public $repairPriority = 0; //deployed default; the orbital sets it again on every load
+	public $linkedOrbital = null; //set by KirishiacOrbital (D9)
+	public $stowed = false; //declared for D9; never set - the module works while docked (R11)
+
+	const ARMOUR = 6;     //R12
+	const STRUCTURE = 12; //R12
+	const POWER = 4;      //R13 - see plan D16 for why the real figure is power-neutral
+	const RATING = 4;     //"a 4-point module" (E8)
+
+	protected $possibleCriticals = array( //Scanner-style output criticals (R12)
+		15=>"OutputReduced1",
+		19=>"OutputReduced2",
+		23=>"OutputReduced3",
+		27=>"OutputReduced4");
+
+	function __construct($armour, $maxhealth, $powerReq, $output, $startArc, $endArc){
+		parent::__construct($armour, $maxhealth, $powerReq, $output);
+		$this->startArc = (int)$startArc;
+		$this->endArc = (int)$endArc;
+	}
+
+	//the module that replaces $replaced (a Gravitic Augmenter) on $orbital, in its arc (R3)
+	public static function forOrbital($orbital, $replaced){
+		$module = new KirishiacElintModule(self::ARMOUR, self::STRUCTURE, self::POWER, self::RATING, $replaced->startArc, $replaced->endArc);
+		$module->displayName = 'ELINT Sensor Module ' . $orbital->getPairing();
+		$module->addedByEnhancement = true;
+		return $module;
+	}
+
+	//ELINT points this ship lost out of arc at the end of THIS turn's Movement (ElintModules' note on the
+	//ship's first module) - for the EW panel. Non-public: a template of this class rides the lobby blueprint.
+	protected $elintLostThisTurn = 0;
+
+	public function getSpecialAbilityValue($args){
+		return $this->specialAbilityValue;
+	}
+
+	public function onIndividualNotesLoaded($gamedata){
+		foreach ($this->individualNotes as $note){
+			if ($note->notekey === 'ElintLost' && (int)$note->turn === (int)$gamedata->turn) $this->elintLostThisTurn += (int)$note->notevalue;
+		}
+		parent::onIndividualNotesLoaded($gamedata);
+	}
+
+	/*plan §8.3 - does this module cover $unit right now? Alive, switched on, and the unit inside the
+	module's arc as seen from its ship (the weapon-arc helpers, so same-hex cases behave as they do
+	for weapons).*/
+	public function coversUnit($unit, $turn = null){
+		if ($unit === null) return false;
+		if ($this->isDestroyed()) return false;
+		if ($this->isOfflineOnTurn($turn)) return false;
+		$host = $this->getUnit();
+		if ($host === null) return false;
+		/* A unit dead ahead can come back as bearing 360 (the compass heading lands a hair under the
+		   facing and rounds up), and Mathlib::isInArc puts 360 on a 180..360 arc but not on a 0..180 one.
+		   360 IS 0 - on both arcs, as the client's isInArc (which rounds the heading itself) has it. */
+		$bearing = $host->getBearingOnUnit($unit);
+		if ($bearing >= 360) $bearing -= 360;
+		return Mathlib::isInArc($bearing, $this->startArc, $this->endArc);
+	}
+
+	//as the weapon it replaced: while deployed, overkill passes into the orbital (lost if the orbital is gone)
+	public function getOverkillDestination($target){
+		if ($this->linkedOrbital === null) return null;
+		if ($this->linkedOrbital->activeEffective) return null; //docked - folded into the hull anyway
+		if ($this->linkedOrbital->isDestroyed() || ($this->linkedOrbital->getRemainingHealth() == 0)) return false;
+		return $this->linkedOrbital;
+	}
+
+	public function setSystemDataWindow($turn){
+		parent::setSystemDataWindow($turn);
+		$this->data["Special"] = "Provides ELINT abilities, but only toward units inside this module's arc.";
+		$this->data["Special"] .= "<br>Its points are a pool of their own and pay for ELINT function (SOEW, SDEW, BDEW, DIST, Detect Stealth, Jamming) toward units in arc.";
+		$this->data["Special"] .= "<br>Modules add up only where their arcs overlap. Module points spent on a unit that is outside every live module's arc at the end of Movement are lost.";
+		$this->data["Special"] .= "<br>Works docked or deployed; may be powered down only while docked.";
+		if ($this->linkedOrbital !== null){
+			$this->data["Special"] .= "<br>Mounted on " . $this->linkedOrbital->displayName . ": cannot be targeted by called shots; overkill passes to the Orbital while deployed. Lost with the Orbital, and regenerates with it.";
+		}
+	}
+
+	public function stripForJson(){
+		$strippedSystem = parent::stripForJson();
+		if ($this->linkedOrbital !== null){ //dynamic per-load state, as on the weapon it replaced
+			$strippedSystem->isTargetable = $this->isTargetable;
+			$strippedSystem->repairPriority = $this->repairPriority; //repairable while docked only
+			$strippedSystem->privateRepairOnly = $this->privateRepairOnly;
+			$strippedSystem->canOffLine = $this->canOffLine; //docked only
+			$strippedSystem->powerLocked = !$this->linkedOrbital->activeEffective; //deployed: draws power, cannot be powered down (client Off-button gate)
+			$strippedSystem->dockedWithOrbital = (bool)$this->linkedOrbital->activeEffective; //client docked visual
+			if ($this->structureHomeLocation !== null) $strippedSystem->structureHomeLocation = $this->structureHomeLocation;
+		}
+		//own team only: which of an enemy's allocations fell out of arc is not the enemy's to see
+		if ($this->elintLostThisTurn > 0 && $this->isRevealedToCurrentViewer()) $strippedSystem->elintLost = $this->elintLostThisTurn;
+		if ($this->addedByEnhancement) $strippedSystem = $this->addBlueprintFieldsForJson($strippedSystem);
+		return $strippedSystem;
 	}
 }
 

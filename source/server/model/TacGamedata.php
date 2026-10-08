@@ -18,6 +18,11 @@ class TacGamedata {
     //boolean - a game without a disguised ship pays for one false check and nothing else.
     //Set in onConstructed(), after every ship has been constructed (enhancements included).
     public static $chameleonPresent = false;
+    /*Kirishiac ELINT Sensor Module gate (KIRISHIAC_ORBITAL_REFITS_PLAN.md D13), the $chameleonPresent
+      pattern: true when any ship in the game carries a module (a refit only a Mastership can buy), so
+      the after-movement arc check (ElintModules::validateAfterMovement) costs every other game one
+      false test. Set in markUnavailableSetMarkers().*/
+    public static $elintModulesPresent = false;
     /*Second Chameleon gate, for the ONE effect that is a property of the suite rather than of the
       deception: D11 arming masking, which applies to a CSS ship showing as ITSELF - left on "None",
       or already revealed - and therefore cannot hang off $chameleonPresent. Tests the live special
@@ -482,6 +487,7 @@ class TacGamedata {
     {
         self::$chameleonPresent = false; //before the phase guard: the static outlives a single load
         self::$chameleonSuitePresent = false;
+        self::$elintModulesPresent = false;
         self::$chameleonDisclosed = ($this->status === "FINISHED"); //D15: the post-mortem sees everything
         $this->setChameleonTeamList();
         if ($this->phase < -1)
@@ -516,6 +522,10 @@ class TacGamedata {
             //masking survives the reveal but not the loss of the array. hasSpecialAbility is an
             //isset() on a map onConstructed() already filled, so this costs no systems walk.
             if(!self::$chameleonSuitePresent && $ship->hasChameleonSensors()) self::$chameleonSuitePresent = true;
+
+            //Kirishiac ELINT Sensor Modules - see $elintModulesPresent. The modules are mounted at
+            //load (Enhancements::mountSystemEnhancementSystems), long before this runs.
+            if(!self::$elintModulesPresent && !empty($ship->getElintModules())) self::$elintModulesPresent = true;
         }
     }
     
