@@ -3800,7 +3800,7 @@ public $name = "TrekShieldProjection";
 
 //New version of Phaser so it can be adjusteted in KellyTrek without affecting existing Trek units
 class TrekPhaserKelly extends TrekPhaserBase{
-		public $name = "TrekPhaser";
+		public $name = "TrekPhaserKelly";
         public $displayName = "Type 6 Phaser";
         public $iconPath = "TrekPhaserM.png"; 
         //public $animationExplosionScale = 0.3;
@@ -3829,7 +3829,7 @@ class TrekPhaserKelly extends TrekPhaserBase{
 
         public $boostable = true;
         public $boostEfficiency = 0;
-        public $maxBoostLevel = 6;		
+        public $maxBoostLevel = 3;		
 
 		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $guns = 2){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
 			if ( $maxhealth == 0 ) $maxhealth = 7;
@@ -4014,7 +4014,7 @@ class TrekPhaserKellyType7 extends TrekPhaserBase{
 
         public $boostable = true;
         public $boostEfficiency = 0;
-        public $maxBoostLevel = 7;			
+        public $maxBoostLevel = 3;			
 
 		function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc, $shots = 2){ //maxhealth and power reqirement are fixed; left option to override with hand-written values
 			if ( $maxhealth == 0 ) $maxhealth = 7;
