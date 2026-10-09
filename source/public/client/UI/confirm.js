@@ -1895,6 +1895,49 @@ window.confirm = {
 
 
 
+    /* Themed replacement for the browser's number-input spinner. The native arrows are
+       drawn by the UA in its own colours - white on the dark multi-value dialogs - and cannot
+       be recoloured: Firefox exposes no hook at all, and resetting the appearance of
+       Blink's ::-webkit-inner-spin-button also kills its click behaviour. So the native
+       pair is hidden (see .stepper-input in confirm.css) and replaced with these, which
+       are ordinary elements and therefore themeable.
+
+       They read min/max/step straight off the input - including a max the caller rewrites
+       as the rest of the dialog changes (askForMultipleValues' clampRow, the Hyperplasma
+       Cutter's shot rows) - and fire `change`, so a click runs exactly the same clamp/readout
+       path a native click would. Used by askForMultipleValues and hyperplasmaIntercept. */
+    attachStepper: function attachStepper(field) {
+        field.addClass('stepper-input');
+
+        var stepper = $('<span class="multi-value-stepper"></span>');
+        var up = $('<span class="multi-value-step up"></span>').appendTo(stepper);
+        var down = $('<span class="multi-value-step down"></span>').appendTo(stepper);
+
+        var nudge = function (direction) {
+            var step = parseInt(field.attr('step'));
+            var min = parseInt(field.attr('min'));
+            var max = parseInt(field.attr('max'));
+            if (isNaN(step) || step < 1) step = 1;
+
+            var current = parseInt(field.val());
+            if (isNaN(current)) current = isNaN(min) ? 0 : min;
+
+            var next = current + (direction * step);
+            if (!isNaN(min) && next < min) next = min;
+            if (!isNaN(max) && next > max) next = max;
+            if (next === current) return;
+
+            field.val(next).trigger('change');
+        };
+
+        // mousedown rather than click so holding the pointer down doesn't steal focus
+        // from the field mid-edit, and so the arrow responds on press like a real spinner.
+        up.on('mousedown', function (ev) { ev.preventDefault(); nudge(1); });
+        down.on('mousedown', function (ev) { ev.preventDefault(); nudge(-1); });
+
+        stepper.insertAfter(field);
+    },
+
     /* Numeric allocation dialog - one row per item, each row a main numeric input plus
        two OPTIONAL companions:
          item.multiplier   -> a "shots" count input; the main value is spent PER shot, so
@@ -1921,54 +1964,18 @@ window.confirm = {
        them - it just limits how much set damage each of those shots may carry.
 
        Rows with an extra pool also print a live "left:" readout that drains as the player
-       types, so both pools can be watched without doing the arithmetic. */
-    askForMultipleValues: function (msg, inputs, callback) {
+       types, so both pools can be watched without doing the arithmetic.
+
+       options.cssClass adds a class to the dialog - a weapon's own skin over the default purple
+       one (the Hyperplasma Cutter's green, .hpcConfirm in confirm.css). */
+    askForMultipleValues: function (msg, inputs, callback, options) {
         var e = $('<div class="confirm error multi-value-confirm"><div class="ui"><div class="confirmok"></div><div class="confirmcancel"></div></div></div>');
+        if (options && options.cssClass) e.addClass(options.cssClass);
         $('<div class="multi-value-header">' + msg + '</div>').prependTo(e);
 
         var container = $('<div class="multi-value-container"></div>').insertAfter(e.find('.multi-value-header'));
 
-        /* Themed replacement for the browser's number-input spinner. The native arrows are
-           drawn by the UA in its own colours - white on this dark purple dialog - and cannot
-           be recoloured: Firefox exposes no hook at all, and resetting the appearance of
-           Blink's ::-webkit-inner-spin-button also kills its click behaviour. So the native
-           pair is hidden (see .stepper-input in confirm.css) and replaced with these, which
-           are ordinary elements and therefore themeable.
-
-           They read min/max/step straight off the input - including the max that clampRow
-           rewrites as the shot count changes - and fire `change`, so a click runs exactly the
-           same clamp/readout path a native click would. */
-        var attachStepper = function (field) {
-            field.addClass('stepper-input');
-
-            var stepper = $('<span class="multi-value-stepper"></span>');
-            var up = $('<span class="multi-value-step up"></span>').appendTo(stepper);
-            var down = $('<span class="multi-value-step down"></span>').appendTo(stepper);
-
-            var nudge = function (direction) {
-                var step = parseInt(field.attr('step'));
-                var min = parseInt(field.attr('min'));
-                var max = parseInt(field.attr('max'));
-                if (isNaN(step) || step < 1) step = 1;
-
-                var current = parseInt(field.val());
-                if (isNaN(current)) current = isNaN(min) ? 0 : min;
-
-                var next = current + (direction * step);
-                if (!isNaN(min) && next < min) next = min;
-                if (!isNaN(max) && next > max) next = max;
-                if (next === current) return;
-
-                field.val(next).trigger('change');
-            };
-
-            // mousedown rather than click so holding the pointer down doesn't steal focus
-            // from the field mid-edit, and so the arrow responds on press like a real spinner.
-            up.on('mousedown', function (ev) { ev.preventDefault(); nudge(1); });
-            down.on('mousedown', function (ev) { ev.preventDefault(); nudge(-1); });
-
-            stepper.insertAfter(field);
-        };
+        var attachStepper = confirm.attachStepper;
 
         inputs.forEach(function (item) {
             var row = $('<div class="multi-value-row"></div>');
@@ -2153,6 +2160,129 @@ window.confirm = {
         var a = e.appendTo("body");
         a.fadeIn(250);
         $(".multiConfirmInput", e).first().focus();
+    },
+
+    /* Hyperplasma Cutter - Commit to interception (TRIAD_ADVANCED_FEATURES_PLAN.md §2, §9). ONE ROW PER
+       INTERCEPT SHOT, each with dice of its own - "one 9-dice intercept shot, a 5-dice intercept shot and a
+       3-dice intercept shot (or any combination using available dice)" (user, 2026-10-09). It replaced a
+       "shots x dice" row, which could only make shots of one size. Each shot is -5% per die against ONE
+       incoming shot, which the automation picks at resolution.
+
+       The rows share the ship's pool: a row may take whatever the others leave (its max is rewritten as they
+       change, so its stepper stops there too), "+ Add another intercept shot" is live while a die is unspent,
+       and a new row starts on one die. Each row prices itself ("-45%"); the footer counts what is left.
+       callback receives the dice of each row with any, in order - [9, 5, 3]. Green, as .hpcConfirm. */
+    hyperplasmaIntercept: function hyperplasmaIntercept(shipName, pool, callback) {
+        pool = Math.max(0, parseInt(pool, 10) || 0);
+        if (pool <= 0) return;
+
+        var e = $('<div class="confirm error multi-value-confirm hpcConfirm hpcIntercept"><div class="ui"><div class="confirmok"></div><div class="confirmcancel"></div></div></div>');
+        $('<div class="multi-value-header">Commit to interception</div>').prependTo(e);
+        var sub = $('<div class="hpcSubheader"></div>')
+            .text((shipName ? shipName + ': ' : '') + pool + ' dice available. Each intercept shot is -5% per die against one incoming shot.')
+            .insertAfter(e.find('.multi-value-header'));
+        var container = $('<div class="multi-value-container"></div>').insertAfter(sub);
+        var rowsHolder = $('<div class="hpcShotRows"></div>').appendTo(container);
+        var footer = $('<div class="multi-value-row hpcFooterRow"></div>').appendTo(container);
+        var addLink = $('<span class="hpcAddShot">+ Add another intercept shot</span>').appendTo(footer);
+        var leftReadout = $('<span class="hpcLeft"></span>').appendTo(footer);
+
+        var rows = []; //{ row, input, label, pct, remove }
+
+        var readDice = function (input) {
+            var v = parseInt(input.val(), 10);
+            return (isNaN(v) || v < 0) ? 0 : v;
+        };
+        var total = function () {
+            return rows.reduce(function (sum, r) { return sum + readDice(r.input); }, 0);
+        };
+
+        /* Only the row being edited is ever clamped - against what the OTHERS hold - so typing into one row can
+           never pull another down under the player. A box just emptied is left alone until the player leaves it. */
+        var clampRow = function (r, commit) {
+            var room = Math.max(0, pool - (total() - readDice(r.input)));
+            var raw = r.input.val();
+            if (raw === '') {
+                if (commit) r.input.val(Math.min(1, room));
+                return;
+            }
+            var v = parseInt(raw, 10);
+            if (isNaN(v) || v < 1) v = Math.min(1, room);
+            if (v > room) v = room;
+            if (String(v) !== raw) r.input.val(v);
+        };
+
+        var refresh = function () {
+            var used = total();
+            rows.forEach(function (r, i) {
+                var dice = readDice(r.input);
+                r.input.attr('max', Math.max(0, pool - (used - dice)));
+                r.label.text('Intercept shot ' + (i + 1));
+                r.pct.text(dice > 0 ? '(-' + (dice * 5) + '%)' : '');
+                //always keep one row; hidden rather than removed, so the inputs keep their column
+                r.remove.css('visibility', rows.length > 1 ? 'visible' : 'hidden');
+            });
+            var left = Math.max(0, pool - used);
+            leftReadout.text('left: ' + left + ' / ' + pool + ' dice').toggleClass('depleted', left === 0);
+            addLink.toggleClass('disabled', left === 0);
+        };
+
+        var addRow = function (dice) {
+            var row = $('<div class="multi-value-row hpcShotRow"></div>').appendTo(rowsHolder);
+            var labelBox = $('<span class="multi-value-label"></span>').appendTo(row);
+            var label = $('<span class="multi-value-name"></span>').appendTo(labelBox);
+            labelBox.append(' ');
+            var pct = $('<span class="multi-value-max hpcShotPct"></span>').appendTo(labelBox);
+
+            var inputWrapper = $('<div class="hpcShotInputs"></div>').appendTo(row);
+            var input = $('<input type="number" class="multiConfirmInput multi-value-input hpcShotInput" min="1" value="' + dice + '">').appendTo(inputWrapper);
+            confirm.attachStepper(input);
+            $('<span class="multi-value-max hpcUnit">dice</span>').appendTo(inputWrapper);
+            var remove = $('<span class="hpcRemoveShot" title="Remove this intercept shot">&#10005;</span>').appendTo(inputWrapper);
+
+            var entry = { row: row, input: input, label: label, pct: pct, remove: remove };
+            rows.push(entry);
+
+            input.on("input keyup", function () { clampRow(entry, false); refresh(); })
+                .on("change blur", function () { clampRow(entry, true); refresh(); });
+            remove.on("click", function () {
+                if (rows.length <= 1) return;
+                rows.splice(rows.indexOf(entry), 1);
+                row.remove();
+                refresh();
+            });
+            return entry;
+        };
+
+        addLink.on("click", function () {
+            var left = pool - total();
+            if (left <= 0) return;
+            var entry = addRow(1);
+            refresh();
+            entry.input.trigger("focus").trigger("select");
+        });
+
+        addRow(1);
+        refresh();
+
+        $(".confirmok", e).on("click", function () {
+            //Re-held in order, so whatever state the boxes were left in, the shots never add up past the pool.
+            var dice = [];
+            var left = pool;
+            rows.forEach(function (r) {
+                var d = Math.min(readDice(r.input), left);
+                if (d > 0) {
+                    dice.push(d);
+                    left -= d;
+                }
+            });
+            $(".confirm").remove();
+            if (dice.length > 0) callback(dice);
+        });
+        $(".confirmcancel", e).on("click", function () { $(".confirm").remove(); });
+
+        e.appendTo("body").fadeIn(250);
+        rows[0].input.trigger("focus").trigger("select");
     },
 
     // === LCV Rails (DockingCollar) — whole-ship dock/launch dialogs ===

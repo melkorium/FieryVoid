@@ -1155,6 +1155,158 @@
     background-color: #9e5a5a;
     box-shadow: 0 0 8px rgba(189, 128, 128, 0.55);
 }
+
+/* === Hyperplasma Cutter dialogs (Triad) ===================================
+   Green, layered on .multi-value-confirm for the row/input layout, so the cutter's two dialogs - the
+   target allocation (askForMultipleValues with cssClass 'hpcConfirm') and Commit to interception
+   (confirm.hyperplasmaIntercept, which adds .hpcIntercept) - stop wearing the purple that belongs to
+   the Molecular Slicer (user request 2026-10-09, TRIAD_ADVANCED_FEATURES_PLAN.md §9). One class above
+   the base rules' specificity, so source order does not matter. */
+.confirm.multi-value-confirm.hpcConfirm {
+    background: #03130a;
+    border: 3px solid #2e8b46;
+    box-shadow: 0 0 8px rgba(82, 179, 82, 0.35);
+    color: #dcf3e1;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-header {
+    color: #6fdc84;
+    text-shadow: 0 0 5px rgba(82, 179, 82, 0.5);
+    border-bottom: 1px solid rgba(46, 139, 70, 0.6);
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-label,
+.confirm.multi-value-confirm.hpcConfirm .multi-value-name,
+.confirm.multi-value-confirm.hpcConfirm .multi-value-max {
+    color: #dcf3e1;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-row:hover {
+    background: rgba(82, 179, 82, 0.08);
+    border-color: #2e8b46;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-input {
+    background: #04170c;
+    border: 1px solid #2e8b46;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-input:focus {
+    border-color: #6fdc84;
+    box-shadow: 0 0 10px rgba(82, 179, 82, 0.6);
+    background: #000;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step.up::before {
+    border-bottom-color: #3aa356;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step.down::before {
+    border-top-color: #3aa356;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step.up:hover::before {
+    border-bottom-color: #7be08f;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step.down:hover::before {
+    border-top-color: #7be08f;
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step:hover {
+    filter: drop-shadow(0 0 4px rgba(82, 179, 82, 0.75));
+}
+
+.confirm.multi-value-confirm.hpcConfirm .multi-value-step:active {
+    filter: drop-shadow(0 0 6px rgba(123, 224, 143, 0.9));
+}
+
+/* Commit to interception: one row per intercept shot, under a one-line reminder of the pool, and a
+   footer holding "+ Add another intercept shot" and what is left. */
+.confirm.multi-value-confirm.hpcIntercept .hpcSubheader {
+    color: #b7dcbf;
+    font-size: 12px;
+    font-weight: normal;
+    font-style: italic;
+    text-align: center;
+    margin: -5px 0 12px 0;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcShotRows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcShotInputs {
+    display: flex;
+    align-items: center;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcUnit {
+    margin-left: 5px;
+}
+
+/* The shot's price beside its name, in a fixed column so the names line up down the list. */
+.confirm.multi-value-confirm.hpcIntercept .hpcShotPct {
+    display: inline-block;
+    min-width: 52px;
+    text-align: left;
+    font-family: 'Consolas', monospace;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcRemoveShot {
+    cursor: pointer;
+    width: 14px;
+    margin-left: 10px;
+    color: #6fdc84;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcRemoveShot:hover {
+    color: #a6f0b5;
+    text-shadow: 0 0 6px rgba(82, 179, 82, 0.7);
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcFooterRow,
+.confirm.multi-value-confirm.hpcIntercept .hpcFooterRow:hover {
+    background: none;
+    border-color: transparent;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcAddShot {
+    cursor: pointer;
+    color: #6fdc84;
+    text-decoration: underline;
+    font-size: 14px;
+    font-weight: normal;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcAddShot:hover {
+    color: #a6f0b5;
+    text-shadow: 0 0 6px rgba(82, 179, 82, 0.7);
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcAddShot.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.confirm.multi-value-confirm.hpcIntercept .hpcLeft {
+    margin-left: 15px;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    opacity: 0.75;
+}
+
+/* Every die committed - highlight rather than fade, as the Slicer's readout does. */
+.confirm.multi-value-confirm.hpcIntercept .hpcLeft.depleted {
+    color: #7be08f;
+    opacity: 1;
+}
 /* ── Saved-fleet dialogs ──────────────────────────────────────────────────────────────
  * Save Fleet / Load Fleet / the fleet result notice, built by confirm.fleetDialogShell.
  *

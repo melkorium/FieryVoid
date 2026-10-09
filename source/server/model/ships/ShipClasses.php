@@ -2640,10 +2640,16 @@ class BaseShip {
 							$this->notes .= '<br>Sensor Fluctuations';
 						}else if ($ability=='ConstrainedEW'){ 
 							$this->notes .= '<br>Constrained ELINT';
+						}else if ($ability=='JealousELINT'){
+							$this->notes .= '<br>Jealous ELINT';
 						}
 					}
 					break; //checking one Scanner is enough
 				}				
+				foreach($this->systems as $cnc) if ($cnc instanceof CnC){
+					if (in_array('CommandNode', $cnc->specialAbilities, true)) $this->notes .= '<br>Command Node';
+					break; //checking one C&C is enough
+				}
 				foreach($this->systems as $reactor) if ($reactor instanceof Reactor){
 					foreach($reactor->specialAbilities as $ability){
 						if ($ability=='ReactorFlux'){

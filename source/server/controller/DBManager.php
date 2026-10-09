@@ -1811,6 +1811,24 @@ class DBManager
 
     }
 
+    /* TRIAD COMMAND NODE (TRIAD_ADVANCED_FEATURES_PLAN.md §4) - rewrite one unit's initiative for a turn
+     * AFTER the roll, when Initial Orders close. CnC::applyTriadCommandNodes is the only caller; the row
+     * was inserted by submitIniative at the turn change. */
+    public function updateIniative($gameid, $turn, $shipid, $iniative, $unmodified)
+    {
+        $stmt = $this->connection->prepare(
+            "UPDATE `tac_iniative` SET iniative = ?, unmodified_iniative = ? WHERE gameid = ? AND turn = ? AND shipid = ?"
+        );
+        $ini = (int)$iniative;
+        $unmod = ($unmodified === null) ? null : (int)$unmodified;
+        $gid = (int)$gameid;
+        $t = (int)$turn;
+        $sid = (int)$shipid;
+        $stmt->bind_param('iiiii', $ini, $unmod, $gid, $t, $sid);
+        $stmt->execute();
+        $stmt->close();
+    }
+
     public function updatePlayerStatus($gameid, $userid, $phase, $turn, $slots = null)
     {
         try {

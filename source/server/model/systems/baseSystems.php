@@ -2348,6 +2348,120 @@ class ElintScanner extends Scanner implements SpecialAbility{
         return $this->specialAbilityValue;
     }
 
+	/* ===== JEALOUS ELINT (Triad - TRIAD_ADVANCED_FEATURES_PLAN.md §3) =====================================
+	   "It has a sensor suite with the capabilities to function as an ELINT ship, but it will not do so
+	   during every turn. Only one Jealous ELINT vessel per every four may provide ELINT support to a fleet
+	   during any given turn." The array is a full ELINT array on a turn it was DESIGNATED in Initial
+	   Orders (the ship tooltip's button), and no ELINT at all on any other. A fleet may designate
+	   ceil(N/4) of its N Jealous ships per turn (ruling J1). Regular ELINT arrays never carry the mark,
+	   so they are unaffected and do not count. */
+	protected $jealousElintTurn = null; //latest turn this array was designated - read off its 'JealousELINT' note
+	private static $jealousDesignations = array(); //fleet key => designations accepted in THIS request
+
+	public function markJealous(){
+		$this->specialAbilities[] = "JealousELINT";
+		$this->specialAbilityValue = true; //so it is actually recognized as special ability!
+		if (!isset($this->data["Special"])) {
+			$this->data["Special"] = '';
+		}else{
+			$this->data["Special"] .= '<br>';
+		}
+		$this->data["Special"] .= 'JEALOUS ELINT: works as an ELINT array only on a turn this ship is designated (ship tooltip, Initial Orders). One Jealous ELINT ship per four in the fleet, rounded up, may be designated each turn.';
+	}
+
+	public function isJealousElint(){
+		return in_array("JealousELINT", $this->specialAbilities, true);
+	}
+
+	//Is this array an ELINT on $turn? Always - unless it is a Jealous one that was not designated for it.
+	public function isElintOnTurn($turn){
+		if (!$this->isJealousElint()) return true;
+		return ($this->jealousElintTurn !== null && (int)$this->jealousElintTurn === (int)$turn);
+	}
+
+	/* ⭐ THE ONE CHOKE POINT. BaseShip::onConstructed builds enabledSpecialAbilities from this, and
+	   TacGamedata::onConstructed runs it AFTER DBManager::getSystemDataForShips' note sweep - so the
+	   designation is already loaded here. Leaving "ELINT" out is what makes hasSpecialAbility("ELINT")
+	   and isElint() answer false for the turn, and SOEW, SDEW, BDEW, DIST, JAM, Detect Stealth, the x3
+	   stealth detection range and the jump-point opening bonus all follow it with no call-site changes.
+	   Same contract as the parent: nothing at all from a destroyed or offline array. */
+	public function getSpecialAbilityList($list){
+		if (!$this->isJealousElint() || $this->isElintOnTurn(TacGamedata::$currentTurn)) {
+			return parent::getSpecialAbilityList($list);
+		}
+		if ($this->isDestroyed() || $this->isOfflineOnTurn()) return;
+		foreach ($this->specialAbilities as $effect){
+			if ($effect === "ELINT") continue;
+			if (!isset($list[$effect])) $list[$effect] = $this->id;
+		}
+		return $list;
+	}
+
+	/* ceil(N / 4), N = the fleet's live, deployed ships carrying an intact Jealous ELINT array (J1).
+	   A FLEET is a slot: one player may hold several in a game. Mirrored by ElintScanner.getJealousQuota. */
+	public static function getJealousElintQuota($gamedata, $ship){
+		$count = 0;
+		foreach ($gamedata->ships as $other){
+			if ($other->userid != $ship->userid || $other->slot != $ship->slot) continue;
+			if ($other->isDestroyed()) continue;
+			if ($other->getTurnDeployed($gamedata) > $gamedata->turn) continue;
+			foreach ($other->systems as $system){
+				if ($system instanceof ElintScanner && $system->isJealousElint() && !$system->isDestroyed()){
+					$count++;
+					break;
+				}
+			}
+		}
+		return (int)ceil($count / 4);
+	}
+
+	/* Initial Orders: persist what the player designated (the client posts [1] for a designated array).
+	   This is the POST-side rebuild, so it only writes what was asked - but the quota is counted on the
+	   SERVER's own load ($gameData) and enforced per request, first come first served, so a doctored
+	   client cannot designate more than ceil(N/4). Own ships only. */
+	public function generateIndividualNotes($gameData, $dbManager){
+		if ((int)$gameData->phase !== 1) return;
+		if (!$this->isJealousElint()) return;
+		$transfer = $this->individualNotesTransfer;
+		if (!is_array($transfer) || empty($transfer) || (int)$transfer[0] !== 1) return;
+
+		$ship = $this->getUnit();
+		if (!$ship || $ship->userid != $gameData->forPlayer) return;
+
+		$fleet = $ship->userid . '_' . $ship->slot;
+		$used = isset(self::$jealousDesignations[$fleet]) ? self::$jealousDesignations[$fleet] : 0;
+		if ($used >= self::getJealousElintQuota($gameData, $ship)){
+			Debug::log("Jealous ELINT: designation refused for ship " . $ship->id . " (game " . $gameData->id
+				. ", turn " . $gameData->turn . ") - the fleet's quota is already used.");
+			return;
+		}
+		self::$jealousDesignations[$fleet] = $used + 1;
+
+		$this->individualNotes[] = new IndividualNote(-1, TacGamedata::$currentGameID, $gameData->turn, $gameData->phase,
+			$ship->id, $this->id, "JealousELINT", "Jealous ELINT designated", $gameData->turn);
+	}
+
+	public function onIndividualNotesLoaded($gamedata){
+		foreach ($this->individualNotes as $currNote){
+			//notes arrive sorted by turn, so the last designation wins
+			if ($currNote->notekey == 'JealousELINT') $this->jealousElintTurn = (int)$currNote->turn;
+		}
+		parent::onIndividualNotesLoaded($gamedata);
+	}
+
+	/* This turn's designation, for the client's own copy of the rule (ElintScanner.isSpecialAbilityActive).
+	   Masked from the enemy while Initial Orders are open - it says which ship will run ELINT before
+	   anyone has committed - and public once the phase closes, exactly like the EW it unlocks. */
+	public function stripForJson(){
+		$strippedSystem = parent::stripForJson();
+		if ($this->isJealousElint() && $this->jealousElintTurn !== null
+			&& (int)$this->jealousElintTurn === (int)TacGamedata::$currentTurn
+			&& ($this->isRevealedToCurrentViewer() || (int)TacGamedata::$currentPhase !== 1)) {
+			$strippedSystem->jealousElintTurn = (int)$this->jealousElintTurn;
+		}
+		return $strippedSystem;
+	}
+
 }
 
 
@@ -3241,6 +3355,179 @@ class CnC extends ShipSystem implements SpecialAbility {
     {
         return $this->specialAbilityValue;
     }
+
+	/* ===== TRIAD COMMAND NODE (TRIAD_ADVANCED_FEATURES_PLAN.md §4) =====================================
+	   "Once a turn, during the Initiative segment, nominate one Triad capital ship to be the Command Node
+	   for that turn. That vessel gains a +2 initiative modifier, and may swap initiative totals with any
+	   other friendly Triad capital ship (after all rolls are made)."
+	   FV rolls initiative at the turn change, before Initial Orders, so the nomination is made during
+	   Initial Orders (ship-tooltip buttons) and applied when that phase closes - applyTriadCommandNodes,
+	   called first thing in InitialOrdersGamePhase::advance. Every Triad capital ship's C&C carries the
+	   ability (addTriad). One node per fleet (= slot); the partner must be of the same fleet. */
+	protected $commandNodeTurn = null; //turn this ship was nominated Command Node - read off its 'CommandNode' note
+	protected $commandNodeSwap = null; //ship id it swaps initiative totals with on that turn, or null
+	private static $commandNodesThisRequest = array(); //fleet key => true, for one Initial Orders submission
+
+	public function addTriad(){
+		$this->specialAbilities[] = "CommandNode";
+		$this->specialAbilityValue = true; //so it is actually recognized as special ability!
+		if (!isset($this->data["Special"])) {
+			$this->data["Special"] = '';
+		}else{
+			$this->data["Special"] .= '<br>';
+		}
+		$this->data["Special"] .= 'Triad Command Node: once a turn, in Initial Orders, one Triad capital ship of the fleet may be nominated Command Node (ship tooltip). It may swap initiative rolls with another Triad capital ship of the fleet, and gains +2 initiative (+10) - which it keeps, swapped or not. Applied when Initial Orders close.';
+	}
+
+	public function isTriadNode(){
+		return in_array("CommandNode", $this->specialAbilities, true);
+	}
+
+	public function isCommandNodeOnTurn($turn){
+		return $this->commandNodeTurn !== null && (int)$this->commandNodeTurn === (int)$turn;
+	}
+
+	/* Initial Orders: persist the nomination the client made - it posts [1, partner id or -1] from the
+	   nominated ship's C&C. This is the POST-side rebuild, so it only writes what was asked; whether the
+	   partner is legal is judged when the note is applied, on the real load. Own ships only, and the
+	   first nomination of a fleet in a request wins. */
+	public function generateIndividualNotes($gameData, $dbManager){
+		if ((int)$gameData->phase !== 1) return;
+		if (!$this->isTriadNode()) return;
+		$transfer = $this->individualNotesTransfer;
+		if (!is_array($transfer) || empty($transfer) || (int)$transfer[0] !== 1) return;
+
+		$ship = $this->getUnit();
+		if (!$ship || $ship->userid != $gameData->forPlayer) return;
+
+		$fleet = $ship->userid . '_' . $ship->slot;
+		if (isset(self::$commandNodesThisRequest[$fleet])) return; //one Command Node per fleet per turn
+		self::$commandNodesThisRequest[$fleet] = true;
+
+		$swap = (isset($transfer[1]) && (int)$transfer[1] > 0) ? (int)$transfer[1] : -1;
+		$this->individualNotes[] = new IndividualNote(-1, TacGamedata::$currentGameID, $gameData->turn, $gameData->phase,
+			$ship->id, $this->id, "CommandNode", "Command Node", $swap);
+	}
+
+	/* ⭐ APPLIED ONCE, WHEN INITIAL ORDERS CLOSE - first thing in InitialOrdersGamePhase::advance, before
+	   the first active ship is picked, because that pick reads initiative. Per fleet, one node: its ROLLED
+	   total swapped with its partner's if it named a valid one, THEN +10 (tabletop +2) to the node. The
+	   bonus is the node's own and never travels with the swap (user ruling C4, 2026-10-09 - it used to be
+	   added first and so went to the partner). Written straight to tac_iniative, and the in-memory ships
+	   re-sorted so the rest of the advance sees it.
+
+	   Simultaneous movement keeps the CATEGORY in ->iniative and the raw total in ->unmodifiedIniative,
+	   so there the raw total moves and the category is re-derived from it. Classic movement keeps the
+	   total in ->iniative and the ini bonus in unmodified_iniative (DBManager::submitIniative), so the
+	   node's bonus is written up by 10 as well; a tie this creates is broken by +1 on the adjusted ship,
+	   as Manager::generateIniative breaks the roll's own ties.
+
+	   Asked of the real getTacGamedata load: the nominations are on the C&Cs' loaded notes. */
+	public static function applyTriadCommandNodes(TacGamedata $gamedata, DBManager $dbManager){
+		$turn = (int)$gamedata->turn;
+		$rule = $gamedata->rules ? $gamedata->rules->getRuleByName('initiativeCategories') : null;
+		$fleetsDone = array();
+		$changed = array(); //ship id => ship, the node first - the tie nudges below run in this order
+
+		foreach ($gamedata->ships as $ship){
+			if ($ship instanceof FighterFlight) continue;
+			$node = $ship->getSpecialAbilitySystem("CommandNode"); //an intact C&C only
+			if (!($node instanceof CnC) || !$node->isCommandNodeOnTurn($turn)) continue;
+			if (!self::takesPartInCommandNode($ship, $gamedata)) continue;
+
+			$fleet = $ship->userid . '_' . $ship->slot;
+			if (isset($fleetsDone[$fleet])) continue;
+			$fleetsDone[$fleet] = true;
+
+			$changed[$ship->id] = $ship;
+
+			$partner = ($node->commandNodeSwap !== null) ? self::findShipLoosely($gamedata, $node->commandNodeSwap) : null;
+			if ($partner && $partner->id != $ship->id
+				&& $partner->userid == $ship->userid && $partner->slot == $ship->slot
+				&& self::getTriadNodeOf($partner) !== null
+				&& self::takesPartInCommandNode($partner, $gamedata)) {
+				self::swapIniative($ship, $partner, $rule); //the rolled totals only
+				$changed[$partner->id] = $partner;
+			}
+
+			self::shiftIniative($ship, 10, $rule); //the node keeps its +10, swapped or not
+		}
+
+		if (empty($changed)) return;
+
+		if (!$rule) self::breakCommandNodeTies($gamedata, $changed);
+
+		foreach ($changed as $ship){
+			$dbManager->updateIniative($gamedata->id, $turn, $ship->id, $ship->iniative, $ship->unmodifiedIniative);
+		}
+		$gamedata->doSortShips();
+	}
+
+	//The note stores the partner as an int; TacGamedata::getShipById compares with ===, and a ship id is not
+	//an int on every load path - so match loosely rather than miss the partner and silently skip the swap.
+	private static function findShipLoosely($gamedata, $shipId){
+		foreach ($gamedata->ships as $ship){
+			if ($ship->id == $shipId) return $ship;
+		}
+		return null;
+	}
+
+	//The ship's Triad C&C in any state (a swap partner's own C&C is not the one doing the commanding), or null.
+	private static function getTriadNodeOf($ship){
+		if ($ship instanceof FighterFlight) return null;
+		foreach ($ship->systems as $system){
+			if ($system instanceof CnC && $system->isTriadNode()) return $system;
+		}
+		return null;
+	}
+
+	private static function takesPartInCommandNode($ship, $gamedata){
+		if ($ship->isDestroyed() || $ship->isTerrain()) return false;
+		return $ship->getTurnDeployed($gamedata) <= $gamedata->turn;
+	}
+
+	//Simultaneous: the raw total moves and the category follows it. Classic: the total moves, and so does the
+	//ini bonus unmodified_iniative records - the Command Node's +10 IS a bonus, and the row should say so.
+	private static function shiftIniative($ship, $amount, $rule){
+		if ($rule){
+			$ship->unmodifiedIniative = (int)$ship->unmodifiedIniative + $amount;
+			$ship->iniative = $rule->getIniativeCategory($ship->unmodifiedIniative);
+		} else {
+			$ship->iniative = (int)$ship->iniative + $amount;
+			$bonus = ($ship->unmodifiedIniative === null) ? $ship->iniativebonus : $ship->unmodifiedIniative;
+			$ship->unmodifiedIniative = (int)$bonus + $amount;
+		}
+	}
+
+	//"Swap initiative totals" - as ROLLED, before the node's +10. Under simultaneous movement the raw totals
+	//travel with their categories; in a classic game unmodifiedIniative is each ship's own ini bonus and stays
+	//where it is.
+	private static function swapIniative($a, $b, $rule){
+		$ini = $a->iniative;
+		$a->iniative = $b->iniative;
+		$b->iniative = $ini;
+		if ($rule){
+			$raw = $a->unmodifiedIniative;
+			$a->unmodifiedIniative = $b->unmodifiedIniative;
+			$b->unmodifiedIniative = $raw;
+		}
+	}
+
+	private static function breakCommandNodeTies($gamedata, $changed){
+		foreach ($changed as $ship){
+			do {
+				$tied = false;
+				foreach ($gamedata->ships as $other){
+					if ($other->id == $ship->id) continue;
+					if ((int)$other->iniative === (int)$ship->iniative){
+						$tied = true;
+						break;
+					}
+				}
+				if ($tied) $ship->iniative = (int)$ship->iniative + 1;
+			} while ($tied);
+		}
+	}
 	
 	public function criticalPhaseEffects($ship, $gamedata) {
 			
@@ -3377,6 +3664,14 @@ class CnC extends ShipSystem implements SpecialAbility {
         public function stripForJson() {//Need to send Marines to front-end so it updates count.
             $strippedSystem = parent::stripForJson();    
             $strippedSystem->marines = $this->marines;                             
+            /* Triad Command Node: this turn's nomination, for the client's tooltip and buttons. Masked
+               from the enemy while Initial Orders are open, and public once the phase closes - which is
+               when it is applied and the initiative it explains has changed. */
+            if ($this->isCommandNodeOnTurn(TacGamedata::$currentTurn)
+                && ($this->isRevealedToCurrentViewer() || (int)TacGamedata::$currentPhase !== 1)) {
+                $strippedSystem->commandNodeTurn = (int)$this->commandNodeTurn;
+                if ($this->commandNodeSwap !== null) $strippedSystem->commandNodeSwap = (int)$this->commandNodeSwap;
+            }
             return $strippedSystem;
         }
 
@@ -3417,6 +3712,11 @@ class CnC extends ShipSystem implements SpecialAbility {
 							unset($boardingShip->attachedFacing[$ship->id]);
 						}
 					}
+				} else if ($currNote->notekey === 'CommandNode') {
+					//Triad Command Node - notes arrive sorted by turn, so the latest nomination wins.
+					$this->commandNodeTurn = (int)$currNote->turn;
+					$swap = (int)$currNote->notevalue;
+					$this->commandNodeSwap = ($swap > 0) ? $swap : null;
 				} else {
 					$remainingNotes[] = $currNote;
 				}
