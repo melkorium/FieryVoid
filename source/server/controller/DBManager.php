@@ -3798,6 +3798,13 @@ class DBManager
             $shipNotes = isset($allNotes[$ship->id]) ? $allNotes[$ship->id] : array();
             
 			foreach ($shipNotes as $currNote){
+				/* OFFICERS_PLAN.md §4.4 - an officer's death is recorded on the SHIP and never handed
+				   to its post: a Jump Engine takes any note it does not recognise for its pre-jump
+				   combat value, and HyachComputer never calls its parent. */
+				if (Officers::isKillNote($currNote)){
+					$ship->recordOfficerKill($currNote->notevalue, $currNote->turn);
+					continue;
+				}
 				$system = $ship->getSystemById($currNote->systemid);
                 if ($system) // Robustness check
 				    $system->addIndividualNote($currNote);

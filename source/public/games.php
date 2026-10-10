@@ -56,7 +56,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
   <!-- Page-scoped: the games panel + Recent Games window. Kept out of gamesNew.css,
        which 12 pages share. -->
   <link href="<?php echo AssetLoader::getAssetUrl('styles/gamesPanel.css'); ?>" rel="stylesheet" type="text/css">
-  <!-- The DATA ARCHIVE window: the Starter Guide, FAQ, Factions & Tiers and Ammo & Options links
+  <!-- The DATA ARCHIVE window: the Starter Guide, FAQ, Factions & Tiers and Ship Options links
        below open it over this page instead of a new tab (client/UI/docViewer.js). -->
   <link href="<?php echo AssetLoader::getAssetUrl('styles/docViewer.css'); ?>" rel="stylesheet" type="text/css">
   <script defer src="<?php echo AssetLoader::getAssetUrl('client/UI/docViewer.js'); ?>"></script>
@@ -140,7 +140,7 @@ $defaultGameName = ucfirst($playerName) . "'s Game";
       <div class="links">     
         <div><a href="./faq.php" target="_blank" rel="noopener noreferrer">Fiery Void FAQ:</a> Aide Memoire of specific rules and differences from Babylon 5 Wars.</div>        
         <div><a href="./factions-tiers.php" target="_blank" rel="noopener noreferrer">Fiery Void: Factions & Tiers:</a> Overview of Fiery Void factions and their relative strengths.</div>
-        <div><a href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer">Ammo, Options & Enhancements:</a> Details of all the extras available to Fiery Void units e.g. Missiles.</div>
+        <div><a href="./ammo-options-enhancements.php" target="_blank" rel="noopener noreferrer">Ship Options:</a> Details of all the extras available to Fiery Void units e.g. Missiles.</div>
         <div><a href="http://b5warsvault.wikidot.com/" target="_blank" rel="noopener noreferrer">Babylon 5 Wars Vault:</a> Huge repository of Babylon 5 Wars rules and info!</div>
       </div> 
     </div>

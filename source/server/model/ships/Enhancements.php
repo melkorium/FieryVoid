@@ -1678,6 +1678,8 @@ class Enhancements{
 	  } //end of magazine-requiring options
 	  
 	  
+	  //Expert officers (OFFICERS_PLAN.md): availability, posts and prices live in the Officers registry
+	  Officers::addOffers($ship);
   } //endof function setEnhancementOptionsShip
 	
 	
@@ -2255,7 +2257,8 @@ class Enhancements{
 			$enhCount = $entry[2];
 			$enhDescription = $entry[1];
 			if($enhCount > 0) {
-				if(!self::isAmmoEnhancement($enhID) && $enhID !== 'STEALTH_CT'){ //ammo already shows in the AmmoMagazine tooltip - keep it out of the Enhancements box
+				//officers never enter this PUBLIC tooltip (OFFICERS_PLAN.md D4) - their own team reads the officers payload
+				if(!self::isAmmoEnhancement($enhID) && $enhID !== 'STEALTH_CT' && !Officers::isOfficerId($enhID)){ //ammo already shows in the AmmoMagazine tooltip - keep it out of the Enhancements box
 				if($flight->enhancementTooltip != "") $flight->enhancementTooltip .= "<br>";
 				//if($enhID == 'DEPLOY' && $enhCount > 1){ //Special type of Enhancement, clarify what it means.
 				//	$flight->enhancementTooltip .= "Flight deploys on Turn $enhCount";
@@ -2536,8 +2539,9 @@ class Enhancements{
 				//is an index - the generic line would read "kendariUpgraded (x7)". SHAD_TEND's count is
 				//a capacity in fives, so the generic line would read "(x2)" where the player bought a
 				//10-capacity tendril. Both write their own line below. ADV_ENG says whether it is lost;
-				//STEALTH_CT's count is a coverage index, so it names the coverage instead.
-				if(!self::isAmmoEnhancement($enhID) && $enhID !== 'CHAM_DISG' && $enhID !== 'SHAD_TEND' && $enhID !== 'ADV_ENG' && $enhID !== 'STEALTH_CT'){ //ammo already shows in the AmmoMagazine tooltip - keep it out of the Enhancements box
+				//STEALTH_CT's count is a coverage index, so it names the coverage instead. Officers never
+				//enter this PUBLIC tooltip at all (OFFICERS_PLAN.md D4): their own team reads the officers payload.
+				if(!self::isAmmoEnhancement($enhID) && $enhID !== 'CHAM_DISG' && $enhID !== 'SHAD_TEND' && $enhID !== 'ADV_ENG' && $enhID !== 'STEALTH_CT' && !Officers::isOfficerId($enhID)){ //ammo already shows in the AmmoMagazine tooltip - keep it out of the Enhancements box
 				if($ship->enhancementTooltip != "") $ship->enhancementTooltip .= "<br>";
 				//if($enhID == 'DEPLOY'){ //Special type of Enhancement, clarify what it means.
 				//	$ship->enhancementTooltip .= "Ship deploys on Turn $enhCount";

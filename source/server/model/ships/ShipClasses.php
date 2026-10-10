@@ -177,6 +177,14 @@ class BaseShip {
 	   but NOT zeroes (its "D" rule was deliberately never built), so the key would survive. */
 	protected $crewQuality = 0;
 
+	/* OFFICERS_PLAN.md - the officers aboard, as Officers keeps them: array('id', 'post', 'out',
+	   'how') each. Rebuilt at every load by Officers::pickPosts / ::apply; only Officers writes it.
+	   $officerKills is officer id => turn, read off the OffKilled notes by DBManager's note loop.
+	   Both PROTECTED for $crewQuality's reason: a public empty default would put a dead key on every
+	   static blueprint. */
+	protected $officers = array();
+	protected $officerKills = array();
+
 	
 	public $halfPhaseThrust = 0; //needed for half phasing; equal to thrust from two BioThrusters on a given ship; 0 for ships that cannot half phase, eg. vast majority
     
@@ -986,6 +994,11 @@ class BaseShip {
 			$strippedShip->systemEnhancements = $this->systemEnhancements;
 		}
 
+		/* OFFICERS_PLAN.md D4 - own team (and everybody once the game is over) gets the officer list;
+		   nobody else gets an officer's share of a published iniativebonus. AFTER the enhancement
+		   fields above, which is where that iniativebonus is published. */
+		Officers::addForJson($this, $strippedShip);
+
 		//Stage S (fleet-value attribution): for an integrated-fighter carrier, send the
 		//number of integrated fighters it BOUGHT and their per-craft CP cost. The carrier's
 		//enhValue covers all of them; the fleet list values LAUNCHED integrated fighters on
@@ -1767,6 +1780,8 @@ class BaseShip {
 
     public function onConstructed($turn, $phase, $gamedata)
     {	    
+		//OFFICERS_PLAN.md D2 - officers' posts are picked BEFORE any enhancement moves an output
+		Officers::pickPosts($this);
 		//enhancements (in game, NOT fleet selection!)
 		Enhancements::setEnhancements($this);
 		/* PER-SYSTEM enhancements, immediately after the ship-level ones and - critically - BEFORE
@@ -1783,6 +1798,9 @@ class BaseShip {
                 $this->enabledSpecialAbilities = array_merge($this->enabledSpecialAbilities, $abilities);
             }
         }
+        /* OFFICERS_PLAN.md D5 - who is still serving, and their stat changes, in ONE post-pass: after
+           the loop above (a post's structureSystem is filled there) and before iniativeadded. */
+        Officers::apply($this, $turn);
         //fill $this->iniativeadded
         $modifiedbonus = $this->getInitiativebonus( $gamedata ) + $this->getCommonIniModifiers( $gamedata );
         $modifiedbonus = $modifiedbonus - $this->iniativebonus;
@@ -1830,6 +1848,32 @@ class BaseShip {
 	   (AntimatterConverter's 4X+2, say) therefore gains nothing, which is correct. */
 	public function getCrewDieDamageBonus(){
 		return max(0, (int)$this->crewQuality);
+	}
+
+	/* ===================== OFFICERS - see $officers above and Officers.php ===================== */
+	public function getOfficers(){
+		return $this->officers;
+	}
+
+	public function setOfficers($list){
+		$this->officers = $list;
+	}
+
+	public function hasOfficers(){
+		return !empty($this->officers);
+	}
+
+	public function getOfficerKills(){
+		return $this->officerKills;
+	}
+
+	//one OffKilled note: the earliest turn wins if one were ever written twice
+	public function recordOfficerKill($officerId, $turn){
+		$officerId = (string)$officerId;
+		$turn = (int)$turn;
+		if (!isset($this->officerKills[$officerId]) || $turn < $this->officerKills[$officerId]){
+			$this->officerKills[$officerId] = $turn;
+		}
 	}
 
     public function getSpecialAbilitySystem($ability)

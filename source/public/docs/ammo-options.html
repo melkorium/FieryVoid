@@ -1,5 +1,5 @@
 <!--
-  FIERY VOID DATA ARCHIVE - AMMO, OPTIONS & ENHANCEMENTS
+  FIERY VOID DATA ARCHIVE - SHIP OPTIONS (ordnance, enhancements, refits and officers)
   Shown by client/UI/docViewer.js (the in-page window) and by ammo-options-enhancements.php (the
   same viewer, filling the page). Edit the words here; nothing else needs to change.
 
@@ -136,6 +136,7 @@
     <li><a href="#factionenhancements">Faction Enhancements</a> - options for one faction only.</li>
     <li><a href="#systemenhancements">System Enhancements</a> - refits bought for a single system rather than the whole
       unit.</li>
+    <li><a href="#officers">Officers</a> - specialists posted in one of a ship's systems.</li>
   </ul>
 </section>
 
@@ -847,4 +848,70 @@
       player for their own damage and movement displays to be correct. A careful opponent comparing a ship against its
       published control sheet can still work out that something has been refitted.</li>
   </ul>
+</section>
+
+<!-- ═════════════════════════════════ OFFICERS ══════════════════════════════ -->
+
+<section data-key="officers" data-title="About Officers" data-group="Officers">
+  <p class="fvd-lede">Expert officers are specialists a ship can carry. Each one works from a particular system - their
+    <b>post</b> - and gives their bonus for as long as they are able to serve.</p>
+  <p>Like enhancements, officers are optional: worth agreeing with your opponent before using them in a pickup battle.</p>
+
+  <h3 data-anchor="buyingofficers">Buying officers</h3>
+  <ul>
+    <li>Officers are bought with the ship in Fleet Selection, in the <b>Officers</b> section at the bottom of its buy
+      window.</li>
+    <li>A ship may carry several officers, but only one of each type.</li>
+    <li>An officer's price is a percentage of the ship's base cost, rounded up.</li>
+    <li>A ship is only offered an officer whose post it has - no C&amp;C, no Helmsman. Ancient hulls, OSATs, mines and
+      terrain cannot carry officers at all.</li>
+  </ul>
+
+  <h3 data-anchor="losingofficers">Losing an officer</h3>
+  <ul>
+    <li><b>Disabled.</b> If the officer's post is destroyed - by damage to the system itself, or because the Structure
+      block holding it is destroyed - the officer is out for the rest of the battle. Repairing the system afterwards
+      does not bring them back.</li>
+    <li><b>Killed.</b> Whenever the post takes damage, its normal critical roll also decides the officer's fate: a roll of
+      20 or more, modifiers included, kills them. The roll is made even when the damage destroys the system.</li>
+    <li>Either way, the officer still serves for the rest of the turn it happens, and is gone from the next turn.</li>
+    <li>An officer whose post is destroyed by pre-battle damage never serves at all. Fleet Selection warns you, and you can
+      remove the officer by editing the ship.</li>
+  </ul>
+
+  <h3 data-anchor="seeingofficers">Seeing your officers</h3>
+  <ul>
+    <li>A gold double-chevron insignia marks the post's icon in the ship window. It turns grey once the officer is out of
+      action, with a red slash through it if they were killed.</li>
+    <li>The post's information tooltip names the officer and what they do, and says how and when they were lost.</li>
+    <li>The ship window's gold box lists every officer aboard and the system each one is posted in.</li>
+    <li>Your opponent sees none of these until the game is over. Some effects do show, though: a Helmsman's initiative
+      bonus, for example, is part of the ship's initiative that everyone sees.</li>
+  </ul>
+</section>
+
+<section data-key="shipofficers" data-title="Ship Officers" data-group="Officers">
+  <p class="fvd-lede">The officers available so far. More will be added over time.</p>
+  <div class="fvd-cards">
+    <article class="fvd-card fvd-card--wide">
+      <h4>Expert Helmsman</h4>
+      <dl class="fvd-spec">
+        <dt>Post</dt>
+        <dd>C&amp;C</dd>
+        <dt>Effect</dt>
+        <dd><ul>
+          <li>+5 Initiative.</li>
+          <li>Wins initiative ties against ships without an Expert Helmsman.</li>
+          <li>-1 to the die the ship rolls on a meteor swarm's impact chart, so fewer meteors strike it.</li>
+        </ul></dd>
+        <dt>Cost</dt>
+        <dd>5% of the ship's base cost.</dd>
+        <dt>Limit</dt>
+        <dd>1 per ship.</dd>
+        <dt>Notes</dt>
+        <dd>With simultaneous movement, ships move in initiative brackets rather than one at a time, so the tie-break has
+          nothing to decide there. The +5 still counts.</dd>
+      </dl>
+    </article>
+  </div>
 </section>

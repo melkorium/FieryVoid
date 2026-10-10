@@ -26,6 +26,9 @@ window.lobbyEnhancements = {
 		var tooltipParts = [];
 		for (let entry of ship.enhancementOptions) {
 			// ID, readableName, numberTaken, limit, price, priceStep
+			//officers never enter this tooltip (OFFICERS_PLAN.md D4) - the gold box lists them from
+			//officers.listFor instead. ⚠️ MIRROR PAIR with the OFF_ skip in Enhancements::setEnhancementsShip.
+			if (window.officers && officers.isOfficerId(entry[0])) continue;
 			var line = this.describeTaken(entry);
 			if (line !== null) tooltipParts.push(line);
 		}

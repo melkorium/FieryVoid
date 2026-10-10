@@ -2,6 +2,7 @@ import * as React from "react";
 import styled from "styled-components"
 import { Tooltip, TooltipHeader, TooltipEntry } from '../common'
 import ShipInfo from "./ShipInfo";
+import theme from "../styled/theme";
 
 const InfoHeader = styled(TooltipHeader)`
     /*font-size: 12px;*/
@@ -54,6 +55,19 @@ export const Header = styled.span`
 
 const ShipNameHeader = styled.span`
     color: #C6E2FF;
+`;
+
+//the Officers block (OFFICERS_PLAN.md D12) wears the gold set, like every other enhancement surface
+const OfficerHeader = styled(InfoHeader)`
+    color: ${theme.colors.enhTitle};
+`;
+
+const OfficerEntry = styled(Entry)`
+    color: ${props => props.$out ? theme.colors.textDim : theme.colors.enhText};
+`;
+
+const OfficerName = styled.span`
+    color: ${theme.colors.enhTitle};
 `;
 
 class SystemInfo extends React.Component {
@@ -185,6 +199,8 @@ class SystemInfo extends React.Component {
                     Object.keys(specialEntry).map(i => <Entry key={`special-${reactKey++}`}>{specialEntry[i]}</Entry>)
                 }
 
+                {!isUnrevealedMine && getOfficers(ship, system)}
+
                 {(Object.keys(system.critData).length > 0 || (system.criticals && system.criticals.length > 0)) && !isUnrevealedMine && getCriticals(system)}
 
                 {(!gamedata.isMyShip(ship) && !isUnrevealedMine &&
@@ -250,6 +266,30 @@ const getCalledShotDisplay = (ship, system) => {
         </Entry>
     ];
 }
+
+/* OFFICERS_PLAN.md D12 - one line per officer posted on this system: his name, his one-line effect,
+   and how he left action once he has. Own team only, through officers.listFor (D4). Not system.data:
+   that is rebuilt per turn, replaced wholesale by a server `data`, and shared by reference across
+   same-class systems ([[arch_system_info_tooltip_data_flow]]). */
+const getOfficers = (ship, system) => {
+    if (!window.officers || !ship || !system) return null;
+    const posted = officers.onPost(ship, system.id);
+    if (posted.length === 0) return null;
+    const turn = officers.currentTurn();
+    return [
+        <Divider key="officerDivider" />,
+        <OfficerHeader key="officerHeader">Officers</OfficerHeader>
+    ].concat(posted.map(entry => {
+        const officer = officers.get(entry.id);
+        const state = officers.stateText(entry);
+        return (
+            <OfficerEntry key={`officer-${entry.id}`} $out={!officers.serves(entry, turn)}>
+                <OfficerName>{officers.label(entry.id)}: </OfficerName>
+                {officer ? officer.summary : ''}{state ? ' ' + state : ''}
+            </OfficerEntry>
+        );
+    }));
+};
 
 const getCriticals = (system) => {
     const critKeys = Object.keys(system.critData).length > 0

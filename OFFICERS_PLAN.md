@@ -1,9 +1,11 @@
 # Officers — Implementation Plan
 
-Status: **RULED 2026-10-09 — nothing built.** Written against `dab951bf5`. The user ruled D1–D12 and
-QX1–QX5 the same day; three rulings changed the draft (D3 kill roll, D9 eligibility and one officer per
-flight, D10 filter chips → new D13), logged at the top of §1. Each officer's own rules questions (§6)
-still only need ruling when that officer's stage starts. Next step: Stage 0's baselines, then Stage 1.
+Status: **Stages 0, 1, 2 and 2a BUILT 2026-10-10, uncommitted** (§9). Written against `dab951bf5`. The user
+ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
+one officer per flight, D10 filter chips → new D13), logged at the top of §1. On 2026-10-10 the user added
+a third Helmsman effect (−1 on the meteor impact chart) and play-tested Stage 1 in game 4457 (confirmed
+correct). Each officer's own rules questions (§6) still only need ruling when that officer's stage
+starts. Next step: Stage 3 (the rest of the Easy ship officers).
 
 > ### Relationship to WEAPON_ENHANCEMENTS_PLAN.md §11
 > §11 concluded that officers "are an ordinary ship-level enhancement … and need nothing from this
@@ -94,7 +96,7 @@ here and can be built first, on their own (Stage 2a).
 | **D1** | **Two purchase tracks, one runtime list.** Fixed-post and random-post officers, and all fighter officers, are ship-level rows. Officers whose post the player picks are per-system registry rows. `Officers::resolve()` merges both into `$ship->officers`. | 22 of the 25 officers have a post the rules set, by system type or by random draw. Putting them on the per-system track would mean buying a Helmsman by finding the C&C in the ship window, while the reserved Officers section stays empty. Putting the 2 placed officers on ship-level rows would mean a weapon dropdown per Gunner slot (three choice-valued rows on a capital, the `CHAM_DISG` widget shape) and re-inventing the D13 name check. *Alternative, not recommended:* everything per-system. One track, but worse purchase UX and a per-weapon offer tuple for every officer in every static blueprint. Breaching Expert is the 25th and fits neither track (§3.3). |
 | **D2** | **Track-1 posts are resolved, never stored.** They are picked from **blueprint** values at the top of `BaseShip::onConstructed`, before any enhancement moves an output (§4.3). A post destroyed by pre-battle damage leaves its officer disabled from the start (§4.9). | `ADV_ENG` set the precedent ([Enhancements.php:2516](source/server/model/ships/Enhancements.php#L2516)). Poor Crew takes thrust off the strongest Engine, so on a two-engine hull "strongest" depends on row order unless it is asked before any row runs. The lobby mirror picks the same way, so lobby and game agree. |
 | **D3** | **RULED: two ways out of action.** The rulebook: *"Officers are considered disabled (and unusable for the rest of the scenario) if the system they are in is destroyed, but there is also a chance they will be killed by any damage to the system. Use the normal critical hit roll to determine this (make a roll even if the system is totally destroyed). If this roll results in a '20' or greater (including any modifications), the officer is killed. This is in addition to any other critical hit effects."*<br>**Disabled** = the post is destroyed, by its own boxes or by its Structure block. **Killed** = the post took damage through its armour this turn, and its critical roll came to 20 or more. That is the roll the post makes anyway, or one made for him when the post was just destroyed (§4.4). The weapon-mounted Matter Weapons Expert is killed by **any** damage through armour, as his own text says. Both states are **permanent** (Self Repair reviving the post changes nothing) and both take effect **next turn**. | Next-turn is the convention every support system follows, `isDestroyed($turn - 1)` ([baseSystems.php:20494](source/server/model/systems/baseSystems.php#L20494)), and it keeps simultaneous fire simultaneous: the Evangelist's +1 cannot vanish halfway through the shots of the turn he falls. FV's critical roll is d20 + the system's **total** damage + both crit modifiers ([ShipSystem.php:1421](source/server/model/systems/ShipSystem.php#L1421)), so on a battered post any further hit is close to certain death. *Disabled* can be derived from the complete damage history. *Killed* is a dice result, so it has to be stored (§4.4). The two states differ for the Evangelist, whose penalty is worded "if killed" (§6). |
-| **D4** | **Own team only; the game's end discloses everything; no public log line.** The insignia, the tooltip and the `officers` payload reach the owner and teammates (`isRevealedToCurrentViewer`), and everybody once `TacGamedata::$currentGameFinished`. Officer names never enter the public `enhancementTooltip`. | Same rule and same mechanism as the ✦ ([ShipClasses.php:985](source/server/model/ships/ShipClasses.php#L985)). ⚠️ **This is cosmetic, exactly like the ✦** (WEAPON_ENHANCEMENTS_PLAN.md D8 / §6.3). A few officers change numbers that reach the enemy anyway. §4.6 lists them, so the tooltip never claims a secrecy the feature does not deliver. |
+| **D4** | **Own team only; the game's end discloses everything; no public log line.** *(Amended 2026-10-10: an officer's effect on the published `iniativebonus` is shown to every viewer - §4.6.)* The insignia, the tooltip and the `officers` payload reach the owner and teammates (`isRevealedToCurrentViewer`), and everybody once `TacGamedata::$currentGameFinished`. Officer names never enter the public `enhancementTooltip`. | Same rule and same mechanism as the ✦ ([ShipClasses.php:985](source/server/model/ships/ShipClasses.php#L985)). ⚠️ **This is cosmetic, exactly like the ✦** (WEAPON_ENHANCEMENTS_PLAN.md D8 / §6.3). A few officers change numbers that reach the enemy anyway. §4.6 lists them, so the tooltip never claims a secrecy the feature does not deliver. |
 | **D5** | **Effects run in ONE post-pass**, `Officers::apply()`, after enhancements and after the per-system `onConstructed` loop, and before `iniativeadded` is filled ([ShipClasses.php:1779-1789](source/server/model/ships/ShipClasses.php#L1779)). Never as a `case` in `setEnhancementsShip`. | (a) That switch runs rows in `enhid` order, and an order-sensitive effect belongs in a fixed post-pass on both ends ([[arch_enhancement_storage_and_order]]). (b) `isDestroyed()` needs `structureSystem`, which `ShipSystem::onConstructed` fills ([ShipSystem.php:473](source/server/model/systems/ShipSystem.php#L473)). (c) None of the 25 has to precede `Shield::onConstructed`, which is the reason system refits run earlier. |
 | **D6** | **A new class, `Officers`** (`source/server/model/ships/Officers.php`), holds the registry and the resolver. `Enhancements.php` gains hook calls only. | `Enhancements.php` is 4,789 lines. WEAPON plan D12's argument applies: one literal per officer, so nothing gets added in three places out of four. |
 | **D7** | **ids are `OFF_*`, at most 10 characters** (table in §4.2). | `enhid` is `varchar(10)` in both tables. The prefix routes a row to the Officers section, and keeps it out of the public tooltip, with one test each. It also avoids the existing fighter `NAVIGATOR`. |
@@ -157,7 +159,7 @@ Medium-sized job (§3.4).
 
 | Officer | Post, cost | What it touches | Why it is easy |
 |---|---|---|---|
-| **Expert Helmsman** | C&C, 5 % | +5 `iniativebonus`; one clause in `TacGamedata::sortShips` so a live Helmsman sorts ahead on equal initiative | Initiative is rolled server-side ([Manager.php:2605](source/server/controller/Manager.php#L2605)), and `generateIniative` already turns sort order into distinct values ([:2611-2624](source/server/controller/Manager.php#L2611)). So the tie-break needs no client change. |
+| **Expert Helmsman** | C&C, 5 % | +5 `iniativebonus`; one clause in `TacGamedata::sortShips` so a live Helmsman sorts ahead on equal initiative; **−1 on the d20 his ship rolls on a meteor swarm's impact chart** (user, 2026-10-10: one term in `RammingAttack::resolveMeteors`, which serves the Meteor Swarm and the Triad's spawned meteoroids alike) | Initiative is rolled server-side ([Manager.php:2605](source/server/controller/Manager.php#L2605)), and `generateIniative` already turns sort order into distinct values ([:2611-2624](source/server/controller/Manager.php#L2611)). So the tie-break needs no client change. The meteor chart is rolled server-side in Pre-Firing, on a full load. |
 | **Expert Scanner** | Sensor Array, 7 % | `EW::getDetectorAllowance` and its JS twin become max(detector ladder, 1 for a live officer). The "no detectors on the board → return" early exits (two server-side, one client-side) must not skip a ship that has one | FV already built this exact rule. The EW Detector's own text says it grants "the enhancement of Expert Scanner" ([baseSystems.php:20447](source/server/model/systems/baseSystems.php#L20447)). The late-EW window, budget and DB write all key off `getSavedEwAllowance`, so they need nothing. |
 | **Expert Technician** | Reactor, 9 % | The reactor's `output` at load: + max(2, ⅓ of the largest `powerReq` among systems destroyed before this turn) | Server-side `output` already reaches every client ([ShipSystem.php:319](source/server/model/systems/ShipSystem.php#L319)) and power.js reads `reactor.output`, so there is no client logic. Easy **only** on the best-of reading: under it the "+1 from a deactivated system" branch can never win. If the player chooses each turn, it becomes Medium (a live mirror in power.js). |
 | **Matter Weapons Expert, C&C** | C&C, 10 % | Every Matter-class weapon: fire control +1 (`fireControl` **and** `fireControlArray`, `isModified`), and +1 damage in `getBonusDamage` | A copy of `SYS_GSGT`, including its trap: a bump to `fireControl` alone evaporates on the first mode switch ([weapon.php:3349](source/server/model/weapons/weapon.php#L3349)). |
@@ -377,7 +379,7 @@ masking: individual notes never reach any client.
 
 | Officer | Changed number | Reaches the enemy? |
 |---|---|---|
-| Helmsman | `iniativebonus` | Send own-team only (the roll is server-side; the enemy only ever sees initiative itself) |
+| Helmsman | `iniativebonus` | **Yes, to every viewer** (user ruling 2026-10-10, overruling the drafted own-team-only). The ship tooltip's "base" initiative must be the ship's real figure: a hidden +5 misleads more than it hides. The officer list itself stays own-team |
 | Navigator | turn, pivot, roll and accel costs | Own-team only (an enemy client never budgets your thrust) |
 | Technician | reactor `output` | **Yes.** `output` is sent unconditionally. Accept, as the ✦ does |
 | Matter Weapons Expert, Gunner | `fireControl` via `isModified` | **Yes**, exactly like Gunsights |
@@ -508,10 +510,10 @@ committed.
 
 | Stage | Content | Exit test |
 |---|---|---|
-| **0** | ~~Rule D1–D12 and QX1–QX5~~ (done 2026-10-09). Rule the Helmsman's question (§6). Record the three baselines | Numbers written down |
-| **1** | Server framework with **Expert Helmsman** | `officersHarness`: ids ≤ 10; offers (no C&C → no Helmsman; an Ancient hull, an OSAT, a mine, terrain → none); post picks (two equal Engines with Poor Crew bought → the same engine as the lobby picks); **disabled** (post destroyed on turn N → serves N, out N+1; block cascade → disabled, no roll; Self Repair revival changes nothing; destroyed pre-battle → never serves); **killed** (a damaged post rolling 20+ → killed, 19 → not, through a seeded `Dice`; a post destroyed this turn still rolls; the Hyach scanner halving reaches the roll; the note is written, read back on the next load, and never reaches the post's own `onIndividualNotesLoaded`, proven on a Jump Engine post); the Helmsman's +5 and tie-break on a forced tie; payload per viewer (owner, teammate, enemy, spectator, finished game). Replay `check` byte-identical, since no corpus game has an officer |
-| **2a** | Buy-dialog filter chips (D13), independent of everything else here, so it can go first | Every buy, edit and bulk dialog: chips only for sections with rows, none at all with a single section; a picked chip shows its section's colours; hiding a section changes no total and no saved row (buy with **Enhancements** picked, then reload the fleet); 360 px wrap. Headless |
-| **2** | Client framework | Lobby: buy a Helmsman, the Officers section shows, points move, the insignia lands on the C&C, the tooltip line appears. Destroy the C&C in the pre-battle editor → the warning shows. Game: own team sees the insignia in all three looks (serving, disabled, killed), an enemy browser sees nothing, a finished game shows all. Headless, driving the real site ([[howto_headless_chrome_phone_width]]) |
+| **0** | ~~Rule D1–D12 and QX1–QX5~~ (done 2026-10-09). Rule the Helmsman's question (§6). Record the three baselines | Numbers written down. **DONE 2026-10-10** (§9.1) |
+| **1** | Server framework with **Expert Helmsman** (and its meteor clause). **BUILT 2026-10-10** (§9.2) | `officersHarness`: ids ≤ 10; offers (no C&C → no Helmsman; an Ancient hull, an OSAT, a mine, terrain → none); post picks (two equal Engines with Poor Crew bought → the same engine as the lobby picks); **disabled** (post destroyed on turn N → serves N, out N+1; block cascade → disabled, no roll; Self Repair revival changes nothing; destroyed pre-battle → never serves); **killed** (a damaged post rolling 20+ → killed, 19 → not, through a seeded `Dice`; a post destroyed this turn still rolls; the Hyach scanner halving reaches the roll; the note is written, read back on the next load, and never reaches the post's own `onIndividualNotesLoaded`, proven on a Jump Engine post); the Helmsman's +5 and tie-break on a forced tie; payload per viewer (owner, teammate, enemy, spectator, finished game). Replay `check` byte-identical, since no corpus game has an officer |
+| **2a** | Buy-dialog filter chips (D13), independent of everything else here, so it can go first. **BUILT 2026-10-10** (§9.4) | Every buy, edit and bulk dialog: chips only for sections with rows, none at all with a single section; a picked chip shows its section's colours; hiding a section changes no total and no saved row (buy with **Enhancements** picked, then reload the fleet); 360 px wrap. Headless |
+| **2** | Client framework. **BUILT 2026-10-10** (§9.3) | Lobby: buy a Helmsman, the Officers section shows, points move, the insignia lands on the C&C, the tooltip line appears. Destroy the C&C in the pre-battle editor → the warning shows. Game: own team sees the insignia in all three looks (serving, disabled, killed), an enemy browser sees nothing, a finished game shows all. Headless, driving the real site ([[howto_headless_chrome_phone_width]]) |
 | **3** | Easy ship officers: Scanner, Technician, Matter Weapons Expert (C&C), Geneticist | Scanner: the late-EW window opens on a ship with no EW Detector on the board. MWE: switch modes and back, the +1 stays. Technician: power balance after a system dies |
 | **4** | Fighter framework; Dogfighter, Missileer, Evader | A per-flight price is identical across buy, edit, copy and save/reload on 1-, 3- and 6-craft flights. A second officer on one flight is refused in the dialog, and a doctored payload with two serves only one. A lead-craft dropout loses him; a dock does not |
 | **5** | Repair pass: Engineer and Scavenger | Deterministic pick; the C&C d20; no repair of this turn's crits (if so ruled); no revival of a destroyed system; runs after Self Repair |
@@ -540,7 +542,7 @@ committed.
 
 | Officer | Questions |
 |---|---|
-| Helmsman | Does the tie-break also apply under the simultaneous-movement initiative categories? (Default: no; ties there are categories, not orderings.) |
+| Helmsman | Does the tie-break also apply under the simultaneous-movement initiative categories? (Default: no; ties there are categories, not orderings.) **Built with the default, 2026-10-10** (not ruled by the user; nothing in a category is ordered, so there is no tie to break; his +5 still counts toward the category, through `getInitiativebonus`). Reverse it if ruled otherwise. |
 | Engineer | Reading: "once per turn, repair one critical anywhere; a C&C critical needs 16+ on a d20"? Which critical: the highest `repairPriority` system's oldest? Never a critical from this turn, as Self Repair? On a failed roll, try another or stop? |
 | Scanner | Cumulative with EW Detectors, or the same point? (Default: max(1, ladder), not cumulative.) |
 | Navigator | (a) The turn-cost ladder. The hulls use 0.25, 0.33, 0.5, 0.66, 0.75, 1, 1.25, 1.33, 1.5, 1.66, 1.75, 2 and 3. Which of those are "steps"? (b) Turn delay unchanged? (c) Accel/decel: × 0.75 per change, or on the turn's total? Which rounding? |
@@ -595,3 +597,197 @@ committed.
 - Updating FV_factions.txt:438, which still offers Shadow ships officer enhancements that D9 now
   rules out. Flagged to the user, not changed here.
 - Enforcing ramming consent. FV leaves it to the players today (the Geneticist only adds a tooltip line).
+
+---
+
+## 9. As built
+
+### 9.1 Stage 0: baselines (2026-10-10)
+
+HEAD `e09c2aa7b`. "Clean" = this work stashed, nothing else touched (the three dirty bundles are not
+server code). Every number below was reproduced with Stage 1 in place.
+
+| Gate | Clean tree | With Stage 1 |
+|---|---|---|
+| Replay harness `check` | **120 passed / 5 failed / 7 SKIP.** The 5 (4297, 4356, 4357, 4359, 4361) differ only in `/ships/N/systems/N/name: TrekPhaser -> TrekPhaserKelly`, i.e. the recent Phaser commits, not re-recorded. The 7 SKIP are idle-deleted games. | Byte-identical, timings stripped |
+| `enhancementsHarness.php check` | 257 / 0, fingerprint 13,030 lines | 12 lines **added** (one `OFF_HELM` offer per test hull), 0 removed, every payload md5 unchanged. Re-recorded: 13,042 lines, 257 / 0. The previous file is kept as `baseline_enhancements/fingerprint.before-officers.txt` |
+| `enhancementsDifferential.js` | 263 cases (25 skipped), 0 differing; 909 jump delays, 0 differing | Same |
+| `profileCoatingClientHarness.js` | 2,901 / 0 | Same |
+
+The Helmsman's §6 question was built with its default (no tie-break inside a simultaneous-movement
+category), not ruled.
+
+### 9.2 Stage 1: server framework and Expert Helmsman
+
+**Files.** New: `source/server/model/ships/Officers.php` (registry, offers, posts, out-of-action,
+kill roll, effects, payload) and `tests/replay/officersHarness.php`. Hooks: `ShipClasses.php`
+(`$officers` / `$officerKills`, both protected; `pickPosts` at the top of `onConstructed`; `apply`
+after the per-system loop; `addForJson` in `stripForJson`), `ShipSystem.php` (`$lastCritRoll`,
+protected, written by `testCritical`; `getCritRollOnTurn`), `criticals.php` (`rollKills` after
+Pass 1), `DBManager.php` (`OffKilled` intercept in the bulk note loop), `TacGamedata.php`
+(`$officersPresent`; the tie-break clause), `specialWeapons.php` (the meteor term),
+`Enhancements.php` (`addOffers`; `OFF_` kept out of both public tooltip lists). `autoload.php`
+regenerated (+1 line). Statics regenerated.
+
+**As the plan said, with these specifics:**
+- Registry entries are `label`, `post`, `pct` (whole percent) and `apply` (a static method name, or
+  null). Price is `ceil(pct % of pointCost)` in whole numbers, so 7 % of 100 is 7, not 8.
+- Post `cnc`: the first C&C that is not a Flag Bridge, else the first Flag Bridge. Three hulls have
+  only a Flag Bridge (PrimusMaximus, Nakarsa, GarasochD), so the fallback is real.
+- "Out" at turn 0 (pre-battle damage) never serves, even in the lobby, which sits at turn 0.
+- The kill roll groups officers by post: one roll per post, one note per officer. Eligible: not
+  already killed, and either still in action or put out of it this turn. The in-memory list is
+  updated too, so later code in the same request sees the death.
+- `$lastCritRoll` is set by every `testCritical` call, including the forced crit tests some weapons
+  make outside Pass 1. If Pass 1 skipped a post (destroyed) but such a forced roll happened earlier
+  that turn, the kill reads that roll. That counts as the post's own roll, so it was accepted.
+- Payload, own team or a finished game: `officers: [{id, post, out?, how?}]`, plus `iniativebonus`
+  whenever a serving officer moved it. Anyone else gets no list, and an `iniativebonus` that Elite
+  Crew, Poor Crew, Markab Fervor, the Ipsha refit or Sluggish publishes has the officer's share taken
+  back out. A Helmsman-only hull publishes no `iniativebonus` at all, as before.
+
+**Measured.** Statics +83,618 B, which is exactly the size of the offers (0.133 %; Earth Alliance
++0.105 %). 1,820 of 2,670 hulls are offered a Helmsman, all factionAge 1 or 2; none is an OSAT, mine,
+terrain or flight.
+
+**Harness.** `officersHarness.php` runs 103 checks (95 with `--no-db`). The DB section writes an
+`OFF_HELM` row and an `OffKilled` note hosted on a real Jump Engine inside a rolled-back
+transaction. Mutation-tested with 11 deliberate breaks, each of which fails the harness: the
+tie-break, the meteor term, the roll capture, the kill threshold, the `setCriticals` hook, the enemy
+subtraction, kill read-back, the turn-0 rule, the structure cascade, the ship tooltip skip and the DB
+intercept. A 12th, removing the FLIGHT tooltip skip, passes unnoticed: no flight can carry an officer
+before Stage 4, which must add that test.
+
+**Known gaps and deferrals:**
+1. The fresh roll for a post destroyed this turn omits the Hyach "damage halved for critical rolls"
+   (it lives in `Scanner::testCritical`). A captured roll includes it (tested). No Stage 1 post is a
+   scanner; decide it in the Scanner officers' stage.
+2. The exit test "two equal Engines with Poor Crew → the same engine as the lobby picks" has no
+   Stage 1 subject (the Helmsman's post is the C&C). It moves to Stage 2 (lobby mirror) and Stage 5
+   (the first Engine post).
+3. Two loaders read notes straight from the DB by ship id and bypass the intercept:
+   `MindriderEngine` (Movement phase) and `JumpEngine::readArrivalOrder`. Both filter by system or
+   key, so an `OffKilled` note is harmless to them today. Re-check this when an officer is posted on
+   a Mindrider Engine (age 3, so never under D9) or on a Jump Engine (Stage 7).
+4. In a replay view of turn N, "serving" is judged at the game's current turn, as `isDestroyed()` is.
+   So the replayed `iniativebonus` shows the +5 only if he still serves now; `out` and `how` are
+   correct for the viewed turn.
+5. ~~Until Stage 2, the offer shows in the lobby buy dialog's Enhancements section and in
+   `lobbyEnhancements`' own tooltip.~~ Resolved by Stage 2 (§9.3).
+
+**Play-test (user, 2026-10-10, game 4457).** G'Quan #1 (player 210) and an Omega with Elite Crew (player
+211) each bought a Helmsman. A server load as each player confirmed: posted on the C&C, serving,
+`iniativebonus` 5 and 10, each list sent only to its owner, and the enemy's published `iniativebonus` (the
+Omega's Elite Crew line) without his +5. The game uses `initiativeCategories: 1`, so every ship's
+displayed initiative is the one bracket (−20); the +5 is in `unmodified_iniative` (49 / 59 / 106).
+
+### 9.3 Stage 2: client framework
+
+**Files.** New: `source/public/client/officers.js` (`window.officers`), on both pages' script lists after
+`systemEnhancements.js` (`game.php`, `gamelobby.php`; the legacy bundler scrapes them).
+Changed: `UI/confirm.js` (`buySectionOf` files `OFF_` rows into the reserved Officers section),
+`lobbyEnhancements.js` (`OFF_` kept out of the lobby tooltip), `reactJs/system/SystemIcon.js` (badge row
+plus insignia), `reactJs/system/SystemInfo.js` (the Officers block; it now imports `theme`),
+`reactJs/shipWindow/ShipNotesPanel.js` (Officers lines in the gold panel; the lobby Initiative row),
+`reactJs/shipWindow/ShipWindow.js` (the gold panel shows for an officer-only hull). Bundles rebuilt
+(`fvbuild -Client`). No server code changed.
+
+**`window.officers`**, one API for every surface:
+- `listFor(ship)`: `ship.officers` when the server sent it (own team, or a finished game). Otherwise it
+  is derived from the bought `OFF_` rows, the way `Officers::pickPosts` derives it. That derivation is
+  safe from leaks: only the buyer's browser holds non-zero counts, server payloads never carry
+  `enhancementOptions`, and a static blueprint's rows are all 0, so an enemy ship in game derives
+  nothing. In the lobby a post destroyed by the pre-battle editor gives `out: 0, how: 'disabled'`, which
+  is what the server will rule.
+- `findPost` mirrors `Officers::findPost` by duck-typing (`name === 'cnC'`; a Flag Bridge is a `cnC`
+  carrying the `FlagBridge` special ability). `serves` mirrors `Officers::serves`.
+- `postState` (the best state on a post, D11), `stateText`, `describePost`.
+- ⭐ `displayIniativeBonus(ship)`: the lobby's +5 is added **at read time**, never written into the ship.
+  That way a C&C destroyed in the pre-battle editor takes the +5 away on the next render, and an edit
+  cannot compound it. This deviates from §4.8 ("lobbyEnhancements previews"), deliberately.
+  `enhancementsDifferential.js` compares initiative through this function.
+
+**UI as built.**
+- **Insignia:** an inline-SVG double chevron in a top-left `BadgeRow` that it shares with the ✦ (star
+  first). Gold is `theme.colors.enhTitle`; out of action is light grey `#c4c4c4`; killed adds a red slash
+  `#ff4d4f`. ⚠️ The grey is light because a destroyed icon is blurred as a whole by `System`'s
+  `filter`, which no child can escape: a mid grey vanished. On a destroyed post it is still soft, as the
+  star is; the tooltip and the gold panel carry the state in words. Like the star, its `title` is not
+  hoverable (`pointer-events: none`).
+- **System Info:** a gold "Officers" block between Special and Criticals: name, effect line, and
+  "(disabled, turn N)", "(killed, turn N)" or "(post destroyed before battle - he will not serve)".
+- **Gold panel:** an "Officers" sub-title under Enhancements, one line per officer, "Expert Helmsman -
+  C&C" plus his state, dimmed once he is out of action. `withEnhPanel` counts officers.
+- **Buy dialog:** the Officers section keeps the default blue and no icon until there is art
+  (`img/Officers.png`). The lobby fleet list names him with his price, which is the player's own fleet.
+- **Not done:** `ShipInfo` (it shows enhancements only for flights, mines and terrain, none of which can
+  carry an officer yet). That belongs to Stage 4.
+
+**Verified.**
+- `tests/replay/officersClientHarness.js`: 24 renderToString checks (three looks, the destroyed-system
+  path, enemy ship, star alongside, System Info block, gold panel, lobby initiative incl. pre-battle).
+  Before them it requires the bundle in a fresh process, with a **negative control**: the same bundle
+  with `SystemInfo.js`'s `theme` import stripped must fail with a ReferenceError, and does.
+- Real site, headless, read-only (`tests/replay/officersE2E/`, README there):
+  - `game.php`, game 4457, as each player: 13 / 13 each. Own payload, insignia, gold panel, a real
+    mouse hover giving the Officers tooltip, the disabled and killed looks (payload states set on the
+    page), the enemy window showing nothing, no POST, no page error.
+  - `gamelobby.php`, a seeded and then deleted lobby: 16 / 16. The Officers section appears and the
+    Helmsman is not under Enhancements; **+** adds ceil(5 % of 925) = 47; the bought row carries 47
+    points; insignia, gold panel, Initiative 5 and the hover tooltip; then the C&C destroyed through
+    the pre-battle editor's own calls turns the insignia grey with the warning and Initiative 0.
+- Gates: enhancementsHarness 258 / 0 (three Helmsman cases added to `$CASES` / `$DIFF_CASES`; `applied()`
+  now runs `pickPosts → setEnhancements → apply` like a load; re-recorded, additions only, 1,524 lines),
+  differential 299 cases / 0 differing, officersHarness 103 / 0.
+- "A finished game shows all" is proven server-side (officersHarness: the finished-game payload). The
+  client draws a sent list the same way, whoever sends it.
+
+### 9.4 Refinements round 1 (user, 2026-10-10) and Stage 2a
+
+The user also shortened the Helmsman's effect line in `officers.js` to "+5 initiative, wins ties, -1 on
+meteor chart". The tests now read it from `officers.get('OFF_HELM').summary`, so a reword cannot break
+them.
+
+**1. The document: renamed "Ship Options", with an Officers group.** The Ammo, Options & Enhancements
+document is now titled **Ship Options** everywhere a player reads it: the viewer tab and heading
+(`docViewer.js`), the page title (`docPage.php`), game.php's USEFUL LINKS button, the gamelobby and
+games.php links, and the cross-document links in the FAQ and Factions & Tiers. The URL
+(`ammo-options-enhancements.php`), the doc key (`ammo`) and the file (`docs/ammo-options.html`) are
+deliberately unchanged, so every bookmark, Discord link and `data-fvdoc="ammo"` still lands. A new
+**Officers** group at the end has two entries:
+- **About Officers** (`#officers`): buying, posts, eligibility, losing an officer (disabled or killed,
+  the next-turn rule, pre-battle damage), the insignia, the tooltip and the gold box, and what the
+  opponent can still see.
+- **Ship Officers** (`#shipofficers`): one card per officer, Expert Helmsman so far.
+
+About Enhancements links to it. Later stages add a card each, and Stage 4 adds Fighter Officers.
+
+**2. Stage 2a, the buy-dialog filter chips (D13), built as §4.12 described.**
+- `confirm.js`: `BUY_SECTIONS` gains a `chip` label (Ammo's reads "Ordnance"). The shell puts a
+  `.buyChips` toolbar in the commented-out filter box's slot: All, then one chip per section.
+  `addBuyChips` (called from `openBuySections`) shows only the chips whose section got rows, and the
+  whole row only with two or more. `pickBuyChip` sets `hidden` on the other sections and opens the
+  picked one; All shows them all.
+- `confirm.css`: the section colour tokens moved from `.buySection[data-section=…]` to a bare
+  `[data-section=…]`, so the chip, which carries the same attribute, wears the same tokens. Defaults are
+  on `.buySection, .buyChip`. A picked chip uses the head's recipe (bar border, 0.22 wash, title colour);
+  All uses `--fv-accent`. Coarse pointers get 34 px chips.
+- ⭐ A chip only HIDES sections. Rows never leave the DOM, so totals and the gamelobby.js read-back are
+  untouched; the lobby driver buys with the Officers section hidden and the officer is still bought.
+
+**3. Initiative is public (user ruling; D4 and the §4.6 Helmsman row amended).** "Not showing the real
+initiative value of the ship is more misleading." `Officers::addForJson` now publishes
+`iniativebonus` to **every** viewer whenever a serving officer has moved it, and no longer subtracts the
+officer's share from an enhancement-published value. The officer list itself stays own-team. So an
+enemy's ship tooltip reads the ship's real "base", e.g. 10 for the Omega with Elite Crew and a Helmsman,
+without being told who is behind it.
+
+**Verified.**
+- officersHarness 101 / 0: the per-viewer checks now expect the real bonus everywhere.
+- enhancementsHarness re-recorded, 258 / 0. Twelve `helm`-case payload hashes moved at an identical
+  length: `iniativebonus` is now written before `officers`, the same keys in another order.
+- Differential 299 / 0 differing; officersClientHarness 24 / 0.
+- Real-site drivers (`tests/replay/officersE2E/`): game 15 / 15 per player, including the enemy's real
+  `ShipTooltip` showing "base 10" and "base 5"; lobby 25 / 25, including the chips: which ones show,
+  section isolation, colours, a purchase surviving a chip switch, all 83 Earth Alliance units (70 with a
+  chip row, 13 single-section ones without), and the 360 px wrap; the Ship Options document 8 / 8.

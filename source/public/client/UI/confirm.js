@@ -822,19 +822,21 @@ window.confirm = {
          .confirmok                       data shipclass / ship / originalShipData; `this` in the callback
        getTotalCost / getTotalCostBulk work every figure out; paintBuySummary only shows them. */
 
-    //Top to bottom. A section no row is filed into is never shown - which is how Officers holds its
-    //place: plan §10.2 reserves the slot, the feature itself is not designed yet.
+    //Top to bottom. A section no row is filed into is never shown, so Officers appears only on a hull
+    //that is offered one (OFFICERS_PLAN.md D10 - buySectionOf files every OFF_ row there).
     //Every section starts OPEN, however long (user, 2026-09-26 - plan §10.4's fold-past-8-rows default
     //was dropped): the player folds one away by hand if they want it out of the road.
     //`word` is what the filter box's placeholder calls the section: "Filter ammo, enhancements, options…".
     //`icon`: the head shows an icon after its title. WHICH image is confirm.css's business - each
     //section's .buySectionIcon is masked with img/Ordnance.png, Enhancements.png or Options.png and
-    //tinted to the section's colour (SHIP_ENHANCEMENTS_PLAN.md §5). Officers has none yet.
+    //tinted to the section's colour (SHIP_ENHANCEMENTS_PLAN.md §5). Officers has none yet: it waits for
+    //the art (img/Officers.png, OFFICERS_PLAN.md §4.7) and keeps the default blue meanwhile.
+    //`chip` is the section's filter-chip label (OFFICERS_PLAN.md D13) - shorter than its title for Ammo.
     BUY_SECTIONS: [
-        { key: 'ammo', title: 'Ammo &amp; Ordnance', word: 'ammo', icon: true },
-        { key: 'enhancements', title: 'Enhancements', word: 'enhancements', icon: true },
-        { key: 'options', title: 'Options', word: 'options', icon: true },
-        { key: 'officers', title: 'Officers', word: 'officers', icon: false }
+        { key: 'ammo', title: 'Ammo &amp; Ordnance', word: 'ammo', chip: 'Ordnance', icon: true },
+        { key: 'enhancements', title: 'Enhancements', word: 'enhancements', chip: 'Enhancements', icon: true },
+        { key: 'options', title: 'Options', word: 'options', chip: 'Options', icon: true },
+        { key: 'officers', title: 'Officers', word: 'officers', chip: 'Officers', icon: false }
     ],
 
     //The filter box shows from this many rows (in all sections together). A mine's three to seven
@@ -850,6 +852,8 @@ window.confirm = {
     BUY_AMMO_IDS: ['EXT_AMMO', 'EXT_HAMMO'],
 
     buySectionOf: function buySectionOf(enhancement) {
+        //OFFICERS_PLAN.md D10 - the reserved section; an OFF_ id is an officer whatever else it says
+        if (window.officers && officers.isOfficerId(enhancement[0])) return 'officers';
         if (confirm.BUY_AMMO_TAG.test(enhancement[1]) || confirm.BUY_AMMO_IDS.indexOf(enhancement[0]) !== -1) {
             return 'ammo';
         }
@@ -936,6 +940,16 @@ window.confirm = {
                 + '</section>';
         }).join('');
 
+        //Filter chips (D13): All, then one per section in BUY_SECTIONS order. Each starts hidden;
+        //addBuyChips shows the ones whose section got rows. data-section is what colours a chip.
+        var chips = '<div class="buyChips" role="toolbar" aria-label="Show sections" hidden>'
+            + '<button type="button" class="buyChip" data-chip="all" aria-pressed="true">All</button>'
+            + confirm.BUY_SECTIONS.map(function (section) {
+                return '<button type="button" class="buyChip" data-section="' + section.key + '" aria-pressed="false" hidden>'
+                    + section.chip + '</button>';
+            }).join('')
+            + '</div>';
+
         var total = function (label, modifier, amountClass) {
             return '<span class="buyDialogTotal' + modifier + '">'
                 + '<span class="buyDialogTotalLabel">' + label + '</span>'
@@ -965,6 +979,7 @@ window.confirm = {
             //+ '<div class="buyDialogFilter" hidden>'
             //+ '<input type="search" class="buyFilterInput" aria-label="Filter the rows below" autocomplete="off" spellcheck="false" enterkeyhint="next">'
             //+ '</div>'
+            + chips
             + '<div class="buyDialogSections">' + sections + '</div>'
             + '<p class="buyFilterEmpty" hidden>Nothing here matches <q></q>.</p>'
             + '</div>'
@@ -1256,6 +1271,43 @@ window.confirm = {
         $(".buyDialogSections", e).prop("hidden", used.length === 0);
 
         confirm.addBuyFilter(e, used);
+        confirm.addBuyChips(e, used);
+    },
+
+    /* The filter chips (OFFICERS_PLAN.md D13). One chip per section that got rows, plus All; no chip
+       row at all with fewer than two sections, since a chip that filters down to the only section
+       there is would do nothing.
+       ⭐ A chip HIDES sections, it never empties one - the promise the text filter makes too: every
+       row stays in the dialog, so the .shpenh<N> spinners, the totals and gamelobby.js's read-back
+       all still see it, and a purchase made under one chip survives picking another. The choice
+       lasts for this dialog only. If the text filter box ever returns, the two combine:
+       filterBuyRows only walks the sections that are shown. */
+    addBuyChips: function addBuyChips(e, used) {
+        var chips = $(".buyChips", e);
+        if (used.length < 2 || chips.data("ready")) return;
+        chips.data("ready", true);
+
+        used.each(function () {
+            $('.buyChip[data-section="' + this.getAttribute("data-section") + '"]', chips).prop("hidden", false);
+        });
+        chips.prop("hidden", false);
+
+        chips.on("click", ".buyChip", function () {
+            confirm.pickBuyChip(e, used, this.getAttribute("data-section")); //null for All
+        });
+    },
+
+    //Show only the section `key` (null = all of them); a picked section is shown open.
+    pickBuyChip: function pickBuyChip(e, used, key) {
+        $(".buyChip", e).each(function () {
+            var picked = key ? this.getAttribute("data-section") === key : this.getAttribute("data-chip") === "all";
+            this.setAttribute("aria-pressed", picked ? "true" : "false");
+        });
+        used.each(function () {
+            var show = !key || this.getAttribute("data-section") === key;
+            this.hidden = !show;
+            if (show && key) confirm.setBuySectionOpen($(this), true);
+        });
     },
 
     /* The filter box (plan §10.2, Stage 10), for "I know the name of the one I want" - which a B5W

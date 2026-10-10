@@ -2326,6 +2326,7 @@ spl_autoload_register(
                 'octuran' => '/server/model/ships/HouseValheru/Octuran.php',
                 'octurion' => '/server/model/ships/centauri/octurion.php',
                 'octurionmd' => '/server/model/ships/centauri/octurionMD.php',
+                'officers' => '/server/model/ships/Officers.php',
                 'offsetcoordinate' => '/server/model/OffsetCoordinate.php',
                 'olgata' => '/server/model/ships/dilgar/olgata.php',
                 'olympusalphaam' => '/server/model/ships/EA/olympusAlphaAM.php',

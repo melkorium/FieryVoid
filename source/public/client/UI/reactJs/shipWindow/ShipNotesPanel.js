@@ -94,6 +94,11 @@ const Row = styled.div`
     padding: 1px 0;
 `;
 
+//an officer out of action reads dimmed (OFFICERS_PLAN.md D11)
+const OfficerRow = styled(Row)`
+    ${props => props.$out ? `color: ${theme.colors.textDim};` : ''}
+`;
+
 const CustomFlag = styled.div`
     padding: 1px 0;
     font-weight: bold;
@@ -361,7 +366,7 @@ export const ManoeuvreStats = ({ ship, live, bare }) => {
             {mobile && <StatRow><StatLabel>Pivot</StatLabel><StatValue>{ship.pivotcost}</StatValue></StatRow>}
             {mobile && <StatRow><StatLabel>Roll</StatLabel><StatValue>{ship.rollcost}</StatValue></StatRow>}
             <StatRow><StatLabel>Profile - Front / Side</StatLabel><StatValue $changed={Boolean(now && now.profileChanged)}>{now ? now.profile : profileText(ship.forwardDefense, ship.sideDefense)}</StatValue></StatRow>
-            {mobile && <StatRow><StatLabel>Initiative</StatLabel><StatValue $changed={Boolean(now && now.initiativeChanged)}>{now ? now.initiative : ship.iniativebonus}</StatValue></StatRow>}
+            {mobile && <StatRow><StatLabel>Initiative</StatLabel><StatValue $changed={Boolean(now && now.initiativeChanged)}>{now ? now.initiative : (window.officers ? officers.displayIniativeBonus(ship) : ship.iniativebonus)}</StatValue></StatRow>}
 
         </StatsPanel>
     );
@@ -372,15 +377,41 @@ export const ManoeuvreStats = ({ ship, live, bare }) => {
 //grid there)
 export const EnhancementsPanel = ({ ship }) => {
     const enhLines = splitHtmlLines(ship.enhancementTooltip);
-    if (enhLines.length === 0) return null;
+    const officerLines = officerLinesFor(ship);
+    if (enhLines.length === 0 && officerLines.length === 0) return null;
     return (
         <EnhArea>
             <Block $gold>
-                <EnhTitle>Enhancements</EnhTitle>
+                {enhLines.length > 0 && <EnhTitle>Enhancements</EnhTitle>}
                 {enhLines.map((line, i) => <Row key={`enh-${i}`}>{line}</Row>)}
+                {officerLines.length > 0 && <EnhTitle>Officers</EnhTitle>}
+                {officerLines.map(line => <OfficerRow key={`off-${line.id}`} $out={line.out}>{line.text}</OfficerRow>)}
             </Block>
         </EnhArea>
     );
+};
+
+/* OFFICERS_PLAN.md §4.7 - the ship-level list: each officer and the system he is posted on, which for
+   a random-post officer is the only place to read it off at a glance. Own team only, through
+   officers.listFor (D4). A fallen officer stays listed, dimmed, with how and when. */
+export const officerLinesFor = (ship) => {
+    if (!window.officers || !ship) return [];
+    const turn = officers.currentTurn();
+    return officers.listFor(ship).map(entry => {
+        const post = findSystem(ship, entry.post);
+        const state = officers.stateText(entry);
+        return {
+            id: entry.id,
+            out: !officers.serves(entry, turn),
+            text: officers.label(entry.id) + (post ? ' - ' + post.displayName : '') + (state ? ' ' + state : '')
+        };
+    });
+};
+
+//by id over either shape of ship.systems (an array in game, keyed by id on a lobby blueprint)
+const findSystem = (ship, id) => {
+    const systems = Array.isArray(ship.systems) ? ship.systems : Object.values(ship.systems || {});
+    return systems.find(system => system && String(system.id) === String(id)) || null;
 };
 
 const splitHtmlLines = (text) =>

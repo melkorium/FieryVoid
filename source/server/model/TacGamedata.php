@@ -65,6 +65,12 @@ class TacGamedata {
       reset in the wrong place would silently switch the coating off, whereas a stale true only costs
       one method call per shot (BaseShip::getProfileCoatingReduction answers 0 for an uncoated ship).*/
     public static $profileCoatingPresent = false;
+    /*OFFICERS_PLAN.md §4.5 - does any unit in this game carry an officer? The per-shot and per-
+      comparison officer rules (the initiative tie-break, the meteor chart, the kill roll) ask behind
+      it, so an ordinary game pays one static read. Set in markUnavailableSetMarkers(). A stale value
+      from an earlier load in the same request is harmless: every rule behind it also asks the
+      ship's own officer list, which is empty until that ship's onConstructed has run.*/
+    public static $officersPresent = false;
     /*D15, second half: a FINISHED game drops every deception so the post-mortem shows what actually
       happened. Set from $this->status, read by applyChameleonDisguise() and maskChameleonArming().
       Deliberately NOT implemented by forcing the two gates above to false: maskChameleonFireOrders()
@@ -488,6 +494,7 @@ class TacGamedata {
         self::$chameleonPresent = false; //before the phase guard: the static outlives a single load
         self::$chameleonSuitePresent = false;
         self::$elintModulesPresent = false;
+        self::$officersPresent = false;
         self::$chameleonDisclosed = ($this->status === "FINISHED"); //D15: the post-mortem sees everything
         $this->setChameleonTeamList();
         if ($this->phase < -1)
@@ -526,6 +533,9 @@ class TacGamedata {
             //Kirishiac ELINT Sensor Modules - see $elintModulesPresent. The modules are mounted at
             //load (Enhancements::mountSystemEnhancementSystems), long before this runs.
             if(!self::$elintModulesPresent && !empty($ship->getElintModules())) self::$elintModulesPresent = true;
+
+            //Officers - see $officersPresent. The list is resolved in onConstructed(), long before this.
+            if(!self::$officersPresent && $ship->hasOfficers()) self::$officersPresent = true;
         }
     }
     
@@ -598,6 +608,14 @@ class TacGamedata {
         if ($a->iniative > $b->iniative) return 1;
 
         if ($a->iniative < $b->iniative) return -1;
+
+            /* OFFICERS_PLAN.md - an Expert Helmsman wins an initiative tie, ahead of the bonus
+               tie-break. Manager::generateIniative turns this order into distinct totals, so the
+               client (which never sees a tie) needs no twin. */
+            if (self::$officersPresent){
+                $aHelm = Officers::winsInitiativeTies($a);
+                if ($aHelm !== Officers::winsInitiativeTies($b)) return $aHelm ? 1 : -1;
+            }
 
             if ($a->iniativebonus > $b->iniativebonus) return 1;
 

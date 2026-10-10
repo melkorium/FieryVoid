@@ -108,7 +108,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
          file so it no longer shares .shipNameContainer with the hover tooltip above. -->
     <link href="<?php echo AssetLoader::getAssetUrl('styles/hexPicker.css'); ?>" rel="stylesheet" type="text/css">
     <!-- The DATA ARCHIVE window (client/UI/docViewer.js, bundled below): FLEET INFO's USEFUL LINKS
-         open the FAQ, Ammo & Options and Factions documents over the battle instead of a new tab. -->
+         open the FAQ, Ship Options and Factions documents over the battle instead of a new tab. -->
     <link href="<?php echo AssetLoader::getAssetUrl('styles/docViewer.css'); ?>" rel="stylesheet" type="text/css">
 <!--	styles/helper.css was deleted (roadmap item 6, Stage 5) - it was dead, see helper.php -->
     <!-- jQuery + jQuery-UI self-hosted (same-origin HTTP/2 + cache-control, no 3rd-party TLS).
@@ -405,6 +405,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     <script defer src="client/systems.js"></script>
     <script defer src="client/battleDamage.js"></script>
     <script defer src="client/systemEnhancements.js"></script>
+    <!-- OFFICERS_PLAN.md - window.officers: the insignia, the tooltip lines and the ship-level list -->
+    <script defer src="client/officers.js"></script>
     <script defer src="client/savedFleets.js"></script>
     <!-- SAVE_ORDERS_PLAN.md - the floppy beside the commit tick, and the OPTIONS tab's Saved
          Orders block. Everything it calls is runtime-only, so its place in the list is free. -->
@@ -967,8 +969,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
                 <span class="fv-log-bar-meta">USEFUL LINKS:</span>
                 <button type="button" class="fv-log-chip fv-log-chip--link" title="Fiery Void FAQ"
                         data-fvdoc="faq">FAQ</button>
-                <button type="button" class="fv-log-chip fv-log-chip--link" title="Ammo, Options &amp; Enhancements"
-                        data-fvdoc="ammo">Ammo &amp; Options</button>
+                <button type="button" class="fv-log-chip fv-log-chip--link" title="Ship Options: ammo, enhancements and officers"
+                        data-fvdoc="ammo">Ship Options</button>
                 <button type="button" class="fv-log-chip fv-log-chip--link" title="Factions &amp; Tiers Info"
                         data-fvdoc="factions">Factions</button>
             </span>
