@@ -1316,7 +1316,7 @@ class ShuttleOrieni extends Shuttle
         parent::setShuttleDefaults();
         $this->phpclass = "ShuttleOrieni";
         $this->shipClass = "Shuttle";
-        $this->faction = "Centauri Republic";
+        $this->faction = "Orieni Imperium";
         $this->forwardDefense = 11;
         $this->sideDefense = 11;
         $this->freethrust = 3;
