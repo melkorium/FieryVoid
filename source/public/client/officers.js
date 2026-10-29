@@ -2873,11 +2873,13 @@ window.officers = {
 		//Stage 34: an Expert War Leader's - a share of the fleet and of this ship, re-priced as the fleet changes (repriceFleet)
 		if (this.fleetFamily(enhancement[0]) === 'OFF_WLEAD') {
 			var outsider = ship && this.WARLEADER_HOME.indexOf(String(ship.faction)) === -1;
-			return enhancement[4] + 'pts: ' + this.WARLEADER_FLEET_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet\'s hulls')
-				+ ' + ' + this.WARLEADER_SHIP_PCT + '% of the ship' + (outsider ? ', x1.5 outside the Narn Regime' : '');
+			return enhancement[4] + 'pts'			
+			//return enhancement[4] + 'pts: ' + this.WARLEADER_FLEET_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet\'s hulls')
+			//	+ ' + ' + this.WARLEADER_SHIP_PCT + '% of the ship' + (outsider ? ', x1.5 outside the Narn Regime' : '');
 		}
 		if (this.isFleetPriced(enhancement[0])) {
-			return enhancement[4] + 'pts: ' + this.EVANGELIST_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet, re-priced as it changes');
+			return enhancement[4] + 'pts'			
+			//return enhancement[4] + 'pts: ' + this.EVANGELIST_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet, re-priced as it changes');
 		}
 		if (!this.isFighterOfficer(enhancement[0])) return null;
 		var standard = this.standardFlight(ship);

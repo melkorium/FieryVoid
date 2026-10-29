@@ -1141,7 +1141,31 @@ window.confirm = {
         $(".confirmcancel", e).on("click", cancel);
         $(".buyDialogClose", e).on("click", cancel);
         e.on("keydown", function (ev) {
-            if (ev.key === "Escape") cancel();
+            if (ev.key !== "Escape") return;
+            //an open "?" window closes first - the dialog only from the next Escape
+            var help = $('.buyHelp[aria-expanded="true"]', e)[0];
+            if (help) {
+                confirm.closeBuyHelp(e);
+                help.focus();
+            } else {
+                cancel();
+            }
+        });
+
+        //The "?" after a row's name (addBuyHelp): one help window open at a time; a click anywhere
+        //else in the dialog closes it, as on the Create Game page's Scenario cards.
+        e.on("click", ".buyHelp", function () {
+            var wasOpen = this.getAttribute("aria-expanded") === "true";
+            confirm.closeBuyHelp(e);
+            if (!wasOpen) confirm.openBuyHelp(this);
+        });
+        e.on("click", function (ev) {
+            if (!$(ev.target).closest(".buyHelp, .buyHelpBubble").length) confirm.closeBuyHelp(e);
+        });
+        //Namespaced and replaced on every open, so dialogs opened one after another bind it once.
+        $(window).off("resize.buyHelp").on("resize.buyHelp", function () {
+            var help = $('.confirm.buyDialog .buyHelp[aria-expanded="true"]')[0];
+            if (help) confirm.positionBuyHelp(help);
         });
 
         //Any number open at once - this is not a tab switch, just a way to fold away what is not
@@ -1180,6 +1204,71 @@ window.confirm = {
             + '<button type="button" class="plusButton" aria-label="Increase">+</button>'
             + '</span>'
             + '</div>');
+    },
+
+    /* A "?" straight after the row's name, opening a short line on what it does (buyHelp.textOf -
+       an officer's is his registry summary); no text, no "?". Added once the row's name is final:
+       applyEnhancementChoiceWidget rewrites it. The button's only text is the "?" glyph, which
+       buySearchText reads as a space, so the filter box still matches the name alone. The window
+       goes beside the sections, not in the row: a section clips whatever overflows it (confirm.css
+       .buySection), and a one-row section would hide it whole. Its data-section gives it the
+       section's colours there. `item` is in the dialog already. */
+    buyHelpCount: 0,
+
+    addBuyHelp: function addBuyHelp(item, enhID) {
+        var text = window.buyHelp ? buyHelp.textOf(enhID) : '';
+        if (!text) return;
+
+        var id = 'buyHelp' + (++confirm.buyHelpCount);
+        var name = $(".buyRowName", item);
+        $('<button type="button" class="buyHelp" aria-expanded="false"><span aria-hidden="true">?</span></button>')
+            .attr({ 'aria-controls': id, 'aria-label': 'About ' + name.text() })
+            .appendTo(name);
+        $('<div class="buyHelpBubble" hidden></div>')
+            .attr({ id: id, 'data-section': item.closest(".buySection").attr("data-section") })
+            .text(text)
+            .appendTo(item.closest(".buyDialogSections"));
+    },
+
+    openBuyHelp: function openBuyHelp(button) {
+        button.setAttribute("aria-expanded", "true");
+        document.getElementById(button.getAttribute("aria-controls")).hidden = false;
+        confirm.positionBuyHelp(button);
+    },
+
+    closeBuyHelp: function closeBuyHelp(e) {
+        $('.buyHelp[aria-expanded="true"]', e).each(function () {
+            this.setAttribute("aria-expanded", "false");
+            document.getElementById(this.getAttribute("aria-controls")).hidden = true;
+        });
+    },
+
+    /* Under the "?", arrow pointing at it, slid left as far as it must to stay within the row
+       (createGame.positionHelp's placing). It goes ABOVE instead when the scrolling body has more
+       room there - the last rows' windows would otherwise open below everything shown, and the
+       Officers section, whose lines are the longest, is the last one. Either way the body then
+       scrolls just enough to show it all, if it can. Offsets are from .buyDialogSections, the
+       window's parent, which scrolls with the rows. */
+    positionBuyHelp: function positionBuyHelp(button) {
+        var bubble = document.getElementById(button.getAttribute("aria-controls"));
+        var box = bubble.parentNode.getBoundingClientRect();
+        var row = button.closest(".buyRow").getBoundingClientRect();
+        var glyph = button.querySelector("[aria-hidden]").getBoundingClientRect();
+        var centre = glyph.left + glyph.width / 2 - box.left;
+        var minLeft = row.left - box.left;
+        var maxLeft = Math.max(minLeft, row.right - box.left - bubble.offsetWidth);
+        var left = Math.min(Math.max(minLeft, centre - 16), maxLeft);
+
+        var body = button.closest(".buyDialogBody").getBoundingClientRect();
+        var roomBelow = body.bottom - glyph.bottom - 9;
+        var roomAbove = glyph.top - body.top - 9;
+        var above = bubble.offsetHeight > roomBelow && roomAbove > roomBelow;
+
+        bubble.classList.toggle("is-above", above);
+        bubble.style.left = left + "px";
+        bubble.style.top = (above ? glyph.top - box.top - 9 - bubble.offsetHeight : glyph.bottom - box.top + 9) + "px";
+        bubble.style.setProperty("--buy-help-arrow", (centre - left) + "px");
+        bubble.scrollIntoView({ block: "nearest" });
     },
 
     /* "G'Quan Heavy Cruiser #3": the class and the next number no unit on the page already carries
@@ -1368,6 +1457,7 @@ window.confirm = {
 
             //a choice-valued option (Chameleon disguise) swaps the spinner for a dropdown; no-op otherwise
             confirm.applyEnhancementChoiceWidget(item, enhancement);
+            confirm.addBuyHelp(item, enhID);
         }
         confirm.addOfficerLimitNote(e, ship);
     },
@@ -1464,6 +1554,7 @@ window.confirm = {
             $(".minusButton", item).data("firingMode", i).on("click", confirm.doOnMinusMissile);
 
             item.appendTo(body);
+            confirm.addBuyHelp(item, 'AMMO_' + i); //the firing mode is the missile class: FB, FY, LBT...
         }
     },
 
