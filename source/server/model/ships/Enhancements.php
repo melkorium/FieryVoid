@@ -3849,6 +3849,16 @@ class Enhancements{
 			'ages'      => array(1, 2),
 			'serialise' => array(),
 		),
+		//OFFICERS_PLAN.md Stage 33: the Expert Evangelist in any system or Structure block but his C&C - priced off the FLEET, by the lobby
+		'OFF_EVANP' => array(
+			'label'     => 'Expert Evangelist',
+			'eligible'  => 'sysEnhEligibleOfficerEVANP',
+			'price'     => 'sysEnhPriceOfficerEVANP',
+			'limit'     => 'sysEnhLimitOne',
+			'officer'   => true,
+			'ages'      => array(1, 2),
+			'serialise' => array(),
+		),
 	);
 
 	//a placed officer's row (Stage 8), not a refit: kept off the star and the summary count
@@ -4629,6 +4639,16 @@ class Enhancements{
 		return Officers::rowPrice($ship, 'OFF_TURR');
 	}
 
+	//Stage 33: any system or Structure block that can be hit but his C&C (Officers::mayHost; his `hosts` says which) - no Gunsights test
+	private static function sysEnhEligibleOfficerEVANP($ship, $system){
+		return Officers::mayHost($ship, $system, 'OFF_EVANP');
+	}
+
+	//an offer's price is 0 (no hull knows its fleet): the lobby prices him, and sanitiseSystemEnhancements keeps the row's own price
+	private static function sysEnhPriceOfficerEVANP($ship, $system, $level){
+		return 0;
+	}
+
 	/* SYS_HSHLD and SYS_THR are both "output += level".
 	   ⚠️ ORDERING MATTERS for the shield and is already right: Shield::onConstructed derives
 	   tohitPenalty/damagePenalty from getOutput(), and setSystemEnhancements is called from
@@ -4803,6 +4823,10 @@ class Enhancements{
 
 			$total = self::systemEnhancementTotalPrice($ship, $system, $enhID, $count);
 			$claimed = isset($row[4]) ? (float)$row[4] : null;
+			/* OFFICERS_PLAN.md Stage 33: an Expert Evangelist costs "5% of the cost of the fleet" - the slot's points, or the fleet itself
+			   when they are Unlimited, which only the lobby knows (officers.repriceFleet). His row keeps what it says, as every ship-level
+			   row's points are kept (pointCostEnh) - the trust D4 already extends to the ship-level bucket, not a new one. */
+			if(Officers::isFleetPriced($enhID)) $total = max(0, (float)($claimed ?? 0));
 			if($claimed !== null && abs($claimed - $total) > 0.001){
 				$out['notices'][] = self::systemEnhancementLabel($enhID) . " on $sysname #$systemid was re-priced from $claimed to $total.";
 			}

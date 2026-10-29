@@ -1273,6 +1273,14 @@ class Manager{
                             continue;
                         }
                         $now = (float)Officers::rowPrice($ship, $enhID, $numberTaken); //the counts are written back below
+                        /* OFFICERS_PLAN.md Stage 33: an Expert Evangelist costs "5% of the cost of the fleet" - the slot's or the fleet's,
+                           which no saved fleet knows. He keeps what he cost, on his row too, and the lobby re-prices him to the slot the
+                           fleet is loaded into (officers.repriceFleet, which moves the points by the difference from that row). */
+                        if (Officers::isFleetPriced($enhID)) {
+                            $now = $paid;
+                            foreach ($ship->enhancementOptions as &$option) if ($option[0] === $enhID) $option[4] = $paid;
+                            unset($option);
+                        }
                         if ($now != $paid) {
                             $ship->pointCostEnh = max(0, (float)$ship->pointCostEnh - $paid + $now);
                             $sysEnhNotices[] = $ship->name . ': ' . Officers::getLabel($enhID) . ' now costs ' . $now

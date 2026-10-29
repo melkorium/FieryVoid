@@ -15,7 +15,7 @@
    THE ONE RUNTIME LIST. $ship->getOfficers() holds array('id', 'post', 'out', 'how') per officer:
    'post' is the post's system id, 'out' the turn he left action (null while he has not), 'how'
    'disabled' or 'killed' - or 'moved' for a fighter officer who left this flight row with his fighter
-   (followFighter; stored as one OffMoved note). He serves on turn T while out === null or out >= T.
+   (followFighter; stored as one OffMoved note), or 'withdrawn' (Stage 33) for one whose ship jumped out. He serves on turn T while out === null or out >= T.
    Every effect, the payload and (Stage 2) the insignia read that list and nothing else (§7, "two
    tracks drift").
 
@@ -87,6 +87,10 @@
    tougher for the whole battle; in a breaching pod (OFF_TRPOD, one to a pod): -3 on every roll of its boarding parties, and a d6 to
    escape when one is eliminated (troopPartyLost). Breaching Experts became one to a pod as well, and the two may share a pod flight
    (`mixesWith`).
+
+   Stage 33: the Expert Evangelist (Corillani CPN and OSF) - the first officer whose effect reaches a whole FLEET: every unit of his
+   player's +10 initiative and +1 fire control while he serves, -10 and -1 once he is lost (applyMorale), nothing once his ship has
+   jumped out ('withdrawn' - withdrawnTurn); priced off the fleet, by the lobby (`fleet`).
 
    Which FACTIONS may buy an officer, and what some of them pay, is one table: $factionRules below. */
 class Officers{
@@ -194,6 +198,8 @@ class Officers{
 	const REDLINE_BURN_PCT = 50;         //...: afterburners - "the fight increases its thrust by 50% on the current turn (round any fractions down)"
 	const REDLINE_LANDING_DIE = 20;      //...: a landing beyond the tolerance - "roll a d20. If the result is less than or equal to the amount ... exceeded", he crashes
 	const REDLINE_LANDING_CLASS = 'RedlineLanding'; //...a landing that holds, told in the combat log (rollRedlineLandings) - weaponManager.doShortLogText
+	const EVANGELIST_INI = 10;           //Expert Evangelist: "all units in the scenario receive a +10 initiative bonus" - FV units, as the Religious Leader's
+	const EVANGELIST_HIT = 1;            //...: "and +5% to hit with all weapons" - one fire control point; both "reversed into penalties" once he is lost
 	/* ...: the magazine rounds he may pick free - "change one of their single-space ... missiles to any other legal type at no cost" - by
 	   enhancement id, each with the round it loads (Enhancements::setEnhancementOptionsShip's list). A pick is one of these the hull is
 	   enabled for, single-slot and priced on that hull (paidPickTypes); Basic is not among them, as no swap to it is worth anything (user
@@ -307,6 +313,9 @@ class Officers{
 		'OFF_GRAV' => array('pct' => array('Brakiri Syndicracy' => 10)),
 		//"Equal to the 100% cost of a fighter ... Races other than the Cascor increase the cost by 50%" - the registry's 150, and 100 here
 		'OFF_REDL' => array('pct' => array('Cascor Commonwealth' => 100)),
+		//"Availability: Corillani CPN and OSF sub-faction units only" - the Theocracy's own hulls (user ruling 2026-10-29: not the Civilians'
+		//Vostova freighters or the Custom Ships' Shadow hulls, whose notes name the CPN or OSF too); the sub-faction is his `needs` (isCpnOrOsf)
+		'OFF_EVAN' => array('only' => array('Corillani Theocracy')),
 	);
 
 	/* One literal per officer (D6), walked in THIS order by apply() (D5).
@@ -364,7 +373,10 @@ class Officers{
 	                 one to a system - at purchase and load (keepPlacedRows) and when he moves (mayMoveTo)
 	   Stage 30:
 	     stock       (optional) true: his once-per-battle abilities are the SHIP's stock, not his - one spent after he was lost still counts
-	                 (resolveUses), and he may spend it then (the Expert Quartermaster's patch: "everything stays", user ruling 2026-10-24) */
+	                 (resolveUses), and he may spend it then (the Expert Quartermaster's patch: "everything stays", user ruling 2026-10-24)
+	   Stage 33:
+	     fleet       (optional) true: his pct is of the FLEET, not of the hull (the Expert Evangelist's "5% of the cost of the fleet") -
+	                 priced by the lobby, which alone knows the slot and the fleet; the server keeps the row's own price (fleetRowPrice) */
 	private static $registry = array(
 		/* Expert Helmsman: +5 initiative (FV units, QX1), wins initiative ties, and -1 on the die he
 		   rolls on a meteor swarm's impact chart (user, 2026-10-10). The tie-break is
@@ -582,6 +594,21 @@ class Officers{
 		   Wars and other-universe settings); the rotation at any point of the move. 10% for the Brakiri, 15% for everyone else ($factionRules). */
 		'OFF_GRAV' => array('label' => 'Expert Graviton Controller', 'post' => 'engine', 'pct' => 15, 'apply' => 'applyGravitonTweaks',
 			'lost' => 'applyGravitonTweaks', 'needs' => 'usesGravitics'),
+		/* Expert Evangelist (Stage 33; rules text, user 2026-10-29), in the C&C when bought, and movable to "any system or structure block"
+		   of his ship - where he is OFF_EVANP, his placed twin below (the Religious Leader's way). "So long as the evangelist is alive and
+		   on the field of play, all units in the scenario receive a +10 initiative bonus and +5% to hit with all weapons ... If the
+		   evangelist is disabled or killed, these bonuses are reversed into penalties (-10 to initiative and -5% to hit) for the rest of
+		   the scenario. If the evangelist's ship disengages, there are no ill effects, though any bonuses are lost" - every unit of his
+		   PLAYER's fleet (user ruling 2026-10-29), applied fleet-wide once every ship is constructed (applyMorale), so `apply` is null.
+		   The +5% is +1 fire control on every weapon (user expectation, §9.35), which interception never reads ("does not affect defensive
+		   fire"); on a serving Expert Gunner's weapon the Gunner's +1 replaces it, the -1 still applies (user ruling). Several are allowed
+		   (the user's note, over "no more than one"): they do not stack, and a lost one's penalty stands beside a serving one's bonus. "5%
+		   of the cost of the fleet" (`fleet`): of the slot's points, or of the fleet itself in an Unlimited slot - the LOBBY's to work
+		   out (officers.repriceFleet), so the server keeps what the row says it cost (fleetRowPrice). "Corillani CPN and OSF sub-faction
+		   units only": the Corillani Theocracy ($factionRules) hulls whose notes name either (isCpnOrOsf - user ruling 2026-10-29). Moves
+		   in battle too (user, 2026-10-29: "no need to be lobby-only"). */
+		'OFF_EVAN' => array('label' => 'Expert Evangelist', 'post' => 'cnc', 'pct' => 5, 'fleet' => true, 'apply' => null,
+			'needs' => 'isCpnOrOsf', 'movable' => true),
 
 		/* PLACED OFFICERS (Stage 8), posted in a weapon the player picks. AFTER every fixed-post officer, so
 		   apply() has already raised the C&C Matter Weapons Expert's guns when it reaches them, and before
@@ -645,6 +672,11 @@ class Officers{
 		   turret (perTurret), so a ship may carry one per turret (turretLimit). 5% of the ship's base cost, Vree only ($factionRules). */
 		'OFF_TURR' => array('label' => 'Expert Turret Officer', 'placed' => true, 'pct' => 5, 'hosts' => 'isTurretPost',
 			'apply' => 'applyTurretOfficer', 'movable' => true, 'perTurret' => true, 'shipLimit' => 'turretLimit'),
+		/* The Expert Evangelist away from his C&C (Stage 33): the same officer as OFF_EVAN (sameAs - his faction rules, his price, one or
+		   the other), in "any system or structure block" of his ship but that C&C (isEvangelistPost) - weapons and Structure blocks
+		   included (`nonWeapon` lets mayHost take a system that is no weapon; `hosts` decides). Every effect is OFF_EVAN's. */
+		'OFF_EVANP' => array('label' => 'Expert Evangelist', 'placed' => true, 'pct' => 5, 'fleet' => true, 'sameAs' => 'OFF_EVAN',
+			'hosts' => 'isEvangelistPost', 'nonWeapon' => true, 'apply' => null, 'movable' => true),
 
 		/* FIGHTER OFFICERS (Stage 4). A flight carries ONE officer in total (D9), posted on its first
 		   craft. He is lost with that craft - destroyed, or dropped out - and never by a dock, a partial
@@ -853,8 +885,30 @@ class Officers{
 	   mirror of flightPrice). The Missileer's per-missile part is not in it: it grows with the flight,
 	   so the lobby adds it at buy time (perCraftExtra). pct is the faction's (pctFor). */
 	private static function offerPrice($ship, $id){
+		if (self::isFleetPriced($id)) return 0; //Stage 33: no hull knows its fleet - the lobby prices him (officers.repriceFleet)
 		if (empty(self::$registry[$id]['flight'])) return self::shipPrice($ship, $id);
 		return self::craftPrice($ship, self::pctFor($ship, $id));
+	}
+
+	//Stage 33: an officer priced off the FLEET (`fleet` - the Expert Evangelist, and his placed twin through sameAs)
+	public static function isFleetPriced($id){
+		return !empty(self::$registry[self::rulesId((string)$id)]['fleet']);
+	}
+
+	/* ⭐ What a fleet-priced officer (Stage 33) costs this unit: what his row says he cost - the bought ship-level row's price (count x [4]),
+	   or his bought per-system rows' totals ([4]) - since only the lobby knows the slot's points and the fleet (officers.repriceFleet
+	   writes both). The server keeps it, as it keeps every ship-level row's points (pointCostEnh); 0 for a row not bought (a static offer).
+	   Asked by rowPrice (a saved fleet's enhvalue), legacyPrice and the per-system sanitiser (fleetRowPrice through sysEnhPrice...EVANP). */
+	public static function fleetRowPrice($ship, $id){
+		$total = 0;
+		if (self::isPlacedOfficer($id)){
+			foreach (self::placedRows($ship) as $row) if ($row[0] === $id) $total += max(0, (float)($row[4] ?? 0));
+			return $total;
+		}
+		foreach ($ship->enhancementOptions as $entry){
+			if ($entry[0] === $id && (int)$entry[2] > 0) $total += (int)$entry[2] * max(0, (float)($entry[4] ?? 0));
+		}
+		return $total;
 	}
 
 	/* A ship officer's price: pct% of the hull, rounded up - or down for an officer marked roundDown. The
@@ -1290,6 +1344,9 @@ class Officers{
 			if ($move['id'] !== $entry['id']) continue;
 			if ($move['post'] === null || (int)$move['post'] === (int)$entry['post']) $take((int)$move['turn'], 'moved');
 		}
+		/* WITHDRAWN (Stage 33): his ship jumped out through hyperspace - offered BEFORE the disabling, as the jump destroys the primary
+		   Structure the same turn (withdrawnTurn), so a ship that left is never read as his post falling. Not out of action: gone. */
+		$take(self::withdrawnTurn($ship), 'withdrawn');
 		//DISABLED: a post destroyed while he held it, or by the end of the turn he was moving to it (he arrives to a wreck)
 		foreach ($stays as $stay){
 			$post = $ship->getSystemById($stay['post']);
@@ -1451,6 +1508,120 @@ class Officers{
 	   there he is OFF_RELI, bought in the Officers section, so one post never has two ways to buy him. */
 	private static function isReligiousPost($system, $ship){
 		return self::isPrimaryNonWeapon($ship, $system) && $system !== self::findPost($ship, 'cnc');
+	}
+
+	/* ------------------------------------------------------------------ the Expert Evangelist (Stage 33) */
+
+	/* "Corillani CPN and OSF sub-faction units only" (`needs`): FV names a Corillani hull's sub-faction only in its notes - "Corillani People's
+	   Navy (CPN)", "Orillani Space Forces (OSF)" (the user's note) - so the bracketed code is the test; the Defenders of Corillan's "(DoC)"
+	   hulls fail it. The faction itself is $factionRules'. */
+	private static function isCpnOrOsf($ship){
+		$notes = isset($ship->notes) ? (string)$ship->notes : '';
+		return strpos($notes, '(CPN)') !== false || strpos($notes, '(OSF)') !== false;
+	}
+
+	/* OFF_EVANP's posts (`hosts`): "Any system or structure block on any ship in the fleet" - any system of his ship that can be hit, a weapon
+	   or a Structure block included, but the C&C his ship-level self is posted in (there he is OFF_EVAN, bought in the Officers section). Never
+	   a fighter: "He may not, however, use a shuttle or fighter". The sub-faction test too (isCpnOrOsf - mayHost reads $factionRules only). */
+	private static function isEvangelistPost($system, $ship){
+		if ($system instanceof Fighter || empty($system->isTargetable) || !self::isCpnOrOsf($ship)) return false;
+		return $system !== self::findPost($ship, 'cnc');
+	}
+
+	//which fleet a unit is in: its player's, in its slot ("his player's fleet" - user ruling 2026-10-29)
+	private static function fleetKey($unit){
+		return (int)$unit->userid . '|' . (int)$unit->slot;
+	}
+
+	/* "On the field of play": a unit whose slot has deployed it by $turn - not a ship still waiting to jump in (delayed deployment, a
+	   reinforcement in hyperspace) or a surrendered fleet's (getTurnDeployed answers 999 for both). */
+	private static function isOnField($unit, $gamedata, $turn){
+		if ($gamedata === null || $gamedata->getSlotById($unit->slot) === null) return true;
+		return $unit->getTurnDeployed($gamedata) <= (int)$turn;
+	}
+
+	/* What one fleet's Expert Evangelists do to it on $turn: array(bonus, penalty), each 0 or 1 - the bonus while ANY of them serves on the
+	   field, the penalty once ANY of them is disabled or killed in battle (isLost: from the next turn, for the rest of the battle). They do
+	   not stack, and a serving one's bonus stands beside a lost one's penalty (the user's note). One whose ship jumped out ('withdrawn')
+	   gives neither from the next turn: "there are no ill effects, though any bonuses are lost". */
+	private static function moraleStates($gamedata, $turn){
+		$states = array();
+		foreach ($gamedata->ships as $ship){
+			if ($ship instanceof FighterFlight || !$ship->hasOfficers()) continue;
+			foreach ($ship->getOfficers() as $entry){
+				if (self::rulesId($entry['id']) !== 'OFF_EVAN') continue;
+				$key = self::fleetKey($ship);
+				if (!isset($states[$key])) $states[$key] = array(0, 0);
+				if (self::isLost($entry, $turn)) $states[$key][1] = 1;
+				else if (self::serves($entry, $turn) && self::isOnField($ship, $gamedata, $turn)) $states[$key][0] = 1;
+			}
+		}
+		return $states;
+	}
+
+	//a unit with a crew to inspire: not a mine, terrain or a remotely controlled craft (user ruling 2026-10-29)
+	private static function feelsMorale($unit){
+		return empty($unit->mine) && empty($unit->remoteControl) && !$unit->isTerrain();
+	}
+
+	/* ⭐ THE MORALE (afterShipsConstructed): every unit of a fleet with an Expert Evangelist - ships, bases, OSATs and flights - +10 initiative
+	   and +1 fire control on every weapon while one serves, -10 and -1 once one is lost; both at once, a serving one beside a lost one,
+	   cancel out. Fire control on every non-null value of every mode (shiftEveryMode - a fixed-fire-control mode excepted), a flight's on
+	   each craft's weapons; never the ram (ramming is no weapon fire - the Religious Leader's exclusion) or a jump drive (JumpEngine extends
+	   Weapon). On a serving Expert Gunner's weapon only the penalty: "does not combine any to-hit or damage bonuses with those of other elite
+	   officers" (user ruling 2026-10-29). Interception reads the intercept rating, never fire control - "this does not affect defensive
+	   fire". The initiative is a MODIFIER, not the base (user request 2026-10-29): the unit's moraleIni marker, which
+	   BaseShip::getCommonIniModifiers adds at the roll, and its iniativeadded (the tooltip's "mod"). Every viewer is sent both
+	   numbers anyway: the weapons through isModified, iniativeadded with every ship.
+	   ⚠️ MIRROR PAIR with officers.moraleBonus (JS) - the lobby's preview (no loss in the lobby). */
+	private static function applyMorale($gamedata){
+		$turn = (int)$gamedata->turn;
+		$states = self::moraleStates($gamedata, $turn);
+		if (empty($states)) return;
+		foreach ($gamedata->ships as $unit){
+			$key = self::fleetKey($unit);
+			if (!isset($states[$key]) || !self::feelsMorale($unit)) continue;
+			list($bonus, $penalty) = $states[$key];
+			if ($bonus === 0 && $penalty === 0) continue;
+			//a MODIFIER, never the base (user request 2026-10-29): getCommonIniModifiers reads it at the roll, iniativeadded shows it
+			$ini = ($bonus - $penalty) * self::EVANGELIST_INI;
+			$unit->setOfficerMoraleIni($ini);
+			$unit->iniativeadded += $ini;
+			foreach (self::moraleWeapons($unit) as $weapon){
+				$step = (($bonus && !self::servesOn($unit, 'OFF_GUN', $weapon, $turn)) ? self::EVANGELIST_HIT : 0) - $penalty * self::EVANGELIST_HIT;
+				if ($step !== 0) self::shiftEveryMode($weapon, $step);
+			}
+		}
+	}
+
+	//the weapons the morale reaches: a ship's own, a flight's on every craft - never the ram or a jump drive
+	private static function moraleWeapons($unit){
+		$systems = array();
+		if ($unit instanceof FighterFlight){
+			foreach ($unit->systems as $craft) if ($craft instanceof Fighter) foreach ($craft->systems as $system) $systems[] = $system;
+		} else {
+			$systems = $unit->systems;
+		}
+		return array_values(array_filter($systems, function ($s){
+			return $s instanceof Weapon && !($s instanceof RammingAttack) && !($s instanceof JumpEngine);
+		}));
+	}
+
+	/* The turn his SHIP left the battle through hyperspace - a jump-out or a jump point exit - or null. FV marks it by destroying the
+	   primary Structure with a HyperspaceJump damage row (hasJumpedToHyperspace), which disabledTurn alone reads as his post falling: an
+	   officer aboard is WITHDRAWN that turn, never disabled - "If the evangelist's ship disengages, there are no ill effects". Every
+	   officer of such a ship (outState); a flight's craft keep their own rule (craftLostTurn). */
+	private static function withdrawnTurn($ship){
+		if ($ship instanceof FighterFlight) return null;
+		$primary = $ship->getStructureSystem(0);
+		$turn = null;
+		if ($primary && is_array($primary->damage)){
+			foreach ($primary->damage as $entry){
+				if ($entry->damageclass === 'HyperspaceJump') $turn = ($turn === null) ? (int)$entry->turn : min($turn, (int)$entry->turn);
+			}
+		}
+		//⚠️ the jump row first: hasJumpedToHyperspace presumes a FALLEN unit (a live one with a jump drive answers true)
+		return ($turn !== null && $ship->hasJumpedToHyperspace()) ? $turn : null;
 	}
 
 	/* ------------------------------------------------------------------ the Expert Targeter (Stage 19) */
@@ -1760,7 +1931,7 @@ class Officers{
 				$post = $ship->getSystemById($postId);
 				if ($post === null || !$post->isDamagedOnTurn($turn)) continue;
 				if ($post instanceof Structure){
-					$roll = self::blockKillRoll($ship, $post, $turn); //Stage 19: only an Expert Targeter lives in a block
+					$roll = self::blockKillRoll($ship, $post, $turn); //Stage 19: an Expert Targeter lives in a block - and (Stage 33) an Expert Evangelist may
 				} else {
 					$roll = $post->getCritRollOnTurn($turn);
 					if ($roll === null) $roll = self::rollFor($ship, $post);
@@ -1941,12 +2112,17 @@ class Officers{
 	/* +1 on every non-null fire control of every mode, live and per mode (applyGunner's rule; the Expert Turret Officer's too, Stage 22) -
 	   never on a mode whose fire control is fixed (Weapon::hasFixedFireControl: the Antimatter Shredder's Shredder mode) */
 	private static function raiseEveryMode($weapon){
+		self::shiftEveryMode($weapon, 1);
+	}
+
+	//raiseEveryMode's rule by $step points, either way (Stage 33: an Expert Evangelist's morale is +1 or, once he is lost, -1)
+	private static function shiftEveryMode($weapon, $step){
 		if (!empty($weapon->fireControlArray) && is_array($weapon->fireControlArray)){
 			foreach ($weapon->fireControlArray as $mode => $fc){
-				if (is_array($fc) && !$weapon->hasFixedFireControl($mode)) $weapon->fireControlArray[$mode] = self::bumpFireControl($fc);
+				if (is_array($fc) && !$weapon->hasFixedFireControl($mode)) $weapon->fireControlArray[$mode] = self::bumpFireControl($fc, $step);
 			}
 		}
-		if (!$weapon->hasFixedFireControl($weapon->firingMode)) $weapon->fireControl = self::bumpFireControl($weapon->fireControl);
+		if (!$weapon->hasFixedFireControl($weapon->firingMode)) $weapon->fireControl = self::bumpFireControl($weapon->fireControl, $step);
 		$weapon->isModified = true;
 	}
 
@@ -2214,10 +2390,10 @@ class Officers{
 
 	/* +1 to every NON-NULL entry. null means "cannot target this size class" and must stay null:
 	   null + 1 is 1 in PHP (Enhancements::sysEnhBumpFireControl's warning). */
-	private static function bumpFireControl($fireControl){
+	private static function bumpFireControl($fireControl, $step = 1){
 		if (!is_array($fireControl)) return $fireControl;
 		foreach ($fireControl as $i => $fc){
-			if ($fc !== null) $fireControl[$i] = (int)$fc + 1;
+			if ($fc !== null) $fireControl[$i] = (int)$fc + (int)$step;
 		}
 		return $fireControl;
 	}
@@ -3810,6 +3986,7 @@ class Officers{
 	public static function afterShipsConstructed($gamedata){
 		self::applyLaunchedFlights($gamedata);
 		self::settleCharges($gamedata);
+		self::applyMorale($gamedata); //Stage 33: an Expert Evangelist's fleet-wide morale
 	}
 
 	/* The unit each serving Expert Warrior's charge this turn holds against (chargeTarget), on his entry as `charged` - for his team's hit-chance
@@ -3994,6 +4171,7 @@ class Officers{
 	   nothing (freeExpertId - so the unit's other officer rows must already be bought on it: loadSavedFleet writes their counts first). */
 	public static function rowPrice($ship, $id, $count = null){
 		if (!isset(self::$registry[$id])) return 0;
+		if (self::isFleetPriced($id)) return self::fleetRowPrice($ship, $id); //Stage 33: what the lobby priced him at
 		if (empty(self::$registry[$id]['flight'])) return ($id === self::freeExpertId($ship)) ? 0 : self::shipPrice($ship, $id);
 		if (empty(self::$registry[$id]['multi'])) $count = 1;
 		else if ($count === null) $count = self::boughtCount($ship, $id);
@@ -4014,6 +4192,7 @@ class Officers{
 	   predates the faction prices ($factionRules, 2026-10-15), so a Descari fleet's Scavenger was paid at 25%. */
 	public static function legacyPrice($ship, $id){
 		if (!isset(self::$registry[$id])) return 0;
+		if (self::isFleetPriced($id)) return self::fleetRowPrice($ship, $id); //Stage 33: never saved without a price of its own
 		if (!isset(self::$legacyFighterPrices[$id])){
 			return empty(self::$registry[$id]['flight']) ? self::shipPrice($ship, $id, false) : self::rowPrice($ship, $id);
 		}

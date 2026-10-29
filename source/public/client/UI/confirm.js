@@ -1295,6 +1295,8 @@ window.confirm = {
        typing handler - the edit one adjusts by the DELTA from that seeded count, the buy one
        recomputes from zero. */
     addBuyEnhancementRows: function addBuyEnhancementRows(e, ship, seed, onInput) {
+        //OFFICERS_PLAN.md Stage 33: a blueprint's Expert Evangelist priced off the fleet it is about to join (his static price is 0)
+        if (window.officers && typeof officers.priceBlueprint === 'function') officers.priceBlueprint(ship);
         //Listed alphabetically within each section (buyRowOrder); i is still the option's own index.
         var order = confirm.buyRowOrder(ship.enhancementOptions);
         for (var n = 0; n < order.length; n++) {

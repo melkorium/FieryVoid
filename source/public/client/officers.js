@@ -130,6 +130,13 @@ window.officers = {
 		   hit-chance preview's ("Gravitic Rotation"). */
 		{ id: 'OFF_GRAV', label: 'Expert Graviton Controller', post: 'engine', needs: 'gravitics',
 			summary: 'Gravitic beams +1 damage; Graviton Pulsars count pulses 5% better; Engine and largest aft thruster +1. Once per battle rotate to a random facing' },
+		/* Stage 33: in the C&C, movable to any system or Structure block (OFF_EVANP); Corillani CPN and OSF only (the offers'). `fleet`: priced
+		   off the FLEET, by the lobby alone (repriceFleet - the static offer is 0). His morale reaches every unit of his player's fleet, so it has
+		   no `stats`: the lobby previews +1 fire control on every unit (moraleBonus, in fireControlRaise); in game the server applied both, the
+		   -10 / -1 once he is lost too. His initiative is a MODIFIER (user request 2026-10-29) - the server's iniativeadded, the tooltip's "mod"
+		   - so it is never added to a base initiative figure here. */
+		{ id: 'OFF_EVAN', label: 'Expert Evangelist', post: 'cnc', fleet: true, movable: true,
+			summary: 'Every unit of the fleet +10 initiative and +5% to hit; once he is lost, -10 initiative and -5% to hit instead' },
 		/* PLACED officers (Stage 8): posted in the weapon the player buys him on, from that system's own menu
 		   (a per-system row - systemEnhancements.js), so they have no `post`. `sameAs`: the ship-level officer he
 		   IS at another post (one or the other); `anyDamage`: disabled by any damage to his weapon.
@@ -158,6 +165,10 @@ window.officers = {
 		   are the server's. */
 		{ id: 'OFF_TURR', label: 'Expert Turret Officer', placed: true, movable: true, perTurret: true,
 			summary: 'Turret weapons: +1 fire control, -1 on criticals, -2 on the jam roll; if turret does not fire, can only be hit by called shots' },
+		/* Stage 33: the Expert Evangelist away from his C&C - any system or Structure block (the server's offers say which). The same officer as
+		   OFF_EVAN (sameAs), with the same morale and the same fleet price. */
+		{ id: 'OFF_EVANP', label: 'Expert Evangelist', placed: true, sameAs: 'OFF_EVAN', fleet: true, movable: true,
+			summary: 'Every unit of the fleet +10 initiative and +5% to hit; once he is lost, -10 initiative and -5% to hit instead' },
 		{ id: 'OFF_DOG', label: 'Expert Dogfighter', post: 'craft', flight: true, stats: { iniativebonus: 5 },
 			summary: '+5 initiative, wins ties' },
 		{ id: 'OFF_MSL', label: 'Expert Missileer', post: 'craft', flight: true, perMissile: 1, needs: 'missiles',
@@ -756,6 +767,8 @@ window.officers = {
 			return officer && officer.anyDamage ? '(his weapon is damaged before battle - he will not serve)'
 				: '(post destroyed before battle - he will not serve)';
 		}
+		//Stage 33: an officer whose ship jumped out through hyperspace is not lost - he left the battle with it
+		if (entry.how === 'withdrawn') return '(left the battle, turn ' + entry.out + ')';
 		var lost = '(' + (entry.how === 'killed' ? 'killed' : 'disabled') + ', turn ' + entry.out + ')';
 		//Stage 30: an officer whose abilities are the ship's stock (`stock`) may have one spent after he is lost
 		var stock = this.get(entry.id) && this.get(entry.id).stock ? this.abilitiesText(entry) : '';
@@ -2397,6 +2410,143 @@ window.officers = {
 		return this.REDLINE_CLIP_MS[n] || 3200;
 	},
 
+	/* ------------------------------------------------------------------ the Expert Evangelist (Stage 33) */
+
+	EVANGELIST_PCT: 5,  //"Cost: 5% of the cost of the fleet"
+	EVANGELIST_INI: 10, //"all units in the scenario receive a +10 initiative bonus" - FV units. ⚠️ MIRROR PAIR with Officers::EVANGELIST_INI (PHP)
+	EVANGELIST_HIT: 1,  //"and +5% to hit with all weapons" - one fire control point. ⚠️ MIRROR PAIR with Officers::EVANGELIST_HIT (PHP)
+
+	//an officer priced off the FLEET (`fleet`: the Expert Evangelist and his twin). ⚠️ MIRROR PAIR with Officers::isFleetPriced (PHP)
+	isFleetPriced: function isFleetPriced(id) {
+		var officer = this.get(id);
+		return Boolean(officer && officer.fleet);
+	},
+
+	//ceil(pct% of points) in whole numbers, Officers::price's arithmetic (hundredths, the percent in tenths). ⚠️ MIRROR PAIR with Officers::price (PHP)
+	percentOf: function percentOf(points, pct) {
+		var hundredths = Math.max(0, Math.round((Number(points) || 0) * 100));
+		return Math.floor((hundredths * Math.round(Number(pct) * 10) + 99999) / 100000);
+	},
+
+	//the points limit the lobby holds the selected slot to (gamedata.getMaxPoints - a Fleet Builder's typed cap included), -1 for Unlimited
+	fleetMaxPoints: function fleetMaxPoints() {
+		if (!window.gamedata || typeof gamedata.getMaxPoints !== 'function') return -1;
+		var max = Number(gamedata.getMaxPoints());
+		return (isNaN(max) || max < 0) ? -1 : max;
+	},
+
+	//the selected slot's units in the lobby's fleet list (gamedata.ships has holes - the fleet list deletes rows)
+	lobbyFleet: function lobbyFleet() {
+		if (!window.gamedata || !gamedata.ships || !gamedata.selectedSlot) return [];
+		var slot = String(gamedata.selectedSlot);
+		return Object.keys(gamedata.ships).map(function (k) { return gamedata.ships[k]; })
+			.filter(function (u) { return Boolean(u) && String(u.slot) === slot; });
+	},
+
+	//is an Expert Evangelist bought on this unit - at its C&C, or in a system (his twin)?
+	hasEvangelist: function hasEvangelist(ship) {
+		if (!ship || ship.flight || !Array.isArray(ship.enhancementOptions)) return false;
+		var self = this;
+		return this.boughtCount(ship, 'OFF_EVAN') > 0 || this.placedRows(ship).some(function (row) { return self.isFleetPriced(row[0]); });
+	},
+
+	//what his rows cost this unit now: the bought ship-level row (count x price) and the bought twin rows' totals
+	evangelistPaid: function evangelistPaid(ship) {
+		var self = this;
+		var paid = 0;
+		(Array.isArray(ship.enhancementOptions) ? ship.enhancementOptions : []).forEach(function (row) {
+			if (row && self.isFleetPriced(row[0])) paid += (parseInt(row[2], 10) || 0) * (parseFloat(row[4]) || 0);
+		});
+		this.placedRows(ship).forEach(function (row) { if (self.isFleetPriced(row[0])) paid += parseFloat(row[4]) || 0; });
+		return paid;
+	},
+
+	/* ⭐ What an Expert Evangelist costs in the selected slot's fleet - THE price rule (the user's note 2026-10-29): 5% of the slot's points,
+	   rounded up, "on the assumption the player will use all"; in an Unlimited slot 5% of the fleet itself - every unit's cost as the fleet
+	   list totals it (gamedata.fleetCost: hull, refits, ammunition, officers, the minefield premium) less every Evangelist's own price, so his
+	   price never feeds itself (two of them each cost 5% of the rest). `extra`: a unit about to be bought, counted in (priceBlueprint). */
+	evangelistPrice: function evangelistPrice(extra) {
+		var max = this.fleetMaxPoints();
+		if (max !== -1) return this.percentOf(max, this.EVANGELIST_PCT);
+		var self = this;
+		var base = (window.gamedata && typeof gamedata.fleetCost === 'function') ? (Number(gamedata.fleetCost()) || 0) : 0;
+		this.lobbyFleet().forEach(function (u) { base -= self.evangelistPaid(u); });
+		return this.percentOf(Math.max(0, base + (Number(extra) || 0)), this.EVANGELIST_PCT);
+	},
+
+	/* `price` as his price on this unit: the ship-level offer row's ([4]), every twin offer's ([2] - systemEnhancements.set prices a twin off
+	   it, so a lobby Move stays free) and his bought rows', moving pointCostEnh / pointCostSysEnh and pointCost by the difference - the lobby's
+	   invariant pointCost = hull + pointCostEnh + pointCostEnh2 + pointCostSysEnh (setShipLevelRow's). true when a BOUGHT row's points moved. */
+	setEvangelistPrice: function setEvangelistPrice(ship, price) {
+		if (!ship) return false;
+		var self = this;
+		var enh = 0;
+		var refits = 0;
+		(Array.isArray(ship.enhancementOptions) ? ship.enhancementOptions : []).forEach(function (row) {
+			if (!row || !self.isFleetPriced(row[0])) return;
+			enh += (parseInt(row[2], 10) || 0) * (price - (parseFloat(row[4]) || 0));
+			row[4] = price;
+		});
+		(Array.isArray(ship.systemEnhancementOffers) ? ship.systemEnhancementOffers : []).forEach(function (offer) {
+			if (offer && self.isFleetPriced(offer[0])) offer[2] = price;
+		});
+		this.placedRows(ship).forEach(function (row) {
+			if (!self.isFleetPriced(row[0])) return;
+			refits += price - (parseFloat(row[4]) || 0);
+			row[4] = price;
+		});
+		if (enh) ship.pointCostEnh = (parseFloat(ship.pointCostEnh) || 0) + enh;
+		if (refits) ship.pointCostSysEnh = (parseFloat(ship.pointCostSysEnh) || 0) + refits;
+		if (enh || refits) ship.pointCost = (parseFloat(ship.pointCost) || 0) + enh + refits;
+		return Boolean(enh || refits);
+	},
+
+	/* ⭐ Every Expert Evangelist of the selected slot's fleet re-priced to what the fleet now makes him cost (evangelistPrice), and every unit
+	   offered him given that price for its next purchase or Move. gamedata.calculateFleet runs it FIRST - after every buy, edit, copy,
+	   removal, load and Fleet Builder cap change - so the total it shows reads the new price; a fleet list row whose points moved is redrawn.
+	   Idempotent: nothing moves once the prices agree. Returns how many units' points moved. */
+	repriceFleet: function repriceFleet() {
+		var self = this;
+		var offered = this.lobbyFleet().filter(function (u) {
+			return !u.flight && (self.shipLevelRow(u, 'OFF_EVAN') !== null || self.hasEvangelist(u));
+		});
+		if (!offered.length) return 0;
+		var price = this.evangelistPrice();
+		var moved = 0;
+		offered.forEach(function (u) {
+			if (!self.setEvangelistPrice(u, price)) return;
+			moved++;
+			if (typeof gamedata.refreshFleetRow === 'function') gamedata.refreshFleetRow(u);
+		});
+		return moved;
+	},
+
+	/* A store blueprint about to open in the buy dialog (confirm.addBuyEnhancementRows): his row and his twin's offers priced as he will cost
+	   with this unit in the fleet - in an Unlimited slot its bare hull counted in; repriceFleet adds whatever else the purchase brings once it
+	   lands. A unit already in the fleet (an edit, a copy) holds the fleet's price already. */
+	priceBlueprint: function priceBlueprint(ship) {
+		if (!ship || ship.flight || this.shipLevelRow(ship, 'OFF_EVAN') === null || this.lobbyFleet().indexOf(ship) !== -1) return;
+		this.setEvangelistPrice(ship, this.evangelistPrice(parseFloat(ship.pointCost) || 0));
+	},
+
+	/* ⭐ The lobby's preview of an Expert Evangelist's morale on this unit: 1 while one is bought, and serving (his post not destroyed before
+	   battle), on any unit of its fleet - the selected slot's, itself among them - else 0. Never on a mine or a remotely controlled craft (no
+	   crew to inspire - user ruling 2026-10-29), and never outside the lobby: in game the server applied and published it, and a store
+	   blueprint is in no fleet. The lobby has no loss. fireControlRaise adds it to every weapon; his +10 initiative is a game-time modifier
+	   (iniativeadded), which the lobby shows nowhere, as it shows no other initiative modifier.
+	   ⚠️ MIRROR PAIR with Officers::applyMorale (PHP). */
+	moraleBonus: function moraleBonus(ship) {
+		if (!ship || !this.isDerived(ship) || ship.mine || ship.remoteControl) return 0;
+		var fleet = this.lobbyFleet();
+		if (fleet.indexOf(ship) === -1) return 0;
+		var self = this;
+		var turn = this.currentTurn();
+		return fleet.some(function (u) {
+			if (!self.hasEvangelist(u)) return false;
+			return self.listFor(u).some(function (entry) { return self.isFleetPriced(entry.id) && self.serves(entry, turn); });
+		}) ? 1 : 0;
+	},
+
 	/* ------------------------------------------------------------------ what a flight's officer costs */
 
 	/* How many craft a flight's pointCost is for, so the flight a fighter officer's listed price is for:
@@ -2439,6 +2589,11 @@ window.officers = {
 	   per craft"; a single superheavy's is just its price; "57pts each per 6 craft, one per craft" for an
 	   officer bought as a count (Stage 18). null for anything else. */
 	priceNote: function priceNote(ship, enhancement) {
+		//Stage 33: an Expert Evangelist's price is a share of the fleet, re-priced as it changes (repriceFleet)
+		if (this.isFleetPriced(enhancement[0])) {
+			var max = this.fleetMaxPoints();
+			return enhancement[4] + 'pts: ' + this.EVANGELIST_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet, re-priced as it changes');
+		}
 		if (!this.isFighterOfficer(enhancement[0])) return null;
 		var standard = this.standardFlight(ship);
 		var officer = this.get(enhancement[0]);
@@ -2485,6 +2640,7 @@ window.officers = {
 		}
 		//in game: an Expert Evader's Evade not yet sent (the server applied a sent one)
 		if (field === 'offensivebonus') value -= this.pendingEvadeOb(ship);
+		//(Stage 33: an Expert Evangelist's +10 is an initiative MODIFIER, not part of this base figure - user request 2026-10-29)
 		return value;
 	},
 
@@ -2616,13 +2772,14 @@ window.officers = {
 		var on = function (id) {
 			return serving.some(function (entry) { return entry.id === id && String(entry.post) === String(system.id); });
 		};
-		if (on('OFF_GUN')) return 1;
+		if (on('OFF_GUN')) return 1; //Stage 33: the Gunner's +1 replaces an Expert Evangelist's morale on his weapon too (user ruling 2026-10-29)
 		var turret = serving.some(function (entry) {
 			return entry.id === 'OFF_TURR' && self.turretKey(self.systemById(ship, entry.post)) === self.turretKey(system);
 		}) ? 1 : 0;
-		var warrior = (!system.isRammingAttack && system.name !== 'jumpEngine'
-			&& serving.some(function (entry) { return entry.id === 'OFF_WARR'; })) ? 1 : 0;
-		return turret + warrior + ((this.isMatterWeapon(system) && this.isMatterMode(system, system.firingMode)
+		var everyWeapon = !system.isRammingAttack && system.name !== 'jumpEngine';
+		var warrior = (everyWeapon && serving.some(function (entry) { return entry.id === 'OFF_WARR'; })) ? 1 : 0;
+		var morale = everyWeapon ? this.moraleBonus(ship) * this.EVANGELIST_HIT : 0; //Stage 33: his fleet's Expert Evangelist
+		return turret + warrior + morale + ((this.isMatterWeapon(system) && this.isMatterMode(system, system.firingMode)
 			&& (on('OFF_MWEW') || serving.some(function (entry) { return entry.id === 'OFF_MWE'; }))) ? 1 : 0);
 	},
 
