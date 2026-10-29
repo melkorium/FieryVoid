@@ -737,6 +737,7 @@ committed.
 | **30** | Expert Quartermaster, one of the original 25 (Hard). **BUILT 2026-10-24** (§9.37) | See §9.37 |
 | **32** | Redline Pilot, added by the user. **BUILT 2026-10-25** (§9.39) | See §9.39 |
 | **33** | Expert Evangelist, one of the original 25 (Hard), from his rules text. **BUILT 2026-10-29** (§9.40) | See §9.40 |
+| *later* | ⏳ Every officer's initiative effect as an in-game MODIFIER (the Evangelist's way), the three base tie-breaks kept equal. **Deferred by the user 2026-10-29** - scoped at the end of §9.40 | — |
 | **34+** | The other Hard officers (the Expert Analyst among them since 2026-10-16), one at a time, each starting with its own short plan and ruling round | — |
 
 ---
@@ -5224,3 +5225,35 @@ should show as a mod, not the base Initiative value of the ship." Every price an
   enhancementsHarness 298 / 0, differential 964 / 0, `-Check` replay 159 / 3 (the same three faction-string games). Mutation: 5 new mutants (the
   iniativeadded write, the marker, getCommonIniModifiers' line, the base raised again, the lobby preview put back) all caught; the two retired mutants
   (the old publish line and preview) removed from `mutate33.js`. Both legacy bundles rebuilt, `-Sync` done.
+
+**Second follow-up (user, 2026-10-29).** The lobby's +10 initiative preview is BACK (`officers.displayStat` adds `moraleBonus` x 10 to the Initiative
+value) - "mod in game, shown in Initiative value in lobby". Client 1053 (5 pre-existing); bundles rebuilt, `-Sync` done.
+
+**⏳ LATER (user, 2026-10-29 - deferred, not built): every officer's initiative effect as a MODIFIER in game, as the Evangelist's now is.** Today the
+Helmsman (+5), Security Officer (+5), Religious Leader (+10, frenzy +20), Political Officer (speech +30), Warrior (+10, Supreme Anticipation +50 / -50,
+and +10 on the flights his ship launched), Quartermaster (-30) and Dogfighter (+5) all write `iniativebonus` (the BASE) and publish it; the lobby
+already shows each in its Initiative value (`stats`), so only the game side would change. Found while scoping it, and why it was deferred:
+- ⚠️ **Three tie-breaks compare the BASE** - `TacGamedata::sortShips` (which `Manager::generateIniative`'s tie separator turns into the final order),
+  `BaseShip::hasBetterIniative` and the client's `shipManager.hasBetterInitive` (ships.js, the Simultaneous Movement brackets). Moving an officer's
+  share out of `iniativebonus` changes who wins an exact tie unless all three compare base + the officer share - and the client would need that share
+  in the payload (an `officerIni` field), as it cannot split `iniativeadded`.
+- The shape: one generic `BaseShip` officer-initiative marker (the Evangelist's `$officerMoraleIni`, generalised), added by
+  `getCommonIniModifiers` (no class overrides it; the Pak'ma'ra and Polaren `getInitiativebonus` are base + a fleet term, so totals hold); each
+  `apply` / `lost` method writes the marker instead of `iniativebonus`; the post-pass ones (launched flights, morale) add to `iniativeadded` too;
+  the `publish` / `lostPublish` `iniativebonus` entries and `addForJson`'s launched-flight line go.
+- Knock-ons: dozens of officersHarness checks read `iniativebonus`; `enhancementsDifferential.js` compares the lobby's displayStat initiative with
+  the server's `iniativebonus` (would need base + marker); the enhancementsHarness fingerprint may record it; replay corpus games with initiative
+  officers would FAIL on their snapshots and need re-recording (user's OK).
+- ⚠️ Already true of the Evangelist since the first follow-up: his ±10 is in the modifier, so the base tie-breaks above no longer count it (they
+  did while it sat in `iniativebonus`). Harmless outside an exact tie; the same fix would cover him.
+
+**Third follow-up (user, 2026-10-29): the morale is back in the BASE initiative, in game too** - "Let's move the Evangelist bonus back into the base Ini
+value in games too", once the tie-breaks above were seen. So the first follow-up is UNDONE: `applyMorale` adds the ±10 to `iniativebonus` again (and sets
+the `moraleIni` marker), `addForJson` publishes `iniativebonus` for a unit with a morale shift, `getCommonIniModifiers` no longer reads the marker and
+`iniativeadded` is untouched. Exactly as the other initiative officers today, so TacGamedata::sortShips, BaseShip::hasBetterIniative and the client's
+hasBetterInitive all count it again. The lobby keeps showing it in the Initiative value (second follow-up). The deferred change above still stands
+for ALL initiative officers together, the Evangelist with them.
+- Gates: officersHarness **2433 with the database** (7 pre-existing) - the Stage 33 checks read the base again (+10 on every unit of his fleet, iniativeadded
+  unchanged, both REAL rolls 10 higher, the enemy sent the raised base); client **1053** (5 pre-existing); enhancementsHarness 298 / 0, differential
+  964 / 0; `-Check` replay 159 / 3 (the same faction-string games). Mutation: the five initiative mutants re-aimed at the base (the publish line, the
+  `iniativebonus` write, the marker, a modifier written as well, the lobby preview removed) - all caught. Bundles rebuilt, `-Sync` done.

@@ -132,9 +132,9 @@ window.officers = {
 			summary: 'Gravitic beams +1 damage; Graviton Pulsars count pulses 5% better; Engine and largest aft thruster +1. Once per battle rotate to a random facing' },
 		/* Stage 33: in the C&C, movable to any system or Structure block (OFF_EVANP); Corillani CPN and OSF only (the offers'). `fleet`: priced
 		   off the FLEET, by the lobby alone (repriceFleet - the static offer is 0). His morale reaches every unit of his player's fleet, so it has
-		   no `stats`: the lobby previews +1 fire control on every unit (moraleBonus, in fireControlRaise); in game the server applied both, the
-		   -10 / -1 once he is lost too. His initiative is a MODIFIER (user request 2026-10-29) - the server's iniativeadded, the tooltip's "mod"
-		   - so it is never added to a base initiative figure here. */
+		   no `stats`: the lobby previews +10 initiative and +1 fire control on every unit (moraleBonus, in displayStat and fireControlRaise); in
+		   game the server applied and published both, the -10 / -1 once he is lost too - his initiative in the BASE, as every initiative officer's
+		   (the tie-breaks compare it). */
 		{ id: 'OFF_EVAN', label: 'Expert Evangelist', post: 'cnc', fleet: true, movable: true,
 			summary: 'Every unit of the fleet +10 initiative and +5% to hit; once he is lost, -10 initiative and -5% to hit instead' },
 		/* PLACED officers (Stage 8): posted in the weapon the player buys him on, from that system's own menu
@@ -2532,8 +2532,7 @@ window.officers = {
 	/* ⭐ The lobby's preview of an Expert Evangelist's morale on this unit: 1 while one is bought, and serving (his post not destroyed before
 	   battle), on any unit of its fleet - the selected slot's, itself among them - else 0. Never on a mine or a remotely controlled craft (no
 	   crew to inspire - user ruling 2026-10-29), and never outside the lobby: in game the server applied and published it, and a store
-	   blueprint is in no fleet. The lobby has no loss. fireControlRaise adds it to every weapon; his +10 initiative is a game-time modifier
-	   (iniativeadded), which the lobby shows nowhere, as it shows no other initiative modifier.
+	   blueprint is in no fleet. The lobby has no loss. displayStat adds it to the Initiative value, fireControlRaise to every weapon.
 	   ⚠️ MIRROR PAIR with Officers::applyMorale (PHP). */
 	moraleBonus: function moraleBonus(ship) {
 		if (!ship || !this.isDerived(ship) || ship.mine || ship.remoteControl) return 0;
@@ -2640,7 +2639,8 @@ window.officers = {
 		}
 		//in game: an Expert Evader's Evade not yet sent (the server applied a sent one)
 		if (field === 'offensivebonus') value -= this.pendingEvadeOb(ship);
-		//(Stage 33: an Expert Evangelist's +10 is an initiative MODIFIER, not part of this base figure - user request 2026-10-29)
+		//Stage 33: an Expert Evangelist bought anywhere in this unit's fleet (the lobby's - in game the server put it in iniativebonus and published it)
+		if (field === 'iniativebonus') value += this.moraleBonus(ship) * this.EVANGELIST_INI;
 		return value;
 	},
 

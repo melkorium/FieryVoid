@@ -201,7 +201,7 @@ class BaseShip {
 	protected $officerUses = array();
 	protected $officerTransferClaims = array();
 	protected $officerLaunchIni = 0;
-	protected $officerMoraleIni = 0; //Stage 33: an Expert Evangelist's morale on this unit - an initiative MODIFIER (getCommonIniModifiers; Officers::applyMorale)
+	protected $officerMoraleIni = 0; //Stage 33: what an Expert Evangelist's morale did to this unit's iniativebonus (Officers::applyMorale)
 
 	
 	public $halfPhaseThrust = 0; //needed for half phasing; equal to thrust from two BioThrusters on a given ship; 0 for ships that cannot half phase, eg. vast majority
@@ -480,12 +480,6 @@ class BaseShip {
 	    //everything that can ride a doorway, and an OSAT cannot be a reinforcement at all
 	    //(alwaysDeploysTurnOne refuses the flag at the buy), so the answer is 0 there anyway.
 	    $mod += $this->getReinforcementArrivalIniModifier($gamedata);
-
-	    /* OFFICERS_PLAN.md Stage 33 - an Expert Evangelist's morale: +10 (or -10 once he is lost) on every unit of his fleet, OSATs
-	       included, so outside the guard above. A MODIFIER, not the unit's base initiative (user request 2026-10-29): the tooltip's
-	       "mod" and the ship window's changed initiative show it. Set by Officers::applyMorale once every ship is constructed - after
-	       onConstructed filled iniativeadded, which applyMorale adds it to as well; 0 until then, and on every unit without one. */
-	    $mod += $this->officerMoraleIni;
 
 	    return $mod;
     }
@@ -1967,7 +1961,7 @@ class BaseShip {
 		$this->officerLaunchIni = (int)$bonus;
 	}
 
-	//Stage 33: the initiative an Expert Evangelist's morale gives (or takes from) this unit of his fleet (0: none) - a modifier, not its base
+	//Stage 33: the initiative an Expert Evangelist's morale gave (or took from) this unit of his fleet (0: none) - its payload publishes it
 	public function getOfficerMoraleIni(){
 		return $this->officerMoraleIni;
 	}

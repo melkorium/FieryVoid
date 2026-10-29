@@ -1570,9 +1570,7 @@ class Officers{
 	   each craft's weapons; never the ram (ramming is no weapon fire - the Religious Leader's exclusion) or a jump drive (JumpEngine extends
 	   Weapon). On a serving Expert Gunner's weapon only the penalty: "does not combine any to-hit or damage bonuses with those of other elite
 	   officers" (user ruling 2026-10-29). Interception reads the intercept rating, never fire control - "this does not affect defensive
-	   fire". The initiative is a MODIFIER, not the base (user request 2026-10-29): the unit's moraleIni marker, which
-	   BaseShip::getCommonIniModifiers adds at the roll, and its iniativeadded (the tooltip's "mod"). Every viewer is sent both
-	   numbers anyway: the weapons through isModified, iniativeadded with every ship.
+	   fire". Published to every viewer: the weapons through isModified, the initiative through addForJson (moraleIni).
 	   ⚠️ MIRROR PAIR with officers.moraleBonus (JS) - the lobby's preview (no loss in the lobby). */
 	private static function applyMorale($gamedata){
 		$turn = (int)$gamedata->turn;
@@ -1583,10 +1581,11 @@ class Officers{
 			if (!isset($states[$key]) || !self::feelsMorale($unit)) continue;
 			list($bonus, $penalty) = $states[$key];
 			if ($bonus === 0 && $penalty === 0) continue;
-			//a MODIFIER, never the base (user request 2026-10-29): getCommonIniModifiers reads it at the roll, iniativeadded shows it
+			/* the BASE initiative, as every initiative officer's (user, 2026-10-29: briefly a modifier, moved back - the three tie-breaks,
+			   TacGamedata::sortShips, BaseShip::hasBetterIniative and the client's hasBetterInitive, compare the base) */
 			$ini = ($bonus - $penalty) * self::EVANGELIST_INI;
+			$unit->iniativebonus += $ini;
 			$unit->setOfficerMoraleIni($ini);
-			$unit->iniativeadded += $ini;
 			foreach (self::moraleWeapons($unit) as $weapon){
 				$step = (($bonus && !self::servesOn($unit, 'OFF_GUN', $weapon, $turn)) ? self::EVANGELIST_HIT : 0) - $penalty * self::EVANGELIST_HIT;
 				if ($step !== 0) self::shiftEveryMode($weapon, $step);
@@ -5169,6 +5168,8 @@ class Officers{
 	public static function addForJson($ship, $strippedShip){
 		//Stage 28: a flight an Expert Warrior's ship launched - its +10, to every viewer, as his own ship's (applyLaunchedFlights)
 		if ($ship->getOfficerLaunchIni() > 0) $strippedShip->iniativebonus = $ship->iniativebonus;
+		//Stage 33: a unit of an Expert Evangelist's fleet - its +10 (or -10), to every viewer: a displayed stat is public (applyMorale)
+		if ($ship->getOfficerMoraleIni() !== 0) $strippedShip->iniativebonus = $ship->iniativebonus;
 		$list = $ship->getOfficers();
 		if (empty($list)) return;
 		foreach ($list as $entry){

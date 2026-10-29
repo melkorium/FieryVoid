@@ -2487,6 +2487,9 @@ window.gamedata = {
 		var slotid = gamedata.selectedSlot;
 		if (!slotid) return;
 
+		//OFFICERS_PLAN.md Stage 33: an Expert Evangelist costs 5% of the fleet - re-priced before the total, which then reads it
+		if (window.officers && typeof officers.repriceFleet === 'function') officers.repriceFleet();
+
 		var points = gamedata.fleetCost();
 		var maxPoints = gamedata.getMaxPoints();
 
