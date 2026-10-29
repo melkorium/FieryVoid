@@ -2548,10 +2548,12 @@ window.officers = {
 
 	/* A store blueprint about to open in the buy dialog (confirm.addBuyEnhancementRows): his row and his twin's offers priced as he will cost
 	   with this unit in the fleet - in an Unlimited slot its bare hull counted in; repriceFleet adds whatever else the purchase brings once it
-	   lands. A unit already in the fleet (an edit, a copy) holds the fleet's price already. */
+	   lands. A unit already in the fleet (an edit) holds the fleet's price already. ⚠️ The unit priced here is not the one bought:
+	   gamedata.doBuyShip / doCopyShip build a FRESH clone and carry the price the dialog charged onto its row (game 4517). */
 	priceBlueprint: function priceBlueprint(ship) {
 		if (!ship || ship.flight || this.lobbyFleet().indexOf(ship) !== -1) return;
-		if (this.shipLevelRow(ship, 'OFF_EVAN') !== null) this.setEvangelistPrice(ship, this.evangelistPrice(parseFloat(ship.pointCost) || 0));
+		//a copy's points already hold his price (evangelistPaid - 0 on a store blueprint): taken off, as evangelistPrice takes it off every fleet unit
+		if (this.shipLevelRow(ship, 'OFF_EVAN') !== null) this.setEvangelistPrice(ship, this.evangelistPrice((parseFloat(ship.pointCost) || 0) - this.evangelistPaid(ship)));
 		//Stage 34: an Expert War Leader's, with this hull counted into an Unlimited fleet
 		if (this.shipLevelRow(ship, 'OFF_WLEAD') !== null) this.setEvangelistPrice(ship, this.warLeaderPrice(ship, this.unitHullCost(ship)), 'OFF_WLEAD');
 	},

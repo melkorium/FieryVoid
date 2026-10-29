@@ -5407,3 +5407,21 @@ was running). No schema change.
    `warLeaderMarkColour`, so whichever strategy runs next corrects every icon (a replay takes them down too). Wrath had the same fault (one code
    path). **The Charge's crosshair does not:** it is up only while a ship is selected, and every deactivate deselects with `inactive` set.
    Checked by a node simulation of the 4523 sequence (Fire -> Waiting -> Initial Orders), scratchpad only.
+
+**Follow-up (user, play test 4517, 2026-10-29) - built, uncommitted: a fleet-priced officer charged twice.** An Apollo (900) bought with a War Leader
+in a 3500 slot read 1500 + "+600p" in the fleet list with 1400 left - 2100 charged. Cause: the buy dialog prices him on the clone it opened
+(`priceBlueprint`), but `gamedata.doBuyShip` builds the unit from a FRESH `getShipByType` clone whose offer still reads the static 0. The dialog's total
+(his 600 in it) goes into pointCost / pointCostEnh, then `repriceFleet` moves the points by the difference from the row's 0 - his price again. The
+Evangelist (Stage 33) the same, and `doCopyShip` (the same rebuild). Fix: both spinner loops write the dialog's `enhPrice` onto a fleet-priced row's [4],
+so the row says what was charged and repriceFleet moves only a real difference. Client only - though the server keeps the client's ship-level bucket,
+so the doubled pointCostEnh would have reached tac_ship.enhvalue too. Client harness: a new section drives the REAL buyShip / doBuyShip / copyShip /
+doCopyShip / updateFleet / calculateFleet in a sandbox (with the fix stripped the 5 pricing checks fail, 2100 / 1400 left as in 4517).
+Second fix (user-approved, same day): the Copy dialog PREVIEWED the War Leader off an inflated hull - copyShip carried pointCost but not pointCostEnh /
+pointCostEnh2, so `unitHullCost` read the copied enhancements, his own price among them, as hull (825 / 1725 asked on the Apollo, not 600 / 1500; the
+copy still landed at 600 once repriceFleet ran). copyShip now carries both buckets, as copyBulk does; a sixth check pins 600 / 1500 (825 / 1725 without).
+Third fix (user-approved, same day): in an UNLIMITED slot the Copy dialog previewed an Evangelist 3 high (103 / 1103, not 100 / 1100, copying a
+1000-point ship with him at 50) - priceBlueprint counted the copy's whole pointCost, his own price in it, into the fleet (both landed at 100 once
+repriceFleet ran). priceBlueprint now takes `evangelistPaid(ship)` off it (0 on a store blueprint), as evangelistPrice does for every fleet unit; a
+seventh check pins 100 / 1100 (103 / 1103 with the line reverted).
+Client run 1079/11, none from this: the 5 "buy dialog's note" checks are stale since 04bdcfc93 (notes shortened to "Npts"); Stage 28's section throws in
+PhaseStrategy.syncWarLeaderMarkers (its fake shipIconContainer has no getArray - since the 4523 follow-up); the known 4 statics + "the burn ordered".

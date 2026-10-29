@@ -4231,6 +4231,9 @@ window.gamedata = {
 			noTaken = target.data("count");
 			if (noTaken > 0) { //enhancement picked - note!
 				ship.enhancementOptions[enhNo][2] = noTaken;
+				//OFFICERS_PLAN.md Stage 33/34: a fleet-priced officer keeps the price the dialog charged. This unit is a FRESH blueprint clone,
+				//whose offer still reads the static 0 - and repriceFleet moves the points by the difference from the row, so he was charged twice
+				if (window.officers && officers.isFleetPriced(ship.enhancementOptions[enhNo][0])) ship.enhancementOptions[enhNo][4] = target.data("enhPrice");
 				if (!ship.enhancementOptions[enhNo][6]) { //this is an actual enhancement (as opposed to option) - note value!
 					if (ship.flight) {
 						ship.pointCostEnh += confirm.enhRowCost(target, flightSize); //per craft, but a fighter officer scaled by the flight's size (D8)
@@ -4339,6 +4342,10 @@ window.gamedata = {
 
 		newShip.name = copiedShip.name;
 		newShip.pointCost = copiedShip.pointCost;
+		//...and the two buckets folded into it, as copyBulk carries them, so pointCost = hull + buckets holds on the copy too: the dialog prices an
+		//Expert War Leader off officers.unitHullCost, which read the copied enhancements - his own price among them - as hull (OFFICERS_PLAN.md Stage 34)
+		newShip.pointCostEnh = copiedShip.pointCostEnh;
+		newShip.pointCostEnh2 = copiedShip.pointCostEnh2;
 		newShip.flightSize = copiedShip.flightSize;
 		//REINFORCEMENTS_PLAN.md §4 Stage 1: a copy starts in the same place as its original,
 		//front-line or hyperspace. newShip is a fresh blueprint clone and carries nothing.
@@ -4442,6 +4449,9 @@ window.gamedata = {
 			noTaken = target.data("count");
 			if (noTaken > 0) { //enhancement picked - note!
 				ship.enhancementOptions[enhNo][2] = noTaken;
+				//OFFICERS_PLAN.md Stage 33/34: a fleet-priced officer keeps the price the dialog charged. This unit is a FRESH blueprint clone,
+				//whose offer still reads the static 0 - and repriceFleet moves the points by the difference from the row, so he was charged twice
+				if (window.officers && officers.isFleetPriced(ship.enhancementOptions[enhNo][0])) ship.enhancementOptions[enhNo][4] = target.data("enhPrice");
 				if (!ship.enhancementOptions[enhNo][6]) { //this is an actual enhancement (as opposed to option) - note value!
 					if (ship.flight) {
 						ship.pointCostEnh += confirm.enhRowCost(target, flightSize); //per craft, but a fighter officer scaled by the flight's size (D8)
