@@ -91,6 +91,11 @@
    Stage 33: the Expert Evangelist (Corillani CPN and OSF) - the first officer whose effect reaches a whole FLEET: every unit of his
    player's +10 initiative and +1 fire control while he serves, -10 and -1 once he is lost (applyMorale), nothing once his ship has
    jumped out ('withdrawn' - withdrawnTurn); priced off the fleet, by the lobby (`fleet`).
+   Stage 34: the Expert War Leader (every faction; the Narn at the listed price) - +5 initiative on every ship of his player's fleet
+   (applyLeadership), and four once-per-battle abilities, one a turn: Taunt and Anticipate in Initial Orders (saveWarLeaderOrder; the +60
+   as Initial Orders close - applyWarLeaderInitiative - and all his EW held to the late window), Wrath and the Center of Glory in the
+   Firing phase (saveWarLeaderPick, the unit in the OffUsed note's third part); their hit chances warLeaderShotBonus, each told in the
+   combat log (warLeaderLog). Priced off the fleet AND his ship, by the lobby (warLeaderPrice is the rule).
 
    Which FACTIONS may buy an officer, and what some of them pay, is one table: $factionRules below. */
 class Officers{
@@ -200,6 +205,16 @@ class Officers{
 	const REDLINE_LANDING_CLASS = 'RedlineLanding'; //...a landing that holds, told in the combat log (rollRedlineLandings) - weaponManager.doShortLogText
 	const EVANGELIST_INI = 10;           //Expert Evangelist: "all units in the scenario receive a +10 initiative bonus" - FV units, as the Religious Leader's
 	const EVANGELIST_HIT = 1;            //...: "and +5% to hit with all weapons" - one fire control point; both "reversed into penalties" once he is lost
+	const WARLEADER_INI = 5;             //Expert War Leader: "adds +1 to the initiative of every Narn ship present" - tabletop, so +5 in FV (QX1)
+	const WRATH_HIT = 1;                 //...his wrath: "All ships gain +1 to hit that unit on that turn only"
+	const GLORY_HIT = 2;                 //...the center of glory: "It receives a + 2 bonus to hit on that turn only"
+	const TAUNT_HIT = 1;                 //...his taunt: "They receive a +1 bonus to hit his ship on that turn, but a -1 penalty to hit any other ship"
+	const WARLEADER_ANTICIPATION = 60;   //...anticipating: "+60 (in FV) to initiative on that turn only" (the user's FV figure) - it wins no ties (user)
+	const WARLEADER_EW_HOLD = 1000;      //...: "he can wait to determine his ship's EW" - ALL of it: the late-EW pool clamps this to what is unspent
+	const WARLEADER_FLEET_PCT = 5;       //...: "Cost: 5% of the base cost of all units involved in the scenario" - his slot's points (user ruling)
+	const WARLEADER_SHIP_PCT = 25;       //...: "plus 25% of the cost of his own ship"
+	const WARLEADER_OUTSIDER_PCT = 150;  //...: "rarer outside Narn space, and cost 50% more than the listed price"
+	const WARLEADER_LOG_CLASS = 'WarLeader'; //...each ability told in the combat log (warLeaderLog) - combatLog.js heads it "WAR LEADER!:"
 	/* ...: the magazine rounds he may pick free - "change one of their single-space ... missiles to any other legal type at no cost" - by
 	   enhancement id, each with the round it loads (Enhancements::setEnhancementOptionsShip's list). A pick is one of these the hull is
 	   enabled for, single-slot and priced on that hull (paidPickTypes); Basic is not among them, as no swap to it is worth anything (user
@@ -222,6 +237,9 @@ class Officers{
 	private static $quartermasterRefits = array('SYS_GSGT', 'SYS_ADT', 'IMPR_REA', 'SYS_THR', 'SYS_HARM', 'JUMP_ACC');
 	//...and the ones the commit may roll when the player bought none: never the Improved Reactor or the Jump Accelerator (user ruling 2026-10-24)
 	private static $quartermasterRandom = array('SYS_GSGT', 'SYS_ADT', 'SYS_THR', 'SYS_HARM');
+	/* Expert War Leader: "All races have such influential leaders, but they are rarer outside Narn space, and cost 50% more than the listed
+	   price" - the factions that pay the listed price (warLeaderPrice). ⚠️ MIRROR PAIR with officers.WARLEADER_HOME (JS): the lobby prices him. */
+	private static $warLeaderHome = array('Narn Regime');
 	/* ...: "a stirring speech to his ship's crew, quoting the past glories of the Republic, the honor of serving the Emperor, and other
 	   political mumbo-jumbo" - the combat log names one of these at random (speechLog). */
 	private static $speechTopics = array(
@@ -609,6 +627,18 @@ class Officers{
 		   in battle too (user, 2026-10-29: "no need to be lobby-only"). */
 		'OFF_EVAN' => array('label' => 'Expert Evangelist', 'post' => 'cnc', 'pct' => 5, 'fleet' => true, 'apply' => null,
 			'needs' => 'isCpnOrOsf', 'movable' => true),
+		/* Expert War Leader (Stage 34; rules text, user 2026-10-29), in the C&C, on every hull with one. "Adds +1 to the initiative of every
+		   Narn ship present, so long as his ship is in command": +5 on every unit of his PLAYER's fleet that is not a flight, whatever its
+		   faction (user ruling: applyLeadership, once every ship is constructed - so `apply` is null). "Once only once during the scenario ...
+		   each of the following, but can only do one on any turn": in Initial Orders, from his C&C's menu (saveWarLeaderOrder) - TAUNT the
+		   enemy (+1 to hit his ship for every enemy unit, -1 at any other ship of his fleet - user ruling) or ANTICIPATE (+60 initiative that
+		   turn, applied as Initial Orders close and winning no ties - applyWarLeaderInitiative; all his ship's EW may be held to the late window -
+		   savedEwBonus); in the Firing phase, from the War Leader icon (saveWarLeaderPick) - his WRATH on an enemy unit (+1 to hit it for every
+		   ship of his fleet, never a flight - user ruling) or the CENTER OF GLORY on a unit of his fleet (+2 on all its shots - user ruling):
+		   warLeaderShotBonus. Each told in the combat log (warLeaderLog - user ruling). "5% of the base cost of all units involved in the
+		   scenario, plus 25% of the cost of his own ship", x1.5 outside the Narn Regime: his slot's points, or his fleet's hull costs in an
+		   Unlimited slot (user ruling) - the LOBBY's to work out (`fleet`; warLeaderPrice is the rule). */
+		'OFF_WLEAD' => array('label' => 'Expert War Leader', 'post' => 'cnc', 'pct' => 25, 'fleet' => true, 'apply' => null),
 
 		/* PLACED OFFICERS (Stage 8), posted in a weapon the player picks. AFTER every fixed-post officer, so
 		   apply() has already raised the C&C Matter Weapons Expert's guns when it reaches them, and before
@@ -1800,14 +1830,16 @@ class Officers{
 
 	/* DBManager's bulk note loop hands every note here first: an OffTransfer or OffUsed note is recorded on the
 	   ship and never handed to its system (§4.4's reason - a Jump Engine misreads a note it does not know).
-	   true = taken. Their values are "id:to" and "id:ability". */
+	   true = taken. Their values are "id:to" and "id:ability" - or "id:ability:unit" (Stage 34, the unit a War Leader's ability names). */
 	public static function takeNote($ship, $note){
 		if ($note->notekey !== self::TRANSFER_NOTE && $note->notekey !== self::USE_NOTE) return false;
-		$parts = explode(':', (string)$note->notevalue, 2);
-		if (count($parts) === 2){
-			if ($note->notekey === self::TRANSFER_NOTE) $ship->recordOfficerTransfer($parts[0], $note->systemid, (int)$parts[1], $note->turn, (int)$note->id);
-			else $ship->recordOfficerUse($parts[0], $note->systemid, $parts[1], $note->turn);
+		if ($note->notekey === self::TRANSFER_NOTE){
+			$parts = explode(':', (string)$note->notevalue, 2);
+			if (count($parts) === 2) $ship->recordOfficerTransfer($parts[0], $note->systemid, (int)$parts[1], $note->turn, (int)$note->id);
+			return true;
 		}
+		$parts = explode(':', (string)$note->notevalue, 3);
+		if (count($parts) >= 2) $ship->recordOfficerUse($parts[0], $note->systemid, $parts[1], $note->turn, isset($parts[2]) ? (int)$parts[2] : null);
 		return true;
 	}
 
@@ -2011,7 +2043,9 @@ class Officers{
 	   Detector ladder (user ruling 2026-10-10) - EW::getDetectorAllowance. The pool clamp, the window
 	   and the write are the detectors' own and need nothing. ⚠️ MIRROR PAIR with officers.savedEwBonus. */
 	public static function savedEwBonus($ship, $turn = null){
-		return self::isActive($ship, 'OFF_SCAN', $turn) ? 1 : 0;
+		$scanner = self::isActive($ship, 'OFF_SCAN', $turn) ? 1 : 0;
+		//Stage 34: an Expert War Leader who anticipated this turn holds back ALL his ship's EW (anticipationEwHold)
+		return $scanner + self::anticipationEwHold($ship, $turn === null ? TacGamedata::$currentTurn : $turn);
 	}
 
 	/* Expert Technician: the reactor's output, raised at load, and its critical rolls eased. `output` is
@@ -2140,7 +2174,11 @@ class Officers{
 		'speech' => 'speech',           //Stage 25: the Expert Political Officer's (saveSpeech)
 		'precision' => 'precision strike', 'anticipation' => 'anticipation', //Stage 28: the Expert Warrior's (precisionStrike, saveAnticipation)
 		'patch' => 'patch',             //Stage 30: the Expert Quartermaster's (patchCritical)
-		'rotate' => 'gravitic rotation'); //Stage 31: the Expert Graviton Controller's (rotateGravitic)
+		'rotate' => 'gravitic rotation', //Stage 31: the Expert Graviton Controller's (rotateGravitic)
+		//Stage 34: the Expert War Leader's - Initial Orders (saveWarLeaderOrder), then the Firing phase (saveWarLeaderPick)
+		'taunt' => 'taunt', 'anticipate' => 'anticipation', 'wrath' => 'wrath', 'glory' => 'center of glory');
+	//...and the unit each of the War Leader's Firing-phase abilities names: its OffUsed value carries it ("id:ability:unit", takeNote)
+	private static $unitAbilities = array('wrath', 'glory');
 
 	/* Is this ability still his on $turn? Spent ON $turn still counts: that turn's shot is the one that spent it
 	   (so every order his gun fires that turn, and a replay of it, reads the same). */
@@ -2161,22 +2199,26 @@ class Officers{
 					if ($stay['id'] !== $use['id'] || (int)$stay['post'] !== (int)$use['post'] || !self::within($use['turn'], $stay)) continue;
 					$had = isset($list[$i]['abilities'][$use['ability']]) ? $list[$i]['abilities'][$use['ability']] : null;
 					$list[$i]['abilities'][$use['ability']] = ($had === null) ? (int)$use['turn'] : min($had, (int)$use['turn']);
+					//Stage 34: the unit a War Leader's wrath or center of glory named - the first use's, as the turn above is
+					if (isset($use['unit']) && ($had === null || (int)$use['turn'] < (int)$had)) $list[$i]['units'][$use['ability']] = (int)$use['unit'];
 				}
 			}
 		}
 	}
 
 	/* Spend officer $i's $ability on $turn: in memory at once (a second order this request sees it) and as one OffUsed
-	   note on his post, written straight through - firing and the turn change run inside advance(). Once only. */
-	private static function spend($ship, $i, $ability, $turn, $gamedata){
+	   note on his post, written straight through - firing and the turn change run inside advance(). Once only.
+	   $unit (Stage 34): the unit the ability names (a War Leader's wrath or center of glory), kept on his entry as `units`. */
+	private static function spend($ship, $i, $ability, $turn, $gamedata, $unit = null){
 		$list = $ship->getOfficers();
 		if (isset($list[$i]['abilities'][$ability]) && (int)$list[$i]['abilities'][$ability] <= (int)$turn) return;
 		$list[$i]['abilities'][$ability] = (int)$turn;
+		if ($unit !== null) $list[$i]['units'][$ability] = (int)$unit;
 		$ship->setOfficers($list);
-		$ship->recordOfficerUse($list[$i]['id'], $list[$i]['post'], $ability, $turn);
+		$ship->recordOfficerUse($list[$i]['id'], $list[$i]['post'], $ability, $turn, $unit);
 		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, (int)$turn, $gamedata->phase, $ship->id, (int)$list[$i]['post'],
 			self::USE_NOTE, substr(self::getLabel($list[$i]['id']) . ': ' . self::$abilityNames[$ability] . ' used', 0, 40),
-			$list[$i]['id'] . ':' . $ability));
+			$list[$i]['id'] . ':' . $ability . ($unit !== null ? ':' . (int)$unit : '')));
 	}
 
 	//the index of the officer serving as $id IN this system on $turn, or null
@@ -3986,6 +4028,7 @@ class Officers{
 		self::applyLaunchedFlights($gamedata);
 		self::settleCharges($gamedata);
 		self::applyMorale($gamedata); //Stage 33: an Expert Evangelist's fleet-wide morale
+		self::applyLeadership($gamedata); //Stage 34: an Expert War Leader's +5 on his fleet's ships
 	}
 
 	/* The unit each serving Expert Warrior's charge this turn holds against (chargeTarget), on his entry as `charged` - for his team's hit-chance
@@ -4020,6 +4063,227 @@ class Officers{
 				}
 			}
 		}
+	}
+
+	/* ------------------------------------------------------------------ the Expert War Leader (Stage 34) */
+
+	//his four once-per-battle abilities, of which "only one on any turn": two ordered in Initial Orders, two in the Firing phase
+	private static $warLeaderAbilities = array('taunt', 'anticipate', 'wrath', 'glory');
+
+	//the index of this ship's Expert War Leader if he serves on $turn, or null
+	private static function warLeaderIndex($ship, $turn){
+		if ($ship instanceof FighterFlight) return null;
+		foreach ($ship->getOfficers() as $i => $entry){
+			if ($entry['id'] === 'OFF_WLEAD' && self::serves($entry, $turn)) return $i;
+		}
+		return null;
+	}
+
+	/* May he use $ability on $turn: "Once only once during the scenario, the war leader can do each of the following, but can only do one on any
+	   turn" - not spent before, and none of his four spent on $turn. ⚠️ MIRROR PAIR with officers.warLeaderMay (JS). */
+	private static function warLeaderMay(array $entry, $ability, $turn){
+		if (isset($entry['abilities'][$ability])) return false;
+		foreach (self::$warLeaderAbilities as $other){
+			if (self::spentOn($entry, $other, $turn)) return false;
+		}
+		return true;
+	}
+
+	//Did the War Leader serving on $ship on $turn use $ability on it?
+	private static function warLeaderUsed($ship, $ability, $turn){
+		$i = self::warLeaderIndex($ship, $turn);
+		return $i !== null && self::spentOn($ship->getOfficers()[$i], $ability, $turn);
+	}
+
+	/* A "ship" in his rules: what his leadership reaches (applyLeadership), what fires with his wrath and what his taunt shields - never a flight
+	   ("but not fighters or shuttles" - user rulings 2026-10-29), a mine or terrain. Bases and OSATs are. */
+	private static function isLed($unit){
+		return !($unit instanceof FighterFlight) && empty($unit->mine) && !$unit->isTerrain();
+	}
+
+	//TacGamedata::getShipById compares with === and a POSTed id is not an int on every path
+	private static function unitById($gamedata, $id){
+		foreach ($gamedata->ships as $unit){
+			if ((int)$unit->id === (int)$id) return $unit;
+		}
+		return null;
+	}
+
+	/* ⭐ What an Expert War Leader costs - THE price rule: "5% of the base cost of all units involved in the scenario, plus 25% of the cost of his
+	   own ship", 50% more outside the Narn Regime ($warLeaderHome), rounded up ONCE (user ruling 2026-10-29). $fleet: his slot's points, or in an
+	   Unlimited slot his fleet's hull costs; $hull: his ship's. The LOBBY prices him (officers.warLeaderPrice) and the server keeps what his row
+	   says (fleetRowPrice) - this is the rule written down, which the harness holds the lobby to. A 3,000-point slot and a 600-point ship: 300,
+	   450 outside the Narn Regime. ⚠️ MIRROR PAIR with officers.warLeaderPrice (JS). */
+	public static function warLeaderPrice($fleet, $hull, $faction){
+		$points = $fleet * self::WARLEADER_FLEET_PCT + $hull * self::WARLEADER_SHIP_PCT;
+		$pct = in_array((string)$faction, self::$warLeaderHome, true) ? 1 : self::WARLEADER_OUTSIDER_PCT / 100;
+		return self::price($points, $pct);
+	}
+
+	/* "An expert war leader adds +1 to the initiative of every Narn ship present, so long as his ship is in command": +5 (QX1's tabletop step)
+	   on every "ship" of his PLAYER's fleet (isLed) whatever its faction - his own among them - while he serves and his ship is on the field
+	   (isOnField, as the Evangelist's; user ruling 2026-10-29). Several in one fleet do not stack; nothing once he is lost. The BASE
+	   initiative, published to every viewer (addForJson), as every initiative officer's. afterShipsConstructed - so before the roll at the
+	   turn change. ⚠️ MIRROR PAIR with officers.leadershipBonus (JS), the lobby's preview. */
+	private static function applyLeadership($gamedata){
+		$turn = (int)$gamedata->turn;
+		$fleets = array();
+		foreach ($gamedata->ships as $ship){
+			if (self::warLeaderIndex($ship, $turn) !== null && self::isOnField($ship, $gamedata, $turn)) $fleets[self::fleetKey($ship)] = true;
+		}
+		if (empty($fleets)) return;
+		foreach ($gamedata->ships as $unit){
+			if (!isset($fleets[self::fleetKey($unit)]) || !self::isLed($unit) || $unit->getOfficerLeaderIni() !== 0) continue;
+			$unit->iniativebonus += self::WARLEADER_INI;
+			$unit->setOfficerLeaderIni(self::WARLEADER_INI);
+		}
+	}
+
+	/* InitialOrdersGamePhase::process: the order a POST asks of his C&C - 'taunt' or 'anticipate' in that C&C's individualNotesTransfer
+	   (CnC.doIndividualNotesTransfer) on $postShip - checked against the RELOADED $ship (the POST-side copy has no officers) and spent: one
+	   OffUsed note, read back at every later load. One of the two, his ship on the field, each once per battle and nothing else this turn.
+	   Initial Orders are committed once, so there is no second order to refuse. */
+	public static function saveWarLeaderOrder($ship, $postShip, $gamedata){
+		if (!TacGamedata::$officersPresent || !$ship || !$postShip || $ship instanceof FighterFlight) return;
+		if ((int)$ship->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::warLeaderIndex($ship, $turn);
+		if ($i === null || !self::isOnField($ship, $gamedata, $turn)) return;
+		$entry = $ship->getOfficers()[$i];
+		$cnc = $postShip->getSystemById((int)$entry['post']);
+		$transfer = ($cnc && is_array($cnc->individualNotesTransfer)) ? $cnc->individualNotesTransfer : array();
+		foreach (array('taunt', 'anticipate') as $ability){
+			if (!in_array($ability, $transfer, true) || !self::warLeaderMay($entry, $ability, $turn)) continue;
+			self::spend($ship, $i, $ability, $turn, $gamedata);
+			return;
+		}
+	}
+
+	/* ⭐ WHEN INITIAL ORDERS CLOSE (InitialOrdersGamePhase::advance, after the Triad Command Node and the fighter missions, before the first
+	   active ship is picked - that pick reads initiative): "+60 (in FV) to initiative on that turn only" for the ship of every War Leader who
+	   anticipated this turn, by their shared mechanism (CnC::shiftIniative, which keeps simultaneous movement's brackets right). It wins NO
+	   ties (user ruling 2026-10-29): in classic movement, where every total must stay distinct, a tie it makes is broken against his ship, as
+	   a fighter mission change's is. Written to tac_iniative, and the ships re-sorted so the rest of the advance sees it. */
+	public static function applyWarLeaderInitiative($gamedata, $dbManager){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		$rule = $gamedata->rules ? $gamedata->rules->getRuleByName('initiativeCategories') : null;
+		$changed = array();
+		foreach ($gamedata->ships as $ship){
+			if (!self::warLeaderUsed($ship, 'anticipate', $turn)) continue;
+			CnC::shiftIniative($ship, self::WARLEADER_ANTICIPATION, $rule);
+			$changed[$ship->id] = $ship;
+		}
+		if (empty($changed)) return;
+		if (!$rule) CnC::breakCommandNodeTies($gamedata, $changed, -1);
+		foreach ($changed as $ship) $dbManager->updateIniative($gamedata->id, $turn, $ship->id, $ship->iniative, $ship->unmodifiedIniative);
+		$gamedata->doSortShips();
+	}
+
+	/* His anticipation's EW: "he can wait to determine his ship's (and only his ship's) EW until after his opponents have all announced their
+	   EW" - on the turn he anticipated, the Expert Scanner's late-EW allowance (the user's note) for ALL of it: EW::getSavedEwAllowance clamps
+	   this to what his ship left unspent in Initial Orders, which the Pre-Firing / Firing window may then place (savedEwBonus). */
+	private static function anticipationEwHold($ship, $turn){
+		return self::warLeaderUsed($ship, 'anticipate', $turn) ? self::WARLEADER_EW_HOLD : 0;
+	}
+
+	/* FireGamePhase::process, through CnC::saveFirePhaseDeclaration: the Firing-phase ability a POST asked of his C&C $cnc - 'wrath' at an enemy
+	   unit, or 'glory' on a unit of his fleet, $unitId (the War Leader icon's pick) - checked on the LOADED ship and spent, naming the unit (one
+	   OffUsed note, "id:ability:unit"). Refused: another player's ship, a C&C he is not posted in, an ability spent, any of his four used this
+	   turn, a unit the ability may not name (warLeaderNames). */
+	public static function saveWarLeaderPick($cnc, $gamedata, $ability, $unitId){
+		if (!TacGamedata::$officersPresent || !is_object($cnc) || !in_array($ability, self::$unitAbilities, true)) return;
+		$postShip = $cnc->getUnit();
+		if (!$postShip) return;
+		$ship = $gamedata->getShipById((int)$postShip->id);
+		if (!$ship || $ship instanceof FighterFlight || (int)$ship->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::warLeaderIndex($ship, $turn);
+		if ($i === null) return;
+		$entry = $ship->getOfficers()[$i];
+		if ((int)$entry['post'] !== (int)$cnc->id || !self::warLeaderMay($entry, $ability, $turn)) return;
+		$unit = self::unitById($gamedata, $unitId);
+		if (!self::warLeaderNames($ship, $ability, $unit, $gamedata, $turn)) return;
+		self::spend($ship, $i, $ability, $turn, $gamedata, (int)$unit->id);
+	}
+
+	/* May the War Leader of $ship name $unit with $ability on $turn: a unit on the board and in the fight (deployed, not destroyed, not terrain) -
+	   for his wrath "a single enemy unit" (another team's, flights included); for the center of glory "a single friendly unit" of his own fleet
+	   (user ruling 2026-10-29: his player's - his own ship and its flights included). ⚠️ MIRROR PAIR with officers.warLeaderNames (JS). */
+	private static function warLeaderNames($ship, $ability, $unit, $gamedata, $turn){
+		if (!$unit || $unit->isTerrain() || $unit->isDestroyed() || !self::isOnField($unit, $gamedata, $turn)) return false;
+		if ($ability === 'wrath') return (int)$unit->team !== (int)$ship->team;
+		return self::fleetKey($unit) === self::fleetKey($ship);
+	}
+
+	/* ⭐ WHAT THIS TURN'S WAR LEADER ABILITIES ADD TO ONE SHOT - Weapon::calculateHitBase, behind $officersPresent, in d20 units: a shot modifier for
+	   that turn, as the Charge's +2 (never the ram, a jump drive or an interception), from every War Leader serving on the turn:
+	     wrath   +1 on a shot at the unit he named, by any "ship" of his fleet (isLed - "All ships gain +1 to hit that unit", user ruling);
+	     glory   +2 on every shot of the unit he named ("It receives a + 2 bonus to hit");
+	     taunt   for every unit of another team: +1 at his ship, -1 at any other "ship" of his fleet (user ruling: his own fleet's only).
+	   Ballistic shots resolving that turn included. Stacks with a Gunner's and a Charge's; several War Leaders' add up.
+	   ⚠️ MIRROR PAIR with officers.warLeaderShotBonus (JS). */
+	public static function warLeaderShotBonus($shooter, $weapon, $target, $fireOrder, $gamedata){
+		if (!$target || !$shooter || $weapon instanceof RammingAttack || $weapon instanceof JumpEngine) return 0;
+		if ($fireOrder && strpos((string)$fireOrder->type, 'ntercept') !== false) return 0;
+		$turn = (int)$gamedata->turn;
+		$mod = 0;
+		foreach ($gamedata->ships as $leader){
+			$i = self::warLeaderIndex($leader, $turn);
+			if ($i === null) continue;
+			$entry = $leader->getOfficers()[$i];
+			$fleet = self::fleetKey($leader);
+			if (self::spentOn($entry, 'wrath', $turn) && (int)($entry['units']['wrath'] ?? 0) === (int)$target->id
+				&& self::isLed($shooter) && self::fleetKey($shooter) === $fleet) $mod += self::WRATH_HIT;
+			if (self::spentOn($entry, 'glory', $turn) && (int)($entry['units']['glory'] ?? 0) === (int)$shooter->id) $mod += self::GLORY_HIT;
+			if (self::spentOn($entry, 'taunt', $turn) && (int)$shooter->team !== (int)$leader->team){
+				if ((int)$target->id === (int)$leader->id) $mod += self::TAUNT_HIT;
+				else if (self::isLed($target) && self::fleetKey($target) === $fleet) $mod -= self::TAUNT_HIT;
+			}
+		}
+		return $mod;
+	}
+
+	//Is his ship taunting on $turn - what every viewer is sent once Initial Orders close (addForJson), for the enemy's hit-chance preview
+	private static function taunting($ship, $turn){
+		return self::warLeaderUsed($ship, 'taunt', $turn);
+	}
+
+	/* FireGamePhase::advance, after firing, beside the Political Officer's speech: every War Leader ability used this turn told in the combat
+	   log, to every player (user ruling 2026-10-29 - the tabletop announces each), in the speech's clothes: a log line on his ship's own
+	   RammingAttack, at itself, rolled 1, no shot ([[howto_create_fire_orders]]); the units as bare shiplinks. Behind $officersPresent. */
+	public static function warLeaderLog($gamedata){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		foreach ($gamedata->ships as $ship){
+			if ($ship instanceof FighterFlight) continue;
+			foreach ($ship->getOfficers() as $entry){
+				if ($entry['id'] !== 'OFF_WLEAD') continue;
+				foreach (self::$warLeaderAbilities as $ability){
+					if (!self::spentOn($entry, $ability, $turn)) continue;
+					$ram = $ship->getSystemByName('RammingAttack');
+					if (!$ram) continue;
+					$order = new FireOrder(-1, 'normal', $ship->id, $ship->id, $ram->id, -1, $turn, 1, 0, 1, 0, 0, 0, 0, 0, self::WARLEADER_LOG_CLASS, 10000);
+					$order->pubnotes = self::warLeaderSentence($ship, $entry, $ability, $gamedata);
+					$order->addToDB = true;
+					$ram->fireOrders[] = $order;
+				}
+			}
+		}
+	}
+
+	private static function shipLink($unit){
+		return '<span class="shiplink" data-id="' . (int)$unit->id . '">' . $unit->name . '</span>';
+	}
+
+	private static function warLeaderSentence($ship, $entry, $ability, $gamedata){
+		$leader = 'The War Leader aboard ' . self::shipLink($ship);
+		if ($ability === 'taunt') return $leader . ' taunts the enemy, drawing their fire to his own ship.';
+		if ($ability === 'anticipate') return $leader . ' anticipates the enemy\'s every move.';
+		$unit = isset($entry['units'][$ability]) ? self::unitById($gamedata, $entry['units'][$ability]) : null;
+		$name = $unit ? self::shipLink($unit) : 'a unit';
+		if ($ability === 'wrath') return $leader . ' declares ' . $name . ' the subject of his personal wrath.';
+		return $leader . ' declares ' . $name . ' the center of glory.';
 	}
 
 	/* ------------------------------------------------------------------ repairs (Stage 5) */
@@ -5170,8 +5434,14 @@ class Officers{
 		if ($ship->getOfficerLaunchIni() > 0) $strippedShip->iniativebonus = $ship->iniativebonus;
 		//Stage 33: a unit of an Expert Evangelist's fleet - its +10 (or -10), to every viewer: a displayed stat is public (applyMorale)
 		if ($ship->getOfficerMoraleIni() !== 0) $strippedShip->iniativebonus = $ship->iniativebonus;
+		//Stage 34: a ship of an Expert War Leader's fleet - its +5, to every viewer (applyLeadership)
+		if ($ship->getOfficerLeaderIni() !== 0) $strippedShip->iniativebonus = $ship->iniativebonus;
 		$list = $ship->getOfficers();
 		if (empty($list)) return;
+		/* Stage 34: his taunt this turn, to every viewer once Initial Orders have closed (never while they are open - an opponent still giving his
+		   would learn it): every enemy's hit-chance preview reads it (officers.warLeaderShotBonus). The tabletop announces it. */
+		$turnNow = (int)TacGamedata::$currentTurn;
+		if (((int)TacGamedata::$currentPhase > 1 || TacGamedata::$currentGameFinished) && self::taunting($ship, $turnNow)) $strippedShip->warLeaderTaunt = $turnNow;
 		foreach ($list as $entry){
 			$officer = self::$registry[$entry['id']];
 			if (self::serves($entry, TacGamedata::$currentTurn)) $key = 'publish';
@@ -5221,6 +5491,8 @@ class Officers{
 			if ($entry['id'] === 'OFF_TROOP') $row['pods'] = (int)($entry['pods'] ?? 0);
 			//Stage 28: the unit an Expert Warrior's charge holds against this turn - his team's hit-chance preview (officers.chargeHitBonus) and reticle
 			if (isset($entry['charged'])) $row['charged'] = (int)$entry['charged'];
+			//Stage 34: the units an Expert War Leader's wrath and center of glory named - his team's hit-chance preview and crosshairs
+			if (!empty($entry['units'])) $row['units'] = $entry['units'];
 			if (!empty(self::$registry[$entry['id']]['movable']) && (int)TacGamedata::$currentPhase === 1 && !TacGamedata::$currentGameFinished){
 				$targets = self::moveTargets($ship, $list, $i, $turn);
 				if (!empty($targets)) $row['targets'] = $targets;

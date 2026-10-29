@@ -202,6 +202,7 @@ class BaseShip {
 	protected $officerTransferClaims = array();
 	protected $officerLaunchIni = 0;
 	protected $officerMoraleIni = 0; //Stage 33: what an Expert Evangelist's morale did to this unit's iniativebonus (Officers::applyMorale)
+	protected $officerLeaderIni = 0; //Stage 34: what an Expert War Leader gave this unit of his fleet's iniativebonus (Officers::applyLeadership)
 
 	
 	public $halfPhaseThrust = 0; //needed for half phasing; equal to thrust from two BioThrusters on a given ship; 0 for ships that cannot half phase, eg. vast majority
@@ -1939,8 +1940,11 @@ class BaseShip {
 	}
 
 	//one OffUsed note (Stage 10), or an ability spent in this request: the officer at $post on $turn spent $ability
-	public function recordOfficerUse($officerId, $post, $ability, $turn){
-		$this->officerUses[] = array('id' => (string)$officerId, 'post' => (int)$post, 'ability' => (string)$ability, 'turn' => (int)$turn);
+	//- naming $unit, a War Leader's wrath or center of glory (Stage 34)
+	public function recordOfficerUse($officerId, $post, $ability, $turn, $unit = null){
+		$use = array('id' => (string)$officerId, 'post' => (int)$post, 'ability' => (string)$ability, 'turn' => (int)$turn);
+		if ($unit !== null) $use['unit'] = (int)$unit;
+		$this->officerUses[] = $use;
 	}
 
 	public function getOfficerTransferClaims(){
@@ -1968,6 +1972,15 @@ class BaseShip {
 
 	public function setOfficerMoraleIni($shift){
 		$this->officerMoraleIni = (int)$shift;
+	}
+
+	//Stage 34: the initiative an Expert War Leader gave this unit of his fleet (0: none) - its payload publishes it
+	public function getOfficerLeaderIni(){
+		return $this->officerLeaderIni;
+	}
+
+	public function setOfficerLeaderIni($bonus){
+		$this->officerLeaderIni = (int)$bonus;
 	}
 
     public function getSpecialAbilitySystem($ability)

@@ -421,17 +421,38 @@ CnC.prototype.isCommandNodeThisTurn = function () {
 
 CnC.prototype.doIndividualNotesTransfer = function () {
 	this.individualNotesTransfer = "";
-	//OFFICERS_PLAN.md Stage 25: an Expert Political Officer's speech, ordered this Firing phase (CnC::saveFirePhaseDeclaration reads it)
-	//Stage 28: or, on an Expert Warrior's C&C, his Supreme Anticipation
-	if (gamedata.gamephase == 3 && this.active && gamedata.isMyShip(this.ship)) {
-		this.individualNotesTransfer = [this.isWarriorPost() ? 'anticipation' : 'speech'];
+	if (!gamedata.isMyShip(this.ship)) return false;
+	//OFFICERS_PLAN.md Stage 34: an Expert War Leader's order on this C&C - Taunt / Anticipate in Initial Orders, Wrath / Center of Glory (with
+	//the unit, "wrath:<id>") in the Firing phase. Beside whatever else the C&C posts (Officers::saveWarLeaderOrder / saveWarLeaderPick read it).
+	var leader = this.getWarLeaderTransfer();
+	if (gamedata.gamephase == 3) {
+		var declared = leader ? [leader] : [];
+		//OFFICERS_PLAN.md Stage 25: an Expert Political Officer's speech, ordered this Firing phase (CnC::saveFirePhaseDeclaration reads it)
+		//Stage 28: or, on an Expert Warrior's C&C, his Supreme Anticipation
+		if (this.active) declared.unshift(this.isWarriorPost() ? 'anticipation' : 'speech');
+		if (!declared.length) return false;
+		this.individualNotesTransfer = declared;
 		return true;
 	}
-	if (gamedata.gamephase != 1 || !this.isTriadNode() || !gamedata.isMyShip(this.ship)) return false;
-	if (!this.isCommandNodeThisTurn()) return false;
-	var swap = (this.commandNodeSwap !== undefined && this.commandNodeSwap !== null) ? this.commandNodeSwap : -1;
-	this.individualNotesTransfer = [1, swap];
+	if (gamedata.gamephase != 1) return false;
+	var transfer = [];
+	if (this.isTriadNode() && this.isCommandNodeThisTurn()) {
+		var swap = (this.commandNodeSwap !== undefined && this.commandNodeSwap !== null) ? this.commandNodeSwap : -1;
+		transfer = [1, swap]; //the Triad's reads its first two places only
+	}
+	if (leader) transfer.push(leader);
+	if (!transfer.length) return false;
+	this.individualNotesTransfer = transfer;
 	return true;
+};
+
+//Stage 34: what this C&C's Expert War Leader has ordered for the commit - 'taunt' / 'anticipate' (Initial Orders), 'wrath:<id>' / 'glory:<id>'
+//(Firing phase) - or null. Only the C&C he is posted in carries it (officers.warLeaderCnc).
+CnC.prototype.getWarLeaderTransfer = function () {
+	if (!window.officers || officers.warLeaderCnc(this.ship) !== this) return null;
+	if (gamedata.gamephase == 1) return officers.warLeaderOrder(this.ship);
+	var pick = gamedata.gamephase == 3 ? officers.warLeaderPick(this.ship) : null;
+	return pick ? pick.ability + ':' + pick.unit : null;
 };
 
 /* ===== EXPERT POLITICAL OFFICER'S SPEECH (OFFICERS_PLAN.md Stage 25) ===================================
@@ -484,7 +505,7 @@ CnC.prototype.doDeactivate = function () {
 };
 
 //Save Orders (SAVE_ORDERS_PLAN.md §1.4): the Command Node's nomination and swap in Initial Orders, the speech in the Firing phase.
-CnC.prototype.draftStateKeys = ['commandNodeTurn', 'commandNodeSwap', 'active'];
+CnC.prototype.draftStateKeys = ['commandNodeTurn', 'commandNodeSwap', 'active', 'warLeaderOrder', 'warLeaderPick']; //Stage 34: the War Leader's
 CnC.prototype.draftStatePhases = [1, 3];
 
 //The ship's Triad C&C (in any state), or null.

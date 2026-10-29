@@ -59,7 +59,8 @@ window.combatLog = {
     STANDALONE_LOG_KINDS: {
         'HangarEscape': true,
         'PoliticalSpeech': true,
-        'RedlineLanding': true
+        'RedlineLanding': true,
+        'WarLeader': true
     },
 
     logKindKey: function logKindKey(fire, shooter) {
@@ -339,8 +340,10 @@ window.combatLog = {
         /* OFFICERS_PLAN.md Stage 25 - an Expert Political Officer's speech is not fire either: "SPEECH:", in the shooter's colour, and
            then its sentence as the server wrote it ("The Political Officer on-board <ship> begins ...") - it names the ship itself, so
            the shooter's name is not printed ahead of it. */
-        var isSpeech = fire.damageclass === 'PoliticalSpeech';
-        var headerLabel = hyperspaceKind ? 'HYPERSPACE: ' : (isSpeech ? 'SPEECH!: ' : 'FIRE: ');
+        //Stage 34: an Expert War Leader's ability is told the same way, under "WAR LEADER!:" - its sentence names his ship
+        var isWarLeader = fire.damageclass === 'WarLeader';
+        var isSpeech = fire.damageclass === 'PoliticalSpeech' || isWarLeader;
+        var headerLabel = hyperspaceKind ? 'HYPERSPACE: ' : (isWarLeader ? 'WAR LEADER!: ' : (isSpeech ? 'SPEECH!: ' : 'FIRE: '));
         var headerClass = hyperspaceKind ? 'logheader hyperspace ' + hyperspaceKind : 'logheader fire';
         //The hyperspace colours live in logPanel.css, keyed off the class - an inline literal here
         //would be a fourth copy of two values the stylesheets already own.

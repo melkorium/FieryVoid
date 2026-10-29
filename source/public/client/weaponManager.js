@@ -2422,6 +2422,10 @@ window.weaponManager = {
         if (precision !== 0) otherDetail.push({ label: 'Precision Strike', value: precision });
         var chargeHit = window.officers ? officers.chargeHitBonus(shooter, weapon, target) : 0;
         if (chargeHit !== 0) otherDetail.push({ label: 'Charge', value: chargeHit });
+        /* This turn's Expert War Leader abilities (OFFICERS_PLAN.md Stage 34): his wrath, a center of glory, a taunt.
+           ⚠️ MIRROR PAIR with the warLeaderShotBonus line in Weapon::calculateHitBase. */
+        var warLeader = window.officers ? officers.warLeaderShotBonus(shooter, weapon, target) : 0;
+        if (warLeader !== 0) otherDetail.push({ label: 'War Leader', value: warLeader });
 
         /* An Expert Gunner's once-per-battle shot (OFFICERS_PLAN.md Stage 10): +4 on his gun's first native Piercing
            shot, +3 on its first called shot. ⚠️ MIRROR PAIR with the gunnerShotBonus line in Weapon::calculateHitBase. */
@@ -5914,6 +5918,9 @@ window.weaponManager = {
             //RedlineLanding (OFFICERS_PLAN.md Stage 32): a Redline Pilot's landing beyond the thrust tolerance that held - its roll. 0 shots
             //on his craft's Ramming Attack, at his own flight; its sentence continues the header with "'s" (a crash is the ram itself).
             "RedlineLanding",
+            //WarLeader (OFFICERS_PLAN.md Stage 34): an Expert War Leader's taunt, anticipation, wrath or center of glory - its sentence alone,
+            //under a "WAR LEADER!:" header (combatLog.logFireOrders), 0 shots on the ship's own Ramming Attack, as the speech.
+            "WarLeader",
             //HangarEscape (HangarOps::escapeLogOrder): a destroyed carrier's escape roll - what flew free and what was lost with the
             //ship. 0 shots on the carrier's own Ramming Attack; its sentence continues the header with "'s".
             "HangarEscape"

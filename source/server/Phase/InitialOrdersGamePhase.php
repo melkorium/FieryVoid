@@ -15,6 +15,10 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
     // picked below. Returns at once in a game with no mission note.
     FighterMissions::applyInitiative($gameData, $dbManager);
 
+    // OFFICERS_PLAN.md Stage 34 - an Expert War Leader who anticipated in the Initial Orders that just closed: +60 to his ship, by the same
+    // mechanism and for the same reason (it wins no ties). Returns at once in a game with no officers.
+    Officers::applyWarLeaderInitiative($gameData, $dbManager);
+
     $dbManager->setPlayersWaitingStatusInGame($gameData->id, true);
     $gameData->setPhase(2);
 
@@ -312,6 +316,12 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
                copy has no notes) and written as one FtrMission note when it is a real change. An ordinary flight sends none. */
             if ($ship instanceof FighterFlight && $ship->getFighterMissionClaim() !== null){
                 FighterMissions::saveClaim($gd->getShipById($ship->id), $ship->getFighterMissionClaim(), $gameData);
+            }
+
+            /* OFFICERS_PLAN.md Stage 34 - an Expert War Leader's taunt or anticipation, asked on his C&C's transfer ($ship is the POST-side
+               copy) and checked against the RELOADED ship, which alone has officers: one OffUsed note. Any other ship asks nothing. */
+            if (TacGamedata::$officersPresent && !($ship instanceof FighterFlight)){
+                Officers::saveWarLeaderOrder($gd->getShipById($ship->id), $ship, $gameData);
             }
         }
 

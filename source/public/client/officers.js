@@ -108,7 +108,7 @@ window.officers = {
 		   per die and both critical modifiers are the server's. The Charge is movement.js's (its icon - canCharge - and the reticle on the unit
 		   charged, getChargeMarked), his Supreme Anticipation his C&C's Activate box in the Firing Phase (canAnticipateSupreme). */
 		{ id: 'OFF_WARR', label: 'Expert Warrior', post: 'cnc', stats: { iniativebonus: 10, critRollMod: -1 },
-			summary: '+1 fire control and damage on all weapons; +10 initiative, also on launched flights; -1 on crit rolls, +1 on crits caused. Once per battle / turn: Charge, Precision strike, Supreme Anticipation' },
+			summary: '+1 fire control and damage on all weapons; +10 initiative; -1 on crit rolls, +1 on crits caused. Once per battle / turn: Charge, Precision strike, Supreme Anticipation' },
 		/* Stage 29: in the C&C, on hulls with counted ballistic ammunition (`needs`; the offers' too). No stat moves. His +5 distance range is the
 		   hit-chance preview's and the Range line's (distanceRangeBonus - in game the number the server publishes to every viewer); his magazine
 		   slots and free missiles are the buy dialog's and the fleet list's (getMaxAmmoFit, ballisticFreeRounds - off the static blueprint's
@@ -136,7 +136,14 @@ window.officers = {
 		   game the server applied and published both, the -10 / -1 once he is lost too - his initiative in the BASE, as every initiative officer's
 		   (the tie-breaks compare it). */
 		{ id: 'OFF_EVAN', label: 'Expert Evangelist', post: 'cnc', fleet: true, movable: true,
-			summary: 'Every unit of the fleet +10 initiative and +5% to hit; once he is lost, -10 initiative and -5% to hit instead' },
+			summary: 'Every unit of the fleet +10 initiative and +5% to hit; if killed, -10 initiative and -5% to hit instead' },
+		/* Stage 34: in the C&C, on every hull with one. `fleet`: priced off the FLEET and his ship, by the lobby alone (warLeaderPrice, through
+		   repriceFleet - the static offer is 0). His +5 reaches every ship of his player's fleet, so it has no `stats`: the lobby previews it in
+		   the Initiative value (leadershipBonus, in displayStat); in game the server applied and published it. His four abilities: Taunt and
+		   Anticipate in his C&C's War Leader menu in Initial Orders (WarLeaderMenu - canWarLeaderOrder), Wrath and Center of Glory from the War
+		   Leader icon in the Firing phase (warLeaderState); their hit chances are warLeaderShotBonus, the anticipation's EW hold savedEwBonus. */
+		{ id: 'OFF_WLEAD', label: 'Expert War Leader', post: 'cnc', fleet: true,
+			summary: 'Every ship of the fleet +5 initiative. Special abilities that can be used once per battle' },
 		/* PLACED officers (Stage 8): posted in the weapon the player buys him on, from that system's own menu
 		   (a per-system row - systemEnhancements.js), so they have no `post`. `sameAs`: the ship-level officer he
 		   IS at another post (one or the other); `anyDamage`: disabled by any damage to his weapon.
@@ -780,7 +787,7 @@ window.officers = {
 	//charge, precision, anticipation: the Expert Warrior's (Stage 28); patch: the Expert Quartermaster's (Stage 30)
 	ABILITY_NAMES: { reload: 'faster reload', pierce: 'Piercing shot', called: 'called shot', capture: 'capture assault', speech: 'speech',
 		reuse: 'Specialist reuse', charge: 'charge', precision: 'precision strike', anticipation: 'Supreme Anticipation', patch: 'critical patch',
-		rotate: 'gravitic rotation' },
+		rotate: 'gravitic rotation', taunt: 'taunt', anticipate: 'anticipation', wrath: 'wrath', glory: 'center of glory' }, //Stage 34: the War Leader's
 	abilitiesText: function abilitiesText(entry) {
 		var spent = entry && entry.abilities ? entry.abilities : null;
 		if (!spent) return '';
@@ -1363,7 +1370,8 @@ window.officers = {
 	   (ew.getDetectorAllowance). In game the list is the server's, so an enemy ship answers 0.
 	   ⚠️ MIRROR PAIR with Officers::savedEwBonus (PHP). */
 	savedEwBonus: function savedEwBonus(ship) {
-		return this.isActive(ship, 'OFF_SCAN') ? 1 : 0;
+		//Stage 34: an Expert War Leader who anticipated this turn holds back ALL his ship's EW - the pool clamps it to what is unspent
+		return (this.isActive(ship, 'OFF_SCAN') ? 1 : 0) + (this.warLeaderUsed(ship, 'anticipate') ? this.WARLEADER_EW_HOLD : 0);
 	},
 
 	/* Expert Missileer: the OB a fighter's ballistic launch gets, when it gets the flight's OB at all, is 1
@@ -2450,14 +2458,21 @@ window.officers = {
 		return this.boughtCount(ship, 'OFF_EVAN') > 0 || this.placedRows(ship).some(function (row) { return self.isFleetPriced(row[0]); });
 	},
 
+	//Stage 34: which fleet-priced officer a row is - the Evangelist (his twin's rows too: sameAs) or the War Leader - each priced by his own rule
+	fleetFamily: function fleetFamily(id) {
+		var officer = this.get(id);
+		if (!officer || !officer.fleet) return null;
+		return officer.sameAs || officer.id;
+	},
+
 	//what his rows cost this unit now: the bought ship-level row (count x price) and the bought twin rows' totals
 	evangelistPaid: function evangelistPaid(ship) {
 		var self = this;
 		var paid = 0;
 		(Array.isArray(ship.enhancementOptions) ? ship.enhancementOptions : []).forEach(function (row) {
-			if (row && self.isFleetPriced(row[0])) paid += (parseInt(row[2], 10) || 0) * (parseFloat(row[4]) || 0);
+			if (row && self.fleetFamily(row[0]) === 'OFF_EVAN') paid += (parseInt(row[2], 10) || 0) * (parseFloat(row[4]) || 0);
 		});
-		this.placedRows(ship).forEach(function (row) { if (self.isFleetPriced(row[0])) paid += parseFloat(row[4]) || 0; });
+		this.placedRows(ship).forEach(function (row) { if (self.fleetFamily(row[0]) === 'OFF_EVAN') paid += parseFloat(row[4]) || 0; });
 		return paid;
 	},
 
@@ -2476,22 +2491,24 @@ window.officers = {
 
 	/* `price` as his price on this unit: the ship-level offer row's ([4]), every twin offer's ([2] - systemEnhancements.set prices a twin off
 	   it, so a lobby Move stays free) and his bought rows', moving pointCostEnh / pointCostSysEnh and pointCost by the difference - the lobby's
-	   invariant pointCost = hull + pointCostEnh + pointCostEnh2 + pointCostSysEnh (setShipLevelRow's). true when a BOUGHT row's points moved. */
-	setEvangelistPrice: function setEvangelistPrice(ship, price) {
+	   invariant pointCost = hull + pointCostEnh + pointCostEnh2 + pointCostSysEnh (setShipLevelRow's). true when a BOUGHT row's points moved.
+	   `family` (Stage 34): whose rows - OFF_EVAN (default, his twin's with them) or OFF_WLEAD, each priced by his own rule. */
+	setEvangelistPrice: function setEvangelistPrice(ship, price, family) {
 		if (!ship) return false;
+		family = family || 'OFF_EVAN';
 		var self = this;
 		var enh = 0;
 		var refits = 0;
 		(Array.isArray(ship.enhancementOptions) ? ship.enhancementOptions : []).forEach(function (row) {
-			if (!row || !self.isFleetPriced(row[0])) return;
+			if (!row || self.fleetFamily(row[0]) !== family) return;
 			enh += (parseInt(row[2], 10) || 0) * (price - (parseFloat(row[4]) || 0));
 			row[4] = price;
 		});
 		(Array.isArray(ship.systemEnhancementOffers) ? ship.systemEnhancementOffers : []).forEach(function (offer) {
-			if (offer && self.isFleetPriced(offer[0])) offer[2] = price;
+			if (offer && self.fleetFamily(offer[0]) === family) offer[2] = price;
 		});
 		this.placedRows(ship).forEach(function (row) {
-			if (!self.isFleetPriced(row[0])) return;
+			if (self.fleetFamily(row[0]) !== family) return;
 			refits += price - (parseFloat(row[4]) || 0);
 			row[4] = price;
 		});
@@ -2507,16 +2524,24 @@ window.officers = {
 	   Idempotent: nothing moves once the prices agree. Returns how many units' points moved. */
 	repriceFleet: function repriceFleet() {
 		var self = this;
-		var offered = this.lobbyFleet().filter(function (u) {
+		var fleet = this.lobbyFleet();
+		var offered = fleet.filter(function (u) {
 			return !u.flight && (self.shipLevelRow(u, 'OFF_EVAN') !== null || self.hasEvangelist(u));
 		});
-		if (!offered.length) return 0;
-		var price = this.evangelistPrice();
+		//Stage 34: and every unit offered an Expert War Leader, at his price on THAT ship (warLeaderPrice - a share of his own hull)
+		var leaders = fleet.filter(function (u) { return !u.flight && self.shipLevelRow(u, 'OFF_WLEAD') !== null; });
+		if (!offered.length && !leaders.length) return 0;
+		var price = offered.length ? this.evangelistPrice() : 0;
 		var moved = 0;
-		offered.forEach(function (u) {
-			if (!self.setEvangelistPrice(u, price)) return;
+		var refresh = function (u) {
 			moved++;
 			if (typeof gamedata.refreshFleetRow === 'function') gamedata.refreshFleetRow(u);
+		};
+		offered.forEach(function (u) {
+			if (self.setEvangelistPrice(u, price)) refresh(u);
+		});
+		leaders.forEach(function (u) {
+			if (self.setEvangelistPrice(u, self.warLeaderPrice(u), 'OFF_WLEAD')) refresh(u);
 		});
 		return moved;
 	},
@@ -2525,8 +2550,10 @@ window.officers = {
 	   with this unit in the fleet - in an Unlimited slot its bare hull counted in; repriceFleet adds whatever else the purchase brings once it
 	   lands. A unit already in the fleet (an edit, a copy) holds the fleet's price already. */
 	priceBlueprint: function priceBlueprint(ship) {
-		if (!ship || ship.flight || this.shipLevelRow(ship, 'OFF_EVAN') === null || this.lobbyFleet().indexOf(ship) !== -1) return;
-		this.setEvangelistPrice(ship, this.evangelistPrice(parseFloat(ship.pointCost) || 0));
+		if (!ship || ship.flight || this.lobbyFleet().indexOf(ship) !== -1) return;
+		if (this.shipLevelRow(ship, 'OFF_EVAN') !== null) this.setEvangelistPrice(ship, this.evangelistPrice(parseFloat(ship.pointCost) || 0));
+		//Stage 34: an Expert War Leader's, with this hull counted into an Unlimited fleet
+		if (this.shipLevelRow(ship, 'OFF_WLEAD') !== null) this.setEvangelistPrice(ship, this.warLeaderPrice(ship, this.unitHullCost(ship)), 'OFF_WLEAD');
 	},
 
 	/* ⭐ The lobby's preview of an Expert Evangelist's morale on this unit: 1 while one is bought, and serving (his post not destroyed before
@@ -2542,8 +2569,261 @@ window.officers = {
 		var turn = this.currentTurn();
 		return fleet.some(function (u) {
 			if (!self.hasEvangelist(u)) return false;
-			return self.listFor(u).some(function (entry) { return self.isFleetPriced(entry.id) && self.serves(entry, turn); });
+			return self.listFor(u).some(function (entry) { return self.fleetFamily(entry.id) === 'OFF_EVAN' && self.serves(entry, turn); });
 		}) ? 1 : 0;
+	},
+
+	/* ------------------------------------------------------------------ the Expert War Leader (Stage 34) */
+
+	WARLEADER_INI: 5,              //"adds +1 to the initiative of every Narn ship present" - +5 in FV. ⚠️ MIRROR PAIR with Officers::WARLEADER_INI (PHP)
+	WRATH_HIT: 1,                  //his wrath: "All ships gain +1 to hit that unit". ⚠️ MIRROR PAIR with Officers::WRATH_HIT (PHP)
+	GLORY_HIT: 2,                  //the center of glory: "It receives a + 2 bonus to hit". ⚠️ MIRROR PAIR with Officers::GLORY_HIT (PHP)
+	TAUNT_HIT: 1,                  //his taunt: +1 at his ship, -1 at any other. ⚠️ MIRROR PAIR with Officers::TAUNT_HIT (PHP)
+	WARLEADER_ANTICIPATION: 60,    //anticipating: +60 initiative that turn (the server's, as Initial Orders close). ⚠️ MIRROR of Officers::WARLEADER_ANTICIPATION
+	WARLEADER_EW_HOLD: 1000,       //...and all his ship's EW held to the late window. ⚠️ MIRROR PAIR with Officers::WARLEADER_EW_HOLD (PHP)
+	WARLEADER_FLEET_PCT: 5,        //"5% of the base cost of all units involved in the scenario". ⚠️ MIRROR PAIR with Officers::WARLEADER_FLEET_PCT (PHP)
+	WARLEADER_SHIP_PCT: 25,        //"plus 25% of the cost of his own ship". ⚠️ MIRROR PAIR with Officers::WARLEADER_SHIP_PCT (PHP)
+	WARLEADER_OUTSIDER_PCT: 150,   //"cost 50% more" outside Narn space. ⚠️ MIRROR PAIR with Officers::WARLEADER_OUTSIDER_PCT (PHP)
+	WARLEADER_HOME: ['Narn Regime'], //the factions paying the listed price. ⚠️ MIRROR PAIR with Officers::$warLeaderHome (PHP)
+	WARLEADER_ABILITIES: ['taunt', 'anticipate', 'wrath', 'glory'], //"only one on any turn". ⚠️ MIRROR of Officers::$warLeaderAbilities (PHP)
+
+	//a unit's hull points in the lobby: its row's points less every bought enhancement bucket (the lobby's pointCost invariant), for every unit it stands for
+	unitHullCost: function unitHullCost(unit) {
+		if (!unit) return 0;
+		var hull = (parseFloat(unit.pointCost) || 0) - (parseFloat(unit.pointCostEnh) || 0) - (parseFloat(unit.pointCostEnh2) || 0)
+			- (parseFloat(unit.pointCostSysEnh) || 0);
+		var count = (window.gamedata && typeof gamedata.bulkCount === 'function') ? (Number(gamedata.bulkCount(unit)) || 1) : 1;
+		return Math.max(0, hull) * count;
+	},
+
+	/* ⭐ What an Expert War Leader costs on this ship - THE price rule (user ruling 2026-10-29): 5% of the slot's points (a Fleet Builder's typed cap
+	   too), or in an Unlimited slot of the fleet's HULL costs ("base cost" - refits, ammunition and officers left out, so his own price never feeds
+	   itself), plus 25% of this ship's hull, 50% more outside the Narn Regime, rounded up ONCE. `extra`: a store blueprint's hull, counted into an
+	   Unlimited fleet before it is bought (priceBlueprint). ⚠️ MIRROR PAIR with Officers::warLeaderPrice (PHP). */
+	warLeaderPrice: function warLeaderPrice(ship, extra) {
+		var max = this.fleetMaxPoints();
+		var self = this;
+		var fleet = max;
+		if (max === -1) {
+			fleet = Number(extra) || 0;
+			this.lobbyFleet().forEach(function (u) { fleet += self.unitHullCost(u); });
+		}
+		var points = fleet * this.WARLEADER_FLEET_PCT + this.unitHullCost(ship) * this.WARLEADER_SHIP_PCT;
+		var home = ship && this.WARLEADER_HOME.indexOf(String(ship.faction)) !== -1;
+		return this.percentOf(points, home ? 1 : this.WARLEADER_OUTSIDER_PCT / 100);
+	},
+
+	/* ⭐ The lobby's preview of an Expert War Leader's +5: 1 on every "ship" of the selected slot's fleet - never a flight or a mine (user ruling
+	   2026-10-29) - while one is bought, and serving (his C&C not destroyed before battle), on any unit of it; else 0. Never outside the lobby: in
+	   game the server applied and published it, and a store blueprint is in no fleet. displayStat adds it to the Initiative value.
+	   ⚠️ MIRROR PAIR with Officers::applyLeadership (PHP). */
+	leadershipBonus: function leadershipBonus(ship) {
+		if (!ship || !this.isDerived(ship) || ship.flight || ship.mine) return 0;
+		var fleet = this.lobbyFleet();
+		if (fleet.indexOf(ship) === -1) return 0;
+		var self = this;
+		var turn = this.currentTurn();
+		return fleet.some(function (u) {
+			if (u.flight || self.boughtCount(u, 'OFF_WLEAD') < 1) return false;
+			return self.listFor(u).some(function (entry) { return entry.id === 'OFF_WLEAD' && self.serves(entry, turn); });
+		}) ? 1 : 0;
+	},
+
+	//this ship's Expert War Leader entry if he serves now, or null - through his list, so never an enemy's
+	warLeaderEntry: function warLeaderEntry(ship) {
+		if (!ship || ship.flight) return null;
+		var turn = this.currentTurn();
+		var self = this;
+		return this.listFor(ship).filter(function (entry) { return entry.id === 'OFF_WLEAD' && self.serves(entry, turn); })[0] || null;
+	},
+
+	//the turn an entry spent `ability`, or null
+	spentTurn: function spentTurn(entry, ability) {
+		var spent = entry && entry.abilities ? entry.abilities[ability] : undefined;
+		return (spent === undefined || spent === null) ? null : (parseInt(spent, 10) || 0);
+	},
+
+	//Did this ship's serving War Leader use `ability` THIS turn (the server's record)?
+	warLeaderUsed: function warLeaderUsed(ship, ability) {
+		return this.spentTurn(this.warLeaderEntry(ship), ability) === this.currentTurn();
+	},
+
+	/* May he use `ability` now: "Once only once during the scenario ... each of the following, but can only do one on any turn" - not spent, and none
+	   of his four spent this turn. ⚠️ MIRROR PAIR with Officers::warLeaderMay (PHP). */
+	warLeaderMay: function warLeaderMay(entry, ability) {
+		if (!entry || this.spentTurn(entry, ability) !== null) return false;
+		var turn = this.currentTurn();
+		var self = this;
+		return !this.WARLEADER_ABILITIES.some(function (other) { return self.spentTurn(entry, other) === turn; });
+	},
+
+	//the C&C he is posted in - where his orders wait for the commit (CnC.doIndividualNotesTransfer)
+	warLeaderCnc: function warLeaderCnc(ship) {
+		var entry = this.warLeaderEntry(ship);
+		return entry ? this.systemById(ship, entry.post) : null;
+	},
+
+	//a unit on the board now: deployed (a reinforcement still in hyperspace is not), not destroyed, not terrain
+	onBoardUnit: function onBoardUnit(unit) {
+		if (!unit || !window.shipManager) return false;
+		if (typeof shipManager.isDestroyed === 'function' && shipManager.isDestroyed(unit)) return false;
+		if (window.gamedata && typeof gamedata.isTerrain === 'function' && gamedata.isTerrain(unit.shipSizeClass, unit.userid)) return false;
+		return typeof shipManager.getTurnDeployed !== 'function' || shipManager.getTurnDeployed(unit) <= this.currentTurn();
+	},
+
+	/* --- Initial Orders: Taunt and Anticipate, in his C&C's War Leader menu (WarLeaderMenu), one at most; posted at the commit from his C&C
+	   (CnC.doIndividualNotesTransfer) and judged by the server (Officers::saveWarLeaderOrder). */
+
+	//Does `system` show the War Leader menu: Initial Orders, his own team's ship on the board, the C&C he serves in
+	canWarLeaderOrder: function canWarLeaderOrder(ship, system) {
+		if (!ship || !system || !window.gamedata || gamedata.gamephase != 1) return false;
+		if (typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return false;
+		var entry = this.warLeaderEntry(ship);
+		return Boolean(entry) && String(entry.post) === String(system.id) && this.onBoardUnit(ship);
+	},
+
+	//the order waiting on his C&C this Initial Orders: 'taunt', 'anticipate' or null
+	warLeaderOrder: function warLeaderOrder(ship) {
+		var cnc = this.warLeaderCnc(ship);
+		return (cnc && (cnc.warLeaderOrder === 'taunt' || cnc.warLeaderOrder === 'anticipate')) ? cnc.warLeaderOrder : null;
+	},
+
+	//give `ability` (one of the two), or take the order back (null) - true when it changed
+	setWarLeaderOrder: function setWarLeaderOrder(ship, ability) {
+		var cnc = this.warLeaderCnc(ship);
+		if (!cnc || !window.gamedata || gamedata.gamephase != 1) return false;
+		if (ability !== null && (['taunt', 'anticipate'].indexOf(ability) === -1 || !this.warLeaderMay(this.warLeaderEntry(ship), ability))) return false;
+		if ((cnc.warLeaderOrder || null) === ability) return false;
+		cnc.warLeaderOrder = ability;
+		return true;
+	},
+
+	/* --- Firing phase: Wrath and Center of Glory, from the War Leader icon (UI/shipMovement.js): click it, then an enemy unit (his wrath) or a unit of
+	   his own fleet (the center of glory). The pick waits on his C&C (warLeaderPick) for the commit; the server judges it (Officers::saveWarLeaderPick). */
+
+	warLeaderPicking: null, //the id of the ship whose icon waits for a unit to be clicked
+
+	//the pick waiting on his C&C this Firing phase: {ability, unit} or null
+	warLeaderPick: function warLeaderPick(ship) {
+		var cnc = this.warLeaderCnc(ship);
+		var pick = cnc ? cnc.warLeaderPick : null;
+		return (pick && (pick.ability === 'wrath' || pick.ability === 'glory') && pick.unit !== undefined && pick.unit !== null) ? pick : null;
+	},
+
+	/* The War Leader icon's state for this ship in the Firing phase, or null for no icon: 'off' (yellow - a click starts the pick), 'picking' (waits
+	   for the unit), 'wrath' / 'glory' (red / green, crosshaired - picked; a click takes it back), 'wrathDone' / 'gloryDone' (given and committed this
+	   turn). None on a turn he taunted or anticipated ("only one on any turn"), nor once both are spent. */
+	warLeaderState: function warLeaderState(ship) {
+		if (!ship || !window.gamedata || gamedata.gamephase != 3) return null;
+		if (typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return null;
+		var entry = this.warLeaderEntry(ship);
+		if (!entry || !this.onBoardUnit(ship)) return null;
+		if (this.warLeaderUsed(ship, 'wrath')) return 'wrathDone';
+		if (this.warLeaderUsed(ship, 'glory')) return 'gloryDone';
+		var pick = this.warLeaderPick(ship);
+		if (pick) return pick.ability;
+		if (!this.warLeaderMay(entry, 'wrath') && !this.warLeaderMay(entry, 'glory')) return null;
+		return String(this.warLeaderPicking) === String(ship.id) ? 'picking' : 'off';
+	},
+
+	/* May his `ability` name `unit`: on the board, and for his wrath an enemy unit, for the center of glory a unit of his own fleet (his own ship and its
+	   flights too). ⚠️ MIRROR PAIR with Officers::warLeaderNames (PHP). */
+	warLeaderNames: function warLeaderNames(ship, ability, unit) {
+		if (!ship || !this.onBoardUnit(unit)) return false;
+		if (ability === 'wrath') return String(unit.team) !== String(ship.team);
+		return this.fleetKey(unit) === this.fleetKey(ship);
+	},
+
+	fleetKey: function fleetKey(unit) {
+		return String(unit.userid) + '|' + String(unit.slot);
+	},
+
+	//the icon was clicked: take a pick back, stop waiting, or start waiting for the unit. true when anything changed.
+	toggleWarLeaderPick: function toggleWarLeaderPick(ship) {
+		var state = this.warLeaderState(ship);
+		if (state === 'wrath' || state === 'glory') {
+			this.warLeaderCnc(ship).warLeaderPick = null;
+			return true;
+		}
+		if (state === 'picking') { this.warLeaderPicking = null; return true; }
+		if (state === 'off') { this.warLeaderPicking = ship.id; return true; }
+		return false;
+	},
+
+	//is `ship`'s icon waiting for the unit to be clicked?
+	warLeaderPickingFor: function warLeaderPickingFor(ship) {
+		return this.warLeaderState(ship) === 'picking';
+	},
+
+	/* A unit clicked while his icon waits: an enemy he may still name with his wrath, or a unit of his fleet he may still make the center of glory.
+	   true when it was taken (the pick waits on his C&C); anything else is refused and the icon keeps waiting. */
+	pickWarLeaderUnit: function pickWarLeaderUnit(ship, unit) {
+		if (!this.warLeaderPickingFor(ship) || !unit) return false;
+		var entry = this.warLeaderEntry(ship);
+		var ability = String(unit.team) !== String(ship.team) ? 'wrath' : 'glory';
+		if (!this.warLeaderMay(entry, ability) || !this.warLeaderNames(ship, ability, unit)) return false;
+		this.warLeaderCnc(ship).warLeaderPick = { ability: ability, unit: unit.id };
+		this.warLeaderPicking = null;
+		return true;
+	},
+
+	/* The units his own team's War Leaders named this turn - committed (the server's `units`) or waiting on an own ship's C&C - for their crosshairs
+	   (PhaseStrategy.syncWarLeaderMarkers): [{ unit, ability }]. Firing phase only; an enemy's never (his list is never sent). */
+	warLeaderMarks: function warLeaderMarks() {
+		if (!window.gamedata || gamedata.gamephase != 3 || !gamedata.ships) return [];
+		var self = this;
+		var marks = [];
+		Object.keys(gamedata.ships).forEach(function (k) {
+			var ship = gamedata.ships[k];
+			var named = self.warLeaderNamed(ship);
+			Object.keys(named).forEach(function (ability) { marks.push({ unit: named[ability], ability: ability }); });
+		});
+		return marks;
+	},
+
+	//the units this ship's War Leader named this turn, ability => unit id: the server's record, or the pick waiting on his C&C
+	warLeaderNamed: function warLeaderNamed(ship) {
+		var entry = this.warLeaderEntry(ship);
+		var named = {};
+		if (!entry) return named;
+		var turn = this.currentTurn();
+		var self = this;
+		['wrath', 'glory'].forEach(function (ability) {
+			if (self.spentTurn(entry, ability) === turn && entry.units && entry.units[ability] !== undefined) named[ability] = entry.units[ability];
+		});
+		var pick = this.warLeaderPick(ship);
+		if (pick && named[pick.ability] === undefined) named[pick.ability] = pick.unit;
+		return named;
+	},
+
+	/* What this turn's War Leader abilities add to one shot, in d20 units - never the ram or a jump drive: +1 at the unit of a wrath for a "ship" of
+	   that leader's fleet, +2 on every shot of a center of glory, and a taunt's +1 at the taunting ship / -1 at any other "ship" of its fleet for a
+	   unit of another team. Wrath and glory off his team's list (or a pick waiting on an own C&C - the owner's preview), the taunt off the ship
+	   field every viewer is sent once Initial Orders close (warLeaderTaunt). ⚠️ MIRROR PAIR with Officers::warLeaderShotBonus (PHP). */
+	warLeaderShotBonus: function warLeaderShotBonus(shooter, weapon, target) {
+		if (!shooter || !target || !weapon || weapon.isRammingAttack || weapon.name === 'jumpEngine' || !window.gamedata || !gamedata.ships) return 0;
+		var self = this;
+		var turn = this.currentTurn();
+		var mod = 0;
+		Object.keys(gamedata.ships).forEach(function (k) {
+			var leader = gamedata.ships[k];
+			if (!leader || leader.flight) return;
+			var fleet = self.fleetKey(leader);
+			var named = self.warLeaderNamed(leader);
+			if (named.wrath !== undefined && String(named.wrath) === String(target.id) && self.isLed(shooter) && self.fleetKey(shooter) === fleet) mod += self.WRATH_HIT;
+			if (named.glory !== undefined && String(named.glory) === String(shooter.id)) mod += self.GLORY_HIT;
+			if (leader.warLeaderTaunt !== undefined && Number(leader.warLeaderTaunt) === turn && String(shooter.team) !== String(leader.team)) {
+				if (String(target.id) === String(leader.id)) mod += self.TAUNT_HIT;
+				else if (self.isLed(target) && self.fleetKey(target) === fleet) mod -= self.TAUNT_HIT;
+			}
+		});
+		return mod;
+	},
+
+	//a "ship" in his rules - never a flight, a mine or terrain. ⚠️ MIRROR PAIR with Officers::isLed (PHP)
+	isLed: function isLed(unit) {
+		if (!unit || unit.flight || unit.mine) return false;
+		return !(window.gamedata && typeof gamedata.isTerrain === 'function' && gamedata.isTerrain(unit.shipSizeClass, unit.userid));
 	},
 
 	/* ------------------------------------------------------------------ what a flight's officer costs */
@@ -2589,8 +2869,14 @@ window.officers = {
 	   officer bought as a count (Stage 18). null for anything else. */
 	priceNote: function priceNote(ship, enhancement) {
 		//Stage 33: an Expert Evangelist's price is a share of the fleet, re-priced as it changes (repriceFleet)
+		var max = this.fleetMaxPoints();
+		//Stage 34: an Expert War Leader's - a share of the fleet and of this ship, re-priced as the fleet changes (repriceFleet)
+		if (this.fleetFamily(enhancement[0]) === 'OFF_WLEAD') {
+			var outsider = ship && this.WARLEADER_HOME.indexOf(String(ship.faction)) === -1;
+			return enhancement[4] + 'pts: ' + this.WARLEADER_FLEET_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet\'s hulls')
+				+ ' + ' + this.WARLEADER_SHIP_PCT + '% of the ship' + (outsider ? ', x1.5 outside the Narn Regime' : '');
+		}
 		if (this.isFleetPriced(enhancement[0])) {
-			var max = this.fleetMaxPoints();
 			return enhancement[4] + 'pts: ' + this.EVANGELIST_PCT + '% of ' + (max !== -1 ? 'the ' + max + '-point limit' : 'the fleet, re-priced as it changes');
 		}
 		if (!this.isFighterOfficer(enhancement[0])) return null;
@@ -2641,6 +2927,8 @@ window.officers = {
 		if (field === 'offensivebonus') value -= this.pendingEvadeOb(ship);
 		//Stage 33: an Expert Evangelist bought anywhere in this unit's fleet (the lobby's - in game the server put it in iniativebonus and published it)
 		if (field === 'iniativebonus') value += this.moraleBonus(ship) * this.EVANGELIST_INI;
+		//Stage 34: an Expert War Leader bought anywhere in this ship's fleet (the lobby's - in game the server applied and published it)
+		if (field === 'iniativebonus') value += this.leadershipBonus(ship) * this.WARLEADER_INI;
 		return value;
 	},
 

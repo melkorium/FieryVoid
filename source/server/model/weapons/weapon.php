@@ -1983,6 +1983,9 @@ public function getFullStartLoading()
             $mod += Officers::gunnerShotBonus($shooter, $this, $standardCalledShot, $gamedata);
             $mod += Officers::targeterShotBonus($shooter, $this, $standardCalledShot, $gamedata);
             $mod += Officers::chargeHitBonus($shooter, $this, $target, $gamedata);
+            /* Stage 34: this turn's Expert War Leader abilities - +1 at the unit of his wrath for his fleet's ships, +2 for the center of glory's
+               every shot, and his taunt's +1 at his ship / -1 at his fleet's other ships for the enemy. ⚠️ MIRROR PAIR with officers.warLeaderShotBonus. */
+            $mod += Officers::warLeaderShotBonus($shooter, $this, $target, $fireOrder, $gamedata);
         }
 
         if ($shooter instanceof OSAT && Movement::hasTurned($shooter, $gamedata->turn)) { //leaving instanceof OSAT here - assuming MicroSATs will not suffer this penalty (Dovarum seems to be able to turn/pivot like a superheavy fighter it's based on)

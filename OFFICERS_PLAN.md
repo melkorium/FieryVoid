@@ -60,7 +60,12 @@ under the excess (§9.39) - BUILT 2026-10-25, uncommitted.
 Stage 33, the Expert Evangelist (Corillani Theocracy CPN and OSF hulls, 5% of the fleet - the slot's points, or the fleet itself when Unlimited, priced by
 the lobby), in the C&C and movable, in Fleet Selection and in battle, to any system or Structure block - +10 initiative and +1 fire control for every unit of
 his player's fleet while he serves, -10 and -1 for the rest of the battle once he is disabled or killed, nothing once his ship jumps out (a new 'withdrawn'
-state for every officer) (§9.40) - BUILT 2026-10-29, uncommitted.**
+state for every officer) (§9.40) - BUILT 2026-10-29, uncommitted.
+Stage 34, the Expert War Leader (every faction; 5% of the slot's points plus 25% of his ship, 50% more outside the Narn Regime, priced by the lobby), in the
+C&C - +5 initiative on every ship of his player's fleet; once per battle each, one a turn: Taunt or Anticipate from his C&C's menu in Initial Orders (+5% / -5%
+for the enemy at his ship / his fleet's other ships; +60 initiative as Initial Orders close, winning no ties, and all his ship's EW held to the late window),
+Wrath or the Center of Glory from a new War Leader icon in the Firing phase (+5% at one enemy for his fleet's ships; +10% on every shot of one unit of his
+fleet), each told in the combat log (§9.41) - BUILT 2026-10-29, uncommitted.**
 Written
 against `dab951bf5`. The user
 ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
@@ -392,6 +397,7 @@ One literal per officer in `Officers::$registry`: `label`, `post` (a key into th
 | Expert Analyst | `OFF_ANLY` | Scanner | 1 |
 | Expert Evangelist *(Stage 33, §9.40)* | `OFF_EVAN` | C&C (his rules text - the draft's random primary dropped), movable | 1, Corillani Theocracy CPN and OSF hulls, priced off the fleet (`fleet`) |
 | Expert Evangelist, elsewhere *(§9.40)* | `OFF_EVANP` | a chosen system or Structure block - weapons included - but his C&C | 2 |
+| Expert War Leader *(added 2026-10-29, §9.41)* | `OFF_WLEAD` | C&C | 1, every hull with one; priced off the fleet and his ship (`fleet`) |
 | Expert Laser Technician | `OFF_LASR` | Reactor | 1 |
 | Expert Plasma Scientist *(added 2026-10-17, §9.18)* | `OFF_PLAS` | Engine | 1 |
 | Expert Security Officer *(added 2026-10-17, §9.19)* | `OFF_SECU` | C&C | 1 |
@@ -565,6 +571,7 @@ masking: individual notes never reach any client.
 | Expert Graviton Controller (Stage 31) | his Engine's and the largest aft thruster's `output`; his gravitic drive's rotation; the hit chance of his ship's shots that turn | Outputs: **yes**, `output` is sent unconditionally (as the Technician's), and they stay once he is lost. The rotation is a `gravRotate` row of the ship's movement, which every viewer is sent - so the rotation, and that he is aboard, are public (the tabletop rolls it in the open); its die is the server's, and the moves locked before it ride the owner's game.php only (`window.fvMoveLocks`). The -15% is the owner's hit-chance preview; an opponent sees only the needed % the log prints. His +1 on beams and the pulse count show only as their results |
 | Redline Pilot (Stage 32) | his flight's afterburners (a `redline` movement row) and the turn it cools; a combat pivot short of the thrust (the row's thrust) and its -15%; a skin dance over a unit faster than 5; a landing beyond the tolerance | **Yes**, all of it in effect: the burn is a row of the flight's movement and its thrust shows in its moves, a short pivot's row is a combat pivot's (hidden from enemies until firing resolves, as every one), the dance and the landing are rolled by the server and told in the combat log (a crash is a ram, a landing that holds a `RedlineLanding` line) - so the tabletop's open rolls, and that he is aboard, are public. The -15% is the owner's hit-chance preview |
 | Expert Evangelist (Stage 33) | every unit of his player's fleet: an initiative MODIFIER (+10, or -10 once he is lost - its `iniativeadded`, the tooltip's "mod"; its base `iniativebonus` never moves) and every weapon's fire control (+1 / -1) | **Yes, to every viewer**: the weapons through isModified, `iniativeadded` with every ship - an opponent sees the morale, its end and its reversal, never where he sits; the officer list stays own-team |
+| Expert War Leader (Stage 34) | `iniativebonus` of every ship of his fleet (+5); his ship's initiative (+60 when he anticipates); his taunt; the units his wrath and glory name; every Wrath / Glory / Taunt hit chance | Initiative: **yes, to every viewer** (published, and the rolled total). The taunt: **to every viewer once Initial Orders close** (`warLeaderTaunt` - the enemy's preview needs it; the tabletop announces it), never while they are open. Wrath and Glory: **own team only** (`units` in the officer payload) until firing resolves, then every ability is told in the combat log ("WAR LEADER!:", user ruling) |
 | Expert ELINT Officer (Stage 20) | his array's `output`; every ELINT range from his ship; his blanket against ballistic weapons | **Yes, to every viewer**: `output` always is, and the ship payload carries `elintRangeBonus` (25) and `blanketBallistic` (3) while he serves - an opponent's own OEW under his Disruption and its hit chance against a unit under his blanket are previewed with them; his array's tooltip shows the ranges. The officer list stays own-team; a disguised Chameleon ship's payload is its simulacrum's and carries neither. The -2 on sensor criticals is never sent |
 | Laser Technician (Stage 11) | a laser's `boostable` / `boostEfficiency`, and its boost (type-2 power entries) | **Own team only** (user ruling 2026-10-17): no laser is boostable without him, so a boosted one would name him - an opponent's payload carries the laser's power entries without its boosts while he is aboard, until the game is over. His flat bonus and the boost show only as damage dealt, in the log |
 | Geneticist | both profiles +2, `toHitBonus` −1 | **Must**: the shooter's own hit-chance preview needs the profiles. Published to every viewer through the registry's `publish` list (§9.5), like the Helmsman's `iniativebonus` |
@@ -5257,3 +5264,146 @@ for ALL initiative officers together, the Evangelist with them.
   unchanged, both REAL rolls 10 higher, the enemy sent the raised base); client **1053** (5 pre-existing); enhancementsHarness 298 / 0, differential
   964 / 0; `-Check` replay 159 / 3 (the same faction-string games). Mutation: the five initiative mutants re-aimed at the base (the publish line, the
   `iniativebonus` write, the marker, a modifier written as well, the lobby preview removed) - all caught. Bundles rebuilt, `-Sync` done.
+
+### 9.41 Stage 34: Expert War Leader (2026-10-29)
+
+**Rules text (user, 2026-10-29) - an officer the user added.** "Expert War Leader: Narn history is replete with heroic leaders who rose to the occasion,
+getting their people out of danger or fighting to victory despite desperate odds. When such a leader commands a fleet, he provides significant benefits to
+the entire force. An expert war leader adds +1 to the initiative of every Narn ship present, so long as his ship is in command. Once only once during the
+scenario, the war leader can do each of the following, but can only do one on any turn: 1. He can select a single enemy unit, declaring it as the subject of
+his personal wrath. All ships gain +1 to hit that unit on that turn only. This must be announced before any weapons roll to-hit. 2. He can declare a single
+friendly unit to be the "center of glory." It receives a + 2 bonus to hit on that turn only. This must be announced before any weapons roll to-hit. 3. He can
+taunt the enemy, drawing their attention to himself. They receive a +1 bonus to hit his ship on that turn, but a -1 penalty to hit any other ship (but not
+fighters or shuttles). Note that this would be a good turn to suggest his ship use a full complement of defensive EW! 4. He can anticipate his enemy's
+actions. He must announce the use of this ability at the start of the turn, before the EW Determination Step of the Combat Sequence. On this turn only, he
+can wait to determine his ship's (and only his ship's) EW until after his opponents have all announced their EW. He must still determine ballistic weapons
+launch at the usual time, however. In addition to this, his ship receives a bonus of +60 (in FV) to initiative on that turn only, in addition to all other
+benefits. Location: C&C. Cost: 5% of the base cost of all units involved in the scenario, plus 25% of the cost of his own ship. Availability: All races
+have such influential leaders, but they are rarer outside Narn space, and cost 50% more than the listed price." The user's notes: one ability a turn, so a
+new React menu on the C&C offers them in Initial Orders; the two Firing-phase abilities through the Expert Warrior's Charge approach - a new movement icon
+(`img/warLeader.png`, the user's art), click it then the unit; no icon once an ability was used earlier in the turn; yellow by default, red for Wrath, green
+for Glory; Wrath marked with a crosshair as the Charge (another colour - a Drazi ship may carry both), Glory the same on allies; Taunt applies to the turn;
+Anticipate changes the initiative order in game, as the officers / features that change it in Initial Orders do, and its EW hold works as the Expert
+Scanner's, except that ALL EW may be held.
+
+**What FV had.**
+- **Initiative after the roll**: the Triad Command Node and Fighter Missions rewrite a unit's rolled initiative when Initial Orders close
+  (`InitialOrdersGamePhase::advance`, before the first active ship is picked): `CnC::shiftIniative` (classic: total + the ini bonus row; simultaneous
+  movement: the raw total and its bracket), `CnC::breakCommandNodeTies` (+1 wins a tie, -1 loses it), `DBManager::updateIniative`.
+- **Late EW**: the Expert Scanner's point rides the EW Detector's allowance (`Officers::savedEwBonus` -> `EW::getDetectorAllowance`), clamped by the
+  unspent pool (`getSavedEwAllowance`), spent in Pre-Firing / Firing (`submitLateEw`, additive only - an Initial Orders allocation stays).
+- **Firing-phase declarations from a C&C**: the Political Officer's speech and the Warrior's Supreme Anticipation (`CnC::saveFirePhaseDeclaration`,
+  judged on the loaded ship, OffUsed notes); the Charge's icon, pick and crosshair (`UI.shipMovement`, `MovementPhaseStrategy.targetShip`,
+  `ShipIcon.setChargeMarked`); fleet scope and the lobby's fleet price - the Evangelist's (`fleetKey`, `isOnField`, `fleet`, `officers.repriceFleet`).
+- **OffUsed values** were "id:ability" (`takeNote` split in two).
+
+**Rulings (user, 2026-10-29, asked before building):**
+1. **The Initial Orders menu**: Taunt and Anticipate as buttons, one at most, cancellable until the commit; Wrath and Glory listed for their state only. In
+   the Firing phase ONE icon picks the ability by what is clicked: an enemy - Wrath (red), a friendly unit - Glory (green).
+2. **"+1 initiative to every Narn ship present"** (+5, QX1): every unit of his PLAYER's fleet that is not a flight (ships, bases, OSATs), whatever its
+   faction - the Evangelist's fleet scope; for a non-Narn leader "Narn" reads "his fleet's".
+3. **Wrath, "All ships gain +1"** (+5%): every unit of his fleet but flights - the literal "ships", as the Taunt's own wording sets fighters apart.
+4. **Glory, "a single friendly unit"** (+10%): only units of his own fleet.
+5. **Taunt's -1** applies only to shots at the other ships of his own fleet; the taunt public once Initial Orders close (the enemy preview needs it).
+6. **Price**: 5% of his slot's points (an Unlimited slot: his fleet's hull costs) plus 25% of his ship, rounded up once; x1.5 outside the Narn Regime.
+   "Since we've limited his abilities to only his own fleet". A 3,000-point slot and a 600-point ship: 300 / 450.
+7. **A combat log line for every ability** (as the Political Officer's speech).
+8. **Anticipate's +60 does not win ties** (user's note with the rulings).
+
+**Built with defaults, stated here (ask before changing):**
+- **Eligibility**: every hull with a C&C, every faction ("All races"), D9's exclusions as ever; fixed in the C&C (not movable). Several in one fleet: the +5
+  once per ship; each leader's own abilities.
+- **"So long as his ship is in command"** = he serves (D3) and his ship is on the field (`isOnField`). Nothing when he is lost - no penalty.
+- **"Doesn't win ties"** = classic movement keeps every total distinct (the roll's own rule), so a tie the +60 makes is broken AGAINST his ship (-1, the
+  fighter mission change's step). Simultaneous movement: the raw total and bracket move, no tie-break.
+- **Anticipate's EW**: on that turn his late-EW allowance is ALL of it (`WARLEADER_EW_HOLD` 1000, clamped to what he left unspent) - the Scanner's window
+  (Pre-Firing / Firing), additive only. So he also sees movement before placing it - the user's "same way as Expert Scanner".
+- **Shots**: Wrath / Glory / Taunt are hit-chance modifiers for that turn (as the Charge's +2): ballistic shots resolving that turn included, never the ram, a
+  jump drive or an interception; they stack with a Gunner's and a Charge's; several leaders' add up. Wrath and Glory name a unit on the board, deployed, not
+  destroyed, not terrain; Wrath any enemy unit (flights too), Glory any unit of his fleet (his own ship, its flights).
+- **Visibility**: Wrath and Glory own-team until the log tells them; the crosshairs shown to his team for the whole Firing phase, whatever is selected (the
+  wrath is every ship's to use) - the wrath's in a deeper red than the Charge's (`warLeaderWrathColour` #c8143c), a little wider ring, its own sprite.
+
+**Design.**
+- `Officers`: registry `OFF_WLEAD` (post `cnc`, pct 25, `fleet`, `apply` null) right after the Evangelist; constants `WARLEADER_INI` 5, `WRATH_HIT` 1,
+  `GLORY_HIT` 2, `TAUNT_HIT` 1, `WARLEADER_ANTICIPATION` 60, `WARLEADER_EW_HOLD` 1000, `WARLEADER_FLEET_PCT` 5, `WARLEADER_SHIP_PCT` 25,
+  `WARLEADER_OUTSIDER_PCT` 150, `WARLEADER_LOG_CLASS` 'WarLeader'; `$warLeaderHome` (Narn Regime); `$abilityNames` taunt / anticipate / wrath / glory and
+  `$unitAbilities`. ⭐ `spend()` takes an optional unit, written as the note's third part ("OFF_WLEAD:wrath:12"); `takeNote` splits USE notes in three,
+  `BaseShip::recordOfficerUse` keeps `unit`, `resolveUses` puts it in the entry's `units`. War Leader: `warLeaderIndex`, `warLeaderMay` (⚠️ MIRROR PAIR),
+  `warLeaderUsed`, `isLed` (a "ship": no flight, mine or terrain - ⚠️ MIRROR PAIR), `unitById`, ⭐ `warLeaderPrice` (⚠️ MIRROR PAIR - the rule written down;
+  the lobby prices him), `applyLeadership` (in `afterShipsConstructed`; marker `$officerLeaderIni` on BaseShip, published by `addForJson`),
+  `saveWarLeaderOrder`, ⭐ `applyWarLeaderInitiative`, `anticipationEwHold` (in `savedEwBonus`), `saveWarLeaderPick`, `warLeaderNames` (⚠️ MIRROR PAIR),
+  ⭐ `warLeaderShotBonus` (⚠️ MIRROR PAIR), `taunting` (`addForJson`: `warLeaderTaunt` to every viewer from phase 2 on), `warLeaderLog` /
+  `warLeaderSentence` / `shipLink`. Payload row `units`.
+- Hooks: `InitialOrdersGamePhase::process` (saveWarLeaderOrder on the reloaded ship, the POST-side C&C's transfer) and `::advance`
+  (applyWarLeaderInitiative after FighterMissions); `CnC::saveFirePhaseDeclaration` ("wrath:<id>" / "glory:<id>" items); `FireGamePhase::advance`
+  (warLeaderLog after speechLog); `Weapon::calculateHitBase` (after chargeHitBonus).
+- Client `officers.js`: the registry row; constants; ⭐ `fleetFamily` - the Evangelist's `evangelistPaid` / `setEvangelistPrice` (now `family`-aware) /
+  `moraleBonus` count HIS rows only (they read every fleet-priced row before - a War Leader's row would have been re-priced as an Evangelist's);
+  `repriceFleet` / `priceBlueprint` price both; `unitHullCost`, ⭐ `warLeaderPrice`, `priceNote`; `leadershipBonus` (displayStat +5 in the lobby);
+  in game `warLeaderEntry`, `spentTurn`, `warLeaderUsed`, `warLeaderMay`, `warLeaderCnc`, `onBoardUnit`, `canWarLeaderOrder` / `warLeaderOrder` /
+  `setWarLeaderOrder` (the order on his C&C: `warLeaderOrder`), `warLeaderPicking` / `warLeaderPick` / ⭐ `warLeaderState` / `warLeaderNames` /
+  `toggleWarLeaderPick` / `pickWarLeaderUnit` (the pick on his C&C: `warLeaderPick` {ability, unit}), `warLeaderMarks` / `warLeaderNamed`, ⭐
+  `warLeaderShotBonus`, `isLed`, `fleetKey`; `savedEwBonus` + the hold; ABILITY_NAMES. `model/system/baseSystems.js` CnC: `doIndividualNotesTransfer`
+  posts the order / pick beside the Triad's [1, swap] and the speech, `getWarLeaderTransfer`; Save Orders keys `warLeaderOrder`, `warLeaderPick`.
+  React `system/WarLeaderMenu.js` (Officers blue) in `SystemInfoButtons` (`canWarLeaderMenu`). `UI/shipMovement.js`: knobs `warLeaderIcon` /
+  `warLeaderColour` (yellow) / `warLeaderWrathColour` / `warLeaderGloryColour` / `warLeaderOffOpacity` / `warLeaderGlowColour` / `warLeaderTargetOpacity`,
+  `drawWarLeaderIcon` (the Charge's spot - Firing phase only, where the Charge, Rotate and Redline never show), `warLeaderCallback`;
+  `ShipMovementCallbacks.warLeaderCallback`; `FirePhaseStrategy.takeWarLeaderPick` (from `selectShip` and `targetShip`), the movement UI drawn for his ship;
+  `PhaseStrategy.syncWarLeaderMarkers` (from syncChargeMarker, never in a replay); `ShipIcon.setWarLeaderMarked` (texture per colour - `getMarkTexture`);
+  `weaponManager.computeShotModifiers` "War Leader" line, `doShortLogText` WarLeader; `combatLog.js` "WAR LEADER!:" (standalone); `game.php`
+  `#warLeader`; `tactical.css` pulse.
+- Docs: an Expert War Leader card (Ship Officers, before the Warrior - alphabetical).
+
+**Files.** Server: `Officers.php`, `ShipClasses.php`, `systems/baseSystems.php` (CnC), `weapons/weapon.php`, `Phase/InitialOrdersGamePhase.php`,
+`Phase/FireGamePhase.php`. Client: `officers.js`, `model/system/baseSystems.js`, `UI/reactJs/system/WarLeaderMenu.js` (new), `SystemInfoButtons.js`,
+`UI/shipMovement.js`, `ShipMovementCallbacks.js`, `renderer/phaseStrategy/FirePhaseStrategy.js`, `PhaseStrategy.js`, `renderer/icon/ShipIcon.js`,
+`weaponManager.js`, `combatLog.js`, `game.php`, `styles/tactical.css`, `img/warLeader.png` (the user's). Docs `ammo-options.html`. Harnesses:
+`officersHarness.php` (eight Stage 34 sections; six registry-order checks moved by one), `officersClientHarness.js` (a Stage 34 block; six moved by one),
+`enhancementsHarness` fingerprint re-recorded (old copy `fingerprint.before-officers-stage34.txt`). `yarn build` (UI + both legacy bundles - no watcher
+was running). No schema change.
+
+**Verified (the Docker stack was down - harnesses run in the throwaway `fv-phpcheck:8.4` image, no database).**
+- `officersHarness.php --no-db` **2423 passed, 8 failed**: the 7 pre-existing (§9.40 observation 2) and Stage 34's statics sweep, which waits for
+  `fvbuild -Statics`. Stage 34's: the registry place and keys; offers at 0 on a Gquan, an Omega and a Corillani hull, none on a flight or an OSAT; the post;
+  the price (300 / 450, 307 / 460 - rounded once -, an Unlimited 277), rowPrice keeping the row's; +5 on his ship and his player's Omega, not his flight, an
+  enemy or an ally, two leaders once, killed last turn none, this turn still, published to an enemy without the officer; Taunt / Anticipate through
+  saveWarLeaderOrder (one note "Expert War Leader: taunt used", phase 1; one a turn; beside a Triad [1, -1]; once per battle each; the turn after a wrath;
+  another player, nothing asked, killed, the gate off); takeNote's three parts and the load's `units`; Wrath / Glory through the REAL
+  saveFirePhaseDeclaration (the note "OFF_WLEAD:wrath:12"; Glory on his Omega, flight, own ship; refused on the ally, the enemy, Wrath at his own or the
+  ally's or no unit, an unknown ability, a turn he taunted, a second wrath, a destroyed unit, another player, another system; beside "anticipation");
+  warLeaderShotBonus and the REAL calculateHitBase (wrath +5% for his ships, not his flight / the ally / an interception / the ram, last turn's nothing;
+  glory +10% for his flight; taunt +5% / -5% for the enemy, nothing at his flight or the ally or for his team; the gate off); Anticipate +60 losing its tie
+  (110 -> 109, written once, re-sorted), no tie 80, last turn's or a taunt nothing, simultaneous movement 30 -> 90 and its bracket; savedEwBonus 1000 this
+  turn only, getSavedEwAllowance all 7 unspent / 0; the four log lines (and none for last turn's); the payload (`units` own team, nothing to the enemy;
+  `warLeaderTaunt` to an enemy in Movement, never in Initial Orders).
+- `officersClientHarness.js` **1090 passed, 5 failed** (the 5 pre-existing): the row and constants against Officers.php; the lobby price (307, idempotent,
+  the note; a Drazi ship 460; Unlimited 228; beside an Evangelist neither overwritten; priceBlueprint 307 / 259); the +5 preview (not a flight, another slot,
+  a mine, a store blueprint, a destroyed C&C, unbought); the menu's rule and the REAL C&C transfer ["taunt"] / ["anticipate"] with Save Orders; the icon's
+  states, the pick (ally refused, enemy wrath, flight glory, cancel), the REAL C&C ["wrath:12"], the shot preview, the crosshair marks, the taunt preview,
+  the EW hold; the REAL drawWarLeaderIcon's colours (yellow / pulsing / red + crosshair / green + crosshair, his art).
+- `enhancementsHarness` **298 / 0** after re-recording: the fingerprint gained exactly 20 lines, all `offer OFF_WLEAD` (one per test hull with a C&C),
+  nothing else changed.
+- Bundles: `fvbuild -Client` (yarn build) - the new code found in all three.
+- **With the stack up (user, same day):** `fvbuild -Statics` - OFF_WLEAD on **1,827** hulls of 80 factions (52 Narn), every one at 0; `officersHarness`
+  WITH the database **2524 passed, 7 failed** (the 7 pre-existing; the statics sweep now passes); `officersClientHarness` **1091 / 5** (pre-existing);
+  `enhancementsDifferential.js` **964 / 0** (his effect is fleet-wide, so no single-ship case - as the Evangelist's); `fvbuild -Check`: autoload current,
+  validator 0 new errors, replay **159 / 3** - games 4237-4239, the same faction-string differences from the user's Shuttle.php commit (a6c93147c) as
+  at Stage 33, not re-recorded; `-Sync` done (the served copy carries the code, the art, the statics and all three bundles).
+- **Mutation-tested: 62 / 62 caught + 1 equivalent** (37 server against `tests/replay/warLeaderProbe.php` - a generated copy of the harness with only the
+  Stage 34 sections, ~2 s a run -, 25 client), every file byte-identical after. The first pass missed 4: S04 is EQUIVALENT (warLeaderMay's "already
+  spent" test - `spend()` repeats it, as Stage 25's speakerIndex); S32 / S34 (the leadership's and the Taunt's `isOnField`) had no test - added: his fleet
+  deploying next turn gets no +5 and may not taunt, +5 from that turn; C03 (setEvangelistPrice's `family` test) had none - added: one Corillani CPN ship
+  carrying BOTH fleet-priced officers keeps 460 and 150. Runner `mutate34.js`, session scratchpad only. Not covered by a harness: the one-line hooks in
+  InitialOrdersGamePhase (process / advance) and FireGamePhase, and FirePhaseStrategy's pick / PhaseStrategy's crosshair sync / ShipIcon in a browser.
+  Not play-tested.
+
+**Follow-ups (user, play test 4523, 2026-10-29) - built, uncommitted.**
+1. The War Leader icon stood too close to the ship icon: astern at `UI.shipMovement.warLeaderDistance` px (60, was 42 - the Charge's spot), a knob.
+2. The War Leader menu "less generic blue": Narn red with gold (WarLeaderMenu's own INK - the header and buttons in the icon's yellow, white text).
+3. **The Glory crosshair outlived its turn** (on G'Quan from Turn 1 into Turn 2's Initial Orders, until a reload). Cause: `syncWarLeaderMarkers` kept
+   what was on show on the STRATEGY (`warLeaderMarked`), but the icons outlive it - the Waiting strategy after the Firing commit put the crosshair up,
+   its deactivate syncs nothing with no ship selected, and the Initial Orders strategy after it held no record to take down. Now read off each icon's
+   `warLeaderMarkColour`, so whichever strategy runs next corrects every icon (a replay takes them down too). Wrath had the same fault (one code
+   path). **The Charge's crosshair does not:** it is up only while a ship is selected, and every deactivate deselects with `inactive` set.
+   Checked by a node simulation of the 4523 sequence (Fire -> Waiting -> Initial Orders), scratchpad only.

@@ -787,6 +787,12 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
             <canvas id="chargecanvas" width="40" height="40"></canvas>
         </div>
 
+        <!-- An Expert War Leader's Wrath / Center of Glory (OFFICERS_PLAN.md Stage 34): the Charge's spot - in the Firing phase, where it never shows.
+             Label set by UI/shipMovement.js. -->
+        <div id="warLeader" class="movement-icon" data-movement-type="War Leader">
+            <canvas id="warLeadercanvas" width="40" height="40"></canvas>
+        </div>
+
         <!-- An Expert Graviton Controller's gravitic drive rotation (OFFICERS_PLAN.md Stage 31): the Charge's spot - no hull carries both.
              Label set by UI/shipMovement.js. -->
         <div id="gravRotate" class="movement-icon" data-movement-type="Rotate Gravitic Drive">
