@@ -412,6 +412,9 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     <script defer src="client/weaponManager.js"></script>
     <script defer src="client/damage.js"></script>
     <script defer src="client/combatLog.js"></script>
+    <!-- For scenarioCard.ruleChips only: the DECLARATIONS briefing shows the lobby's Game Rules chips.
+         Its fact grid and styles/scenarioCard.css are not used here. -->
+    <script defer src="client/UI/scenarioCard.js"></script>
     <script defer src="client/declarations.js"></script>
 	<script defer src="client/player.js"></script>
     <script defer src="client/ships.js"></script>

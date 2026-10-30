@@ -1537,9 +1537,17 @@ only screen and (max-height: 500px) and (orientation: landscape) {
 }
 
 /* The rules take the lobby's Game Rules colours (user, 2026-10-27): the .fv-rule-chip kinds
-   in scenarioCard.css - Mines purple, Reinforcements cyan, every other rule the page's blue -
-   text, tint and line as there, so a rule reads the same colour before the game and in it.
-   #00b8e6 is the same untokened cyan as .fv-tag--deploys above. */
+   in scenarioCard.css - Ladder gold, terrain white, Simultaneous Movement green, Mines purple,
+   Reinforcements cyan, every other rule the page's blue - text, tint and line as there, so a
+   rule reads the same colour before the game and in it. #00b8e6 is the same untokened cyan as
+   .fv-tag--deploys above. (No --private: Private Game never reaches the briefing.)
+   These tags may wrap, unlike the fleet header's: a Random Terrain chip can outrun a phone's
+   width, and ruleChips' no-break spaces keep it to breaking only between terrain types. */
+.decl-briefing-rules .fv-tag {
+    flex: 0 1 auto;
+    white-space: normal;
+}
+
 .fv-tag--rule {
     color: var(--fv-text-accent);
     background: rgba(139, 202, 242, 0.1);
@@ -1556,6 +1564,24 @@ only screen and (max-height: 500px) and (orientation: landscape) {
     color: #00b8e6;
     background: rgba(0, 184, 230, 0.1);
     border-color: rgba(0, 184, 230, 0.6);
+}
+
+.fv-tag--ladder {
+    color: var(--fv-ladder);
+    background: rgba(230, 172, 0, 0.1);
+    border-color: rgba(230, 172, 0, 0.6);
+}
+
+.fv-tag--terrain {
+    color: var(--fv-text-bright);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.fv-tag--simmove {
+    color: var(--fv-mine-soft);
+    background: rgba(82, 179, 82, 0.12);
+    border-color: rgba(82, 179, 82, 0.75);
 }
 
 .decl-briefing-text {
