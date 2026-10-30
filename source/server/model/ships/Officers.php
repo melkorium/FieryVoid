@@ -5626,8 +5626,8 @@ class Officers{
 	}
 
 	/* "...and all other fighters in the fight break off": every dock order this turn naming the flight is withdrawn, from every hangar of every
-	   ship. ⚠️ Not left to canShipReceive: the end-of-turn whole-flight dock (HangarOps::buildDockBays) asks it and goes on whatever it answers,
-	   so on that path a refusal would not stop the dock. */
+	   ship. Withdrawn, not left to the end-of-turn dock to refuse (it would - HangarOps::canApproachCarrier, on both dock paths): a refusal files a
+	   'Hangar dock failed' note, and a break-off is no failed dock. */
 	private static function breakOffDocks($flight, $gamedata){
 		foreach ($gamedata->ships as $ship){
 			if ($ship instanceof FighterFlight) continue;

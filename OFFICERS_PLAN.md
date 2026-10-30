@@ -4942,7 +4942,7 @@ random, "although I'd rather not bloat page load ... So some kind of optimisatio
 - **Landing** - Dock in the Firing phase (`findEligibleCarriersForDock` / `confirm.hangarDock`), a `hangarDockOrder` note resolved at the end of the turn
   (`Hangar::criticalPhaseEffects` → `processWholeFlightDocks`, or `processDockOrders` for a catapult); `|carrier speed - flight speed| <= freethrust`
   (`HangarOps::canShipReceive` ↔ the client). ⚠️ The whole-flight path (`buildDockBays`) asks `canShipReceive` and goes on whatever it answers - on it, hex,
-  heading and speed are the client's alone.
+  heading and speed are the client's alone. *(Fixed 2026-10-30 - see Observation 2 below.)*
 - **A ram after the turn's fire** - `Firing::createFailedAttachRamOrders`: a 'TerrainCrash' automatic hit, persisted first (so its damage links to it), resolved at
   once; an order made later would never resolve.
 
@@ -5050,6 +5050,11 @@ GIFs' 5.1 MB, every frame kept (28 / 45 / 23 / 44 / 10); one of them is fetched 
    dancing: end in a moving Enormous unit's hex at speed 6-8.
 2. ⚠️ Pre-existing: `HangarOps::buildDockBays` asks `canShipReceive` and ignores its answer, so on the whole-flight dock path the server never checks the hex,
    heading or speed (only the client does); a crash withdraws the flight's dock orders itself for that reason.
+   **FIXED 2026-10-30** (user request): the approach checks (pivot/roll, hex, heading, speed + the Redline landing) moved verbatim out of `canShipReceive`
+   into `HangarOps::canApproachCarrier`, which `canShipReceive` calls at the same point (catapult/jump paths unchanged) and `buildDockBays` now honours -
+   a failed approach leaves the flight in space with a 'Hangar dock failed' note naming the reason. The primary-bay `canShipReceive` call stays for the
+   reason text it supplied before. `breakOffDocks` kept: a crash is a break-off, not a failed dock (no fail note), as before. Record:
+   HANGAR_OPERATIONS_PLAN.md "Whole-flight dock re-checks the approach".
 3. Not built (not asked): an afterburner's thrust for a breaching pod's speed match when it attaches - the boarding checks still read `freethrust`.
 4. Not covered by a harness: `MovementGamePhase::process`'s validateRedline line and `Firing::fireWeapons`' rollRedlineLandings line (the methods are covered),
    a crash with a real database (its order persisted before it resolves - `createFailedAttachRamOrders`' pattern), the dock dialog's risk line, and a real
