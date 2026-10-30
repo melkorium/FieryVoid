@@ -18,7 +18,7 @@ Make sure you have the following installed on your machine:
 
 Docker runs the server (Nginx/PHP/MariaDB), but the client-side JS bundling (`yarn build` / `yarn watch:legacy`) runs on your host machine, so Node.js and Yarn need to be installed locally.
 
-1. Install Node.js (this also installs npm). Use an LTS release; the build was last verified on Node 24 LTS (2026-10-08).
+1. Install Node.js (this also installs npm). Use an LTS release, at least Node 20.19 or 22.12 (Vite 8's minimum - `yarn install` refuses anything older); the build was last verified on Node 24 LTS (2026-10-30).
    - Windows: download the LTS installer from https://nodejs.org/, or run `winget install OpenJS.NodeJS.LTS`
    - macOS: `brew install node`
    - Linux: use your distro's package manager (e.g. `sudo apt install nodejs npm`) or https://github.com/nvm-sh/nvm
@@ -28,6 +28,8 @@ Docker runs the server (Nginx/PHP/MariaDB), but the client-side JS bundling (`ya
    npm install -g yarn
 
    (Avoid `corepack prepare yarn@stable`, which activates Yarn 4 and rewrites yarn.lock. Node 25 and later don't include Corepack anyway.)
+
+   Install the project's packages with Yarn only. npm rewrites yarn.lock whenever it installs and drops the other platforms' binaries from it, so this repo makes `npm install` / `npm ci` / `npm update` fail on purpose (the error says `Required: {"npm":"please-use-yarn"}`). `npm run ...` and `npm install -g yarn` still work.
 
 3. Verify both are available by running `node -v` and `yarn -v` in a terminal. Once they report versions you're ready for the "Setup Client-Side Development (Yarn)" step below.
 
@@ -269,7 +271,7 @@ You'll need to run yarn watch:legacy in FV folder when editing client files now,
 When uploading your branch to gitHub it's best not to include these files, as they will need to be regenerated anyway for the branch being deployed live and it makes merging easier not to have several versions of the bundles.
 
 Minification (from 3.6.2026):
-The bundler now depends on esbuild to minify the legacy bundles, (already present via Vite, so a normal yarn install covers it), and yarn watch:legacy intentionally produces un-minified output for debuggability while yarn build minifies.
+The bundler now depends on esbuild to minify the legacy bundles (a devDependency in its own right since Vite 8, which no longer brings esbuild along - a normal yarn install covers it), and yarn watch:legacy intentionally produces un-minified output for debuggability while yarn build minifies.
 
 
 
@@ -378,12 +380,13 @@ It is deliberately a **runtime** validator, not a source parser. A static probe 
 - **hangar** — declared `$fighters[]` fit the hangar boxes, using `HangarOps::populateInitialHangarUsage`'s own arithmetic (capacity in BOXES, catapult/rail/LCV bays partitioned out on both sides, ultralights two to a box). An over-declaration is silently truncated at game start.
 - **arcs** — `startArc`/`endArc` numeric and within 0..360.
 - **ids** — system ids are positional and unique: `id == array index` for top-level systems. Persisted thrust, fire-order, power and critical rows are keyed by these ids, so a collision misroutes real saved data. It also walks the `1000+(id*10)+i` sub-weapon ids of duo/dual weapons and missile racks, which collide once a parent carries more than 10 sub-weapons — though as of 18.8.2026 no ship blueprint actually reaches that arm (the one `DualWeapon` subclass is commented out and `FighterMissileRack` lives inside flights), so treat it as a guard for the future rather than as live coverage.
+- **setting** — every faction is placed alike by the lobby's custom sub-group tests (`gamelobby.js` `customSubgroups`: Nexus, Escalation Wars, Other Universe) and by their server twin `Officers::$otherSettings`, which keeps the Babylon 5-only officer rules (the Expert Graviton Controller) off other settings. A new non-B5 faction added to the lobby list alone, as Terran Federation was in October 2026, gets the wrong officer rules with no error anywhere; this check names the faction and the list to fix.
 
 ### The baseline
 
 The tree carries a large amount of pre-existing ship-data debt, so a plain "exit 1 on any violation" gate would be red forever and therefore ignored. The accepted state lives in **`tests/shipdata/baseline.txt`** and a normal run only fails on findings that are *not* in it. Fix something and it's reported as FIXED (never a failure); introduce something and the run fails naming it and only it.
 
-Unlike the replay harness's baseline, this one is derived purely from the repository — no database, no local games — so it is deterministic, portable and **committed**. Everyone gets the same gate on a fresh clone, and the baseline diff is itself reviewable: a PR that adds a line to `baseline.txt` is a PR that added a known-broken ship entry. Review it, don't rubber-stamp it.
+Unlike the replay harness's baseline, this one is derived purely from the repository — no database, no local games — so it is deterministic, portable and **committed**. Everyone gets the same gate on a fresh clone, and the baseline diff is itself reviewable: a PR that adds a line to `baseline.txt` is a PR that added a known-broken ship entry. Review it, don't rubber-stamp it. The rest of `tests/` is git-ignored, but `.gitignore` makes an exception for this one file, so it appears in `git status` like any other committed file. A commit that deletes it leaves every other checkout without a baseline (it happened once, in September 2026), so never commit its deletion.
 
     php checkShipData.php --record        # accept the current state (ALL of it) as the new baseline
     php checkShipData.php --no-baseline   # ignore the baseline; show the whole debt

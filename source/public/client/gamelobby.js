@@ -2595,6 +2595,9 @@ window.gamedata = {
 	//lists them alphabetically. Babylon 5 Wars has no test - it takes every custom faction the others do not
 	//(user, Stage 5: What If, Great Crusade Orieni, House Valheru, Custom Ships, Drakh, Thirdspace,
 	//Barada Imperium, Ch'Lonas Cooperative).
+	//⚠️ MIRROR PAIR with Officers::$otherSettings (source/server/model/ships/Officers.php): a faction added to
+	//Nexus, Escalation Wars or Other Universe here must be added there too, or the B5-only officer rules keep
+	//treating it as Babylon 5. checkShipData.php's `setting` check (fvbuild -Check) fails until the two agree.
 	customSubgroups: [
 		{ name: "Babylon 5 Wars", test: null },
 		{ name: "Nexus", test: /^Nexus\b/ },

@@ -5298,8 +5298,9 @@ class Officers{
 	/* A faction outside the Babylon 5 settings: one Fleet Selection files under its custom sub-groups Nexus, Escalation Wars or
 	   Other Universe (Star Trek, BSG, Star Wars...). The Expert Graviton Controller's "races which use gravitic drives or weapons"
 	   are B5 races only (user ruling 2026-10-25) - FV flags Star Trek hulls gravitic too. ⚠️ MIRROR of the tests in gamelobby.js
-	   `customSubgroups`: a sub-group added there belongs here. No client mirror is needed - the offers decide. */
-	private static $otherSettings = '/^(Nexus|Escalation Wars|BSG|12 Colonies of Kobol|Star Trek|Star Wars|StarTrek|StarWars|Trek)\b|^The System$/';
+	   `customSubgroups`: a sub-group added there belongs here (checkShipData.php's `setting` check compares the two
+	   over every faction). No client mirror is needed - the offers decide. */
+	private static $otherSettings = '/^(Nexus|Escalation Wars|BSG|12 Colonies of Kobol|Star Trek|Star Wars|StarTrek|StarWars|Trek)\b|^The System$|Terran Federation/';
 	public static function isOtherSetting($faction){
 		return preg_match(self::$otherSettings, (string)$faction) === 1;
 	}
