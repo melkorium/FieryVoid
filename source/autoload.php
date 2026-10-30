@@ -3364,6 +3364,7 @@ spl_autoload_register(
                 'tethys' => '/server/model/ships/EA/tethys.php',
                 'tethysalpha' => '/server/model/ships/EA_old/tethysAlpha.php',
                 'tethysbeta' => '/server/model/ships/EA_old/tethysBeta.php',
+                'tethyscarrier' => '/server/model/ships/EA/tethysCarrier.php',
                 'tethyslaser' => '/server/model/ships/EA/tethysLaser.php',
                 'tethysmissileam' => '/server/model/ships/EA/tethysMissileAM.php',
                 'tethysplasma' => '/server/model/ships/EA/tethysPlasma.php',
