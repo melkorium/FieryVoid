@@ -224,6 +224,10 @@ class Officers{
 	const ANALYST_RANGE = 30;            //Expert Analyst (Stage 35): "The target must be within 30 hexes of the Expert Analyst for his abilities to function"
 	const SCAN_NOTE = 'OffScan';         //...one scan a turn, ordered in Initial Orders: value "ability:target id", on his post (saveAnalystScan)
 	const ANALYST_LOG_CLASS = 'AnalystScan'; //...his cargo scan told in the combat log (analystLog) - the only scan told (user ruling 2026-10-29)
+	const SHUNT_NOTE = 'OffShunt';       //Expert Electrician (Stage 36): a turn's shunted power, split in Initial Orders: value "ob:thrust", on his craft (saveElectricianShunt)
+	const FRY_DIE = 6;                   //...: "Roll 1d6 for each weapon (not just one roll for the whole flight), and on a roll of 1, it is lost for the rest of the scenario"
+	const FRY_ON = 1;
+	const FRIED_PARAM = 'electrician';   //...a fried weapon's ForcedOfflineForTurns critical (turnend 0: for good) carries this param - its power still counts (isFried)
 	/* ...: the magazine rounds he may pick free - "change one of their single-space ... missiles to any other legal type at no cost" - by
 	   enhancement id, each with the round it loads (Enhancements::setEnhancementOptionsShip's list). A pick is one of these the hull is
 	   enabled for, single-slot and priced on that hull (paidPickTypes); Basic is not among them, as no swap to it is worth anything (user
@@ -827,6 +831,18 @@ class Officers{
 		   included; an afterburner's thrust counts for a landing. "Equal to the 100% cost of a fighter" for the Cascor, 50% more for everyone
 		   else ($factionRules) - of a craft, scaled by the flight's size (§9.9). No stat moves at load. Last in the list, as the newest. */
 		'OFF_REDL' => array('label' => 'Redline Pilot', 'post' => 'craft', 'flight' => true, 'pct' => 150, 'apply' => null),
+		/* Expert Electrician (Stage 36; rules text, user 2026-10-30): "capable of rigging special power shunts in his flight's power plant hookups.
+		   This allows the fighter to deactivate its weapons for extra thrust or offensive bonuses during a scenario." In Initial Orders the flight
+		   switches off any of its weapons with each weapon's own Power Off (offered on a fighter weapon only while he serves - officers.mayShunt);
+		   the maximum damage of every gun switched off, divided by the flight's guns and rounded half up, is that turn's points (shuntPoints),
+		   split by the player between the flight's offensive bonus - direct fire only - and its thrust (his Initial Orders button), whatever is left
+		   unplaced put down at random as Initial Orders close (saveElectricianShunt: one OffShunt note). Each weapon switched off rolls a d6 at the
+		   end of the turn and is lost for good on a 1 (rollShuntBurnouts). Rulings (user 2026-10-30): only direct-fire weapons that deal damage are
+		   shunted and counted as guns, each of a weapon's shots one gun (isShuntGun, gunCount); a fried weapon counts as switched off on every later
+		   turn while he serves and never rolls again; the d6 at the end of every turn a weapon is off; once he is lost all shunting stops. "Equal to
+		   the cost of a fighter": 100% of a craft, scaled by the flight's size (§9.9). "Fighters with heavy weapons ... cannot benefit" - the user's
+		   note: a flight with any weapon that is not ballistic and loads in more than one turn (`needs` - hasShuntGuns). Last, as the newest. */
+		'OFF_ELEC' => array('label' => 'Expert Electrician', 'post' => 'craft', 'flight' => true, 'pct' => 100, 'apply' => null, 'needs' => 'hasShuntGuns'),
 	);
 
 	/* An OFF_ id, or an officer kept under the id he had before officers existed (EXP_MOTIV) - so the
@@ -1851,6 +1867,12 @@ class Officers{
 	   ship and never handed to its system (§4.4's reason - a Jump Engine misreads a note it does not know).
 	   true = taken. Their values are "id:to" and "id:ability" - or "id:ability:unit" (Stage 34, the unit a War Leader's ability names). */
 	public static function takeNote($ship, $note){
+		//Stage 36: an Expert Electrician's split of a turn's shunted power, "ob:thrust"
+		if ($note->notekey === self::SHUNT_NOTE){
+			$parts = explode(':', (string)$note->notevalue, 2);
+			if (count($parts) === 2 && $ship instanceof FighterFlight) $ship->recordElectricianShunt($note->turn, (int)$parts[0], (int)$parts[1]);
+			return true;
+		}
 		//Stage 35: an Expert Analyst's scan, "ability:target id"
 		if ($note->notekey === self::SCAN_NOTE){
 			$parts = explode(':', (string)$note->notevalue, 2);
@@ -5635,6 +5657,169 @@ class Officers{
 		$ram->fireOrders[] = $order;
 	}
 
+	/* ------------------------------------------------------------------ Expert Electrician (Stage 36) */
+
+	//the index of his flight's Expert Electrician serving on $turn, or null
+	private static function electricianIndex($flight, $turn){
+		if (!($flight instanceof FighterFlight)) return null;
+		foreach ($flight->getOfficers() as $i => $entry){
+			if ($entry['id'] === 'OFF_ELEC' && self::serves($entry, $turn)) return $i;
+		}
+		return null;
+	}
+
+	/* A GUN he may shunt, and one the flight's points are divided by: a direct-fire weapon that deals damage (user ruling 2026-10-30) - never a
+	   ballistic, the ram, Marines or a weapon that scores nothing (a sensor spike, a defence gun). ⚠️ MIRROR PAIR with officers.isShuntGun (JS). */
+	public static function isShuntGun($system){
+		return ($system instanceof Weapon) && empty($system->isRammingAttack) && !$system->ballistic && self::gunMaxDamage($system) > 0;
+	}
+
+	//"the maximum damage it can cause" on a hit: the highest of its modes. ⚠️ MIRROR PAIR with officers.gunMaxDamage (JS)
+	private static function gunMaxDamage($weapon){
+		$max = (int)$weapon->maxDamage;
+		foreach ((array)$weapon->maxDamageArray as $value) $max = max($max, (int)$value);
+		return $max;
+	}
+
+	/* How many guns one weapon is: each of its shots one - "a flight of Narn Frazis has a total of 12 paired particle beams", six craft each with
+	   one FV Particle Gun firing two (user ruling 2026-10-30). A pulse or variable-shot weapon fires one shot (its pulses and extra shots are
+	   rolled from it), so it is one gun. ⚠️ MIRROR PAIR with officers.gunCount (JS). */
+	private static function gunCount($weapon){
+		return max(1, (int)$weapon->shots);
+	}
+
+	/* "Fighters with heavy weapons, such as the Rutarian (but not the Thunderbolt as ballistics are exempt from this), cannot benefit" - the user's
+	   note: a weapon that is not ballistic and loads in more than one turn, in any of its modes. ⚠️ MIRROR PAIR with officers.isHeavyFighterWeapon (JS). */
+	private static function isHeavyWeapon($system){
+		if (!($system instanceof Weapon) || !empty($system->isRammingAttack) || $system->ballistic) return false;
+		$load = (int)$system->loadingtime;
+		foreach ((array)$system->loadingtimeArray as $value) $load = max($load, (int)$value);
+		return $load > 1;
+	}
+
+	//`needs`: a flight with a gun to shunt and no heavy weapon (its first craft's - as hasTailGun and isBreachingPod ask). ⚠️ MIRROR PAIR with officers.hasShuntGuns (JS)
+	private static function hasShuntGuns($ship){
+		$craft = self::firstCraft($ship);
+		if ($craft === null) return false;
+		$guns = false;
+		foreach ($craft->systems as $system){
+			if (self::isHeavyWeapon($system)) return false;
+			if (self::isShuntGun($system)) $guns = true;
+		}
+		return $guns;
+	}
+
+	//fried by a shunt before $turn: its ForcedOfflineForTurns critical marked FRIED_PARAM, which lasts for good. ⚠️ MIRROR PAIR with officers.isFried (JS)
+	public static function isFried($weapon, $turn){
+		foreach ((array)$weapon->criticals as $crit){
+			if ($crit->phpclass === 'ForcedOfflineForTurns' && $crit->param === self::FRIED_PARAM && (int)$crit->turn < (int)$turn) return true;
+		}
+		return false;
+	}
+
+	/* Is $weapon switched off for his shunts on $turn: by the player's own Power Off (this turn's type-1 power entry - the client keeps last turn's
+	   on, as for any system), or fried by an earlier turn's shunt: "if the weapon fails to reactivate, its power is still available for use as
+	   described previously" (user ruling 2026-10-30: on every later turn). ⚠️ MIRROR PAIR with officers.isShunted (JS). */
+	private static function isShunted($weapon, $turn){
+		if (self::isFried($weapon, $turn)) return true;
+		foreach ((array)$weapon->power as $power){
+			if ((int)$power->type === 1 && (int)$power->turn === (int)$turn) return true;
+		}
+		return false;
+	}
+
+	/* THE POINTS of $turn: "For each weapon deactivated in a turn, add the maximum damage it can cause to a running total, then divide this by the
+	   number of guns in the flight, rounding fractions of 0.5 or more up" - over the craft still flying, while he serves (user ruling 2026-10-30:
+	   once he is lost, all shunting stops). Each of a weapon's shots is a gun, in the total and in the divisor alike: two of six Frazi's Particle
+	   Guns off = 44/12 -> 4 (confirmed by the user after play test 4526; FV switches a paired gun off whole - half of one is not offered, plan
+	   §9.43). 0 with nothing switched off. ⚠️ MIRROR PAIR with officers.shuntPoints (JS). */
+	public static function shuntPoints($flight, $turn){
+		if (self::electricianIndex($flight, $turn) === null) return 0;
+		$guns = 0;
+		$total = 0;
+		foreach ($flight->systems as $craft){
+			if (!($craft instanceof Fighter) || $craft->isDestroyed()) continue;
+			foreach ($craft->systems as $weapon){
+				if (!self::isShuntGun($weapon)) continue;
+				$n = self::gunCount($weapon);
+				$guns += $n;
+				if (self::isShunted($weapon, $turn)) $total += $n * self::gunMaxDamage($weapon);
+			}
+		}
+		return ($guns > 0) ? intdiv(2 * $total + $guns, 2 * $guns) : 0;
+	}
+
+	//his flight's split of $turn's points, array('ob', 'thrust'), or null - its OffShunt note: once written it stands, whatever becomes of him
+	private static function shuntOn($flight, $turn){
+		if (!($flight instanceof FighterFlight)) return null;
+		$all = $flight->getElectricianShunts();
+		return isset($all[(int)$turn]) ? $all[(int)$turn] : null;
+	}
+
+	/* "This results in a number of points which can be added to either the flight's offensive rating or thrust rating for that turn. However, any
+	   added offensive rating points apply only to direct-fire weapons, not ballistic weapons": the OB his points give a direct-fire shot of $turn -
+	   Weapon::calculateHitBase's fighter branch, behind $officersPresent. ⚠️ MIRROR PAIR with officers.shuntOb (JS). */
+	public static function shuntOb($flight, $turn){
+		$shunt = self::shuntOn($flight, $turn);
+		return $shunt ? (int)$shunt['ob'] : 0;
+	}
+
+	//...and the thrust they give the flight on $turn: its plot is the client's (movement.js - movement.php checks no flight's thrust). ⚠️ MIRROR PAIR with officers.shuntThrust (JS)
+	public static function shuntThrust($flight, $turn){
+		$shunt = self::shuntOn($flight, $turn);
+		return $shunt ? (int)$shunt['thrust'] : 0;
+	}
+
+	/* InitialOrdersGamePhase::process: the split a POST asks for ($postFlight's electricianShunt claim, {ob, thrust}), checked against the RELOADED
+	   $flight - its officers, and this turn's power entries, which process() wrote before reloading - and written as one OffShunt note on his craft:
+	   the claim cut to the points, and "if a player forgets to allocate" (the user's note) every point left unplaced put down at random, a d2 each,
+	   so no weapon is switched off for nothing. A flight not yet on the field has nothing to shunt. Once a turn: Initial Orders are committed once. */
+	public static function saveElectricianShunt($flight, $postFlight, $gamedata, $gd){
+		if (!TacGamedata::$officersPresent || !($flight instanceof FighterFlight) || (int)$flight->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::electricianIndex($flight, $turn);
+		if ($i === null || self::shuntOn($flight, $turn) !== null || !self::isOnField($flight, $gd, $turn)) return;
+		$points = self::shuntPoints($flight, $turn);
+		if ($points <= 0) return;
+		$claim = ($postFlight instanceof FighterFlight) ? $postFlight->getElectricianClaim() : null;
+		$ob = min($points, max(0, (int)($claim['ob'] ?? 0)));
+		$thrust = min($points - $ob, max(0, (int)($claim['thrust'] ?? 0)));
+		for ($k = $ob + $thrust; $k < $points; $k++){
+			if (Dice::d(2) === 1) $ob++;
+			else $thrust++;
+		}
+		$post = (int)$flight->getOfficers()[$i]['post'];
+		$flight->recordElectricianShunt($turn, $ob, $thrust);
+		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $flight->id, $post, self::SHUNT_NOTE,
+			substr('Expert Electrician: +' . $ob . ' OB, +' . $thrust . ' thrust', 0, 40), $ob . ':' . $thrust));
+	}
+
+	/* "...there is a possibility that each deactivated weapon may fry its circuits and not re-activate after use. Roll 1d6 for each weapon (not just
+	   one roll for the whole flight), and on a roll of 1, it is lost for the rest of the scenario. There are no modifiers to this roll": at the end
+	   of every turn a weapon was switched off while he served (user ruling 2026-10-30), once the turn's critical rolls are made (Criticals::
+	   setCriticals, beside the kill rolls). One die a weapon - a linked pair is one weapon - and none for a weapon already fried. Lost for good: a
+	   ForcedOfflineForTurns critical from the next turn, turnend 0, marked FRIED_PARAM - the server refuses its fire as any offline weapon's
+	   (Firing::validateFireOrders), the client shows it forced offline and will not switch it back on. */
+	public static function rollShuntBurnouts($ships, $gamedata){
+		$turn = (int)$gamedata->turn;
+		foreach ($ships as $flight){
+			if (!($flight instanceof FighterFlight) || self::electricianIndex($flight, $turn) === null) continue;
+			foreach ($flight->systems as $craft){
+				if (!($craft instanceof Fighter) || $craft->isDestroyed()) continue;
+				foreach ($craft->systems as $weapon){
+					//fried already - on an earlier turn, or by an earlier call this turn (isFried asks the turn after)
+					if (!self::isShuntGun($weapon) || self::isFried($weapon, $turn + 1) || !self::isShunted($weapon, $turn)) continue;
+					if (Dice::d(self::FRY_DIE) !== self::FRY_ON) continue;
+					$crit = new ForcedOfflineForTurns(-1, $flight->id, $weapon->id, 'ForcedOfflineForTurns', $turn, 0);
+					$crit->param = self::FRIED_PARAM;
+					$crit->updated = true;
+					$crit->newCrit = true;
+					$weapon->criticals[] = $crit;
+				}
+			}
+		}
+	}
+
 	/* ------------------------------------------------------------------ payload */
 
 	/* BaseShip::stripForJson, after the enhancement fields.
@@ -5660,6 +5845,13 @@ class Officers{
 		   would learn it): every enemy's hit-chance preview reads it (officers.warLeaderShotBonus). The tabletop announces it. */
 		$turnNow = (int)TacGamedata::$currentTurn;
 		if (((int)TacGamedata::$currentPhase > 1 || TacGamedata::$currentGameFinished) && self::taunting($ship, $turnNow)) $strippedShip->warLeaderTaunt = $turnNow;
+		/* Stage 36: an Expert Electrician's split of this turn's points - to every viewer once Initial Orders have closed, as the flight's thrust and
+		   offensive bonus are displayed stats (user ruling 2026-10-10) that every plot and hit-chance preview reads (officers.shuntThrust / shuntOb);
+		   to his own team from their commit. Never to an opponent while Initial Orders are open. */
+		$shunt = self::shuntOn($ship, $turnNow);
+		if ($shunt !== null && ((int)TacGamedata::$currentPhase > 1 || TacGamedata::$currentGameFinished || $ship->isRevealedToCurrentViewer())){
+			$strippedShip->electricianShunt = array('turn' => $turnNow, 'ob' => (int)$shunt['ob'], 'thrust' => (int)$shunt['thrust']);
+		}
 		foreach ($list as $entry){
 			$officer = self::$registry[$entry['id']];
 			if (self::serves($entry, TacGamedata::$currentTurn)) $key = 'publish';

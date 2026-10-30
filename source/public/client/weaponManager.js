@@ -2088,6 +2088,9 @@ window.weaponManager = {
             //a fighter mission's term goes on the bonus BEFORE the crit / mine deductions (FIGHTER_MISSIONS_PLAN.md D5) -
             //⚠️ MIRROR PAIR with FighterMissions::adjustOffensiveBonus in Weapon::calculateHitBase
             if (window.fighterMissions) baseOB = fighterMissions.adjustOffensiveBonus(shooter, target, weapon, baseOB);
+            //an Expert Electrician's shunted power: OB for this turn's DIRECT fire, before the crit / mine deductions (OFFICERS_PLAN.md Stage 36) -
+            //⚠️ MIRROR PAIR with Officers::shuntOb in Weapon::calculateHitBase
+            if (!weapon.ballistic && window.officers) baseOB += officers.shuntOb(shooter);
             var effectiveOB = Math.max(0, baseOB - OBcrit - (mdew * 2));
 
             if (weapon.ballistic) {

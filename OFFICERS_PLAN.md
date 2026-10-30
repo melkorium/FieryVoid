@@ -69,7 +69,11 @@ fleet), each told in the combat log (§9.41) - BUILT 2026-10-29, uncommitted.
 Stage 35, the Expert Analyst (a Llort capital ship or any ELINT hull, 10%), in the Sensors - one scan a turn in Initial Orders, from an enemy unit's tooltip, at a
 unit his ship holds 1 OEW on within 30 hexes: its arming that turn, or its officers and Hyach Specialists, hangars (a flight's missiles) or ammunition for the rest of
 the battle, or its cargo (a public log line); built with three hides first - an overload charge until its first sustained shot, Hyach Specialists, and fighter
-missiles, counted by a unit within 16 / 12 hexes and their dummies told at 4 (§9.42) - BUILT 2026-10-29, uncommitted.**
+missiles, counted by a unit within 16 / 12 hexes and their dummies told at 4 (§9.42) - BUILT 2026-10-29, uncommitted.
+Stage 36, the Expert Electrician (every faction; 100% of a fighter), in a flight's first craft - the flight's weapons switched off in Initial Orders with
+their own Power Off, the maximum damage of every gun switched off over the flight's guns that turn's points, split between its offensive bonus (direct
+fire only) and its thrust from a yellow Initial Orders menu, what is left placed at random as Initial Orders close; each weapon switched off fried on a
+d6 of 1 as the turn ends, its power still counted (§9.43) - BUILT 2026-10-30, uncommitted.**
 Written
 against `dab951bf5`. The user
 ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
@@ -347,7 +351,7 @@ Medium-sized job (§3.4).
 | **Expert Ballistic Officer** | "+1 magazine round per launcher" moves the lobby's ammo limits, which are derived from magazine capacity at offer time. Free missile swaps are lobby ammo pricing. *Built in Stage 29 (§9.36): the rules text makes it DISTANCE range, never launch range - one read-time term where FV tests it; the extra slots are the magazine's capacity raised before the ammo rows load, the free swaps a price rule (the N dearest rounds bought) with the rest rolled at the commit, as the Political Officer's picks; a weapon keeping its own count gets its extra round written once, at the commit.* | +5 launch range (`range` **and** `rangeArray` — the same mode-switch trap — and sent to the client) |
 | **Expert Anticipator** | A free **turn** for a ship in the Firing phase is a new phase-3 movement for ships (today only flights move there, as combat pivots), with masking, validation and animation. *Built in Stage 23 (§9.30): the turn is an ordinary turn row marked `anticipate`, kept by the server's Firing-phase filter for his ship only and masked with the combat pivots; its thrust is paid on the Movement phase's own panel, wired into the Firing phase. The extra die is a `Dice` flag after all, and the one weapon that rolls its damage dice one call at a time - the Pentagon Array, his rules' own example - hands them to `Dice::keepBest`.* | Rolling initiative twice is Easy. Re-rolling the lowest die is Medium: a `Dice`-level flag, which the replay harness's own `Dice` stub must mirror ([[project_replay_harness]]) |
 | **Expert Gunner, once-per-battle abilities** | A Piercing mode injected into a weapon that lacks one, and +15 % on one called shot, each once per battle and not combinable: firing-mode injection, a persisted "used", and UI. *Built in Stage 10 (§9.16), all three automatic (user simplifications), with moving officers.* | — |
-| **Expert Electrician** | Per turn: deactivate the flight's weapons, convert their max damage ÷ flight size into thrust or OB, then a d6 to see whether they stay offline | — |
+| **Expert Electrician** | Per turn: deactivate the flight's weapons, convert their max damage ÷ flight size into thrust or OB, then a d6 to see whether they stay offline. *Built in Stage 36 (§9.43): FV already carried a fighter weapon's power entries to the server and refused an offline weapon's fire, so the switch-off is the weapon's own Power Off, opened to his flight's guns; what is new is the points (each linked shot a gun), the player's split (a yellow Initial Orders menu, posted as a claim, the rest placed at random at the commit) and the fry roll (a ForcedOfflineForTurns critical, for good).* | — |
 | **Expert Analyst** | *Moved from Medium, 2026-10-16:* the user found his full rules "more complex than I first described". The Medium reading was a per-load "the viewer's team has a live Analyst" static widening `isDisclosedToCurrentViewer()` (ammo types, hangar contents) and the officer payload, per viewer; two clauses moot in FV (weapon arming already public, [weapon.php:453](source/server/model/weapons/weapon.php#L453); cargo not modelled). Needs his full rules text and its own ruling round | — |
 
 ### 3.4 Framework costs (the part that is not any one officer)
@@ -429,7 +433,7 @@ One literal per officer in `Officers::$registry`: `label`, `post` (a key into th
 | Expert Coordinator | `OFF_COOR` | lead craft | 1 (flight) |
 | Expert Pilot *(added 2026-10-19, §9.24)* | `OFF_PILOT` | one per craft, from the first | 1 (flight), bought as a count |
 | Expert Tailgunner *(added 2026-10-21, §9.28)* | `OFF_TAIL` | lead craft | 1 (flight), a flight with a tail gun only |
-| Expert Electrician | `OFF_ELEC` | lead craft | 1 (flight) |
+| Expert Electrician *(Stage 36, §9.43)* | `OFF_ELEC` | lead craft | 1 (flight), a flight with a gun to shunt and no heavy weapon |
 
 Offers come from one call, `Officers::addOffers($ship)`, made at the end of
 `setEnhancementOptionsShip` and of `setEnhancementOptionsFighter`. That puts them in the static
@@ -749,6 +753,7 @@ committed.
 | **32** | Redline Pilot, added by the user. **BUILT 2026-10-25** (§9.39) | See §9.39 |
 | **33** | Expert Evangelist, one of the original 25 (Hard), from his rules text. **BUILT 2026-10-29** (§9.40) | See §9.40 |
 | **35** | Expert Analyst, one of the original 25 (Hard), with overload charges, Hyach Specialists and fighter missiles hidden first. **BUILT 2026-10-29** (§9.42) | See §9.42 |
+| **36** | Expert Electrician, one of the original 25 (Hard). **BUILT 2026-10-30** (§9.43) | See §9.43 |
 | *later* | ⏳ Every officer's initiative effect as an in-game MODIFIER (the Evangelist's way), the three base tie-breaks kept equal. **Deferred by the user 2026-10-29** - scoped at the end of §9.40 | — |
 | **34+** | The other Hard officers (the Expert Analyst among them since 2026-10-16), one at a time, each starting with its own short plan and ruling round | — |
 
@@ -781,6 +786,7 @@ committed.
 | Scavenger | A critical first, else 4 boxes? Which system first? May he repair Structure? **RULED 2026-10-15** (§9.8): **a critical first** (as the Engineer, same order and C&C roll), else 4 boxes, by Self Repair's default system order; **Structure yes**, never a destroyed system or anything on a destroyed section, never this turn's damage. His rules text adds a **once-per-scenario save** - "up to six points of damage can be ignored in any single volley" - ruled **automatic**: spent on the first hit that would destroy the C&C, a reactor or a Structure block when ignoring up to 6 points saves it ("note the Gaim Bulkhead already has a similar function"). The campaign clauses (permanent repairs after the battle) are not built. **Widened 2026-10-15 (§9.10): Scanners and Engines too.** **Faction prices 2026-10-15 (§9.12): 15% for the Descari, 20% for Balosians, Raiders and Llort.** |
 | Breaching Expert | "+1 thrust" for one pod of a flight that moves as one? "20 % of total pods": fleet-wide, rounded down? What are "3 attack rolls on the first boarding turn" in FV's capture-mission terms? **Rules text 2026-10-21 (§9.31)** settles the last two: "No more than 20% of a fleets breaching pods (round fractions of 0.5 or more up)"; "the pod's contingent gets three attack rolls on the first turn of combat. It is still destroyed by a single hit" - three d10s for its CaptureShip critical on its first turn, one attacker to the defenders. Asked: in a pair of pods, whose Marines get the Elite benefit and the triple roll? His price: one pod flat, or §9.9's scaled rule? The 20%: a report line, also refused in the buy dialog, or enforced by the server? "He does not provide any further benefits" on a pod already Elite: the Elite clause only, or everything? **RULED 2026-10-21 (all as recommended):** **his pod only** (the thrust is the flight's); **one pod, flat**; **a Fleet Correctness Report line**; **the Elite clause only** - +1 thrust and the triple roll still apply. |
 | Analyst | Does he need range, line of sight or an OEW lock? Every enemy ship, or only those in range? Weapon arming is already public in FV: leave it so? **Moved to the Hard tier 2026-10-16** (the full rules are more complex than the brief): his own plan and ruling round when he is reached. **Rules text, notes and rulings 2026-10-29 (§9.42):** an OEW lock (not CCEW) within 30 hexes, one scan a turn; overloads, Hyach Specialists and fighter missiles hidden first; fighter missiles COUNTED at 16 / 12 hexes, dummies told at 4, types by his scan; cargo the only scan told (public); nothing through a Chameleon disguise; rack modes left public; missiles only (not fighter torpedoes). |
+| Electrician | **Rules text and notes 2026-10-30 (§9.43):** the points = the maximum damage of the weapons deactivated over the flight's guns, rounded half up, for OB (direct fire only) or thrust that turn; a d6 per weapon, a 1 lost for the scenario, its power still available; 100% of a fighter; not with heavy weapons - the user's note: any weapon not ballistic loading in more than 1 turn; the existing switch-off support to be used, a yellow Initial Orders menu (his `img/electrician.png`), the split shown in the ship and weapon tooltips, a forgotten split placed at random. Asked: which weapons count; what a fried weapon gives later; when the d6 is rolled; what his loss does. **RULED 2026-10-30 (all as recommended):** **damaging direct-fire weapons only**, each linked shot a gun (the Frazi example's 12); a fried weapon counts as switched off **on every later turn** while he serves, never rolling again; the d6 **at the end of every turn** a weapon is off; once he is lost **all shunting stops** (no Power Off, the guns back on, a fried one gives nothing). |
 | Coordinator | **Rules text 2026-10-16** (§9.15): "may make a combat pivot for half the normal thrust cost (i.e., 1 point instead of 2) and with no weapons fire penalties as a result, unless the combat pivot was a full 180°, in which case a penalty of −1 is applied"; one-half the base cost of the fighter; one coordinator per flight. Built with defaults, not ruled: (a) "a full 180°" = this turn's combat pivots, rights against lefts, have turned the flight 3 hex sides or more (R-L-R is 60°, no penalty; four one way passed through 180°, penalty); (b) half rounded **up** (a shuttle's 3 → 2, a pivot-cost-3 flight's 5 → 3); (c) the −1 is waived on every shot of the flight that turn, ballistic launches included (the penalty's own scope). |
 | Evangelist | The fleet = this player's ships, or the whole team? His penalty is worded "if killed": does a merely **disabled** Evangelist (post destroyed, kill roll survived) cost the fleet its +1 without the −10 initiative / −1 to hit? (Default: yes, the penalty needs a kill.) Is the penalty permanent? Do reinforcements that arrive later get the bonus? **Rules text 2026-10-29 (§9.40)** settles the last three: "disabled or killed" both reverse the bonus, "for the rest of the scenario"; "all units in the scenario" (so a reinforcement too, once it is on the field); a disengaging ship takes the bonus away without the penalty; the user's notes allow several Evangelists, not stacking, a lost one's penalty cancelled by a serving one's bonus. Asked: whose units; which hulls; how he is placed; whether the morale adds on a Gunner's weapon. **RULED 2026-10-29:** **his player's fleet only** (no mines, terrain or remotely controlled craft); **the 8 Corillani Theocracy hulls** with "(CPN)" or "(OSF)" in their notes (not the Civilian Vostova freighters or the Custom Ships); **bought in the C&C and moved freely in Fleet Selection** - re-ruled as the build began: **in battle too**; **the Gunner's +1 replaces the morale +1** on his weapon, the −1 still applies. |
 | Laser Technician | Lasers = `weaponClass` Laser (49 classes)? Is the power boost declared in Initial Orders? Is the +50 % cap on base damage? **Rules text and rulings 2026-10-17 (§9.17):** the text settles the first three - laser-category weapons (any weapon with a Laser mode; only a shot in that mode gains), the boost through the ordinary boost in Initial Orders (the user's design note: "boostable ... 1 power = 1 damage, with no maxBoostLevel but a cap"), the cap on the roll ("if the base roll was 12 damage, it could be raised to 18"). **RULED:** (1) a laser that hits more than once a turn shares its boost as **one pool** for the turn; (2) on a serving Expert Gunner's laser the Gunner's +1 per die **replaces the flat bonus only** - the boost still works there; (3) boosts **hidden from opponents**; (4) the owner's tooltip **Damage line shows** the flat bonus and the boost, with a **Laser boost** line. |
@@ -5593,3 +5599,135 @@ class (no autoload change), no schema change. Statics regenerated (168 offers, 6
   team only, and the REAL payload - rows and the summary line to his team two turns on, never an enemy or a third team);
   `officersClientHarness.js` 1093 / 11 (the 11 pre-existing, §9.41); the picker rendered headless (real `officers.js`, `analystPicker.js`,
   `tokens.css`, `hexPicker.css`): the button's two gaps 104 / 104 px. Legacy bundles rebuilt (`node scripts/bundle-legacy.js`), `fvbuild -Sync`.
+
+### 9.43 Stage 36: Expert Electrician (2026-10-30)
+
+**Rules text (user, 2026-10-30) - one of the original 25 (Hard).** "Expert Electrician: This officer is capable of rigging special power shunts in his
+flight's power plant hookups. This allows the fighter to deactivate its weapons for extra thrust or offensive bonuses during a scenario. A flight may
+deactivate any or all of its weapons. For each weapon deactivated in a turn, add the maximum damage it can cause to a running total, then divide this by the
+number of guns in the flight, rounding fractions of 0.5 or more up. This results in a number of points which can be added to either the flight's offensive
+rating or thrust rating for that turn. However, any added offensive rating points apply only to direct-fire weapons, not ballistic weapons. For example, a
+flight of Narn Frazis has a total of 12 paired particle beams, each of which can score as much as 11 damage on a hit (1d6 + 5). If 5 of these are
+deactivated, the sum of the damage potentials is 55, which (after dividing by 12 and rounding the fraction up) yields 5 points to distribute between the
+flight's thrust rating and offensive bonus for that turn. It is permissible to put all of these points into one or the other [...] Because of the
+jury-rigging required in setting up this kind of power shunt, there is a possibility that each deactivated weapon may fry its circuits and not
+re-activate after use. Roll 1d6 for each weapon (not just one roll for the whole flight), and on a roll of 1, it is lost for the rest of the scenario.
+There are no modifiers to this roll. Note that if the weapon fails to reactivate, its power is still available for use as described previously. Point
+Cost: Equal to the cost of a fighter. Limitations: Fighters with heavy weapons, such as the Rutarian (but not the Thunderbolt as ballistics are exempt
+from this), cannot benefit from expert electricians due to the already tenuous nature of their power plant hookups."
+
+**The user's notes (2026-10-30).** "Heavy weapons" = any fighter weapon that is not ballistic and has a loading time of more than 1 turn. There is
+existing support for switching fighter systems off in Initial Orders - build on it. A menu to allocate the points to OB and thrust: a new Initial Orders
+tooltip button that knows the points it has to spend (the user's `img/electrician.png`), and the client shows the updated Thrust and OB in the ship
+tooltip and the flight's weapon tooltips. A player who forgets to allocate gets a random allocation, so no deactivated weapon is wasted. The menu and its
+icon yellow.
+
+**Rulings (user, 2026-10-30, asked before building - all as recommended):**
+1. **Damaging direct-fire weapons only** are shunted and counted as guns - never a ballistic launcher, Marines or a weapon that scores nothing (a sensor
+   spike, a defence gun, an EM wave disruptor). **Each of a weapon's shots is a gun**: FV models the Frazi's paired particle beams as one Particle Gun
+   firing two, so six Frazi have 12 guns of 11, as the example. *Confirmed after play test 4526 (below), once a same-day change was withdrawn:
+   each of a weapon's shots counts in the total too - two Frazi weapons off give 44/12 -> 4.* ⏳ **Skipped for now (user, 2026-10-30): half a
+   paired gun.** The example switches off 5 of the 12 beams - half of one Frazi's pair; FV switches a weapon off whole (one power entry for both
+   its shots), so a paired gun gives both its guns or neither.
+2. **A fried weapon counts as switched off on every later turn** while he serves, without the player doing anything, and never rolls again.
+3. **The d6 at the end of every turn a weapon was switched off** - a fried one shows before the next Initial Orders; a weapon kept off for three turns
+   rolls three times (free, since its power still counts once fried).
+4. **Once he is lost, all shunting stops**: no Power Off on a fighter weapon, every gun back on next turn, a fried one gives nothing.
+
+**Built with defaults, stated here (ask before changing):**
+- **"Maximum damage"** = the highest `maxDamage` of the weapon's modes (a B-Wing's Laser 13, its Salvo mode, not 10). **Guns** = a weapon's `shots`
+  (a Particle Gun firing two is two; a pulse or variable-shot weapon fires one shot and is one gun). Over the craft still flying.
+- **Heavy** = any weapon (not the ram) that is not ballistic and loads in more than one turn in any mode - the user's rule as written, so no-damage
+  specials count too: the Colonial Raptor (its Sensor Spear) is barred. 45 flights barred as heavy, 46 more for having no gun that scores (Marine-only
+  breaching pods, missile-only shuttles, the Rizek's defence gun, transports); 269 of the 360 flights that may carry an officer are offered him.
+- **100% of one craft**, scaled by the flight's size (§9.9); every faction (no `$factionRules` line); D9's one officer to a flight.
+- **The random fill**: each point left unplaced at the commit a d2 - 1 OB, 2 thrust (`Dice::d(2)`). A claim past the points is cut to them, OB first.
+- **The fried weapon** is a `ForcedOfflineForTurns` critical of the turn it fried, `turnend` 0 (for good), `param` 'electrician' - FV's own
+  machinery: the server refuses an offline weapon's fire (`ShipSystem::isOfflineOnTurn` reads the critical), the client shows it forced offline and
+  will not switch it back on, everyone sees it (an offline weapon is public). One die per weapon - a linked pair is one weapon.
+- **Visibility**: the split is a displayed stat (user ruling 2026-10-10) - to every viewer once Initial Orders close, to his own team from their commit,
+  never to an opponent while Initial Orders are open. ⚠️ Cosmetic secrecy as ever (§4.6): a flight's switched-off guns, and a fried one's critical
+  (its param names him), tell an opponent he is aboard.
+- **Not counted for a landing**: the shunted thrust moves the flight; the hangar's thrust tolerance (`HangarOps` - the Redline Pilot's burn counts there)
+  is left alone. Ask if wanted.
+
+**Design.**
+- `Officers`: registry `OFF_ELEC` (post `craft`, flight, pct 100, `apply` null, `needs` hasShuntGuns) LAST; constants `SHUNT_NOTE` 'OffShunt'
+  ("ob:thrust" on his craft), `FRY_DIE` 6, `FRY_ON` 1, `FRIED_PARAM` 'electrician'. `electricianIndex`, ⭐ `isShuntGun` / `gunMaxDamage` / `gunCount` /
+  `isHeavyWeapon` / `hasShuntGuns` / `isFried` / `isShunted` / ⭐ `shuntPoints` (all ⚠️ MIRROR PAIRS), `shuntOn`, `shuntOb` (Weapon::calculateHitBase's
+  fighter branch, direct fire only, on the bonus before the crit and mine deductions - the mission term's place), `shuntThrust`, `saveElectricianShunt`
+  (InitialOrdersGamePhase::process, on the RELOADED flight - its officers, and this POST's power entries, written before the reload - for every flight,
+  claim or none), `rollShuntBurnouts` (Criticals::setCriticals beside the kill rolls; `updated` crits saved by getUpdatedCriticals, which reaches
+  fighter subsystems). `takeNote` reads OffShunt; `addForJson` publishes `electricianShunt` {turn, ob, thrust}.
+- `FighterFlight`: protected `$electricianShunts` (turn => ob, thrust) and `$electricianClaim` (Manager::getShipsFromJSON reads `electricianShunt`).
+- Client `officers.js`: the registry row (`needs` 'shuntGuns'), `FRY_DIE` / `FRIED_PARAM`, `electricianEntry`, the mirrors above, `shuntCrafts`,
+  `shuntAllowed` (no phase: power.js asks it too) / `mayShunt` (Initial Orders), `shuntState`, the pending split `ship.shuntSplit` {turn, ob, thrust}
+  (`shuntPending` / `setShuntSplit` / `shuntSplit` - cut to the points when read / `stepShunt` / `allShunt`), `shuntClaim`, ⭐ `shuntNow` (the server's
+  split once written, else his own pending one in Initial Orders) -> `shuntOb` / `shuntThrust`, `canElectrify`, `electricianButtonInfo`.
+- The switch-off: `SystemPowerSettings.canOffline` and `SystemInfoButtons.canOffline` admit a gun `officers.mayShunt` allows; `power.js`
+  `offlineAll` / `onlineAll` reach every craft of a flight (`flightSystemsNamed` - they walked `ship.systems`, a flight's craft), and
+  `copyLastTurnPower` carries a fighter weapon's Power Off into the next turn only while `shuntAllowed`.
+- Read where shown: `movement.js` getRemainingEngineThrust / getFullEngineThrust (+ shuntThrust, beside the Redline burn - the map tooltip's
+  Thrust line follows); `weaponManager.computeOEW` (+ shuntOb, direct fire); `SystemInfo` (a weapon's Offensive bonus line, direct fire only);
+  `ShipInfo` ("Offensive bonus: 30 (+10 shunted, direct fire only)", "Thrust: 13 (+3 shunted)"); `ShipNotesPanel` (the flight stats).
+- The menu: NEW `UI/electricianPicker.js` (plain DOM, the picker surface `.fv-missionpicker`): the points and how many weapons are off (fried ones
+  counted), Offensive bonus and Thrust rows of - / value / +, the frying warning, All to OB / All to thrust; stays open while stepping, the tooltip
+  redrawn once it closes after a change. `shipTooltipInitialOrdersMenu.js` button `electricianShunt` [isSelf, canElectrify] (not an EW button);
+  `ajaxInterface.js` posts `electricianShunt`; `savedOrders.js` keeps the split; `game.php` script tag. `shipTooltip.css` `.electricianShunt` -
+  the user's plug art, resized 50x50 -> 40x40 and recoloured `#ffd23f` (alpha kept; the white original in the session scratchpad only);
+  `hexPicker.css` `.fv-missionpicker--electrician` (local `--el-*` palette, solid colours) and the stepper parts `__value` / `__step` / `__warn`.
+- Docs (`ammo-options.html`): an Expert Electrician card between the Dogfighter and the Evader.
+
+**Files.** Server: `Officers.php`, `FighterFlight.php`, `weapons/weapon.php`, `handlers/criticals.php`, `controller/Manager.php`,
+`Phase/InitialOrdersGamePhase.php`. Client: `officers.js`, `UI/electricianPicker.js` (new), `UI/shipTooltipInitialOrdersMenu.js`, `power.js`,
+`movement.js`, `weaponManager.js`, `ajaxInterface.js`, `savedOrders.js`, `UI/reactJs/system/SystemPowerSettings.js`, `SystemInfoButtons.js`,
+`SystemInfo.js`, `ShipInfo.js`, `UI/reactJs/shipWindow/ShipNotesPanel.js`, `game.php`, `styles/shipTooltip.css`, `styles/hexPicker.css`,
+`img/electrician.png`. Docs `ammo-options.html`. No new PHP class (no autoload change), no schema change. Statics regenerated (269 offers); legacy
+bundles rebuilt (`node scripts/bundle-legacy.js`), the React bundle by the watcher; `fvbuild -Sync`.
+
+**Verified.**
+- `officersHarness.php` (with DB) **2670 passed, 7 failed** - the 7 the pre-existing contributor statics counts (§9.40). Two registry-order checks moved by one.
+  Stage 36's six sections (`tests/replay/electricianProbe.php`, a generated copy running only them, ~5s): offers (Frazi 58, scaled 29 / 116; never the
+  Rutarian or the Calaq, a missiles-only shuttle, the Colonial Raptor, a ship or a Hunter-Killer; the Thunderbolt and a Gamma Starfury yes; Marines no
+  gun), the statics (269 offered, 91 barred, each by the rule read off the blueprint), the post, a doctored second officer; the points (0 / 2 / 4 / 6 /
+  11, without him, his craft lost, a craft lost 6.6 -> 7, last / next turn's Power Off, a fried gun counted from the next turn, a cooldown not, nothing
+  once he is lost, the Raptor Support's two-shot and one-shot scatterguns 8 / 4, the B-Wing's Salvo maximum 7, a Gamma's rack nothing); the commit's
+  split (the note and its words, cut OB first, nonsense, the d2 fill 3:3 and 0:6, no points, once a turn, his craft lost, another player, the gate,
+  takeNote); the fry (a die each, the critical's shape, offline from the next turn, saved, no second die, an old fry none, no die without him or on a
+  lost craft, his craft lost THIS turn still rolls); the real calculateHitBase (+5% a point on a gun, nothing on a missile launch, last turn's
+  nothing, the gate); the payload per viewer and phase. **Mutation 27/27** (`mutate36.js`, scratchpad).
+- `officersClientHarness.js` **1135 passed, 11 failed** - the 11 pre-existing (§9.41). Five registry-order checks moved by one; a Stage 36 block: the row and the
+  constants against Officers.php, the lobby mirror over every static flight (269), the points mirror (as the server's cases), mayShunt, the split's
+  steps / clamp / claim / turn, shuntNow (his pending split, the server's to any viewer), the REAL movement.js thrust and computeOEW (gun 6, missile 4),
+  the REAL power.js (copyLastTurnPower carried only while he serves; offlineAll / onlineAll over every craft, never a fried gun or a lost craft's), the
+  ShipInfo and SystemInfo lines, and the REAL menu's `electricianShunt` button. **Mutation 30/30** - the first pass missed one real gap: the menu's "without him" case handed it two different flights, so `isSelf` refused before `canElectrify` was asked; one object now, and canElectrify asked directly (`mutate36.js`, scratchpad).
+- The menu rendered headless (real `officers.js`, `electricianPicker.js`, `tokens.css`, `shipTooltip.css`, `hexPicker.css` - driver `elec36.mjs` in
+  the scratchpad, page `officersE2E/elec36_harness.html`): **12 / 0** - under its button, title and rail #ffd23f, its line ("6 points from 3 weapons switched off - 6 unplaced ..."), both rows at +0 with - disabled, the All buttons and the frying warning; two + on OB and one on thrust read +10 / +1 (three SystemDataChanged), All to thrust 0 / 6, Escape closes it and redraws the tooltip, clamped 8 px inside a 360 px screen.
+- `enhancementsHarness` **301 / 0** (the fingerprint unchanged - it covers ship-level offers only); `enhancementsDifferential.js` **964 / 0**.
+- `fvbuild -Check`: the replay corpus **134 passed, 51 failed - the same 51 as §9.42** (Stage 35's three hides, still awaiting the user's OK to
+  re-record): 391 reported paths, every one an overload charge, a fighter magazine or the Hyach Specialists; no corpus game has an Electrician.
+
+**Not built / observed:**
+- Play-tested in game 4526 (Initial Orders of turn 1); the follow-ups below.
+- The one-line hooks (InitialOrdersGamePhase::process, Criticals::setCriticals, Manager::getShipsFromJSON) and the claim's round trip through a real
+  commit are not harness-covered; the menu's steps are (headless), the tooltip button's placement is not.
+- A flight docked in a hangar is not singled out: guns it left switched off still roll at the turn's end.
+
+**Play test 4526 follow-ups (user, 2026-10-30), built, uncommitted:**
+1. **The points - changed, then REVERTED the same day (user).** The play test asked for a weapon switched off to add its maximum damage once
+   (two Frazi weapons 22/12 -> 2); it was built, then withdrawn: "your initial interpretation was correct after all". Each of a weapon's shots is
+   a gun again, in the total and the divisor alike - two of six Frazi's Particle Guns off 44/12 -> 4, three 66/12 -> 6, all six 132/12 -> 11
+   (`Officers::shuntPoints` / `officers.shuntState`, MIRROR PAIR, as first built). ⏳ **Skipped for now (user): switching off half a paired
+   gun**, which the rules' example does (5 of 12 beams) - FV switches a weapon off whole; see ruling 1 above.
+2. **Cancel all** in the menu's footer beside All to OB / All to thrust (`officers.clearShunt`: nothing placed, every point free again - the
+   weapons stay switched off); the menu's buttons a little lower (the footer's 3px padding, the steppers 20px - the Electrician's own rules in
+   `hexPicker.css`, never the picker surface's shared ones).
+3. **The Initial Orders button only with points to spend** - a weapon switched off, or fried (`officers.canElectrify` asks `shuntPoints > 0`);
+   the menu's own steps ask it too.
+- Docs (`ammo-options.html`): the button's line; the points example as first written, plus "a weapon is always switched off whole".
+- Verified (after the revert): `tests/replay/electricianProbe.php` (regenerated) **129 / 0** - the figures as first built;
+  `officersClientHarness.js` **1137 / 11** (the 11 pre-existing; + no button and nothing to cancel without a weapon off, Cancel all, the menu
+  refused on an idle flight); `officersHarness.php` (with DB) **2670 / 7** (the 7 pre-existing); **mutation 28/28 server + 33/33 client** (`mutate36.js` - three new: the
+  withdrawn per-weapon numerator as a mutant, the button without points, Cancel all with nothing placed); the menu headless **14 / 0**
+  (three off: 6 points; All to OB, All to thrust, Cancel all - the footer buttons 22px, were 26; the steppers 20px, were 24). Legacy bundles
+  rebuilt, `fvbuild -Sync`.

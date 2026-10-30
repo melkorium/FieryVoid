@@ -287,6 +287,11 @@ window.savedOrders = {
 			rec.analystScan = { a: ship.analystScan.a, t: ship.analystScan.t };
 		}
 
+		//An Expert Electrician's split (OFFICERS_PLAN.md Stage 36), sent by the Initial Orders commit - a flight-level choice, as the mission
+		if (phase === 1 && ship.flight && window.officers && officers.shuntPending(ship)) {
+			rec.shunt = officers.shuntPending(ship);
+		}
+
 		if (ship.flight) {
 			var ftr = {};
 			for (var f in ship.systems) {
@@ -550,6 +555,9 @@ window.savedOrders = {
 			if (rec.analystScan && typeof gamedata.getShip === 'function') officers.setAnalystScan(ship, gamedata.getShip(rec.analystScan.t), rec.analystScan.a);
 		}
 
+		//...and an Expert Electrician's split, as drafted or cleared: shuntSplit cuts it to the points the power restored below gives
+		if (phase === 1 && ship.flight && window.officers) officers.setShuntSplit(ship, rec.shunt || null);
+
 		if (ship.flight) {
 			var ftr = rec.ftr || {};
 			var seenFighters = {};
@@ -708,7 +716,7 @@ window.savedOrders = {
 	/* Orders in draft records that no longer resolve - counted for the notice. Approximate by
 	   design: a fire order is one, and a system's power or settings count as one between them. */
 	countShipOrders: function countShipOrders(rec) {
-		var n = (rec.EW ? rec.EW.length : 0) + (rec.move ? rec.move.length : 0) + (rec.mission ? 1 : 0) + (rec.analystScan ? 1 : 0);
+		var n = (rec.EW ? rec.EW.length : 0) + (rec.move ? rec.move.length : 0) + (rec.mission ? 1 : 0) + (rec.analystScan ? 1 : 0) + (rec.shunt ? 1 : 0);
 		for (var id in (rec.sys || {})) n += savedOrders.countOrders(rec.sys[id]);
 		for (var fid in (rec.ftr || {})) n += savedOrders.countOrders(rec.ftr[fid]);
 		return n;

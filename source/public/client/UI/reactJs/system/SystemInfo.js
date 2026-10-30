@@ -135,9 +135,11 @@ class SystemInfo extends React.Component {
 			if(ship.minesweeper){
 				displayOffensiveBonus -= window.ew.getDetectMEW(ship);
 			}else{
-				displayOffensiveBonus -= window.ew.getDetectMEW(ship) * 2;
+                displayOffensiveBonus -= window.ew.getDetectMEW(ship) * 2;
 			}
         }
+        //OFFICERS_PLAN.md Stage 36: an Expert Electrician's shunted power this turn - a direct-fire weapon's only (officers.shuntOb)
+        if (ship.flight && window.officers && !system.ballistic) displayOffensiveBonus += officers.shuntOb(ship);
 
         var systemDisplayName = system.displayName;
         var firingModeDisplay = system.firingModes ? system.firingModes[system.firingMode] : null;

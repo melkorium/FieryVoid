@@ -1154,6 +1154,13 @@ window.ajaxInterface = {
                     if (analystClaim) newShip.analystScan = analystClaim;
                 }
 
+                //an Expert Electrician's split of this turn's shunted power (OFFICERS_PLAN.md Stage 36) - a claim the server checks, putting down at
+                //random what is left unplaced; read only in Initial Orders, and sent only while his flight has points
+                if (window.officers && ship.flight && gamedata.gamephase == 1) {
+                    var shuntClaim = officers.shuntClaim(ship);
+                    if (shuntClaim) newShip.electricianShunt = shuntClaim;
+                }
+
                 //a flight's fighter mission pick (FIGHTER_MISSIONS_PLAN.md §3.7) - a claim the server checks; read only
                 //in Initial Orders, and sent only when it differs from the mission already selected
                 if (ship.flight && window.fighterMissions) {

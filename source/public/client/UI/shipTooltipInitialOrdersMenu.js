@@ -73,6 +73,10 @@ window.ShipTooltipInitialOrdersMenu = function () {
         /* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan: on a unit of another team his selected ship holds OEW on, within 30 hexes, a
            dropdown of his scans (AnalystPicker). An Initial Orders choice, so not in ewButtons. Fails closed on a null selection. */
         { className: "analystScan", condition: [notSelf, canAnalyse], action: openAnalystPicker, info: analystInfo },
+        /* OFFICERS_PLAN.md Stage 36 - an Expert Electrician's split of the power his flight's switched-off weapons give this turn: on his own flight, a
+           yellow menu of - / + for its offensive bonus and its thrust (ElectricianPicker). An Initial Orders choice, so not in ewButtons. Fails closed
+           on a null selection. */
+        { className: "electricianShunt", condition: [isSelf, canElectrify], action: openElectricianPicker, info: electricianInfo },
         { className: "targetWeapons", condition: [isEnemy, hasShipWeaponsSelected], action: targetWeapons, info: "Target selected weapons on ship" },
         { className: "targetWeaponsHex", condition: [hasOrderSource, hasHexWeaponsSelected], action: targetHexagon, info: "Target selected weapons on hexagon" },
         { className: "targetSuppWeapons", condition: [isFriendly, hasShipWeaponsSelected, FFWeaponSelected, notSelf], action: targetWeapons, info: "Target support weapons" },//30 June 2024 - DK - Added for Ally targeting.
@@ -428,6 +432,24 @@ window.ShipTooltipInitialOrdersMenu = function () {
         var anchor = (event && event.currentTarget) ? event.currentTarget : null;
         if (!window.AnalystPicker) return;
         AnalystPicker.open(this.selectedShip, this.targetedShip, anchor, function () {
+            redrawAfterTriadChoice.call(menu);
+        });
+    }
+
+    function canElectrify() {
+        return !!this.selectedShip && !!window.officers && officers.canElectrify(this.selectedShip);
+    }
+
+    function electricianInfo() {
+        return officers.electricianButtonInfo(this.selectedShip);
+    }
+
+    //Anchored to the clicked button, as the Analyst's; the tooltip redraws once it closes after a change, so its line shows the split
+    function openElectricianPicker(isMaxClick, event) {
+        var menu = this;
+        var anchor = (event && event.currentTarget) ? event.currentTarget : null;
+        if (!window.ElectricianPicker) return;
+        ElectricianPicker.open(this.selectedShip, anchor, function () {
             redrawAfterTriadChoice.call(menu);
         });
     }

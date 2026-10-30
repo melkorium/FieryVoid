@@ -223,7 +223,13 @@ window.officers = {
 		   without the thrust is canPivot's and doPivot's, its tripled penalty the hit-chance preview's (combatPivotPenalty); his landing beyond the
 		   tolerance is the Dock dialog's offer (mayRedlineLand) and the server's roll; his skin dancing the server's alone. */
 		{ id: 'OFF_REDL', label: 'Redline Pilot', post: 'craft', flight: true,
-			summary: 'Skin dances ships up to speed 8; combat pivots without thrust; afterburners +50% thrust; lands beyond thrust tolerance' }
+			summary: 'Skin dances ships up to speed 8; combat pivots without thrust; afterburners +50% thrust; lands beyond thrust tolerance' },
+		/* Stage 36: the Expert Electrician, in the flight's first craft (`needs` - a gun to shunt and no heavy weapon; the offers decide the price). No
+		   stat moves at load: his points are this turn's (shuntPoints, off the weapons switched off with their own Power Off - offered while he serves,
+		   mayShunt), split in his Initial Orders button's menu (ElectricianPicker) and read where the flight's thrust and its direct fire's OB are
+		   (shuntThrust, shuntOb). A fried weapon is the server's critical (isFried). */
+		{ id: 'OFF_ELEC', label: 'Expert Electrician', post: 'craft', flight: true, needs: 'shuntGuns',
+			summary: 'Use power from deactivated weapons to boost OB or thrust' }
 	],
 
 	/* An OFF_ id, or an officer kept under the id he had before officers existed (EXP_MOTIV, the Expert
@@ -427,6 +433,7 @@ window.officers = {
 			return !!craft && this.systemsOf(craft).some(function (s) { return s && s.tailGun === true; });
 		}
 		if (officer.needs === 'breachingPod') return this.isBreachingPod(ship);
+		if (officer.needs === 'shuntGuns') return this.hasShuntGuns(ship); //Stage 36
 		//Stage 35: "Llort capital ships or ELINT ships only ... cannot be used on bases". ⚠️ MIRROR PAIR with Officers::isAnalystHull (PHP)
 		if (officer.needs === 'analyst') {
 			if (ship.base) return false;
@@ -2942,6 +2949,227 @@ window.officers = {
 		var scan = this.analystScan(ship);
 		if (scan && target && String(scan.t) === String(target.id)) return 'Expert Analyst: ' + this.analystScanLabel(scan.a, target) + ' scan ordered';
 		return scan ? 'Expert Analyst: scan this unit instead' : 'Expert Analyst: scan this unit';
+	},
+
+	/* ------------------------------------------------------------------ the Expert Electrician (Stage 36) */
+
+	FRY_DIE: 6,                 //⚠️ MIRROR of Officers::FRY_DIE (PHP) - his menu's warning; the roll is the server's (rollShuntBurnouts)
+	FRIED_PARAM: 'electrician', //...FRIED_PARAM - a fried weapon's ForcedOfflineForTurns critical
+
+	//his entry on this flight while he serves now, through his list - so never an enemy's
+	electricianEntry: function electricianEntry(ship) {
+		if (!ship || !ship.flight) return null;
+		var turn = this.currentTurn();
+		var self = this;
+		return this.listFor(ship).filter(function (e) { return e.id === 'OFF_ELEC' && self.serves(e, turn); })[0] || null;
+	},
+
+	//"the maximum damage it can cause" on a hit: the highest of its modes. ⚠️ MIRROR PAIR with Officers::gunMaxDamage (PHP)
+	gunMaxDamage: function gunMaxDamage(system) {
+		var max = Number(system && system.maxDamage) || 0;
+		var modes = (system && system.maxDamageArray) || {};
+		for (var k in modes) max = Math.max(max, Number(modes[k]) || 0);
+		return max;
+	},
+
+	//a gun he shunts, and divides by: a direct-fire weapon that deals damage (user ruling 2026-10-30). ⚠️ MIRROR PAIR with Officers::isShuntGun (PHP)
+	isShuntGun: function isShuntGun(system) {
+		return !!system && !!system.weapon && !system.isRammingAttack && !system.ballistic && this.gunMaxDamage(system) > 0;
+	},
+
+	//each of a weapon's shots one gun - a Particle Gun firing two is two. ⚠️ MIRROR PAIR with Officers::gunCount (PHP)
+	gunCount: function gunCount(system) {
+		return Math.max(1, parseInt(system.shots, 10) || 0);
+	},
+
+	//"heavy weapons": not ballistic and loading in more than one turn, in any mode (the user's note). ⚠️ MIRROR PAIR with Officers::isHeavyWeapon (PHP)
+	isHeavyFighterWeapon: function isHeavyFighterWeapon(system) {
+		if (!system || !system.weapon || system.isRammingAttack || system.ballistic) return false;
+		var load = Number(system.loadingtime) || 0;
+		var modes = system.loadingtimeArray || {};
+		for (var k in modes) load = Math.max(load, Number(modes[k]) || 0);
+		return load > 1;
+	},
+
+	//`needs` shuntGuns: a gun to shunt and no heavy weapon, on the flight's first craft. ⚠️ MIRROR PAIR with Officers::hasShuntGuns (PHP)
+	hasShuntGuns: function hasShuntGuns(ship) {
+		var craft = (ship && ship.flight) ? this.firstCraft(ship) : null;
+		if (!craft) return false;
+		var self = this;
+		var systems = this.systemsOf(craft);
+		if (systems.some(function (s) { return self.isHeavyFighterWeapon(s); })) return false;
+		return systems.some(function (s) { return self.isShuntGun(s); });
+	},
+
+	//fried by a shunt before this turn: its ForcedOfflineForTurns critical marked FRIED_PARAM, for good. ⚠️ MIRROR PAIR with Officers::isFried (PHP)
+	isFried: function isFried(system) {
+		var crits = (system && system.criticals) || [];
+		var turn = this.currentTurn();
+		for (var i in crits) {
+			var crit = crits[i];
+			if (crit && crit.phpclass === 'ForcedOfflineForTurns' && crit.param === this.FRIED_PARAM && Number(crit.turn) < turn) return true;
+		}
+		return false;
+	},
+
+	//switched off for his shunts this turn: by the player's Power Off (a type-1 power entry of this turn), or fried. ⚠️ MIRROR PAIR with Officers::isShunted (PHP)
+	isShunted: function isShunted(system) {
+		if (this.isFried(system)) return true;
+		var turn = this.currentTurn();
+		var power = (system && system.power) || [];
+		for (var i in power) {
+			if (power[i] && Number(power[i].type) === 1 && Number(power[i].turn) === turn) return true;
+		}
+		return false;
+	},
+
+	//the flight's craft still flying, each with its systems as an array
+	shuntCrafts: function shuntCrafts(ship) {
+		var self = this;
+		return this.systemsOf(ship).filter(function (craft) {
+			return craft && craft.systems && !(window.shipManager && shipManager.systems.isDestroyed(ship, craft));
+		}).map(function (craft) { return { craft: craft, systems: self.systemsOf(craft) }; });
+	},
+
+	/* May this weapon be switched off for his shunts - its own Power Off (SystemPowerSettings / SystemInfoButtons canOffline): the player's own flight,
+	   he serves, a gun of a craft still flying, not fried. power.js copyLastTurnPower also asks it: a switch-off is carried into the next turn only
+	   while it holds, so once he is lost every gun comes back on ("all shunting stops" - user ruling 2026-10-30). ⚠️ MIRROR of shuntPoints' gate (PHP). */
+	shuntAllowed: function shuntAllowed(ship, system) {
+		if (!ship || !ship.flight || !this.isShuntGun(system) || this.isFried(system)) return false;
+		if (window.gamedata && typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return false;
+		if (!this.electricianEntry(ship)) return false;
+		var craft = this.craftHolding(ship, system);
+		return !!craft && !shipManager.systems.isDestroyed(ship, craft);
+	},
+
+	//...in Initial Orders, the only phase a weapon is switched off in
+	mayShunt: function mayShunt(ship, system) {
+		return !!window.gamedata && gamedata.gamephase == 1 && this.shuntAllowed(ship, system);
+	},
+
+	/* THE POINTS this turn: the maximum damage of every gun switched off (each of a weapon's shots a gun), over the flight's guns, rounded half up -
+	   its craft still flying, while he serves. Two of six Frazi's Particle Guns off = 44/12 -> 4. ⚠️ MIRROR PAIR with Officers::shuntPoints (PHP). */
+	shuntPoints: function shuntPoints(ship) {
+		if (!this.electricianEntry(ship)) return 0;
+		var state = this.shuntState(ship);
+		return state.guns > 0 ? Math.floor((2 * state.total + state.guns) / (2 * state.guns)) : 0;
+	},
+
+	//what his menu says of the flight: its guns, the damage switched off, the weapons switched off and how many of them are fried
+	shuntState: function shuntState(ship) {
+		var self = this;
+		var state = { guns: 0, total: 0, off: 0, fried: 0 };
+		this.shuntCrafts(ship).forEach(function (c) {
+			c.systems.forEach(function (system) {
+				if (!self.isShuntGun(system)) return;
+				var n = self.gunCount(system);
+				state.guns += n;
+				if (!self.isShunted(system)) return;
+				state.total += n * self.gunMaxDamage(system);
+				state.off++;
+				if (self.isFried(system)) state.fried++;
+			});
+		});
+		return state;
+	},
+
+	//the split the player made this Initial Orders, {ob, thrust}, or null - kept on the flight for its turn only
+	shuntPending: function shuntPending(ship) {
+		var split = ship ? ship.shuntSplit : null;
+		return (split && Number(split.turn) === Number(this.currentTurn())) ? { ob: split.ob, thrust: split.thrust } : null;
+	},
+
+	//set the split as asked (cut to the points when it is read - switching a weapon back on can leave it short), or clear it (null)
+	setShuntSplit: function setShuntSplit(ship, split) {
+		if (!ship) return;
+		if (!split) { delete ship.shuntSplit; return; }
+		ship.shuntSplit = { turn: this.currentTurn(), ob: Math.max(0, parseInt(split.ob, 10) || 0), thrust: Math.max(0, parseInt(split.thrust, 10) || 0) };
+	},
+
+	//this turn's points and the split waiting, cut to them: {points, ob, thrust, free}
+	shuntSplit: function shuntSplit(ship) {
+		var points = this.shuntPoints(ship);
+		var split = this.shuntPending(ship) || { ob: 0, thrust: 0 };
+		var ob = Math.min(points, split.ob);
+		var thrust = Math.min(points - ob, split.thrust);
+		return { points: points, ob: ob, thrust: thrust, free: points - ob - thrust };
+	},
+
+	//one point more (+1) or fewer (-1) on 'ob' or 'thrust' - true when it changed
+	stepShunt: function stepShunt(ship, field, step) {
+		if (!this.canElectrify(ship) || (field !== 'ob' && field !== 'thrust')) return false;
+		var split = this.shuntSplit(ship);
+		var next = { ob: split.ob, thrust: split.thrust };
+		next[field] += step;
+		if (next[field] < 0 || next.ob + next.thrust > split.points) return false;
+		this.setShuntSplit(ship, next);
+		return true;
+	},
+
+	//every point on 'ob' or on 'thrust' - true when it changed
+	allShunt: function allShunt(ship, field) {
+		if (!this.canElectrify(ship)) return false;
+		var split = this.shuntSplit(ship);
+		var next = { ob: field === 'ob' ? split.points : 0, thrust: field === 'thrust' ? split.points : 0 };
+		if (next.ob === split.ob && next.thrust === split.thrust) return false;
+		this.setShuntSplit(ship, next);
+		return true;
+	},
+
+	//nothing placed - his menu's Cancel all (play test 4526) - true when it changed
+	clearShunt: function clearShunt(ship) {
+		if (!this.canElectrify(ship)) return false;
+		var split = this.shuntSplit(ship);
+		if (split.ob + split.thrust === 0) return false;
+		this.setShuntSplit(ship, null);
+		return true;
+	},
+
+	/* The claim the commit posts (ajaxInterface.construcGamedata), or null with no points: the split as it stands. The server judges it again, and
+	   puts down at random whatever is left unplaced (Officers::saveElectricianShunt). */
+	shuntClaim: function shuntClaim(ship) {
+		if (!this.electricianEntry(ship)) return null;
+		var split = this.shuntSplit(ship);
+		return split.points > 0 ? { ob: split.ob, thrust: split.thrust } : null;
+	},
+
+	/* This turn's split as the flight flies and fires with it: the server's once written (ship.electricianShunt - his team's from their commit,
+	   everyone's once Initial Orders have closed), else, in his own team's Initial Orders, the one waiting (unplaced points count for nothing yet). */
+	shuntNow: function shuntNow(ship) {
+		if (!ship || !ship.flight || !window.gamedata) return null;
+		var sent = ship.electricianShunt;
+		if (sent && Number(sent.turn) === Number(this.currentTurn())) return { ob: Number(sent.ob) || 0, thrust: Number(sent.thrust) || 0 };
+		if (gamedata.gamephase != 1 || !this.electricianEntry(ship)) return null;
+		var split = this.shuntSplit(ship);
+		return split.points > 0 ? { ob: split.ob, thrust: split.thrust } : null;
+	},
+
+	//the OB his points give this turn's DIRECT fire (weaponManager.computeOEW, the tooltips). ⚠️ MIRROR PAIR with Officers::shuntOb (PHP)
+	shuntOb: function shuntOb(ship) {
+		var shunt = this.shuntNow(ship);
+		return shunt ? shunt.ob : 0;
+	},
+
+	//...and the thrust they give the flight (movement.js getRemainingEngineThrust / getFullEngineThrust). ⚠️ MIRROR PAIR with Officers::shuntThrust (PHP)
+	shuntThrust: function shuntThrust(ship) {
+		var shunt = this.shuntNow(ship);
+		return shunt ? shunt.thrust : 0;
+	},
+
+	/* Does the flight's own Initial Orders tooltip offer the Electrician button: Initial Orders, the player's own flight on the board, he serves -
+	   and it has points to spend, a weapon switched off or fried (play test 4526, the user: no button until then). */
+	canElectrify: function canElectrify(ship) {
+		if (!ship || !ship.flight || !window.gamedata || gamedata.gamephase != 1) return false;
+		if (typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return false;
+		return !!this.electricianEntry(ship) && this.onBoardUnit(ship) && this.shuntPoints(ship) > 0;
+	},
+
+	//the button's line in the tooltip: the split waiting, or how to get points
+	electricianButtonInfo: function electricianButtonInfo(ship) {
+		var split = this.shuntSplit(ship);
+		if (split.points <= 0) return 'Expert Electrician: switch weapons off to shunt their power';
+		return 'Expert Electrician: ' + split.points + ' point' + (split.points === 1 ? '' : 's') + ' - OB +' + split.ob + ', thrust +' + split.thrust
+			+ (split.free > 0 ? ', ' + split.free + ' unplaced' : '');
 	},
 
 	/* ------------------------------------------------------------------ what a flight's officer costs */

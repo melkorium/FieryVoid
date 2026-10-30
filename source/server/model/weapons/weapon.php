@@ -2050,6 +2050,9 @@ public function getFullStartLoading()
             /* FIGHTER MISSIONS (FIGHTER_MISSIONS_PLAN.md D5): the mission's term goes on the bonus BEFORE the crit and
                mine-detection deductions, for the turn the shot belongs to. ⚠️ MIRROR PAIR with weaponManager.computeOEW. */
             if (TacGamedata::$fighterMissionsPresent) $effectiveOB = FighterMissions::adjustOffensiveBonus($shooter, $target, $this, $fireOrder->turn, $effectiveOB);
+            /* OFFICERS_PLAN.md Stage 36 - an Expert Electrician's shunted power: the OB his flight put into this turn's DIRECT fire ("not ballistic
+               weapons"), on the bonus before the crit and mine-detection deductions, as the mission's term. ⚠️ MIRROR PAIR with weaponManager.computeOEW. */
+            if (!$this->ballistic && TacGamedata::$officersPresent) $effectiveOB += Officers::shuntOb($shooter, $fireOrder->turn);
             $firstFighter = $shooter->getSampleFighter();
             $OBcrit = $firstFighter->hasCritical("tmpsensordown");
             $mdew = $shooter->getEWByType("Detect Mines", $gamedata->turn); //-1 OB for each point of Mine Detect

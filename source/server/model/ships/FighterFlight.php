@@ -98,6 +98,12 @@ class FighterFlight extends BaseShip
 	protected $fighterMissions = array();
 	protected $fighterMissionClaim = null;
 
+	/* OFFICERS_PLAN.md Stage 36 - an Expert Electrician's split of each turn's shunted power, turn => array('ob', 'thrust'), read off the OffShunt
+	   notes by DBManager's note loop (Officers::takeNote); and what a POST of Initial Orders asked for ({ob, thrust} - a claim, checked by
+	   Officers::saveElectricianShunt against the reloaded flight). PROTECTED for $crewQuality's reason. */
+	protected $electricianShunts = array();
+	protected $electricianClaim = null;
+
 	/* OFFICERS_PLAN.md Stage 35 (user's notes and ruling, 2026-10-29): a flight's missiles are hidden from the other teams until one of their
 	   units comes close enough - "An enemy unit can detect the presence of a missile on a fighter from a range of 16 hexes for ships or 12 hexes
 	   for fighters or shuttles. At these ranges, the number of missiles can be counted ... Dummy missiles ... are revealed as such If any unit
@@ -243,6 +249,24 @@ class FighterFlight extends BaseShip
     //what a POST of Initial Orders asks for (Manager::getShipsFromJSON) - RAW, a claim; nothing trusts it unchecked
     public function setFighterMissionClaim($claim){
         $this->fighterMissionClaim = is_array($claim) ? $claim : null;
+    }
+
+    //OFFICERS_PLAN.md Stage 36: an Expert Electrician's split of each turn's points (OffShunt notes, or one saved in this request)
+    public function getElectricianShunts(){
+        return $this->electricianShunts;
+    }
+
+    public function recordElectricianShunt($turn, $ob, $thrust){
+        $this->electricianShunts[(int)$turn] = array('ob' => (int)$ob, 'thrust' => (int)$thrust);
+    }
+
+    public function getElectricianClaim(){
+        return $this->electricianClaim;
+    }
+
+    //what a POST of Initial Orders asks for (Manager::getShipsFromJSON) - RAW, a claim; nothing trusts it unchecked
+    public function setElectricianClaim($claim){
+        $this->electricianClaim = is_array($claim) ? $claim : null;
     }
 
     /* ------------------------------------------------------------------ missile detection (OFFICERS_PLAN.md Stage 35) */

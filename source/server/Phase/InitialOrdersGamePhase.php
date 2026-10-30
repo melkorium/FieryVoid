@@ -329,6 +329,13 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
             if (TacGamedata::$officersPresent && $ship->getAnalystScanClaim() !== null){
                 Officers::saveAnalystScan($gd->getShipById($ship->id), $ship, $gameData, $gd);
             }
+
+            /* OFFICERS_PLAN.md Stage 36 - an Expert Electrician's split of this turn's shunted power, checked against the RELOADED flight (officers, and
+               this POST's power entries, written above) and filled at random where the player left points unplaced: one OffShunt note. Asked of every
+               flight, claim or none - a forgotten split is still made. Any other flight asks nothing. */
+            if (TacGamedata::$officersPresent && $ship instanceof FighterFlight){
+                Officers::saveElectricianShunt($gd->getShipById($ship->id), $ship, $gameData, $gd);
+            }
         }
 
 
