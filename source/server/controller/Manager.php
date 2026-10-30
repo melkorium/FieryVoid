@@ -2919,6 +2919,10 @@ class Manager{
                saveClaim) before writing it, and every other phase ignores the field. */
             if ($ship instanceof FighterFlight) $ship->setFighterMissionClaim($value["fighterMission"] ?? null);
 
+            /* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan this turn, {a: ability, t: target id}. A CLAIM, carried raw:
+               InitialOrdersGamePhase::process checks it against the loaded ship (Officers::saveAnalystScan); every other phase ignores it. */
+            $ship->setAnalystScanClaim($value["analystScan"] ?? null);
+
             $systems = $value["systems"] ?? [];
             foreach ($systems as $i => $system) {
                 $sys = $ship->getSystemById($i);

@@ -60,7 +60,8 @@ window.combatLog = {
         'HangarEscape': true,
         'PoliticalSpeech': true,
         'RedlineLanding': true,
-        'WarLeader': true
+        'WarLeader': true,
+        'AnalystScan': true
     },
 
     logKindKey: function logKindKey(fire, shooter) {
@@ -342,8 +343,10 @@ window.combatLog = {
            the shooter's name is not printed ahead of it. */
         //Stage 34: an Expert War Leader's ability is told the same way, under "WAR LEADER!:" - its sentence names his ship
         var isWarLeader = fire.damageclass === 'WarLeader';
-        var isSpeech = fire.damageclass === 'PoliticalSpeech' || isWarLeader;
-        var headerLabel = hyperspaceKind ? 'HYPERSPACE: ' : (isWarLeader ? 'WAR LEADER!: ' : (isSpeech ? 'SPEECH!: ' : 'FIRE: '));
+        //Stage 35: an Expert Analyst's cargo scan the same way, under "CARGO SCAN:" - its sentence names his ship
+        var isAnalyst = fire.damageclass === 'AnalystScan';
+        var isSpeech = fire.damageclass === 'PoliticalSpeech' || isWarLeader || isAnalyst;
+        var headerLabel = hyperspaceKind ? 'HYPERSPACE: ' : (isWarLeader ? 'WAR LEADER!: ' : (isAnalyst ? 'CARGO SCAN: ' : (isSpeech ? 'SPEECH!: ' : 'FIRE: ')));
         var headerClass = hyperspaceKind ? 'logheader hyperspace ' + hyperspaceKind : 'logheader fire';
         //The hyperspace colours live in logPanel.css, keyed off the class - an inline literal here
         //would be a fourth copy of two values the stylesheets already own.

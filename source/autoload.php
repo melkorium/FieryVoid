@@ -1197,6 +1197,7 @@ spl_autoload_register(
                 'error' => '/server/lib/random_compat-2.0.2/lib/error_polyfill.php',
                 'esharan' => '/server/model/ships/minbari/esharan.php',
                 'eskravatam' => '/server/model/ships/dilgar/eskravatAM.php',
+                'eskravatham' => '/server/model/ships/dilgar/EskravatHAM.php',
                 'essusu' => '/server/model/ships/balosian/essusu.php',
                 'esthasa' => '/server/model/ships/balosian/esthasa.php',
                 'estnassa' => '/server/model/ships/balosian/estnassa.php',

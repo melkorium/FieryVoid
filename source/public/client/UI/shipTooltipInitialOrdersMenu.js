@@ -70,6 +70,9 @@ window.ShipTooltipInitialOrdersMenu = function () {
         /* FIGHTER MISSIONS (FIGHTER_MISSIONS_PLAN.md §3.10) - an Initial Orders choice, like the Triad's, so not in
            ewButtons either. The predicate fails closed on a null selection. */
         { className: "fighterMission", condition: [isSelf, canChooseFighterMission], action: openFighterMissionPicker, info: fighterMissionInfo },
+        /* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan: on a unit of another team his selected ship holds OEW on, within 30 hexes, a
+           dropdown of his scans (AnalystPicker). An Initial Orders choice, so not in ewButtons. Fails closed on a null selection. */
+        { className: "analystScan", condition: [notSelf, canAnalyse], action: openAnalystPicker, info: analystInfo },
         { className: "targetWeapons", condition: [isEnemy, hasShipWeaponsSelected], action: targetWeapons, info: "Target selected weapons on ship" },
         { className: "targetWeaponsHex", condition: [hasOrderSource, hasHexWeaponsSelected], action: targetHexagon, info: "Target selected weapons on hexagon" },
         { className: "targetSuppWeapons", condition: [isFriendly, hasShipWeaponsSelected, FFWeaponSelected, notSelf], action: targetWeapons, info: "Target support weapons" },//30 June 2024 - DK - Added for Ally targeting.
@@ -407,6 +410,24 @@ window.ShipTooltipInitialOrdersMenu = function () {
         var anchor = (event && event.currentTarget) ? event.currentTarget : null;
         if (!window.FighterMissionPicker) return;
         FighterMissionPicker.open(this.selectedShip, anchor, function () {
+            redrawAfterTriadChoice.call(menu);
+        });
+    }
+
+    function canAnalyse() {
+        return !!this.selectedShip && !!window.officers && officers.canAnalyse(this.selectedShip, this.targetedShip);
+    }
+
+    function analystInfo() {
+        return officers.analystButtonInfo(this.selectedShip, this.targetedShip);
+    }
+
+    //Anchored to the clicked button, as the fighter mission picker; the tooltip redraws after a choice so its line shows the scan waiting
+    function openAnalystPicker(isMaxClick, event) {
+        var menu = this;
+        var anchor = (event && event.currentTarget) ? event.currentTarget : null;
+        if (!window.AnalystPicker) return;
+        AnalystPicker.open(this.selectedShip, this.targetedShip, anchor, function () {
             redrawAfterTriadChoice.call(menu);
         });
     }

@@ -485,6 +485,12 @@
     background-image: url("../img/cancelSwapInitiative.png");
 }
 
+/* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan, opening his dropdown (client/UI/analystPicker.js). The user's magnifier art,
+   recoloured violet (#b48cff, the colour his dropdown wears - hexPicker.css .fv-missionpicker--analyst) and resized to 40x40 like the rest. */
+.analystScan {
+    background-image: url("../img/analyst.png");
+}
+
 /* == The INCOMING list (MANUAL_INTERCEPTION_PLAN.md §6) ======================================
    Rows used to be one run-on line - "Sharlin War Cruiser, 3x Heavy Missile (Normal) - Approx: 45%" -
    which wrapped onto a second line as soon as a ship or weapon had a long name, and read as a wall.

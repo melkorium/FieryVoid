@@ -1147,6 +1147,13 @@ window.ajaxInterface = {
                     if (officerTransfers.length > 0) newShip.officerTransfers = officerTransfers;
                 }
 
+                //an Expert Analyst's scan this turn (OFFICERS_PLAN.md Stage 35) - a claim the server checks; read only in Initial Orders,
+                //and sent only while it is still allowed (officers.analystClaim drops one whose OEW was taken off)
+                if (window.officers && !ship.flight) {
+                    var analystClaim = officers.analystClaim(ship);
+                    if (analystClaim) newShip.analystScan = analystClaim;
+                }
+
                 //a flight's fighter mission pick (FIGHTER_MISSIONS_PLAN.md §3.7) - a claim the server checks; read only
                 //in Initial Orders, and sent only when it differs from the mission already selected
                 if (ship.flight && window.fighterMissions) {

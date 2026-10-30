@@ -203,6 +203,13 @@ class BaseShip {
 	protected $officerLaunchIni = 0;
 	protected $officerMoraleIni = 0; //Stage 33: what an Expert Evangelist's morale did to this unit's iniativebonus (Officers::applyMorale)
 	protected $officerLeaderIni = 0; //Stage 34: what an Expert War Leader gave this unit of his fleet's iniativebonus (Officers::applyLeadership)
+	/* Stage 35: $analystScans lists this ship's Expert Analyst's OffScan notes (array('turn', 'ability', 'target', 'post')), read off by
+	   DBManager's note loop; $analystReveals what Analysts' scans have shown of THIS unit, and to whom (array('ability', 'team', 'userid',
+	   'turn')) - put here once every ship is constructed (Officers::settleAnalystScans) and read by the payload masks (Officers::analystReveals);
+	   $analystScanClaim is what a POST of Initial Orders asked for (array('a' => ability, 't' => target id)), checked by Officers::saveAnalystScan. */
+	protected $analystScans = array();
+	protected $analystReveals = array();
+	protected $analystScanClaim = null;
 
 	
 	public $halfPhaseThrust = 0; //needed for half phasing; equal to thrust from two BioThrusters on a given ship; 0 for ships that cannot half phase, eg. vast majority
@@ -999,7 +1006,8 @@ class BaseShip {
 		   ⚠️ Cosmetic hiding only, and §6.3 says so out loud: the enhanced shield output, armour and
 		   thrust still reach the enemy, because their own damage and hit-chance previews read them. */
 		$enhancementTooltip = $this->enhancementTooltip;
-		if($enhancementTooltip !== '' && !$this->isRevealedToCurrentViewer()){
+		if($enhancementTooltip !== '' && !$this->isRevealedToCurrentViewer()
+			&& !(TacGamedata::$officersPresent && Officers::analystReveals($this, 'refits'))){ //OFFICERS_PLAN.md Stage 35: an Analyst's arming scan
 			$enhancementTooltip = Enhancements::stripSystemEnhancementSummary($enhancementTooltip);
 		}
 		if($enhancementTooltip !== ''){ //enhancements exist!
@@ -1017,6 +1025,10 @@ class BaseShip {
 		   priceStep columns already zeroed, and nothing in game can buy or re-price them. */
 		if(!empty($this->systemEnhancements) && $this->isRevealedToCurrentViewer()){
 			$strippedShip->systemEnhancements = $this->systemEnhancements;
+		}else if(!empty($this->systemEnhancements) && TacGamedata::$officersPresent && Officers::analystReveals($this, 'refits')){
+			//OFFICERS_PLAN.md Stage 35: from the turn an Expert Analyst of the viewer's team scans its arming, every refit on it (user, play tests 4524/4525)
+			$refitRows = Officers::refitRows($this);
+			if(!empty($refitRows)) $strippedShip->systemEnhancements = $refitRows;
 		}
 
 		/* OFFICERS_PLAN.md D4 - own team (and everybody once the game is over) gets the officer list;
@@ -1954,6 +1966,33 @@ class BaseShip {
 	//what a POST of Initial Orders asks for (Manager::getShipsFromJSON) - RAW, a claim; nothing trusts it unchecked
 	public function setOfficerTransferClaims($claims){
 		$this->officerTransferClaims = is_array($claims) ? $claims : array();
+	}
+
+	//Stage 35: the Expert Analyst's scans (OffScan notes, or one saved in this request)
+	public function getAnalystScans(){
+		return $this->analystScans;
+	}
+
+	public function recordAnalystScan($turn, $ability, $targetId, $post){
+		$this->analystScans[] = array('turn' => (int)$turn, 'ability' => (string)$ability, 'target' => (int)$targetId, 'post' => (int)$post);
+	}
+
+	//Stage 35: what Analysts' scans have shown of this unit, and to whom
+	public function getAnalystReveals(){
+		return $this->analystReveals;
+	}
+
+	public function addAnalystReveal($ability, $team, $userid, $turn){
+		$this->analystReveals[] = array('ability' => (string)$ability, 'team' => (int)$team, 'userid' => (int)$userid, 'turn' => (int)$turn);
+	}
+
+	//Stage 35: the scan a POST of Initial Orders asks for (Manager::getShipsFromJSON) - RAW, a claim
+	public function getAnalystScanClaim(){
+		return $this->analystScanClaim;
+	}
+
+	public function setAnalystScanClaim($claim){
+		$this->analystScanClaim = is_array($claim) ? $claim : null;
 	}
 
 	//Stage 28: the initiative an Expert Warrior's ship gave this flight it launched (0: none)

@@ -96,6 +96,12 @@
    as Initial Orders close - applyWarLeaderInitiative - and all his EW held to the late window), Wrath and the Center of Glory in the
    Firing phase (saveWarLeaderPick, the unit in the OffUsed note's third part); their hit chances warLeaderShotBonus, each told in the
    combat log (warLeaderLog). Priced off the fleet AND his ship, by the lobby (warLeaderPrice is the rule).
+   Stage 35: the Expert Analyst (a Llort capital ship or any ELINT hull) - one scan a turn at an enemy unit his ship holds OEW on, within 30
+   hexes, ordered in Initial Orders (saveAnalystScan, one OffScan note) and effective as they close (settleAnalystScans puts each on its target):
+   what it shows his team is asked by the very masks that hide it from opponents (analystReveals) - a weapon's overload charge (hidden until it
+   fires a sustained shot, built in this stage), boosts and an added Piercing mode (that turn), and every refit on the ship (from then on); the
+   officers serving and the Hyach Specialists (also hidden from this stage); a hangar's craft; every magazine's ordnance, or a flight's missiles.
+   Cargo is a log line.
 
    Which FACTIONS may buy an officer, and what some of them pay, is one table: $factionRules below. */
 class Officers{
@@ -215,6 +221,9 @@ class Officers{
 	const WARLEADER_SHIP_PCT = 25;       //...: "plus 25% of the cost of his own ship"
 	const WARLEADER_OUTSIDER_PCT = 150;  //...: "rarer outside Narn space, and cost 50% more than the listed price"
 	const WARLEADER_LOG_CLASS = 'WarLeader'; //...each ability told in the combat log (warLeaderLog) - combatLog.js heads it "WAR LEADER!:"
+	const ANALYST_RANGE = 30;            //Expert Analyst (Stage 35): "The target must be within 30 hexes of the Expert Analyst for his abilities to function"
+	const SCAN_NOTE = 'OffScan';         //...one scan a turn, ordered in Initial Orders: value "ability:target id", on his post (saveAnalystScan)
+	const ANALYST_LOG_CLASS = 'AnalystScan'; //...his cargo scan told in the combat log (analystLog) - the only scan told (user ruling 2026-10-29)
 	/* ...: the magazine rounds he may pick free - "change one of their single-space ... missiles to any other legal type at no cost" - by
 	   enhancement id, each with the round it loads (Enhancements::setEnhancementOptionsShip's list). A pick is one of these the hull is
 	   enabled for, single-slot and priced on that hull (paidPickTypes); Basic is not among them, as no swap to it is worth anything (user
@@ -639,6 +648,16 @@ class Officers{
 		   scenario, plus 25% of the cost of his own ship", x1.5 outside the Narn Regime: his slot's points, or his fleet's hull costs in an
 		   Unlimited slot (user ruling) - the LOBBY's to work out (`fleet`; warLeaderPrice is the rule). */
 		'OFF_WLEAD' => array('label' => 'Expert War Leader', 'post' => 'cnc', 'pct' => 25, 'fleet' => true, 'apply' => null),
+		/* Expert Analyst (Stage 35; rules text, user 2026-10-29), in the Sensors. "Accessing any of these special scanning abilities requires a lock-on
+		   against the target being viewed ... with OEW (not CCEW) ... within 30 hexes ... Only one of these abilities can be used in any turn, and they
+		   take place at the same time the lock-on is announced": ordered in Initial Orders from the target's tooltip (the user's note) at a unit of
+		   another team his ship holds OEW on (saveAnalystScan), effective as Initial Orders close (settleAnalystScans). What each scan shows his team is
+		   asked by the masks that hide it from everyone else (analystReveals): (1) arming - that turn's overload charges, boosts and an added Piercing
+		   mode, and every refit on the ship for the rest of the game (user, play tests 4524/4525); (2) the officers serving and the Hyach Specialists;
+		   (3) a ship's hangars; (4) every magazine's ordnance, or a flight's missiles - the last three for the rest of the game (the user's note); (5)
+		   cargo - a combat log line and nothing else (analystLog). Rulings (user 2026-10-29): a flight's missiles COUNTED by any unit at 16 / 12 hexes, their types by his scan; cargo the only
+		   scan told, to everyone; nothing through a Chameleon disguise. "Llort capital ships or ELINT ships only ... cannot be used on bases" (`needs`). 10%. */
+		'OFF_ANLY' => array('label' => 'Expert Analyst', 'post' => 'scanner', 'pct' => 10, 'apply' => null, 'needs' => 'isAnalystHull'),
 
 		/* PLACED OFFICERS (Stage 8), posted in a weapon the player picks. AFTER every fixed-post officer, so
 		   apply() has already raised the C&C Matter Weapons Expert's guns when it reaches them, and before
@@ -1832,6 +1851,12 @@ class Officers{
 	   ship and never handed to its system (§4.4's reason - a Jump Engine misreads a note it does not know).
 	   true = taken. Their values are "id:to" and "id:ability" - or "id:ability:unit" (Stage 34, the unit a War Leader's ability names). */
 	public static function takeNote($ship, $note){
+		//Stage 35: an Expert Analyst's scan, "ability:target id"
+		if ($note->notekey === self::SCAN_NOTE){
+			$parts = explode(':', (string)$note->notevalue, 2);
+			if (count($parts) === 2) $ship->recordAnalystScan($note->turn, $parts[0], (int)$parts[1], $note->systemid);
+			return true;
+		}
 		if ($note->notekey !== self::TRANSFER_NOTE && $note->notekey !== self::USE_NOTE) return false;
 		if ($note->notekey === self::TRANSFER_NOTE){
 			$parts = explode(':', (string)$note->notevalue, 2);
@@ -2600,6 +2625,11 @@ class Officers{
 			if (self::isActive($ship, 'OFF_LASR')) $strippedSystem->boostable = true;
 			return;
 		}
+		//Stage 35: an Expert Analyst of the viewer's team scanned its arming this turn - the boosts, priced as power.js needs them, never the buttons
+		if (self::analystReveals($ship, 'arming')){
+			$strippedSystem->boostEfficiency = self::LASER_BOOST_COST;
+			return;
+		}
 		self::stripBoosts($strippedSystem);
 	}
 
@@ -2964,6 +2994,13 @@ class Officers{
 			$strippedSystem->thrustBoosted = true;
 			$strippedSystem->thrustPerBoost = self::ION_BOOST_THRUST;
 			if (self::isActive($ship, 'OFF_ION') && $weapon->getLoadingTime() <= $weapon->getTurnsloaded()) $strippedSystem->boostable = true;
+			return;
+		}
+		//Stage 35: "detected (and their strength known) by anything that detects special weapon arming modes, such as the Expert Analyst"
+		if (self::analystReveals($ship, 'arming')){
+			$strippedSystem->boostEfficiency = 0;
+			$strippedSystem->thrustBoosted = true;
+			$strippedSystem->thrustPerBoost = self::ION_BOOST_THRUST;
 			return;
 		}
 		self::stripBoosts($strippedSystem);
@@ -4029,6 +4066,7 @@ class Officers{
 		self::settleCharges($gamedata);
 		self::applyMorale($gamedata); //Stage 33: an Expert Evangelist's fleet-wide morale
 		self::applyLeadership($gamedata); //Stage 34: an Expert War Leader's +5 on his fleet's ships
+		self::settleAnalystScans($gamedata); //Stage 35: what each Expert Analyst's scans show, put on the units scanned
 	}
 
 	/* The unit each serving Expert Warrior's charge this turn holds against (chargeTarget), on his entry as `charged` - for his team's hit-chance
@@ -4284,6 +4322,186 @@ class Officers{
 		$name = $unit ? self::shipLink($unit) : 'a unit';
 		if ($ability === 'wrath') return $leader . ' declares ' . $name . ' the subject of his personal wrath.';
 		return $leader . ' declares ' . $name . ' the center of glory.';
+	}
+
+	/* ------------------------------------------------------------------ Expert Analyst (Stage 35) */
+
+	/* His scans, in the dropdown's order (the user's note: cargo moved last) => the note's words; a flight is offered only its officer and its
+	   ammunition (user, play tests 4524/4525: a flight's hangar scan showed what its ammunition scan does - its missiles). ⚠️ MIRROR PAIR with
+	   officers.ANALYST_SCANS / ANALYST_FLIGHT_SCANS (JS). */
+	private static $analystScanNames = array('arming' => 'arming', 'officers' => 'officers', 'hangar' => 'hangar', 'ammo' => 'ammunition',
+		'cargo' => 'cargo');
+	private static $analystFlightScans = array('officers', 'ammo');
+
+	//"Llort capital ships or ELINT ships only. This officer cannot be used on bases" - a Llort hull of size class 3 or more, or any hull with
+	//an ELINT system (read off the systems' own list, so the static blueprints answer it as a game does); never a base
+	private static function isAnalystHull($ship){
+		if (!empty($ship->base)) return false;
+		if ($ship->faction === 'Llort' && (int)$ship->shipSizeClass >= 3) return true;
+		foreach ($ship->systems as $system){
+			if (is_array($system->specialAbilities) && in_array('ELINT', $system->specialAbilities, true)) return true;
+		}
+		return false;
+	}
+
+	//the index of his ship's Expert Analyst serving on $turn, or null
+	private static function analystIndex($ship, $turn){
+		foreach ($ship->getOfficers() as $i => $entry){
+			if ($entry['id'] === 'OFF_ANLY' && self::serves($entry, $turn)) return $i;
+		}
+		return null;
+	}
+
+	/* May the Expert Analyst of $ship scan $target with $ability on $turn - all but the lock-on, the POST's own EW (holdsLock): a unit of another
+	   team on the board and in the fight (deployed, not destroyed, never terrain or a mine), his ship deployed too, within 30 hexes of it, and a
+	   scan that finds something on that kind of unit. ⚠️ MIRROR PAIR with officers.mayAnalyse (JS). */
+	private static function mayAnalyse($ship, $target, $ability, $gamedata, $turn){
+		if (!isset(self::$analystScanNames[$ability]) || !$target || $target === $ship) return false;
+		if ($target->isTerrain() || !empty($target->mine) || $target->isDestroyed()) return false;
+		if ((int)$target->team === (int)$ship->team) return false;
+		if (!self::isOnField($target, $gamedata, $turn) || !self::isOnField($ship, $gamedata, $turn)) return false;
+		if ($target instanceof FighterFlight && !in_array($ability, self::$analystFlightScans, true)) return false;
+		return Mathlib::getDistanceHex($ship, $target) <= self::ANALYST_RANGE;
+	}
+
+	//"Requires a lock-on ... with OEW (not CCEW)": his ship's own OEW at the target this turn, 1 point or more - the POST's EW, which
+	//InitialOrdersGamePhase::process has just validated and written
+	private static function holdsLock($postShip, $target, $turn){
+		if (!is_array($postShip->EW)) return false;
+		foreach ($postShip->EW as $ew){
+			if (is_object($ew) && $ew->type === 'OEW' && (int)$ew->targetid === (int)$target->id && (int)$ew->turn === (int)$turn
+				&& (float)$ew->amount >= 1) return true;
+		}
+		return false;
+	}
+
+	//his ship's scan on $turn, or null - "Only one of these abilities can be used in any turn"
+	private static function scanOn($ship, $turn){
+		foreach ($ship->getAnalystScans() as $scan){
+			if ($scan['turn'] === (int)$turn) return $scan;
+		}
+		return null;
+	}
+
+	/* InitialOrdersGamePhase::process: the scan a POST asks for ($postShip's analystScan claim, {a: ability, t: target id}), checked against the
+	   RELOADED $ship (the POST-side copy has no officers) and the reloaded gamedata $gd, the lock-on against the POST's EW - and written as one
+	   OffScan note on his post, read back at every later load (takeNote). One a turn. Initial Orders are committed once, so nothing replaces it. */
+	public static function saveAnalystScan($ship, $postShip, $gamedata, $gd){
+		if (!TacGamedata::$officersPresent || !$ship || !$postShip || $ship instanceof FighterFlight) return;
+		$claim = $postShip->getAnalystScanClaim();
+		if (!is_array($claim) || !isset($claim['a'], $claim['t']) || (int)$ship->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::analystIndex($ship, $turn);
+		if ($i === null || self::scanOn($ship, $turn) !== null) return;
+		$ability = (string)$claim['a'];
+		$target = $gd->getShipById((int)$claim['t']);
+		if (!self::mayAnalyse($ship, $target, $ability, $gd, $turn) || !self::holdsLock($postShip, $target, $turn)) return;
+		$post = (int)$ship->getOfficers()[$i]['post'];
+		$ship->recordAnalystScan($turn, $ability, (int)$target->id, $post);
+		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $ship->id, $post, self::SCAN_NOTE,
+			substr('Expert Analyst: ' . self::$analystScanNames[$ability] . ' scan', 0, 40), $ability . ':' . (int)$target->id));
+	}
+
+	/* Once every ship is constructed (afterShipsConstructed): each scan put on the unit it scanned, for his team - "they take place at the same
+	   time the lock-on is announced", so from the close of Initial Orders (a scan of this turn shows nothing while they are open); an arming scan
+	   only on its own turn ("currently active") - but the refits it finds ('refits') for the rest of the game, as the rest (the user's note; the
+	   refits user, play tests 4524/4525). Cargo shows nothing (analystLog). The scan stands once made - his loss later takes nothing back. */
+	private static function settleAnalystScans($gamedata){
+		$turn = (int)$gamedata->turn;
+		$phase = (int)$gamedata->phase;
+		foreach ($gamedata->ships as $ship){
+			foreach ($ship->getAnalystScans() as $scan){
+				if ($scan['turn'] > $turn || ($scan['turn'] === $turn && $phase === 1) || $scan['ability'] === 'cargo') continue;
+				$target = $gamedata->getShipById($scan['target']);
+				if (!$target) continue;
+				if ($scan['ability'] === 'arming') $target->addAnalystReveal('refits', $ship->team, $ship->userid, $scan['turn']);
+				if ($scan['ability'] === 'arming' && $scan['turn'] !== $turn) continue;
+				$target->addAnalystReveal($scan['ability'], $ship->team, $ship->userid, $scan['turn']);
+			}
+		}
+	}
+
+	/* ⭐ HAS AN EXPERT ANALYST SHOWN $ability ON $unit TO THE CURRENT VIEWER - his own team? Asked by every mask that hides it from an opponent:
+	   arming (Weapon::stripForJson's overload charge and added Piercing mode, laserForJson, ionForJson), refits (an arming scan's lasting part:
+	   BaseShip's refit rows and its "System Enhancements (n)" line), officers (addForJson, HyachSpecialists), hangar (Hangar, DockingBay; a
+	   flight's missiles, for a scan made before a flight's hangar scan was dropped), ammo (AmmoMagazine, a flight's missiles). Nothing through
+	   a Chameleon disguise (user ruling 2026-10-29) - a disguised payload is its simulacrum's - and no arming through a live suite, which masks
+	   arming anyway (that feature's D11; a refit is no arming state, so it is not masked). No viewer context: the callers' own gates reveal
+	   everything already. */
+	public static function analystReveals($unit, $ability){
+		return !empty(self::analystRevealTurns($unit, $ability));
+	}
+
+	//...the turns of those scans
+	private static function analystRevealTurns($unit, $ability){
+		if (!($unit instanceof BaseShip) || TacGamedata::$currentForPlayer === null) return array();
+		$reveals = $unit->getAnalystReveals();
+		if (empty($reveals) || $unit->chameleonDisguisedForViewer) return array();
+		if ($ability === 'arming' && $unit->hasChameleonSensors()) return array();
+		$turns = array();
+		foreach ($reveals as $reveal){
+			if ($reveal['ability'] !== $ability) continue;
+			if ($reveal['userid'] === (int)TacGamedata::$currentForPlayer
+				|| (TacGamedata::$currentForPlayerTeam !== null && $reveal['team'] === (int)TacGamedata::$currentForPlayerTeam)) $turns[] = $reveal['turn'];
+		}
+		return $turns;
+	}
+
+	/* addForJson, for a viewer who is not on the unit's team: the officers an Expert Analyst of his team saw - "so long as they are currently
+	   performing their jobs (if they are moving from system to system, are disabled, or just aren't in use, they will not be seen)", so those
+	   serving on a scan's turn - with their live state from then on (the user's note: shown for the rest of the game), and nothing of where one
+	   may move or what he has spent. */
+	private static function analystOfficersForJson($ship, $strippedShip, array $list){
+		$turns = self::analystRevealTurns($ship, 'officers');
+		if (empty($turns)) return;
+		$out = array();
+		foreach ($list as $entry){
+			if ($entry['how'] === 'moved') continue; //a fighter officer who went with his fighter to another row
+			$seen = false;
+			foreach ($turns as $turn){
+				if (self::serves($entry, $turn)){ $seen = true; break; }
+			}
+			if (!$seen) continue;
+			$row = array('id' => $entry['id'], 'post' => $entry['post']);
+			if ($entry['out'] !== null){
+				$row['out'] = $entry['out'];
+				$row['how'] = $entry['how'];
+			}
+			$out[] = $row;
+		}
+		if (!empty($out)) $strippedShip->officers = $out;
+	}
+
+	//BaseShip::stripForJson, from the turn an Expert Analyst of the viewer's team scans its arming: the refits on every system of this ship
+	//(user, play tests 4524/4525: weapons first, then all of them) - never a placed officer's row, which his officers scan shows through the
+	//officer payload
+	public static function refitRows($ship){
+		$rows = array();
+		foreach ($ship->systemEnhancements as $row){
+			if (!is_array($row) || !isset($row[0], $row[6]) || strpos((string)$row[0], self::ID_PREFIX) === 0) continue;
+			$rows[] = $row;
+		}
+		return $rows;
+	}
+
+	/* FireGamePhase::advance, beside the War Leader's: an Expert Analyst's cargo scan this turn told in the combat log, to every player (user
+	   ruling 2026-10-29: a scenario piece both players act on - the opponent answers what the holds carry); the other scans are told nothing.
+	   The War Leader's clothes: a log line on his ship's own RammingAttack, at itself, rolled 1, no shot. Behind $officersPresent. */
+	public static function analystLog($gamedata){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		foreach ($gamedata->ships as $ship){
+			foreach ($ship->getAnalystScans() as $scan){
+				if ($scan['turn'] !== $turn || $scan['ability'] !== 'cargo') continue;
+				$target = $gamedata->getShipById($scan['target']);
+				$ram = $ship->getSystemByName('RammingAttack');
+				if (!$target || !$ram) continue;
+				$order = new FireOrder(-1, 'normal', $ship->id, $ship->id, $ram->id, -1, $turn, 1, 0, 1, 0, 0, 0, 0, 0, self::ANALYST_LOG_CLASS, 10000);
+				$order->pubnotes = 'The Expert Analyst aboard ' . self::shipLink($ship) . ' scans the cargo holds of ' . self::shipLink($target) . '.';
+				$order->addToDB = true;
+				$ram->fireOrders[] = $order;
+			}
+		}
 	}
 
 	/* ------------------------------------------------------------------ repairs (Stage 5) */
@@ -5462,7 +5680,10 @@ class Officers{
 		if (self::isActive($ship, 'OFF_BALL')) $strippedShip->distanceRangeBonus = self::BALLISTIC_RANGE;
 		//Stage 30: an Expert Quartermaster's longer turn delay, to every viewer, lost or serving - the movement plot and the turn delay readouts
 		if (self::quartermasterIndex($ship) !== null) $strippedShip->turnDelayPenalty = self::QM_TURN_DELAY_PCT;
-		if (!TacGamedata::$currentGameFinished && !$ship->isRevealedToCurrentViewer()) return;
+		if (!TacGamedata::$currentGameFinished && !$ship->isRevealedToCurrentViewer()){
+			self::analystOfficersForJson($ship, $strippedShip, $list); //Stage 35: those an Expert Analyst of the viewer's team saw serving
+			return;
+		}
 		$out = array();
 		$saves = $ship->getOfficerSaves();
 		$turn = (int)TacGamedata::$currentTurn;

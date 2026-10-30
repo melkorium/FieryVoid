@@ -5300,7 +5300,9 @@ class Hangar extends ShipSystem{
 		$disclosed = $this->isDisclosedToCurrentViewer();
 		$externalMount = !empty($this->isCatapult) || !empty($this->isRail)
 					  || !empty($this->isLCVRail) || !empty($this->isShadowHangar);
-		$disclosedUsage = $disclosed || $externalMount;
+		$disclosedUsage = $disclosed || $externalMount
+			//OFFICERS_PLAN.md Stage 35: an Expert Analyst of the viewer's team scanned its hangars - the craft aboard, never the queued orders
+			|| (TacGamedata::$officersPresent && Officers::analystReveals($this->getUnit(), 'hangar'));
 		//A list, so the empty case is a JSON [] and every Array.isArray() consumer still matches.
 		$strippedSystem->hangarUsage = $disclosedUsage ? $this->hangarUsage : array();
 		//Tells the client the bay is UNKNOWN rather than EMPTY - without it refreshHangarTooltip
@@ -6018,7 +6020,9 @@ class DockingBay extends Hangar{
         //An ENCLOSED bay, so its ships follow the same own-team mask as its hangarUsage (the parent
         //has already raised hangarUsageHidden for everyone else), and so do its queued orders.
         $disclosed = $this->isDisclosedToCurrentViewer();
-        $strippedSystem->shipsDocked = $disclosed ? array_values($this->shipsDocked) : array();
+        //OFFICERS_PLAN.md Stage 35: the ships aboard to a team whose Expert Analyst scanned its hangars (never its queued orders)
+        $contentsShown = $disclosed || (TacGamedata::$officersPresent && Officers::analystReveals($this->getUnit(), 'hangar'));
+        $strippedSystem->shipsDocked = $contentsShown ? array_values($this->shipsDocked) : array();
         /* Stage 19 (3.14a): the RIDERS are published to EVERYONE, unlike the bay's contents.
            Nothing about them is private - a Waymarker clamped to the Traveler's aft is on the map,
            in the same hex, drawn and shootable, and the `attached` link the map tooltip reads is
@@ -6054,7 +6058,7 @@ class DockingBay extends Hangar{
            this one (it is where a unit went, not what a reactor reads). In practice that costs
            nothing - the dock resolves after Initial Orders, so by the next turn's orders, when the
            figure is actually managed, dockTurn is in the past and the entry is disclosed here. */
-        if (!$disclosed && $this->sharesDockedPower && !empty($this->shipsDocked)){
+        if (!$contentsShown && $this->sharesDockedPower && !empty($this->shipsDocked)){
             $ids = array();
             foreach ($this->shipsDocked as $entry){
                 $id = (int)($entry['shipId'] ?? 0);
@@ -13753,6 +13757,15 @@ class HyachSpecialists extends ShipSystem implements SpecialAbility{
 	//always redefine $this->data for Specialists! Can trim down to essentials later.
 	public function stripForJson(){
         $strippedSystem = parent::stripForJson();
+        /* OFFICERS_PLAN.md Stage 35 (user's note 2026-10-29) - which Specialists a ship carries, and which it has used, are its own team's: anyone
+           else is told how many it has left and nothing more, until the game is over or an Expert Analyst of his team scans its officers ("This
+           will also identify Hyach specialists ... even if they do not use it on that turn"). What one does shows where it shows anyway - a
+           profile, a weapon's Damage line, a thrust figure. */
+        if (!$this->isDisclosedToCurrentViewer() && !(TacGamedata::$officersPresent && Officers::analystReveals($this->getUnit(), 'officers'))){
+            $strippedSystem->data = array('Specialists' => $this->specTotal - $this->specTotal_used,
+                'Special' => 'Technical system used for Specialist management.<br>Which Specialists the ship carries is known only to its own fleet.');
+            return $strippedSystem;
+        }
         $strippedSystem->data = $this->data;
         if (isset($this->allocatedSpec) && !empty($this->allocatedSpec)) {
             $strippedSystem->allocatedSpec = $this->allocatedSpec;
@@ -17780,11 +17793,32 @@ class AmmoMagazine extends ShipSystem {
 		  - keep them in step if that text changes. PHP arrays are value types, so writing to the
 		  stripped copy cannot reach $this->data.*/
 		$unit = $this->getUnit();
-		$isFighterMagazine = ($unit !== null && !empty($unit->flight));
-		if (!$isFighterMagazine && !$this->isDisclosedToCurrentViewer()){
+		$isFighterMagazine = ($unit instanceof FighterFlight);
+		/* OFFICERS_PLAN.md Stage 35 (user's notes and ruling, 2026-10-29): a FIGHTER's magazine is no longer exempt. Its missiles are hidden
+		   from the other teams outright until one of their units comes within 16 hexes (12 for a fighter or shuttle) - then they are COUNTED, the
+		   ship magazine's mask below, and a team that has had a unit within 4 hexes also tells its Dummy Missiles apart (FighterFlight::
+		   detectMissiles). An Expert Analyst's scan of a ship's ammunition - or of a flight's fighters or ammunition - shows the types. */
+		if ($isFighterMagazine){
+			$knows = $unit->missileKnowledge();
+			if ($knows === null){
+				unset($strippedSystem->remainingAmmo, $strippedSystem->output);
+				$strippedSystem->outputDisplay = '?';
+				$strippedSystem->data['Special'] = "Technical system, keeping track of consumable ammo."
+					. "<br>Missiles not yet detected: counted from " . FighterFlight::MISSILE_SHIP_RANGE . " hexes ("
+					. FighterFlight::MISSILE_FLIGHT_RANGE . " from a fighter or shuttle).";
+				return $strippedSystem;
+			}
+			$typesShown = ($knows === 'all');
+		}else{
+			$typesShown = $this->isDisclosedToCurrentViewer() || (TacGamedata::$officersPresent && Officers::analystReveals($unit, 'ammo'));
+		}
+		if (!$typesShown){
 			$strippedSystem->data['Special'] = "Technical system, keeping track of consumable ammo."
 				. "<br>Total rounds: " . $this->remainingAmmo . "/" . $this->capacity
 				. "<br>Ordnance types are known only to its own fleet.";
+			if ($isFighterMagazine && $unit->dummiesSpottedByViewer()){
+				$strippedSystem->data['Special'] .= "<br>Dummy missiles: " . (int)($this->ammoCountArray['XDummy'] ?? 0);
+			}
 			return $strippedSystem;
 		}
 

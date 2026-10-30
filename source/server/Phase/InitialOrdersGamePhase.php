@@ -323,6 +323,12 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
             if (TacGamedata::$officersPresent && !($ship instanceof FighterFlight)){
                 Officers::saveWarLeaderOrder($gd->getShipById($ship->id), $ship, $gameData);
             }
+
+            /* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan, checked against the RELOADED ship and gamedata (officers, positions) and
+               this POST's own EW (the lock-on, just validated and written above): one OffScan note. Any other ship asks nothing. */
+            if (TacGamedata::$officersPresent && $ship->getAnalystScanClaim() !== null){
+                Officers::saveAnalystScan($gd->getShipById($ship->id), $ship, $gameData, $gd);
+            }
         }
 
 

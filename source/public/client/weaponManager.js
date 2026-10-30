@@ -5921,6 +5921,9 @@ window.weaponManager = {
             //WarLeader (OFFICERS_PLAN.md Stage 34): an Expert War Leader's taunt, anticipation, wrath or center of glory - its sentence alone,
             //under a "WAR LEADER!:" header (combatLog.logFireOrders), 0 shots on the ship's own Ramming Attack, as the speech.
             "WarLeader",
+            //AnalystScan (OFFICERS_PLAN.md Stage 35): an Expert Analyst's cargo scan - its sentence alone, under a "CARGO SCAN:" header, 0 shots on
+            //his ship's own Ramming Attack, as the speech.
+            "AnalystScan",
             //HangarEscape (HangarOps::escapeLogOrder): a destroyed carrier's escape roll - what flew free and what was lost with the
             //ship. 0 shots on the carrier's own Ramming Attack; its sentence continues the header with "'s".
             "HangarEscape"

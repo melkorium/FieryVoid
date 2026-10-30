@@ -144,6 +144,11 @@ window.officers = {
 		   Leader icon in the Firing phase (warLeaderState); their hit chances are warLeaderShotBonus, the anticipation's EW hold savedEwBonus. */
 		{ id: 'OFF_WLEAD', label: 'Expert War Leader', post: 'cnc', fleet: true,
 			summary: 'Every ship of the fleet +5 initiative. Special abilities that can be used once per battle' },
+		/* Stage 35: in the Sensors (the strongest Scanner - the Expert Scanner's post); a Llort capital ship or any ELINT hull, never a base (the
+		   offers'; `needs` for the lobby's own post pick). No `stats`: he orders one scan a turn from an enemy unit's Initial Orders tooltip (the
+		   Analyse button - canAnalyse, client/UI/analystPicker.js), and what it shows his team is the server's (the payload's masks). */
+		{ id: 'OFF_ANLY', label: 'Expert Analyst', post: 'scanner', needs: 'analyst',
+			summary: 'One scan per turn of an enemy unit he holds OEW on, within 30 hexes: its weapons, officers, hangars, ammo or cargo' },
 		/* PLACED officers (Stage 8): posted in the weapon the player buys him on, from that system's own menu
 		   (a per-system row - systemEnhancements.js), so they have no `post`. `sameAs`: the ship-level officer he
 		   IS at another post (one or the other); `anyDamage`: disabled by any damage to his weapon.
@@ -422,6 +427,12 @@ window.officers = {
 			return !!craft && this.systemsOf(craft).some(function (s) { return s && s.tailGun === true; });
 		}
 		if (officer.needs === 'breachingPod') return this.isBreachingPod(ship);
+		//Stage 35: "Llort capital ships or ELINT ships only ... cannot be used on bases". ⚠️ MIRROR PAIR with Officers::isAnalystHull (PHP)
+		if (officer.needs === 'analyst') {
+			if (ship.base) return false;
+			if (String(ship.faction) === 'Llort' && (parseInt(ship.shipSizeClass, 10) || 0) >= 3) return true;
+			return this.systemsOf(ship).some(function (s) { return s && Array.isArray(s.specialAbilities) && s.specialAbilities.indexOf('ELINT') !== -1; });
+		}
 		if (officer.needs === 'gravitics') {
 			return Boolean(ship.gravitic) || this.systemsOf(ship).some(function (s) { return self.isGraviticWeapon(s); });
 		}
@@ -2826,6 +2837,111 @@ window.officers = {
 	isLed: function isLed(unit) {
 		if (!unit || unit.flight || unit.mine) return false;
 		return !(window.gamedata && typeof gamedata.isTerrain === 'function' && gamedata.isTerrain(unit.shipSizeClass, unit.userid));
+	},
+
+	/* ------------------------------------------------------------------ the Expert Analyst (Stage 35) */
+
+	ANALYST_RANGE: 30, //"The target must be within 30 hexes of the Expert Analyst". ⚠️ MIRROR PAIR with Officers::ANALYST_RANGE (PHP)
+	//his scans in the dropdown's order (the user's note: cargo last), and those offered at a flight - its officer and its ammunition (user, play
+	//tests 4524/4525: a flight's hangar scan showed what its ammunition scan does). ⚠️ MIRROR PAIR with Officers::$analystScanNames /
+	//$analystFlightScans (PHP)
+	ANALYST_SCANS: ['arming', 'officers', 'hangar', 'ammo', 'cargo'],
+	ANALYST_FLIGHT_SCANS: ['officers', 'ammo'],
+	//what each scan says in the dropdown (AnalystPicker) and on the button - at a flight, flightLabel / flight where they differ
+	ANALYST_SCAN_TEXT: {
+		arming: { label: 'Arming', note: 'Weapons overloading this turn & system enhancements' },
+		officers: { label: 'Officers & Specialists', note: 'Officers posts and Hyach Specialists - for the rest of the battle',
+			flightLabel: 'Officers', flight: 'Its officer - for the rest of the battle' },
+		hangar: { label: 'Hangars', note: 'The craft aboard (never their orders) - for the rest of the battle' },
+		ammo: { label: 'Ammunition', note: 'Every magazine\'s ordnance, type - for the rest of the battle',
+			flight: 'Its missiles, counted and identified - for the remainder of battle' },
+		cargo: { label: 'Cargo', note: 'Its cargo holds - told in the combat log; no effect in FV' }
+	},
+
+	//this ship's Expert Analyst entry if he serves now, or null - through his list, so never an enemy's
+	analystEntry: function analystEntry(ship) {
+		if (!ship || ship.flight) return null;
+		var turn = this.currentTurn();
+		var self = this;
+		return this.listFor(ship).filter(function (entry) { return entry.id === 'OFF_ANLY' && self.serves(entry, turn); })[0] || null;
+	},
+
+	//the scans that find something on `target` - at a flight: its officer and its ammunition
+	analystScansFor: function analystScansFor(target) {
+		return (target && target.flight ? this.ANALYST_FLIGHT_SCANS : this.ANALYST_SCANS).slice();
+	},
+
+	/* May the Expert Analyst of `ship` scan `target` - with `ability`, when given - all but the lock-on (holdsAnalystLock): Initial Orders, his own
+	   ship on the board, a unit of another team on the board (never terrain or a mine), within 30 hexes, a scan that finds something on it.
+	   ⚠️ MIRROR PAIR with Officers::mayAnalyse (PHP). */
+	mayAnalyse: function mayAnalyse(ship, target, ability) {
+		if (!ship || !target || ship === target || !window.gamedata || gamedata.gamephase != 1) return false;
+		if (typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return false;
+		if (!this.analystEntry(ship) || !this.onBoardUnit(ship) || !this.onBoardUnit(target) || target.mine) return false;
+		if (String(target.team) === String(ship.team)) return false;
+		if (ability !== undefined && this.analystScansFor(target).indexOf(ability) === -1) return false;
+		return !!window.mathlib && mathlib.getDistanceBetweenShipsInHex(ship, target) <= this.ANALYST_RANGE;
+	},
+
+	//"Requires a lock-on ... with OEW (not CCEW)": his ship's own OEW at the target this turn, 1 point or more. ⚠️ MIRROR of Officers::holdsLock (PHP)
+	holdsAnalystLock: function holdsAnalystLock(ship, target) {
+		return !!window.ew && (parseFloat(ew.getEWByType('OEW', ship, target)) || 0) >= 1;
+	},
+
+	//Does `target`'s Initial Orders tooltip offer `ship` the Analyse button
+	canAnalyse: function canAnalyse(ship, target) {
+		return this.mayAnalyse(ship, target) && this.holdsAnalystLock(ship, target);
+	},
+
+	//the scan waiting on his ship this Initial Orders: {a: ability, t: unit id}, or null - one a turn, at one unit
+	analystScan: function analystScan(ship) {
+		var scan = ship ? ship.analystScan : null;
+		return (scan && this.ANALYST_SCANS.indexOf(scan.a) !== -1 && scan.t !== undefined && scan.t !== null) ? scan : null;
+	},
+
+	//order `ability` at `target`, or take the scan back (ability null) - true when it changed. A new order replaces the one waiting, at any unit.
+	setAnalystScan: function setAnalystScan(ship, target, ability) {
+		if (!ship || !window.gamedata || gamedata.gamephase != 1) return false;
+		if (ability === null) {
+			if (!this.analystScan(ship)) return false;
+			ship.analystScan = null;
+			return true;
+		}
+		if (!this.canAnalyse(ship, target) || !this.mayAnalyse(ship, target, ability)) return false;
+		var had = this.analystScan(ship);
+		if (had && had.a === ability && String(had.t) === String(target.id)) return false;
+		ship.analystScan = { a: ability, t: target.id };
+		return true;
+	},
+
+	/* The claim the commit posts (ajaxInterface.construcGamedata), or null: the scan waiting, if still allowed - an OEW taken off its unit since, or
+	   the unit gone, drops it. The server judges it again (Officers::saveAnalystScan). */
+	analystClaim: function analystClaim(ship) {
+		var scan = this.analystScan(ship);
+		if (!scan || !window.gamedata || typeof gamedata.getShip !== 'function') return null;
+		var target = gamedata.getShip(scan.t);
+		if (!target || !this.canAnalyse(ship, target) || !this.mayAnalyse(ship, target, scan.a)) return null;
+		return { a: scan.a, t: parseInt(target.id, 10) };
+	},
+
+	//a scan's name and line in the dropdown, by the kind of unit scanned
+	analystScanLabel: function analystScanLabel(ability, target) {
+		var text = this.ANALYST_SCAN_TEXT[ability];
+		if (!text) return String(ability);
+		return (target && target.flight && text.flightLabel) ? text.flightLabel : text.label;
+	},
+
+	analystScanNote: function analystScanNote(ability, target) {
+		var text = this.ANALYST_SCAN_TEXT[ability];
+		if (!text) return '';
+		return (target && target.flight && text.flight) ? text.flight : text.note;
+	},
+
+	//the Analyse button's line in `target`'s tooltip: the scan waiting there, or the offer
+	analystButtonInfo: function analystButtonInfo(ship, target) {
+		var scan = this.analystScan(ship);
+		if (scan && target && String(scan.t) === String(target.id)) return 'Expert Analyst: ' + this.analystScanLabel(scan.a, target) + ' scan ordered';
+		return scan ? 'Expert Analyst: scan this unit instead' : 'Expert Analyst: scan this unit';
 	},
 
 	/* ------------------------------------------------------------------ what a flight's officer costs */

@@ -65,7 +65,11 @@ Stage 34, the Expert War Leader (every faction; 5% of the slot's points plus 25%
 C&C - +5 initiative on every ship of his player's fleet; once per battle each, one a turn: Taunt or Anticipate from his C&C's menu in Initial Orders (+5% / -5%
 for the enemy at his ship / his fleet's other ships; +60 initiative as Initial Orders close, winning no ties, and all his ship's EW held to the late window),
 Wrath or the Center of Glory from a new War Leader icon in the Firing phase (+5% at one enemy for his fleet's ships; +10% on every shot of one unit of his
-fleet), each told in the combat log (§9.41) - BUILT 2026-10-29, uncommitted.**
+fleet), each told in the combat log (§9.41) - BUILT 2026-10-29, uncommitted.
+Stage 35, the Expert Analyst (a Llort capital ship or any ELINT hull, 10%), in the Sensors - one scan a turn in Initial Orders, from an enemy unit's tooltip, at a
+unit his ship holds 1 OEW on within 30 hexes: its arming that turn, or its officers and Hyach Specialists, hangars (a flight's missiles) or ammunition for the rest of
+the battle, or its cargo (a public log line); built with three hides first - an overload charge until its first sustained shot, Hyach Specialists, and fighter
+missiles, counted by a unit within 16 / 12 hexes and their dummies told at 4 (§9.42) - BUILT 2026-10-29, uncommitted.**
 Written
 against `dab951bf5`. The user
 ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
@@ -744,6 +748,7 @@ committed.
 | **30** | Expert Quartermaster, one of the original 25 (Hard). **BUILT 2026-10-24** (§9.37) | See §9.37 |
 | **32** | Redline Pilot, added by the user. **BUILT 2026-10-25** (§9.39) | See §9.39 |
 | **33** | Expert Evangelist, one of the original 25 (Hard), from his rules text. **BUILT 2026-10-29** (§9.40) | See §9.40 |
+| **35** | Expert Analyst, one of the original 25 (Hard), with overload charges, Hyach Specialists and fighter missiles hidden first. **BUILT 2026-10-29** (§9.42) | See §9.42 |
 | *later* | ⏳ Every officer's initiative effect as an in-game MODIFIER (the Evangelist's way), the three base tie-breaks kept equal. **Deferred by the user 2026-10-29** - scoped at the end of §9.40 | — |
 | **34+** | The other Hard officers (the Expert Analyst among them since 2026-10-16), one at a time, each starting with its own short plan and ruling round | — |
 
@@ -775,7 +780,7 @@ committed.
 | Geneticist | "Scenario only" = never offered unless a hull opts in, or a Create Game rule? "−1 to hit other ships" = this ship's own weapons? **RULED 2026-10-10: offered on every hull with a C&C** ("scenario only" is by agreement, as the doc card says). The −1 was built with its default: this ship's own weapons. **RE-RULED 2026-10-15: Dilgar Imperium only** (§9.12). |
 | Scavenger | A critical first, else 4 boxes? Which system first? May he repair Structure? **RULED 2026-10-15** (§9.8): **a critical first** (as the Engineer, same order and C&C roll), else 4 boxes, by Self Repair's default system order; **Structure yes**, never a destroyed system or anything on a destroyed section, never this turn's damage. His rules text adds a **once-per-scenario save** - "up to six points of damage can be ignored in any single volley" - ruled **automatic**: spent on the first hit that would destroy the C&C, a reactor or a Structure block when ignoring up to 6 points saves it ("note the Gaim Bulkhead already has a similar function"). The campaign clauses (permanent repairs after the battle) are not built. **Widened 2026-10-15 (§9.10): Scanners and Engines too.** **Faction prices 2026-10-15 (§9.12): 15% for the Descari, 20% for Balosians, Raiders and Llort.** |
 | Breaching Expert | "+1 thrust" for one pod of a flight that moves as one? "20 % of total pods": fleet-wide, rounded down? What are "3 attack rolls on the first boarding turn" in FV's capture-mission terms? **Rules text 2026-10-21 (§9.31)** settles the last two: "No more than 20% of a fleets breaching pods (round fractions of 0.5 or more up)"; "the pod's contingent gets three attack rolls on the first turn of combat. It is still destroyed by a single hit" - three d10s for its CaptureShip critical on its first turn, one attacker to the defenders. Asked: in a pair of pods, whose Marines get the Elite benefit and the triple roll? His price: one pod flat, or §9.9's scaled rule? The 20%: a report line, also refused in the buy dialog, or enforced by the server? "He does not provide any further benefits" on a pod already Elite: the Elite clause only, or everything? **RULED 2026-10-21 (all as recommended):** **his pod only** (the thrust is the flight's); **one pod, flat**; **a Fleet Correctness Report line**; **the Elite clause only** - +1 thrust and the triple roll still apply. |
-| Analyst | Does he need range, line of sight or an OEW lock? Every enemy ship, or only those in range? Weapon arming is already public in FV: leave it so? **Moved to the Hard tier 2026-10-16** (the full rules are more complex than the brief): his own plan and ruling round when he is reached. |
+| Analyst | Does he need range, line of sight or an OEW lock? Every enemy ship, or only those in range? Weapon arming is already public in FV: leave it so? **Moved to the Hard tier 2026-10-16** (the full rules are more complex than the brief): his own plan and ruling round when he is reached. **Rules text, notes and rulings 2026-10-29 (§9.42):** an OEW lock (not CCEW) within 30 hexes, one scan a turn; overloads, Hyach Specialists and fighter missiles hidden first; fighter missiles COUNTED at 16 / 12 hexes, dummies told at 4, types by his scan; cargo the only scan told (public); nothing through a Chameleon disguise; rack modes left public; missiles only (not fighter torpedoes). |
 | Coordinator | **Rules text 2026-10-16** (§9.15): "may make a combat pivot for half the normal thrust cost (i.e., 1 point instead of 2) and with no weapons fire penalties as a result, unless the combat pivot was a full 180°, in which case a penalty of −1 is applied"; one-half the base cost of the fighter; one coordinator per flight. Built with defaults, not ruled: (a) "a full 180°" = this turn's combat pivots, rights against lefts, have turned the flight 3 hex sides or more (R-L-R is 60°, no penalty; four one way passed through 180°, penalty); (b) half rounded **up** (a shuttle's 3 → 2, a pivot-cost-3 flight's 5 → 3); (c) the −1 is waived on every shot of the flight that turn, ballistic launches included (the penalty's own scope). |
 | Evangelist | The fleet = this player's ships, or the whole team? His penalty is worded "if killed": does a merely **disabled** Evangelist (post destroyed, kill roll survived) cost the fleet its +1 without the −10 initiative / −1 to hit? (Default: yes, the penalty needs a kill.) Is the penalty permanent? Do reinforcements that arrive later get the bonus? **Rules text 2026-10-29 (§9.40)** settles the last three: "disabled or killed" both reverse the bonus, "for the rest of the scenario"; "all units in the scenario" (so a reinforcement too, once it is on the field); a disengaging ship takes the bonus away without the penalty; the user's notes allow several Evangelists, not stacking, a lost one's penalty cancelled by a serving one's bonus. Asked: whose units; which hulls; how he is placed; whether the morale adds on a Gunner's weapon. **RULED 2026-10-29:** **his player's fleet only** (no mines, terrain or remotely controlled craft); **the 8 Corillani Theocracy hulls** with "(CPN)" or "(OSF)" in their notes (not the Civilian Vostova freighters or the Custom Ships); **bought in the C&C and moved freely in Fleet Selection** - re-ruled as the build began: **in battle too**; **the Gunner's +1 replaces the morale +1** on his weapon, the −1 still applies. |
 | Laser Technician | Lasers = `weaponClass` Laser (49 classes)? Is the power boost declared in Initial Orders? Is the +50 % cap on base damage? **Rules text and rulings 2026-10-17 (§9.17):** the text settles the first three - laser-category weapons (any weapon with a Laser mode; only a shot in that mode gains), the boost through the ordinary boost in Initial Orders (the user's design note: "boostable ... 1 power = 1 damage, with no maxBoostLevel but a cap"), the cap on the roll ("if the base roll was 12 damage, it could be raised to 18"). **RULED:** (1) a laser that hits more than once a turn shares its boost as **one pool** for the turn; (2) on a serving Expert Gunner's laser the Gunner's +1 per die **replaces the flat bonus only** - the boost still works there; (3) boosts **hidden from opponents**; (4) the owner's tooltip **Damage line shows** the flat bonus and the boost, with a **Laser boost** line. |
@@ -5425,3 +5430,166 @@ repriceFleet ran). priceBlueprint now takes `evangelistPaid(ship)` off it (0 on 
 seventh check pins 100 / 1100 (103 / 1103 with the line reverted).
 Client run 1079/11, none from this: the 5 "buy dialog's note" checks are stale since 04bdcfc93 (notes shortened to "Npts"); Stage 28's section throws in
 PhaseStrategy.syncWarLeaderMarkers (its fake shipIconContainer has no getArray - since the 4523 follow-up); the known 4 statics + "the burn ordered".
+
+### 9.42 Stage 35: Expert Analyst, with three things FV now hides first (2026-10-29)
+
+**Rules text (user, 2026-10-29) - one of the original 25, moved to the Hard tier 2026-10-16.** "Expert Analyst: This expert is adept at locating
+the choicest items to steal and making off with them at the best possible speed. While this in and of itself has little usefulness in a combat
+situation, his ability to analyze scans of the opposition has provided him with some unique powers of observation. Accessing any of these special
+scanning abilities requires a lock-on against the target being viewed. Against fighters and shuttles, an actual lock-on with OEW (not CCEW) is
+required. The target must be within 30 hexes of the Expert Analyst for his abilities to function. Only one of these abilities can be used in any
+turn, and they take place at the same time the lock-on is announced. (1) Any special weapon arming modes (sustained, piercing, etc.) currently active
+are detected. (2) The presence, type and location of any elite officers or crew are detected, so long as they are currently performing their jobs (if
+they are moving from system to system, are disabled, or just aren't in use, they will not be seen). This will also identify Hyach specialists if they
+are in a position to perform their special function, even if they do not use it on that turn. Experts on fighters or shuttles in a hangar are not
+detected, but this scan can be made against a flight on the map, and will identify all experts and their exact locations. (3) The contents of all
+cargo bays are known. [...] (4) The quantity and type of all fighters and shuttles aboard the ship is known (but no other information about them). If
+used on a flight on the map, the fighters are identified, missiles and other options are revealed, armed shuttles are detected as such, and any
+modifications are identified. Elite officers are not detected with this scan. (5) The number, type and location of all special weapon ammunition is
+learned. [...] The player can also count the exact amount of ammo in any rack or weapon, including reload racks, but not cargo storage. Location:
+Sensors. Cost: 10% of the ship's base cost. Availability: Llort capital ships or ELINT ships only. This officer cannot be used on bases."
+
+**The user's notes (2026-10-29).** His own Initial Orders tooltip button - a dropdown list, shown while his ship has an OEW lock - picks the scan; the
+data of scans 2, 4 and 5 stays shown for the rest of the game (individual notes). (1) FV does not hide overloading from opponents: hide it until the
+moment a sustained weapon fires, then the Analyst can detect it - and reveal the system enhancements on the weapons too. (2) Officers are hidden
+already; Hyach Specialists are shown to enemies, so hide them from anyone not on the Hyach player's team and reveal them by this scan. (3) Cargo is
+irrelevant to FV: moved to the LAST ability, kept as a scenario piece - no in-game effect, a log message "Cargo holds scanned on 'Ship X'". (4) Hangar
+contents are hidden already: reveal them and keep showing them. Fighter missiles to be hidden by default (an intended future change anyway), with the
+tabletop's detection rule: "An enemy unit can detect the presence of a missile on a fighter from a range of 16 hexes for ships or 12 hexes for fighters
+or shuttles. At these ranges, the number of missiles can be counted by the enemy and should be announced. Dummy missiles (costing 1 point) are
+available as deception items, but these are revealed as such if any unit reaches range 4 or less to the fighter." Known to the detecting team from
+then on; the Analyst detects from 30 hexes with 1 OEW. (5) Magazine contents are hidden already: reveal them and keep showing them.
+
+**Rulings (user, 2026-10-29, asked before building - all as recommended):**
+1. **Fighter missiles at 16 / 12 hexes: the COUNT only** ("the number of missiles can be counted") - a fighter magazine then reads as a ship's does
+   (total public, types hidden); a Dummy Missile is exposed as one within 4 hexes; the Analyst's scan reveals the types (from 30 hexes).
+2. **Log lines: cargo only, public** - a scenario piece both players act on; the other four scans are silent (his team sees the revealed data on the
+   target, the enemy learns nothing - officers stay hidden).
+3. **A Chameleon-disguised ship: nothing through it** - a scan finds only what the disguise shows.
+
+**Built with defaults, stated here (ask before changing):**
+- **Eligibility**: a Llort hull of size class 3 or more (capital and enormous), or any hull with an ELINT system (`isElint`, any faction, any size);
+  never a base (`$base`), with D9's exclusions as ever. 10%, in the Sensors (the strongest Scanner - the Expert Scanner's post).
+- **Lock-on**: his own ship's OEW (type OEW, not CCEW or SOEW), at least 1 point, on the target this turn; the target within 30 hexes in Initial
+  Orders, on the board, of another team. One scan per Analyst a turn, at one target; cancellable until the commit. Takes effect as Initial Orders
+  close (from the Movement phase) - "at the same time the lock-on is announced".
+- **The dropdown**: 1 Arming, 2 Officers & Specialists, 3 Hangars (on a flight: Fighters), 4 Ammunition, 5 Cargo. On a flight only 2, 3 and 4.
+- **(1) Arming** shows THAT TURN only (the user's note keeps 2, 4 and 5): a weapon's overload charge, a Laser / Ion Technician's boosts, the Expert
+  Gunner's added Piercing mode, and the refits (✦) on the weapons. A ship with a live Chameleon suite masks its arming anyway (D11 of that feature).
+- **(2) Officers & Specialists**: the officers SERVING at the scan (not moving, not out of action) and the Hyach Specialists, from then on with their
+  live state; on a flight, its officer.
+- **(3) Hangars** and **(4) Ammunition**: the live contents for the rest of the game - a bay's craft and a Docking Bay's ships (never its queued
+  orders); every magazine's types. On a flight (3) and (4) both reveal its missiles' types.
+- **Overload hiding**: an overloadable weapon's overload charge (its type-3 power entries and `overloadturns`) is hidden from opponents until it fires
+  its first sustained shot; the always-sustained classes (`alwaysoverloading`) are unchanged - sustained by nature, not an arming choice.
+- **Specialists**: an opponent sees how many the ship has left; which types, and which were used, stay with its own team.
+- **Fighter-missile detection** is tested at the end of each Movement phase (where every unit has moved), against every enemy unit on the board.
+**Second ruling round (user, 2026-10-29, mid-build).** Building the fighter half showed that a magazine-fed rack - a ship's or a fighter's
+(`AmmoMissileRackS` / `AmmoFighterRack`) - recompiles its firing modes to the types its magazine holds, and every viewer is sent that list: an
+opponent can read a ship's missile types, Dummies included, off its racks today, whatever the magazine mask hides. Asked, and RULED:
+4. **Rack modes stay public** (ships and fighters) - the masks hide counts only. (Reported: the ship magazine mask's "types own-team-only" is
+   cosmetic against the rack's mode list.)
+5. **Missiles only**: the fighter torpedo launchers built on the Fighter Missile Rack (FighterTorpedoLauncher, the CW / EW / Nexus / Trek / Star
+   Wars proton launchers) keep showing their rounds; the missile racks are `FighterMissileRack` and `SWFtrConcMissileLauncher`, by exact class.
+
+**Design.**
+- `Officers`: registry `OFF_ANLY` (post `scanner`, pct 10, `apply` null, `needs` isAnalystHull) right after the War Leader - the last fixed-post
+  ship officer; constants `ANALYST_RANGE` 30, `SCAN_NOTE` 'OffScan' ("ability:target id" on his post), `ANALYST_LOG_CLASS` 'AnalystScan';
+  `$analystScanNames` / `$analystFlightScans` (⚠️ MIRROR PAIR). `isAnalystHull` (⚠️ MIRROR PAIR - read off the systems' `specialAbilities`, so
+  the statics answer it as a game does), `analystIndex`, ⭐ `mayAnalyse` (⚠️ MIRROR PAIR), `holdsLock` (the POST's own EW - just validated and
+  written by InitialOrdersGamePhase::process), `scanOn`, `saveAnalystScan`, `settleAnalystScans` (in `afterShipsConstructed`: each scan put on
+  the unit scanned as `addAnalystReveal`, from the close of Initial Orders; arming only on its own turn; cargo nothing), ⭐ `analystReveals` /
+  `analystRevealTurns` (THE question every mask asks; nothing through `chameleonDisguisedForViewer`, no arming on a live Chameleon suite),
+  `analystOfficersForJson` (the officers serving on a scan's turn, id / post / out / how only), `weaponEnhancementRows`, `analystLog`; `takeNote`
+  reads OffScan; `laserForJson` / `ionForJson` send the boosts (and their price, never the buttons) to a team that scanned the arming.
+- ⭐ The reveals ride the TARGET ship object (`BaseShip::$analystReveals`, protected, rebuilt each load) - not a static index - so one request's
+  several gamedata loads cannot leak into each other. `BaseShip` also keeps `$analystScans` and the POST claim `$analystScanClaim` (Manager::
+  getShipsFromJSON reads `analystScan`); its stripForJson sends the weapons' refit rows to a team that scanned the arming.
+- **Overload** (`Weapon::overloadHiddenFromViewer` / `maskOverload`): an overloadable, not always-sustained weapon not mid-sustain (`0 <
+  overloadshots < extraoverloadshots` is public) loses `overloadturns`, `overloadshots` and its type-3 power entries (every turn's) for anyone but
+  its own team, game over excepted, an arming scan excepted. ⚠️ Every overloadable weapon carries an idle `overloadturns` of 1 ("so that Turn 1
+  displays correctly") - hidden too, harmlessly: the client reads it only beside a type-3 entry. The added Piercing mode is public to an arming scan.
+- **Specialists** (`HyachSpecialists::stripForJson`): to anyone but its own team (game over / an officers scan excepted) `data` is
+  {Specialists: left, Special: a one-line note} and the type lists go; the client copes (its constructor assigns into `{}`).
+- **Hangars / Docking Bays**: the contents gate (`$disclosedUsage`, DockingBay `$contentsShown`) adds a hangar scan; the queued orders keep `$disclosed`.
+- **Magazines**: a ship's types after an ammunition scan; a FIGHTER's magazine is no longer exempt - `FighterFlight::missileKnowledge()` 'all' (own
+  team, game over, a hangar or ammunition scan of that flight) / 'count' (the ship mask, plus "Dummy missiles: N" once a unit of the viewer's team
+  was within 4 hexes) / null (no total, `outputDisplay` "?", a "not yet detected" line). A Fighter Missile Rack's `missileArray` amounts read "?"
+  until detected (`MissileLauncher::stripForJson`).
+- **Detection** (`FighterFlight`): `$missileSightings` (kind 'count' / 'dummy' => team => first turn), MslSeen notes on the first craft taken by
+  `takeMissileNote` in DBManager's note loop; `detectMissiles` from `MovementGamePhase::advance` once every unit has moved - every other team's
+  unit on the board (not terrain or a mine) within 16 hexes (a flight 12) counts, within 4 tells the dummies; each written once.
+- Hooks: `InitialOrdersGamePhase::process` (saveAnalystScan after the War Leader's), `FireGamePhase::advance` (analystLog after warLeaderLog),
+  `MovementGamePhase::advance` (detectMissiles), DBManager's note loop (takeMissileNote), `Manager::getShipsFromJSON` (the claim).
+- Client: `officers.js` - the registry row (`needs` 'analyst' - passesNeeds mirror), `ANALYST_*` constants and words, `analystEntry`,
+  `analystScansFor`, ⭐ `mayAnalyse` (⚠️ MIRROR PAIR), `holdsAnalystLock`, `canAnalyse`, `analystScan` / `setAnalystScan` (the pick on his SHIP:
+  `ship.analystScan` {a, t}, one a turn, cancellable), `analystClaim` (dropped at the commit if the lock or the unit went), `analystScanLabel` /
+  `analystScanNote` / `analystButtonInfo`. NEW `UI/analystPicker.js` (the Fighter Missions picker's surface, `.fv-missionpicker`, no CSS of its
+  own); `shipTooltipInitialOrdersMenu.js` button `analystScan` (not an EW button); `ajaxInterface.js` posts `analystScan`; `savedOrders.js` keeps
+  the pick (re-checked against the restored EW); `game.php` script tag; `shipTooltip.css` `.analystScan` - ⚠️ a STAND-IN icon (the 16x16 scanner
+  system icon, contained) until 40x40 art replaces it; `combatLog.js` "CARGO SCAN:" (standalone, the speech's clothes); `weaponManager.doShortLogText`.
+- Docs (`ammo-options.html`): an Expert Analyst card (first - alphabetical); "Seeing your officers" names him and the two new hides; the
+  Missiles section the detection rule.
+
+**Files.** Server: `Officers.php`, `ShipClasses.php`, `FighterFlight.php`, `weapons/weapon.php`, `weapons/missile.php`, `systems/baseSystems.php`
+(Hangar, DockingBay, HyachSpecialists, AmmoMagazine), `controller/Manager.php`, `controller/DBManager.php`, `Phase/InitialOrdersGamePhase.php`,
+`Phase/MovementGamePhase.php`, `Phase/FireGamePhase.php`. Client: `officers.js`, `UI/analystPicker.js` (new), `UI/shipTooltipInitialOrdersMenu.js`,
+`ajaxInterface.js`, `savedOrders.js`, `combatLog.js`, `weaponManager.js`, `game.php`, `styles/shipTooltip.css`. Docs `ammo-options.html`. No new PHP
+class (no autoload change), no schema change. Statics regenerated (168 offers, 62 factions - 8 Llort hulls); legacy bundles rebuilt
+(`node scripts/bundle-legacy.js`), `fvbuild -Sync` done.
+
+**Verified.**
+- `officersHarness.php` (with DB) **2599 passed, 7 failed** before the last three Stage 35 checks were added - the 7 the pre-existing contributor
+  statics counts (§9.40). Seven registry-order checks moved by one (OFF_ANLY before the placed officers). Stage 35's six sections, **74 checks**
+  (`tests/replay/analystProbe2.php`, a generated copy running only them, ~2s): offers (Erlorra 60, Turlisk 55, Fwellgon 70, Delphi 83, Oracle Scout
+  Epsilon 63, Tachila Kor 103; never a Llort medium without ELINT, a Llort base, an Omega, a Hyach hull without ELINT, a flight), every static
+  offer on an eligible hull, the post; saveAnalystScan (the note and its words; 30 hexes yes, 31 no; no OEW / half a point / CCEW / OEW elsewhere /
+  last turn's; an ally; arming at a flight; officers at a flight; cargo; an unknown scan; a second this turn, last turn's no bar; killed; another
+  player; the gate); takeNote; settle (phase 1 nothing, Movement on, to him and his ally only, nothing through a disguise, two turns later still,
+  arming only its turn, cargo nothing, his later loss takes nothing back); the masks through the REAL stripForJson (hangar contents not orders; a
+  ship magazine's types; an officer id/post only, one killed before unseen, one killed after shown killed; refit rows; an overload charging /
+  charged / fired / scanned / game over; Specialists for an enemy, the owner, after a scan); detection (16 / 17 hexes, a flight 12 / 13, 4 and 5
+  hexes, no second note, takeMissileNote); the fighter magazine's four states and a third team; a Fighter Missile Rack's "?"; a torpedo launcher
+  never a missile rack; the cargo log line, none for a hangar scan or last turn's. **Mutation 39/39** (`mutate35.js`, scratchpad; the first pass
+  missed two real gaps - nothing at 5 hexes, nothing at half a point of OEW - both now tested).
+- `officersClientHarness.js` **1093 passed, 11 failed** - the 11 pre-existing (§9.41). Seven order checks moved by one; a Stage 35 block (14): the
+  row, constants and words against Officers.php, the eligibility mirror, canAnalyse (range, ally, every lock failure, killed, another player, no
+  officer, phase), the dropdown's scans, set / replace / claim / cancel, a claim dropped with its OEW, and the REAL menu's `analystScan` button.
+  Save Orders checked by a scratch run (capture, count, restore, dropped without its OEW).
+- `enhancementsHarness` **300 / 0** after re-recording: exactly one line added (`offer OFF_ANLY`), the rest byte-identical (old copy
+  `fingerprint.before-officers-stage35.txt`). `enhancementsDifferential.js` 964 / 0.
+- `fvbuild -Check`: the replay corpus **134 passed, 51 failed - every failure the three new hides, NOT re-recorded (needs the user's OK)**. With
+  `--diff-limit=100000` all 732 changed paths are in `snapshot` reports (no movement, to-hit, damage or masking report moved) and every one sits on
+  a ship of ANOTHER team than the viewer's: `overloadturns` / `overloadshots` / type-3 `power` (overloads), a flight craft's magazine
+  `remainingAmmo` / `output` / `outputDisplay` "?" / `data.Special` / `ammoCountArray` / `ammoSizeArray` (undetected missiles), and the Specialists'
+  `data` / `availableSpec` / `allocatedSpec` / `specTotal_used` / `specAllocatedCount`.
+
+**Not built / observed:**
+- Play-tested in games 4524 / 4525; the follow-ups below.
+- `replay.php` builds a past turn at the game's current turn ([[arch_replay_and_advance_gamedata_turns]]), so an arming scan of turn T is not shown in
+  a replay of turn T watched later (settle reads the load's turn) - the other scans are unaffected.
+- A detection is tested at the end of each Movement phase only - a pass within range during a move, ending outside it, is not seen.
+
+**Play tests 4524 / 4525 follow-ups (user, 2026-10-30), built, uncommitted:**
+1. **The Arming scan finds every refit, for the rest of the battle** - on weapons and on every other system (asked: "Arming: every refit",
+   the user's points 1 and 3 together). The overloads, boosts and Piercing mode it shows stay that turn only. `settleAnalystScans` puts a
+   second reveal, `'refits'`, on the target for every arming scan of any past turn (still not while that turn's Initial Orders are open);
+   `BaseShip::stripForJson` asks it for the refit rows (`Officers::refitRows`, which replaced `weaponEnhancementRows`: every non-officer row)
+   AND for the "System Enhancements (n)" line, which it no longer strips for that team. A refit is no arming state, so a live Chameleon suite
+   does not mask it (a disguise still does - `analystRevealTurns`).
+2. **His Initial Orders button** is the user's `img/analyst.png` (a magnifier), resized 50x50 -> 40x40 like every icon in that menu and
+   tinted violet `#b48cff` (alpha kept; the user's white original in the session scratchpad only). `.analystScan` drops the off-size lines.
+   **His dropdown wears the same violet**: `.fv-missionpicker--analyst` in `hexPicker.css` - a local palette (`--an-*` properties on the
+   modifier, never a `:root` block), solid colours - as the War Leader's menu wears Narn red/gold. ⚠️ The dropdown is NOT React
+   (`UI/analystPicker.js`, plain DOM on the Fighter Missions picker's surface).
+3. **At a flight, two scans: Officers and Ammunition** - the hangar scan showed exactly what the ammunition scan does (its missiles).
+   `$analystFlightScans` / `ANALYST_FLIGHT_SCANS` (MIRROR PAIR) lost 'hangar'; the officers scan reads "Officers" there (no fighter
+   Specialists exist). `FighterFlight::missileKnowledge` still reads a 'hangar' reveal, for a flight scanned before this change.
+4. **Cancel scan is a button**, centred in a footer under the list (`.fv-missionpicker__footer` / `__button`, generic on the picker surface,
+   violet in his). A scan waiting at another unit is said in the line above the list instead ("Arming scan waiting at X; a pick here replaces it").
+- Docs (`ammo-options.html`): the card's Arming / Hangars / Ammunition bullets and Notes, and the refit section's "hidden from your opponent".
+- Verified: Stage 35 probe (`tests/replay/analystProbe2.php`, regenerated from the harness) **79 / 0** (+5: a hangar scan at a flight refused,
+  an ammunition scan there written, an arming scan in Initial Orders reveals no refits yet, last turn's arming scan keeps its refits and to his
+  team only, and the REAL payload - rows and the summary line to his team two turns on, never an enemy or a third team);
+  `officersClientHarness.js` 1093 / 11 (the 11 pre-existing, §9.41); the picker rendered headless (real `officers.js`, `analystPicker.js`,
+  `tokens.css`, `hexPicker.css`): the button's two gaps 104 / 104 px. Legacy bundles rebuilt (`node scripts/bundle-legacy.js`), `fvbuild -Sync`.

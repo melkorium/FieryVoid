@@ -485,6 +485,7 @@ class Weapon extends ShipSystem
 			if ($this->overloadshots !== 0 || $this->alwaysoverloading) $strippedSystem->overloadshots = $this->overloadshots;
 			if ($this->extraoverloadshots !== 0) $strippedSystem->extraoverloadshots = $this->extraoverloadshots;
 			if (!empty($this->extraoverloadshotsArray)) $strippedSystem->extraoverloadshotsArray = $this->extraoverloadshotsArray;
+			if ($this->overloadHiddenFromViewer()) $this->maskOverload($strippedSystem); //OFFICERS_PLAN.md Stage 35
 			$strippedSystem->fireOrders = $this->fireOrders;         
 			
 			if(isset($this->ammunition)){
@@ -559,7 +560,8 @@ class Weapon extends ShipSystem
            log, which label the shot by it) or once the game is over. Until then a Piercing mode on a gun that has none
            would point at the Gunner, so anyone else gets the fire control list without it, too. */
         if ($this->addedMode !== null) {
-            if ($this->addedModePublic || TacGamedata::$currentGameFinished || $ship->isRevealedToCurrentViewer()) {
+            if ($this->addedModePublic || TacGamedata::$currentGameFinished || $ship->isRevealedToCurrentViewer()
+                || Officers::analystReveals($ship, 'arming')) { //Stage 35: an Expert Analyst's arming scan detects "piercing"
                 foreach ($this->addedModeFields as $field) {
                     $strippedSystem->$field = $this->$field;
                 }
@@ -586,6 +588,33 @@ class Weapon extends ShipSystem
 		}
         return $strippedSystem;
     }
+
+	/* OFFICERS_PLAN.md Stage 35 (user's note 2026-10-29: "hidden until the moment a sustained weapon fires") - is this weapon's overload charge
+	   hidden from the CURRENT VIEWER? An overloadable weapon charging an overload, or charged and not yet fired (overloadshots still the full
+	   extraoverloadshots - the "S2" before its first sustained shot), from anyone but its own team: until the game is over, or an Expert Analyst
+	   of the viewer's team scans its arming that turn ("Any special weapon arming modes (sustained, piercing, etc.) currently active are
+	   detected"). Once it has fired a sustained shot (0 < overloadshots < extraoverloadshots) the opponent watched it fire: public. The
+	   always-sustained classes are sustained by nature, not by an arming choice, and are never hidden. No viewer context: never hidden. */
+	private function overloadHiddenFromViewer(){
+		if (!$this->overloadable || $this->alwaysoverloading) return false;
+		if ($this->overloadshots > 0 && $this->overloadshots < $this->extraoverloadshots) return false;
+		$ship = $this->getUnit();
+		if (!($ship instanceof BaseShip) || TacGamedata::$currentGameFinished || $ship->isRevealedToCurrentViewer()) return false;
+		return !(TacGamedata::$officersPresent && Officers::analystReveals($ship, 'arming'));
+	}
+
+	/* ...and its payload without it: no overload counters (the static blueprint's 0 fills them, so the icon reads ordinary loading - turnsloaded
+	   climbs alike either way) and its power entries without the overload ones (type 3), every turn's - a past turn's would tell the same. */
+	private function maskOverload($strippedSystem){
+		unset($strippedSystem->overloadturns, $strippedSystem->overloadshots);
+		if (empty($strippedSystem->power)) return;
+		$kept = array();
+		foreach ($strippedSystem->power as $power){
+			if ((int)$power->type !== 3) $kept[] = $power;
+		}
+		if (empty($kept)) unset($strippedSystem->power);
+		else $strippedSystem->power = $kept;
+	}
 
 	//when intercepting shot directed at another ship - can the weapon do it? (called if $freeintercept == true && $freeinterceptspecial == true)
 	public function canFreeInterceptShot($gd, $fire, $shooter, $target, $interceptingShip, $firingweapon)

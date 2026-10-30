@@ -46,6 +46,10 @@
     reload the missiles they started the game with, as long as the carrier has bought the Ordnance Reserve enhancement
     (see <a href="#shipenhancements">Ship Enhancements</a>) and there are enough ordnance points to pay for the
     replacements.</p>
+  <p>Your opponent cannot see a flight's missiles until one of their units comes within 16 hexes of it (12 hexes for a
+    fighter or shuttle): from then on they can count them, though not tell their types apart, and once a unit of theirs
+    has been within 4 hexes they can also tell Dummy Missiles from real ones. They keep that knowledge for the rest of the
+    battle. An Expert Analyst can identify a flight's missiles from 30 hexes. Fighter torpedoes are not hidden.</p>
   <p>Missiles do not use the firing ship's OEW: their built-in guidance is usually folded into the weapon's fire control
     rather than kept separate. Fighter missiles do benefit from the fighter's offensive bonus.</p>
   <p>Ammunition listings usually give the year each missile type became available (its ISD); where there are two dates,
@@ -864,8 +868,8 @@
       it is designed <i>now</i> and re-priced, since ships are revised from time to time. If a refit has become more
       expensive, cheaper, or is no longer possible at all, you are told what changed rather than it happening
       silently.</li>
-    <li>Finally, be aware that the &#10022; star and the "System Enhancements (n)" line are hidden from your opponent, but
-      several of the improved values themselves are not: shield ratings, armour and thrust all have to reach the other
+    <li>Finally, be aware that the &#10022; star and the "System Enhancements (n)" line are hidden from your opponent (unless
+      an Expert Analyst of theirs scans the ship's arming), but several of the improved values themselves are not: shield ratings, armour and thrust all have to reach the other
       player for their own damage and movement displays to be correct. A careful opponent comparing a ship against its
       published control sheet can still work out that something has been refitted.</li>
   </ul>
@@ -963,7 +967,8 @@
       tooltip of his own when you hover over his block's health bar.</li>
     <li>The ship window's gold Enhancements box counts the officers aboard, as <b>Officers (2)</b>. In the lobby, a
       fighter flight's box names its one officer instead (<b>Expert Pilot (3)</b> for three pilots).</li>
-    <li>Your opponent sees none of these until the game is over. Some effects do show, though, because they change numbers
+    <li>Your opponent sees none of these until the game is over, unless an Expert Analyst of theirs scans the ship for its
+      officers. Some effects do show, though, because they change numbers
       everyone can read: a Helmsman's, a Security Officer's, a Religious Leader's or a Dogfighter's initiative (and the initiative,
       profiles and sensors of a ship whose Religious Leader has been lost), an Evangelist's initiative and fire control across your
       whole fleet (and the penalties once he is lost), a Geneticist's profiles, a Technician's reactor power,
@@ -973,14 +978,50 @@
       criticals and damage an Engineer or Scavenger repairs, and a weapon's loading when an officer speeds up its reload.
       The opponent sees the number, not who is behind it. An Expert Gunner's added Piercing mode stays hidden from your
       opponent until he fires it: they see it only in the replay of that turn. Lasers boosted by an Expert Laser Technician,
-      and ion guns boosted with thrust by an Expert Ion Technician, do not show as boosted to your opponent, though the extra
-      damage shows once the shots land.</li>
+      and ion guns boosted with thrust by an Expert Ion Technician, do not show as boosted to your opponent (unless an Expert
+      Analyst scans that ship's arming), though the extra damage shows once the shots land.</li>
+    <li>The same goes for a few things that are not officers. A weapon charging an overload does not show it to your
+      opponent until it fires its first sustained shot, and a Hyach ship's Specialists are known only to its own fleet - your
+      opponent sees how many it has left, not which. An Expert Analyst can reveal both.</li>
   </ul>
 </section>
 
 <section data-key="shipofficers" data-title="Ship Officers" data-group="Officers">
   <p class="fvd-lede">The officers available so far. More will be added over time.</p>
   <div class="fvd-cards">
+    <article class="fvd-card fvd-card--wide">
+      <h3>Expert Analyst</h3>
+      <dl class="fvd-spec">
+        <dt>Post</dt>
+        <dd>Sensors</dd>
+        <dt>Effect</dt>
+        <dd>Once a turn, in Initial Orders, he can scan one enemy unit within 30 hexes that his ship has locked on to with at
+          least 1 point of OEW (CCEW does not count). Select his ship, click the enemy unit, press the <b>Expert Analyst</b>
+          button in its tooltip and pick a scan from the list. The result shows to you and your team once Initial Orders
+          close:<ul>
+          <li><b>Arming</b> - for that turn only: weapons charging an overload or ready to fire one, lasers and ion guns
+            boosted by an officer, and an Expert Gunner's Piercing mode. The scan also finds every refit (&#10022;) on the
+            ship, on its weapons and on every other system, and those stay known.</li>
+          <li><b>Officers &amp; Specialists</b> - its officers who are at their posts (not moving, disabled or killed),
+            marked on its system icons as on your own ships, and its Hyach Specialists.</li>
+          <li><b>Hangars</b> - the craft in its hangars and docking bays, but never their launch or dock orders.</li>
+          <li><b>Ammunition</b> - every magazine's ordnance, type by type. Against a flight, its missiles, counted and
+            identified.</li>
+          <li><b>Cargo</b> - a line in the combat log that both players see. It has no effect in Fiery Void; it is there
+            for scenarios.</li>
+        </ul>What the Officers, Hangars and Ammunition scans show, and the refits an Arming scan finds, stays known for the
+          rest of the battle.</dd>
+        <dt>Cost</dt>
+        <dd>10% of the ship's base cost.</dd>
+        <dt>Limit</dt>
+        <dd>1 per ship. Llort capital ships, and ships of any faction with an ELINT array - never bases.</dd>
+        <dt>Notes</dt>
+        <dd>Against a flight only the Officers and Ammunition scans are offered. A scan of a ship
+          disguised by a Chameleon Sensor Suite finds only what the disguise shows, and a working suite hides its ship's
+          arming anyway. What he has learned stays known if he is lost later. Your opponent is not told about a scan,
+          except Cargo.</dd>
+      </dl>
+    </article>
     <article class="fvd-card fvd-card--wide">
       <h3>Expert Anticipator</h3>
       <dl class="fvd-spec">
