@@ -4,11 +4,3 @@
 # is the record of known ship-data debt. Adding a line to it in a PR means
 # that PR added a known-broken ship entry - review it, do not rubber-stamp it.
 # Format:  check<TAB>ship<TAB>where<TAB>message
-hangar	drakhAttackShip	source/server/model/ships/drakh/drakhAttackShip.php	$fighters declares 6 boxes but the hangar bays hold 2 - populateInitialHangarUsage silently drops the excess
-hangar	drakhCommandShip	source/server/model/ships/drakh/drakhCommandShip.php	$fighters declares 10 boxes but the hangar bays hold 4 - populateInitialHangarUsage silently drops the excess
-hangar	drakhDreadnought	source/server/model/ships/drakh/drakhDreadnought.php	$fighters declares 16 boxes but the hangar bays hold 6 - populateInitialHangarUsage silently drops the excess
-hangar	drakhHeavyExplorer	source/server/model/ships/drakh/drakhHeavyExplorer.php	$fighters declares 20 boxes but the hangar bays hold 6 - populateInitialHangarUsage silently drops the excess
-hangar	drakhHeavyTender	source/server/model/ships/drakh/drakhHeavyTender.php	$fighters declares 22 boxes but the hangar bays hold 6 - populateInitialHangarUsage silently drops the excess
-hangar	drakhMothership	source/server/model/ships/drakh/drakhMothership.php	$fighters declares 84 boxes but the hangar bays hold 24 - populateInitialHangarUsage silently drops the excess
-hangar	drakhSupportShip	source/server/model/ships/drakh/drakhSupportShip.php	$fighters declares 10 boxes but the hangar bays hold 6 - populateInitialHangarUsage silently drops the excess
-hangar	drakhTender	source/server/model/ships/drakh/drakhTender.php	$fighters declares 10 boxes but the hangar bays hold 6 - populateInitialHangarUsage silently drops the excess

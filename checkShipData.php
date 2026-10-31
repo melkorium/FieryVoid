@@ -63,7 +63,9 @@
  *              HangarOps::populateInitialHangarUsage's own arithmetic
  *              (capacity in BOXES, catapult/rail/LCV bays partitioned out,
  *              ultralights two to a box). An over-declaration is silently
- *              truncated at game start.
+ *              truncated at game start. One deliberate difference: Drakh
+ *              Raiders and Weapon Platforms count as catapult-borne
+ *              (CATAPULT_CATEGORIES), which HangarOps does not do yet.
  *   arcs       startArc / endArc are numeric and within 0..360.
  *   ids        system ids are positional and unique - id == array index for
  *              top-level systems, and the 1000+(id*10)+i sub-weapon ids of
@@ -131,6 +133,14 @@ $BASELINE_FILE = __DIR__ . '/tests/shipdata/baseline.txt';
    hides the ship from the lobby while keeping the class loadable so old games
    containing it still open. All three spellings are in live use. */
 const RETIREMENT_SENTINELS = array('NONE', 'OBSOLETE', 'OBSELETE');
+
+/* $fighters categories (lowercased) that ride a ship's catapults, not its
+   hangar bays. 'superheavy' is HangarOps' own. Drakh 'Raiders' and their
+   'Weapon Platforms' (two Raider ports each) use the catapults by design: the
+   catapult count matches on every Drakh hull. HangarOps itself does not dock
+   them there yet, because a Catapult is typed 'superheavy' and
+   hangarAcceptsCategory('superheavy','Raiders') is false. */
+const CATAPULT_CATEGORIES = array('superheavy', 'raiders', 'weapon platforms');
 
 /* Severity per check. ERROR fails the build when new; WARN only under --strict. */
 $CHECK_SEVERITY = array(
@@ -525,8 +535,9 @@ function collectSystemIds($system, &$ids, $path)
    HangarOps::populateInitialHangarUsage. Catapults, fighter rails and LCV
    rails are partitioned out on both sides (their boxes are structural HP or a
    single dedicated slot, not shuttle-pool capacity), as are the categories
-   that ride them. Returns array(declared, capacity), or null when the ship has
-   no ordinary hangar at all. */
+   that ride them. Catapult categories are CATAPULT_CATEGORIES, a superset of
+   HangarOps' 'superheavy' alone. Returns array(declared, capacity), or null
+   when the ship has no ordinary hangar at all. */
 function hangarBudget($ship)
 {
     if (!class_exists('HangarOps')) return null;
@@ -551,7 +562,7 @@ function hangarBudget($ship)
     if (isset($ship->fighters) && is_array($ship->fighters)) {
         foreach ($ship->fighters as $category => $count) {
             $key = strtolower(trim((string)$category));
-            if ($hasCatapult && $key === 'superheavy') continue;
+            if ($hasCatapult && in_array($key, CATAPULT_CATEGORIES, true)) continue;
             if (isset($railCategories[$key]))          continue;
             if ($key === 'lcvs')                       continue;
             $declared += HangarOps::shuttlePoolBoxesFor($category, (int)$count);
