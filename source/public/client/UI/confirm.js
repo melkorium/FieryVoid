@@ -173,6 +173,8 @@ window.confirm = {
         var totalCostSpan = $(".confirm .totalUnitCostAmount").first();
         var flightSize = parseInt($(".fighterAmount").html()) || 1;
         confirm.clampEnhRowsToSize(); //a smaller flight keeps no more Expert Pilots than craft
+        confirm.clampGrantedRows(); //OFFICERS_PLAN.md Stage 38: an officer another one grants goes when that one is unticked
+        confirm.refreshOfficerRows(); //...and an officer row nobody may take now is not shown
         //Per craft for a flight with a size selector; otherwise the whole unit's bare hull, which
         //confirm.setBuyBase parks on the dialog's own total. (This used to read an UNSCOPED
         //.totalUnitCostAmount and so, by document order, a hidden page template holding the base -
@@ -333,6 +335,43 @@ window.confirm = {
             if (this !== target[0] && officers.mixes(target.data("enhID"), $(this).data("enhID"))) taken += $(this).data("count") || 0;
         });
         return taken;
+    },
+
+    /* OFFICERS_PLAN.md Stage 38: an officer another one GRANTS this unit (`grants` - the Torvalus' Expert Gambler brings one of four experts,
+       free, and only he does) is untaken once his grantor's row is. Run with every total, as the flight-size clamp below is. */
+    clampGrantedRows: function clampGrantedRows() {
+        if (!window.officers) return;
+        var ship = null;
+        $(".confirm .selectAmount").each(function () { if (!ship) ship = $(this).data("dialogRules") || null; });
+        if (!ship || !ship.officerGrants) return;
+        var rows = confirm.dialogRows($(".confirm"));
+        $(".confirm .selectAmount").each(function () {
+            var target = $(this);
+            var grant = officers.grantOf(ship, target.data("enhID"));
+            if (!grant || !((target.data("count") || 0) > 0)) return;
+            if (rows.some(function (row) { return row.id === grant.grantor && row.count > 0; })) return;
+            target.data("count", 0);
+            target.data("value", 0);
+            target.data("enhCost", 0);
+            confirm.enhShowLevel(target, 0);
+        });
+    },
+
+    /* OFFICERS_PLAN.md Stage 38 (user request 2026-10-31: options that aren't available "simply didn't appear" - players don't read the
+       notes): an untaken officer row the rest of the fleet has no room for, or the rows ticked beside it rule out - a `notWith` officer
+       ticked, a granted expert before his grantor or past what he frees - is hidden (officers.offerUnavailable). A taken row always
+       shows, so it can be untaken. Hidden by class, as the filter's rows are, so every spinner stays in the dialog. Run once the rows are
+       built (before openBuySections counts them) and with every total. */
+    refreshOfficerRows: function refreshOfficerRows(e) {
+        if (!window.officers) return;
+        var ruled = [];
+        (e ? $(".selectAmount", e) : $(".confirm .selectAmount")).each(function () { if ($(this).data("dialogRules")) ruled.push($(this)); });
+        if (!ruled.length) return; //nothing here answers to a fleet rule or a grant
+        var rows = confirm.dialogRows(e || $(".confirm"));
+        ruled.forEach(function (target) {
+            var hide = !((target.data("count") || 0) > 0) && officers.offerUnavailable(target.data("dialogRules"), target.data("enhID"), rows);
+            target.closest(".buyRow").toggleClass("is-unavailable", Boolean(hide));
+        });
     },
 
     clampEnhRowsToSize: function clampEnhRowsToSize() {
@@ -1401,6 +1440,11 @@ window.confirm = {
 
             //numberTaken is in LEVELS, which is what every spinner, limit and cost sum here works in.
             var enhCount = seed ? (parseInt(enhancement[2], 10) || 0) : 0;
+            /* OFFICERS_PLAN.md Stage 38: a COPY - a unit not yet in the fleet - brings no officer its fleet has no room for (perFleet / notWith):
+               the row starts at 0 (and is not shown). An EDITED unit is in the fleet: its officer stays as bought, shown, for the player to keep
+               or take off (a saved fleet past a limit - the Fleet Check says so). */
+            if (enhCount > 0 && window.officers && officers.isOfficerId(enhID) && officers.lobbyFleet().indexOf(ship) === -1
+                && officers.fleetBlock(ship, enhID)) enhCount = 0;
 
             //The arithmetic series doOnPlusEnhancement / handleInputChange* maintain: level i
             //(0-based) costs enhPrice + i*enhPriceStep. Seeded so their running delta starts right.
@@ -1432,6 +1476,8 @@ window.confirm = {
             //a ship officer already placed in a weapon (the Matter Weapons Expert, OFFICERS_PLAN.md Stage 8): why he
             //may not be bought here too, or null - read by officerBlocked, shown by addOfficerLimitNote
             selectAmountItem.data('officerBlock', (window.officers && !enhCount) ? officers.shipLevelBlock(ship, enhID) : null);
+            //OFFICERS_PLAN.md Stage 38: the unit whose fleet rules and grants the row answers to, while it has any (officerBlocked, clampGrantedRows)
+            selectAmountItem.data('dialogRules', (window.officers && officers.isOfficerId(enhID) && (ship.officerFleet || ship.officerGrants)) ? ship : null);
             //Marked before the box is first written: a stepped enhancement shows the quantity its
             //level buys (and cannot be typed into); step 1 - every one but Extra Tendrils - leaves
             //the row as it was.
@@ -1459,6 +1505,7 @@ window.confirm = {
             confirm.applyEnhancementChoiceWidget(item, enhancement);
             confirm.addBuyHelp(item, enhID);
         }
+        if (ship.officerFleet || ship.officerGrants) confirm.refreshOfficerRows(e); //Stage 38: rows nobody may take now, hidden before the sections are counted
         confirm.addOfficerLimitNote(e, ship);
     },
 
@@ -1496,6 +1543,19 @@ window.confirm = {
     officerBlocked: function officerBlocked(target) {
         if (!window.officers) return false;
         var dialog = target.closest(".confirm");
+        /* Stage 38: a ship officer the rows ticked beside him refuse - his faction's `notWith` on this unit, or one another officer grants
+           while that one is unticked or has given what he frees (officers.dialogBlock). Said in a note of its own, flashed. */
+        var ruled = target.data("dialogRules");
+        var live = ruled ? officers.dialogBlock(ruled, target.data("enhID"), confirm.dialogRows(target)) : null;
+        if (live) {
+            var liveNote = $(".buyOfficerLive", dialog);
+            if (!liveNote.length) liveNote = $('<p class="buySectionNote buyOfficerNote buyOfficerLive"></p>').prependTo(confirm.buySectionBody(dialog, 'officers'));
+            liveNote.text(live);
+            liveNote.removeClass("is-flash");
+            void liveNote[0].offsetWidth;
+            liveNote.addClass("is-flash");
+            return true;
+        }
         if (!target.data("officerBlock")) {
             if (!officers.isFighterOfficer(target.data("enhID"))) return false;
             var taken = $(".selectAmount", dialog).filter(function () {
@@ -1562,7 +1622,7 @@ window.confirm = {
        starts folded (BUY_SECTIONS) - and the filter box, if there are enough rows to want one. */
     openBuySections: function openBuySections(e) {
         var used = $(".buySection", e).filter(function () {
-            return $(".buyRow", this).length > 0;
+            return $(".buyRow", this).not(".is-unavailable").length > 0; //OFFICERS_PLAN.md Stage 38: a section of hidden rows only is not shown
         });
 
         used.prop("hidden", false);
@@ -1678,7 +1738,7 @@ window.confirm = {
                 var name = confirm.buySearchText($(".buyRowName", this).text());
                 $(this).toggleClass("is-filtered", !words.every(function (w) { return name.indexOf(w) !== -1; }));
             });
-            var shown = rows.not(".is-filtered");
+            var shown = rows.not(".is-filtered").not(".is-unavailable");
             anyShown = anyShown || shown.length > 0;
 
             //:last-child cannot skip a hidden row, so the last one SHOWN drops its rule by class.
@@ -1760,7 +1820,7 @@ window.confirm = {
     /* A section's badge: what is bought in it - "2 selected · 45 pts" - whenever anything is, filter
        or no filter; otherwise its row count, or while a filter is typed how many of its rows match. */
     paintBuyBadge: function paintBuyBadge(section) {
-        var rows = $(".buyRow", section);
+        var rows = $(".buyRow", section).not(".is-unavailable"); //OFFICERS_PLAN.md Stage 38: a hidden officer row is not "available"
         var taken = section.data("taken") || 0;
         var text = rows.length + ' available';
 

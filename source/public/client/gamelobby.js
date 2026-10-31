@@ -2266,6 +2266,13 @@ window.gamedata = {
 				}
 				checkResult += "<br>";
 			}
+			/* OFFICERS_PLAN.md Stage 38 - the officer rules that span a fleet ($factionRules perFleet / notWith: one Kirishiac War Leader or
+			   Expert Warrior, one Pathfinder's ELINT officer, ...). Reported while the fleet carries such an officer; Officers::sanitiseFleet
+			   drops what breaks them as the fleet is committed. */
+			officers.fleetConflicts(fleetUnits).forEach(function (line) {
+				checkResult += " " + line.text + (line.ok ? R_OK : R_FAILURE) + "<br>";
+				if (!line.ok) problemFound = true;
+			});
 		}
 
 		checkResult += " Total Assault Shuttles: " + totalFtrAS;

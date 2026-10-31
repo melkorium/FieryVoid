@@ -122,7 +122,7 @@ class ShipInfo extends React.Component {
 				if (craft && officer && officer.multi && String(entry.post) !== String(craft.id)) return;
 				const state = officers.stateText(entry);
 				const line = {
-					name: officers.label(entry.id),
+					name: officers.label(entry.id, ship),
 					text: (officer ? officer.summary : '') + (state ? ' ' + state : ''),
 					out: !officers.serves(entry, officerTurn),
 					count: 1

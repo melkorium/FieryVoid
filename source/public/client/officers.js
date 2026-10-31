@@ -256,7 +256,10 @@ window.officers = {
 		return null;
 	},
 
-	label: function label(id) {
+	/* His name - on a unit, its faction's own when it has one (Stage 38: the blueprint's `officerLabels`, Officers::labelFor - the Torvalus'
+	   Political Officer is their Expert Gambler). Static blueprints carry it, so the lobby and the game read the same. */
+	label: function label(id, ship) {
+		if (ship && ship.officerLabels && ship.officerLabels[id]) return ship.officerLabels[id];
 		var officer = this.get(id);
 		return officer ? officer.label : String(id);
 	},
@@ -667,7 +670,7 @@ window.officers = {
 		var officer = this.get(enhID);
 		if (!ship || !officer || !officer.placed) return null;
 		if (officer.sameAs && Array.isArray(ship.enhancementOptions) && this.isBought(ship, officer.sameAs)) {
-			return 'The ' + this.label(officer.sameAs) + ' is posted at the C&C (bought in the Officers section). A ship carries him in one place: use Move in the C&C\'s menu to post him here.';
+			return 'The ' + this.label(officer.sameAs, ship) + ' is posted at the C&C (bought in the Officers section). A ship carries him in one place: use Move in the C&C\'s menu to post him here.';
 		}
 		var self = this;
 		var id = parseInt(systemid, 10);
@@ -675,7 +678,7 @@ window.officers = {
 		var reason = null;
 		this.placedRows(ship).forEach(function (row) {
 			var rowSystem = parseInt(row[6], 10);
-			if (rowSystem === id && row[0] !== enhID) reason = 'This weapon already hosts the ' + self.label(row[0]) + ': a weapon hosts one officer.';
+			if (rowSystem === id && row[0] !== enhID) reason = 'This weapon already hosts the ' + self.label(row[0], ship) + ': a weapon hosts one officer.';
 			if (rowSystem !== id && row[0] === enhID) elsewhere.push(row);
 		});
 		if (reason) return reason;
@@ -684,7 +687,7 @@ window.officers = {
 		var mate = system ? elsewhere.filter(function (row) { return self.turretKey(self.systemById(ship, row[6])) === self.turretKey(system); })[0] : null;
 		if (mate) {
 			var held = this.systemById(ship, mate[6]);
-			return 'This turret already has the ' + this.label(enhID) + ' (on ' + (held ? (held.displayName || held.name) : mate[7]) + ' #' + mate[6]
+			return 'This turret already has the ' + this.label(enhID, ship) + ' (on ' + (held ? (held.displayName || held.name) : mate[7]) + ' #' + mate[6]
 				+ '): he aids every weapon on his turret, one to a turret.';
 		}
 		var cap = this.placedLimit(ship, enhID);
@@ -693,10 +696,10 @@ window.officers = {
 				var s = self.systemById(ship, row[6]);
 				return (s ? (s.displayName || s.name) : row[7]) + ' #' + row[6];
 			}).join(', ');
-			return 'This ship may carry ' + cap + ' ' + this.label(enhID) + (cap === 1 ? '' : 's') + ' (already on ' + where + ')'
+			return 'This ship may carry ' + cap + ' ' + this.label(enhID, ship) + (cap === 1 ? '' : 's') + ' (already on ' + where + ')'
 				+ (enhID === 'OFF_GUN' ? ' - 1 on a medium ship or smaller, 2 on a heavy, 3 on a capital, 4 on an enormous unit.' : '.');
 		}
-		return null;
+		return this.fleetBlock(ship, enhID); //Stage 38: his faction's limit to a fleet
 	},
 
 	/* The buy dialog's half: why a ship-level officer may not be bought because he is already placed in a
@@ -708,10 +711,221 @@ window.officers = {
 			var rows = this.placedRows(ship).filter(function (row) { return row[0] === placed[i].id; });
 			if (!rows.length) continue;
 			var s = this.systemById(ship, rows[0][6]);
-			return 'The ' + self.label(enhID) + ' is placed in ' + (s ? (s.displayName || s.name) : rows[0][7]) + ' #' + rows[0][6]
+			return 'The ' + self.label(enhID, ship) + ' is placed in ' + (s ? (s.displayName || s.name) : rows[0][7]) + ' #' + rows[0][6]
 				+ '. A ship carries him in one place: use Move in that system\'s menu (in the ship window) to post him back at the C&C.';
 		}
 		return null;
+	},
+
+	/* Stage 38: is this ship-level officer not to be offered in a buy dialog now - the rest of the fleet has no room for him (fleetBlock) or
+	   the rows ticked beside him rule him out (dialogBlock)? confirm.refreshOfficerRows hides such a row while it is untaken (user request
+	   2026-10-31: unavailable options do not appear). */
+	offerUnavailable: function offerUnavailable(ship, id, rows) {
+		return Boolean(this.fleetBlock(ship, id) || this.dialogBlock(ship, id, rows || []));
+	},
+
+	/* ...and the system menu's half: an untaken row of a placed officer the fleet has no room for, or of a refit an officer grants while it
+	   would not be free (refitBlock), is left out of the menu (systemEnhancements.menuRowsFor). Every older reason a row is refused for
+	   (a ship's cap, a weapon already hosting one) still shows, greyed, with its sentence. */
+	menuRowUnavailable: function menuRowUnavailable(ship, systemid, enhID) {
+		var officer = this.get(enhID);
+		return Boolean(officer && officer.placed ? this.fleetBlock(ship, enhID) : this.refitBlock(ship, systemid, enhID));
+	},
+
+	/* ------------------------------------------------------------------ Stage 38: fleet rules and grants */
+
+	//the officer whose rules a row's officer follows: his own, or the one he IS at another post (sameAs) - Officers::rulesId (PHP)
+	rulesId: function rulesId(id) {
+		var officer = this.get(id);
+		return (officer && officer.sameAs) ? officer.sameAs : id;
+	},
+
+	/* His fleet rules on this unit's faction - {max, notWith} off the blueprint's `officerFleet` (Officers::fleetRule, by rulesId) - or null.
+	   The rules are $factionRules' `perFleet` and `notWith` (PHP): no mirror, the blueprint carries them. */
+	fleetRule: function fleetRule(ship, id) {
+		var rules = ship && ship.officerFleet;
+		return (rules && rules[this.rulesId(id)]) || null;
+	},
+
+	//the officers bought on a lobby unit, by rulesId: {rulesId: how many} - its ship-level officer rows and its placed officers' rows
+	boughtOfficers: function boughtOfficers(unit) {
+		var self = this;
+		var out = {};
+		if (!unit || !Array.isArray(unit.enhancementOptions)) return out;
+		unit.enhancementOptions.forEach(function (row) {
+			var n = row ? (parseInt(row[2], 10) || 0) : 0;
+			var officer = row ? self.get(row[0]) : null;
+			if (n > 0 && officer && !officer.placed) out[self.rulesId(row[0])] = (out[self.rulesId(row[0])] || 0) + n;
+		});
+		this.placedRows(unit).forEach(function (row) { out[self.rulesId(row[0])] = (out[self.rulesId(row[0])] || 0) + 1; });
+		return out;
+	},
+
+	/* Why this unit may not take him because of the rest of its FLEET - a sentence, or null: his faction's `perFleet` already reached, or an
+	   officer his `notWith` names already aboard another of the fleet's units of that faction. `fleet`: the units to count (the lobby's slot by
+	   default); the unit itself never counts - it is the one being bought, copied or edited. The buy dialog (shipLevelBlock) and the system
+	   menu (placedBlock) refuse with it; ⚠️ MIRROR PAIR with Officers::sanitiseFleet (PHP), which drops what gets past as the fleet is committed. */
+	fleetBlock: function fleetBlock(ship, id, fleet) {
+		var rule = this.fleetRule(ship, id);
+		if (!rule) return null;
+		var self = this;
+		var key = this.rulesId(id);
+		var others = (fleet || this.lobbyFleet()).filter(function (u) {
+			return u && u !== ship && !(ship.id !== undefined && String(u.id) === String(ship.id)) && u.faction === ship.faction;
+		});
+		var name = function (u) { return u.name || u.shipClass || u.phpclass; };
+		var held = [];
+		var clash = null;
+		others.forEach(function (u) {
+			var bought = self.boughtOfficers(u);
+			(rule.notWith || []).forEach(function (other) { if (!clash && bought[other]) clash = { unit: u, id: other }; });
+			for (var k = 0; k < (bought[key] || 0); k++) held.push(name(u));
+		});
+		if (clash) {
+			return 'A ' + ship.faction + ' fleet may not carry both the ' + this.label(key, ship) + ' and the ' + this.label(clash.id, ship)
+				+ ' (already on ' + name(clash.unit) + ').';
+		}
+		if (rule.max !== undefined && rule.max !== null && held.length >= rule.max) {
+			return 'A ' + ship.faction + ' fleet may carry ' + (rule.max === 1 ? 'one ' + this.label(key, ship) : rule.max + ' ' + this.label(key, ship) + 's')
+				+ ' (already on ' + held.join(', ') + ').';
+		}
+		return null;
+	},
+
+	/* Why raising this ship-level officer's row in a buy dialog is refused by the rows ticked BESIDE it, or null: an officer his `notWith`
+	   names ticked on the same unit, or - an officer another one grants (`grants`) - his grantor not ticked, or as many of his group ticked
+	   as the grantor frees. `rows`: the dialog's [{id, count}] (confirm.dialogRows). The rest of the fleet is fleetBlock's. */
+	dialogBlock: function dialogBlock(ship, id, rows) {
+		var self = this;
+		var ticked = function (other) {
+			return rows.some(function (row) { return row.id !== id && self.rulesId(row.id) === other && row.count > 0; });
+		};
+		var rule = this.fleetRule(ship, id);
+		var clash = rule ? (rule.notWith || []).filter(ticked)[0] : null;
+		if (clash) return 'The ' + this.label(id, ship) + ' and the ' + this.label(clash, ship) + ' may not serve in one ' + ship.faction + ' fleet.';
+		var grant = this.grantOf(ship, id);
+		if (!grant) return null;
+		var grantor = this.label(grant.grantor, ship);
+		if (!rows.some(function (row) { return row.id === grant.grantor && row.count > 0; })) {
+			return 'The ' + this.label(id, ship) + ' comes only with the ' + grantor + ', free: buy the ' + grantor + ' first.';
+		}
+		var taken = rows.filter(function (row) { return row.id !== id && grant.group.ids.indexOf(row.id) !== -1 && row.count > 0; });
+		if (taken.length >= grant.group.count) {
+			return 'The ' + grantor + ' brings ' + (grant.group.count === 1 ? 'one' : grant.group.count) + ' of these free ('
+				+ grant.group.ids.map(function (other) { return self.label(other, ship); }).join(', ') + ') - already chosen.';
+		}
+		return null;
+	},
+
+	/* The grant that brings this officer or refit to this unit - {grantor, group: {ids, count, notStructure}} off the blueprint's
+	   `officerGrants` (Officers::grantGroups, for what $factionRules' `grants` names) - or null. A granted one is only ever free. */
+	grantOf: function grantOf(ship, id) {
+		var grants = ship && ship.officerGrants;
+		if (!grants) return null;
+		for (var grantor in grants) {
+			var groups = Array.isArray(grants[grantor]) ? grants[grantor] : [];
+			for (var i = 0; i < groups.length; i++) {
+				if (groups[i] && Array.isArray(groups[i].ids) && groups[i].ids.indexOf(id) !== -1) return { grantor: grantor, group: groups[i] };
+			}
+		}
+		return null;
+	},
+
+	/* Why a refit an officer grants this unit (the Expert Gambler's Hardened Armour) may not be bought on this system now, or null: his grantor
+	   not aboard (his C&C destroyed counts), Structure where the free ones may not go, or as many placed as he frees - a granted refit is never
+	   paid for (Officers::dropUngrantedRefits drops a row that would cost points). The system menu refuses with it (systemEnhancements.set). */
+	refitBlock: function refitBlock(ship, systemid, enhID) {
+		var grant = this.grantOf(ship, enhID);
+		if (!grant) return null;
+		var grantor = this.label(grant.grantor, ship);
+		var label = window.systemEnhancements ? systemEnhancements.label(enhID) : enhID;
+		var open = (grant.grantor === 'OFF_POL') ? this.armourFreeOpen(ship) : (Array.isArray(ship.enhancementOptions) && this.isBought(ship, grant.grantor));
+		if (!open) return 'This ship has ' + label + ' only as the ' + grantor + '\'s, free: buy the ' + grantor + ' in the Officers section first.';
+		var system = window.systemEnhancements ? systemEnhancements.systemById(ship, systemid) : null;
+		if (grant.group.notStructure && system && system.name === 'structure') return 'The ' + grantor + '\'s free ' + label + ' cannot go on Structure.';
+		var id = parseInt(systemid, 10);
+		var placed = (window.systemEnhancements ? systemEnhancements.rows(ship) : []).filter(function (row) {
+			return row && grant.group.ids.indexOf(row[0]) !== -1 && (parseInt(row[2], 10) || 0) > 0 && parseInt(row[6], 10) !== id;
+		}).length;
+		if (placed >= grant.group.count) return 'The ' + grantor + ' brings ' + grant.group.count + ' ' + label + ' free, all placed - this ship has it no other way.';
+		return null;
+	},
+
+	/* What an officer grants this unit that is no longer free - his grantor unticked in an edit, or refunded for a destroyed post - taken off
+	   and refunded, as the server would (Officers::grantStands, Officers::dropUngrantedRefits). Moves pointCost itself, as setShipLevelRow
+	   does. Returns dropDestroyed's shape, each with the `grantorLabel` that systemEnhancements.describeRemoved names. Run at the end of
+	   dropDestroyedPosts, which every edit, fleet load and pre-battle damage refresh calls. */
+	dropUngranted: function dropUngranted(ship) {
+		if (!ship || ship.flight || !ship.officerGrants || !Array.isArray(ship.enhancementOptions)) return [];
+		var self = this;
+		var removed = [];
+		var rows = this.shipRows(ship);
+		rows.forEach(function (row) {
+			var grant = self.grantOf(ship, row.id);
+			if (!grant || row.count < 1 || self.grantFrees(ship, grant.grantor, row.id, rows)) return;
+			var before = parseFloat(ship.pointCost) || 0;
+			self.setShipLevelRow(ship, row.id, 0);
+			removed.push({ enhID: row.id, label: self.label(row.id, ship), points: before - (parseFloat(ship.pointCost) || 0),
+				grantorLabel: self.label(grant.grantor, ship) });
+		});
+		if (!window.systemEnhancements || !Array.isArray(ship.systemEnhancements)) return removed;
+		var sysBefore = parseFloat(ship.pointCostSysEnh) || 0; //what pointCost holds of the refits - before they are priced again
+		systemEnhancements.totalCost(ship); //the free ones priced again (priceFreeRefits)
+		var kept = ship.systemEnhancements.filter(function (row) {
+			var grant = row ? self.grantOf(ship, row[0]) : null;
+			if (!grant || (parseFloat(row[4]) || 0) <= 0) return true;
+			var system = systemEnhancements.systemById(ship, row[6]);
+			removed.push({ enhID: row[0], label: systemEnhancements.label(row[0]), points: parseFloat(row[4]) || 0, systemid: parseInt(row[6], 10),
+				systemName: system ? (system.displayName || system.name) : row[7], grantorLabel: self.label(grant.grantor, ship) });
+			return false;
+		});
+		if (kept.length !== ship.systemEnhancements.length) {
+			ship.systemEnhancements = kept;
+			systemEnhancements.totalCost(ship);
+			systemEnhancements.syncTooltip(ship);
+			systemEnhancements.apply(ship); //re-apply from blueprint so the removed rows stop being applied
+		}
+		ship.pointCost = (parseFloat(ship.pointCost) || 0) - (sysBefore - (parseFloat(ship.pointCostSysEnh) || 0));
+		return removed;
+	},
+
+	//does his grantor make this granted officer free on these rows - the Political Officer's free expert (freeExpertId), today the only one
+	grantFrees: function grantFrees(ship, grantor, id, rows) {
+		if (grantor === 'OFF_POL') return this.freeExpertId(rows) === id;
+		return false;
+	},
+
+	/* The Fleet Correctness Report's lines for the officer rules that span a fleet: one per ruled officer the slot's units carry, {text, ok} -
+	   failing past his faction's `perFleet`, or beside an officer his `notWith` names. The server keeps the first in fleet order and drops the
+	   rest as the fleet is committed (Officers::sanitiseFleet). `units`: the slot's units. */
+	fleetConflicts: function fleetConflicts(units) {
+		var self = this;
+		var found = {}; //faction|rulesId -> {faction, id, rule, ship, names}
+		var order = [];
+		(units || []).forEach(function (u) {
+			if (!u || !u.officerFleet) return;
+			var bought = self.boughtOfficers(u);
+			Object.keys(bought).forEach(function (id) {
+				var rule = u.officerFleet[id];
+				if (!rule) return;
+				var key = u.faction + '|' + id;
+				if (!found[key]) {
+					found[key] = { faction: u.faction, id: id, rule: rule, ship: u, names: [] };
+					order.push(key);
+				}
+				for (var k = 0; k < bought[id]; k++) found[key].names.push(u.name || u.shipClass || u.phpclass);
+			});
+		});
+		return order.map(function (key) {
+			var f = found[key];
+			var max = (f.rule.max !== undefined && f.rule.max !== null) ? f.rule.max : null;
+			var clashes = (f.rule.notWith || []).filter(function (other) { return found[f.faction + '|' + other]; });
+			var limits = [];
+			if (max !== null) limits.push('allowed up to ' + max + ' in a ' + f.faction + ' fleet');
+			if ((f.rule.notWith || []).length) limits.push('never with the ' + f.rule.notWith.map(function (other) { return self.label(other, f.ship); }).join(' or the '));
+			return { ok: (max === null || f.names.length <= max) && !clashes.length,
+				text: self.label(f.id, f.ship) + ': ' + f.names.length + ' (' + limits.join(', ') + ')' };
+		});
 	},
 
 	//true when the list is the lobby's own derivation rather than something the server sent
@@ -830,10 +1044,10 @@ window.officers = {
 		var lines = this.onPost(ship, systemId).map(function (entry) {
 			var move = self.moveText(ship, entry);
 			var state = move || self.stateText(entry);
-			return self.label(entry.id) + (state ? ' ' + state : '');
+			return self.label(entry.id, ship) + (state ? ' ' + state : '');
 		});
 		this.arrivingAt(ship, systemId).forEach(function (arrival) {
-			lines.push(self.label(arrival.entry.id) + ' ' + self.arrivalText(ship, arrival.entry));
+			lines.push(self.label(arrival.entry.id, ship) + ' ' + self.arrivalText(ship, arrival.entry));
 		});
 		return this.countLines(lines).join('\n');
 	},
@@ -1088,7 +1302,7 @@ window.officers = {
 	startPick: function startPick(ship, entry) {
 		this.picking = { ship: ship, id: entry.id, from: entry.post };
 		if (this.isDerived(ship)) this.picking.dests = this.lobbyDestinations(ship, entry); //Fleet Selection: nothing changes while he is picked
-		this.notice('Click a highlighted system to move the ' + this.label(entry.id) + ' there - anything else cancels.');
+		this.notice('Click a highlighted system to move the ' + this.label(entry.id, ship) + ' there - anything else cancels.');
 		this.repaint(ship);
 	},
 
@@ -1114,10 +1328,10 @@ window.officers = {
 				this.lobbyMove(ship, entry, system.id); //Fleet Selection (Stage 15): moved at once, free
 			} else {
 				this.setTransfer(ship, entry, system.id);
-				this.notice(this.label(entry.id) + ' ordered to ' + this.systemName(ship, system.id) + ': he serves nowhere for the rest of this turn.');
+				this.notice(this.label(entry.id, ship) + ' ordered to ' + this.systemName(ship, system.id) + ': he serves nowhere for the rest of this turn.');
 			}
 		} else {
-			this.notice('Move cancelled - ' + this.systemName(ship, system.id) + ' is not a post the ' + this.label(entry.id) + ' can move to.');
+			this.notice('Move cancelled - ' + this.systemName(ship, system.id) + ' is not a post the ' + this.label(entry.id, ship) + ' can move to.');
 		}
 		this.picking = null;
 		this.repaint(ship, system);
@@ -1322,10 +1536,10 @@ window.officers = {
 			//Stage 27: an Expert Troop Leader refunded takes the Bulkheads' box lobbyEnhancements gave them
 			if (officer.id === 'OFF_TROOP' && ship.troopEnh) { self.troopBulkheads(ship, -1); ship.troopEnh = false; }
 			var points = pointsBefore - (parseFloat(ship.pointCost) || 0);
-			removed.push({ enhID: officer.id, label: officer.label, points: points, systemid: parseInt(post.id, 10),
+			removed.push({ enhID: officer.id, label: self.label(officer.id, ship), points: points, systemid: parseInt(post.id, 10),
 				systemName: post.displayName || post.name });
 		});
-		return removed;
+		return removed.concat(this.dropUngranted(ship)); //Stage 38: what an officer refunded here granted the ship goes with him
 	},
 
 	/* The lobby menu's Officers rows (systemEnhancements.menuRowsFor builds them, SystemEnhancementsSection renders them): a
@@ -1728,7 +1942,7 @@ window.officers = {
 	politicalStatus: function politicalStatus(ship) {
 		var free = this.freeExpertId(this.shipRows(ship));
 		var placed = this.armourFreeOpen(ship) ? Object.keys(this.freeArmourRows(ship)).length : 0;
-		var text = 'Free expert: ' + (free ? this.label(free) : 'none bought - one is picked at random when the fleet is committed') + '. ';
+		var text = 'Free expert: ' + (free ? this.label(free, ship) : 'none bought - one is picked at random when the fleet is committed') + '. ';
 		text += 'Free Hardened Armour: ' + placed + ' of ' + this.POLITICAL_ARMOUR_SYSTEMS + ' placed';
 		return text + (placed < this.POLITICAL_ARMOUR_SYSTEMS ? ' - the rest go on random systems when the fleet is committed.' : '.');
 	},
@@ -1738,14 +1952,14 @@ window.officers = {
 	decorateArmourRow: function decorateArmourRow(ship, system, row) {
 		if (row.enhID !== 'SYS_HARM' || !this.armourFreeOpen(ship)) return;
 		if (system.name === 'structure') {
-			row.note = 'The Expert Political Officer\'s free Hardened Armour cannot go on Structure.';
+			row.note = 'The ' + this.label('OFF_POL', ship) + '\'s free Hardened Armour cannot go on Structure.';
 			return;
 		}
 		var bought = systemEnhancements.rowFor(ship, system.id, 'SYS_HARM');
 		if (bought) row.price = parseFloat(bought[4]) || 0;
 		else row.nextPrice = this.armourNextCost(ship, system, row.nextPrice);
 		var placed = Object.keys(this.freeArmourRows(ship)).length;
-		row.note = 'Expert Political Officer: ' + this.POLITICAL_ARMOUR_SYSTEMS + ' Hardened Armour free (the dearest, not on Structure) - '
+		row.note = this.label('OFF_POL', ship) + ': ' + this.POLITICAL_ARMOUR_SYSTEMS + ' Hardened Armour free (the dearest, not on Structure) - '
 			+ placed + ' placed; any left are placed at random when the fleet is committed.';
 	},
 
@@ -1928,7 +2142,7 @@ window.officers = {
 		if (list.length === 0) return null;
 		if (ship.flight && window.gamedata && gamedata.gamephase === -2) {
 			var same = list.filter(function (entry) { return entry.id === list[0].id; }).length;
-			return this.label(list[0].id) + (same > 1 ? ' (' + same + ')' : '');
+			return this.label(list[0].id, ship) + (same > 1 ? ' (' + same + ')' : '');
 		}
 		return 'Officers (' + list.length + ')';
 	},
@@ -3372,6 +3586,10 @@ window.officers = {
 	   per craft"; a single superheavy's is just its price; "57pts each per 6 craft, one per craft" for an
 	   officer bought as a count (Stage 18). null for anything else. */
 	priceNote: function priceNote(ship, enhancement) {
+		//Stage 38: an officer another one grants (`grants` - the Expert Gambler's free expert) is never bought at a price
+		var grant = this.grantOf(ship, enhancement[0]);
+		if (grant) return 'free, only with the ' + this.label(grant.grantor, ship) + ' (' + (grant.group.count === 1 ? 'one' : grant.group.count) + ' of '
+			+ grant.group.ids.length + ')';
 		//Stage 33: an Expert Evangelist's price is a share of the fleet, re-priced as it changes (repriceFleet)
 		var max = this.fleetMaxPoints();
 		//Stage 34: an Expert War Leader's - a share of the fleet and of this ship, re-priced as the fleet changes (repriceFleet)

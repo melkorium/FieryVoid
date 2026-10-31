@@ -1266,9 +1266,11 @@ class Manager{
                         $paid = isset($enhEntry[3]) ? (float)$enhEntry[3] : (float)Officers::legacyPrice($ship, $enhID);
                         $offered = false;
                         foreach ($ship->enhancementOptions as $option) if ($option[0] === $enhID) $offered = true;
+                        //OFFICERS_PLAN.md Stage 38: an officer another one grants (the Expert Gambler's free expert) only while that one frees him
+                        if ($offered && !Officers::grantStands($ship, $enhID)) $offered = false;
                         if (!$offered) {
                             $ship->pointCostEnh = max(0, (float)$ship->pointCostEnh - $paid);
-                            $sysEnhNotices[] = $ship->name . ': ' . Officers::getLabel($enhID) . ' is no longer offered on this unit'
+                            $sysEnhNotices[] = $ship->name . ': ' . Officers::labelFor($ship, $enhID) . ' is no longer offered on this unit'
                                 . ' - removed, and its ' . $paid . ' points refunded.';
                             continue;
                         }
@@ -1283,7 +1285,7 @@ class Manager{
                         }
                         if ($now != $paid) {
                             $ship->pointCostEnh = max(0, (float)$ship->pointCostEnh - $paid + $now);
-                            $sysEnhNotices[] = $ship->name . ': ' . Officers::getLabel($enhID) . ' now costs ' . $now
+                            $sysEnhNotices[] = $ship->name . ': ' . Officers::labelFor($ship, $enhID) . ' now costs ' . $now
                                 . ' points (was ' . $paid . ').';
                         }
                     }

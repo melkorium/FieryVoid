@@ -427,10 +427,46 @@ and to give it a cheaper Expert Scavenger, add `'My Custom Faction' => 20` to th
 
 The Markab, Corillani and Yolu pay his normal price, and the Minbari pay 10%. (`OFF_TARG` and `OFF_ELINT` in the table already work this way.) Each key can appear **only once** per officer. A second `'pct'` silently replaces the first, so list every faction in one `pct` array. A `pct` or `max` for a faction that `only` leaves out (or `never` names) does nothing, because that faction is never offered the officer.
 
+### Narrower rules: Ancient factions, particular hulls, limits per fleet (10.2026)
+
+Six more keys go in the same entries. They exist for the Ancient exceptions below, but work for any faction:
+
+    'OFF_WLEAD' => array('ancients' => array('Kirishiac Lords'),                    // Ancient factions he is offered to
+        'hulls'    => array('Kirishiac Lords' => array('kirishiacKingship', 'kirishiacLordship')), // only on these hulls
+        'perFleet' => array('Kirishiac Lords' => 1),                                // at most 1 in one player's fleet
+        'notWith'  => array('Kirishiac Lords' => array('OFF_WARR'))),               // never in a fleet with these officers
+    'OFF_POL'  => array('only' => array('Centauri Republic', 'Centauri Republic (WotCR)'),
+        'ancients' => array('Torvalus Speculators'),
+        'label'    => array('Torvalus Speculators' => 'Expert Gambler'),           // his name for this faction
+        'grants'   => array('Torvalus Speculators' => array('OFF_HELM', 'OFF_SCAN', 'OFF_ENG', 'OFF_NAV', 'SYS_HARM'))),
+
+- **`ancients`** — Ancient and Primordial hulls (`factionAge` 3 or more) get no officers at all, unless the officer's `ancients` list names their faction. It covers every hull of the faction, Primordial ones included. `only` and `never` are never read for an Ancient hull: `ancients` is its whole faction test.
+- **`hulls`** — this faction is offered him only on these hulls. Each is the hull's **PHP class name**, as its ship file declares it (`class kirishiacKingship extends BaseShip`); case does not matter. A variant is a class of its own, so list it too if it should qualify.
+- **`perFleet`** — at most this many of him in one player's fleet, counting only that faction's units. An officer and his placed twin count as one (the Religious Leader at the C&C or moved into another system).
+- **`notWith`** — never in the same fleet as these officers, on that faction's units. One side's list is enough (`OFF_WARR`'s entry needn't repeat it), though the table lists both for clarity.
+- **`label`** — his name for this faction everywhere: the buy window, the fleet list, tooltips, notes and the combat log. Keep it short: "<name> killed" must fit 40 characters.
+- **`grants`** — for this faction, the things *his own rules make free* come with him and only with him: offered only where he is, bought only alongside him, and never more than he frees (here one of the four experts and five Hardened Armour). It can name only what an officer's rules already make free — today that is the Political Officer alone.
+
+How the rules are kept: an officer nobody may take right now is simply **not offered** — the buy window leaves out an officer the rest of the fleet has no room for, or one ruled out by what is ticked beside him (a `notWith` officer, a granted one before his grantor or once he has given what he frees), and the ship window's system menus leave out a placed twin or a granted refit the same way. A copied ship leaves such an officer behind, and the **Fleet Correctness Report** lists every officer with a fleet rule, with a FAILURE line when a fleet breaks one (a saved fleet, say). When the fleet is readied, the server keeps the first in fleet order and drops the rest — their points stay spent — so a doctored fleet gains nothing.
+
+`perFleet` is not only for Ancients: the Expert Evangelist is one to a Corillani fleet (`'OFF_EVAN' => array('only' => array('Corillani Theocracy'), 'perFleet' => array('Corillani Theocracy' => 1))`).
+
+The Ancient exceptions built this way (`$factionRules` in `Officers.php`):
+
+| Faction | Officer | Where | Fleet limit |
+|---|---|---|---|
+| Kirishiac Lords | Expert War Leader | Kingship or Lordship | one War Leader **or** one Expert Warrior |
+| Kirishiac Lords | Expert Warrior | any ship with a C&C | (as above) |
+| Walkers of Sigma-957 | Expert ELINT Officer | Pathfinder | one |
+| Mindriders | Expert Religious Leader | Consortium | one |
+| Torvalus Speculators | Expert Political Officer, named **Expert Gambler** | capital ships (as for the Centauri) | none; his free expert and five free Hardened Armour work too, and his speeches have Torvalus topics |
+| Torvalus Speculators | Lucky Captain, at the Dilgar price (25%) | any ship with a C&C | one |
+
 Things to know:
 
-- **The name must be the faction string exactly as your ship files set it** (`$this->faction = "My Custom Faction";`) — the same name the faction has in Fleet Selection. It is case-sensitive, and a name that matches no faction silently does nothing; `tests/replay/officersHarness.php` (if you run it) checks every name in the table against the factions that exist.
-- The table only narrows what the officer's own rules allow. A ship still needs his post (no Jump Engine, no Jump Officer), and Ancients, OSATs, mines, terrain and remotely controlled craft never get officers at all.
+- **The name must be the faction string exactly as your ship files set it** (`$this->faction = "My Custom Faction";`) — the same name the faction has in Fleet Selection. It is case-sensitive, and a name that matches no faction silently does nothing; `tests/replay/officersHarness.php` (if you run it) checks every name in the table against the factions that exist, and that every `hulls` class belongs to its faction.
+- The table only narrows what the officer's own rules allow. A ship still needs his post (no Jump Engine, no Jump Officer), and OSATs, mines, terrain and remotely controlled craft never get officers at all; Ancients only where `ancients` says so.
+- A faction speaking of its own topics in the Political Officer's speech is a separate list, `$speechTopicsByFaction` in `Officers.php`.
 - To take an officer away from **one hull** rather than a whole faction, use the usual `$this->enhancementOptionsDisabled[] = 'OFF_GENE';` in that ship's file.
 - Offers are baked into the static ship files, so **regenerate them after any change**: `scripts\fvbuild.ps1 -Statics` (or plain `fvbuild.ps1`).
 - A saved fleet that holds an officer its faction can no longer buy gets him removed and his points refunded when it is loaded; one whose price changed is re-priced, with a notice either way. A game already in progress simply loses the officer at its next load (the points stay spent), so avoid changing a rule mid-campaign.

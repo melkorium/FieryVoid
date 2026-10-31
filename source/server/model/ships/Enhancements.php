@@ -3926,6 +3926,12 @@ class Enhancements{
 	   the slot cannot silently hand an Ancient hull a refit it was never meant to have. */
 	public static function systemEnhancementAllowsAge($ship, $enhID){
 		if(!is_object($ship)) return false;
+		/* OFFICERS_PLAN.md Stage 38: a refit an officer GRANTS this faction ($factionRules `grants` - the Torvalus' Expert Gambler's free
+		   Hardened Armour) comes with him alone, whatever the hull's age: open where the hull is offered him, closed where it is not. */
+		$granted = Officers::grantsRefit($ship, $enhID);
+		if($granted !== null) return $granted;
+		//...and a placed officer's age is HIS rule on an Ancient hull: the ones its faction's `ancients` name (the Mindriders' Religious Leader's twin)
+		if(self::isSystemEnhancementOfficer($enhID) && (int)$ship->factionAge >= 3) return Officers::mayCarryOfficers($ship, $enhID);
 		$ages = isset(self::$systemEnhancementRegistry[$enhID]['ages'])
 			? self::$systemEnhancementRegistry[$enhID]['ages']
 			: array(1, 2);
@@ -3990,6 +3996,7 @@ class Enhancements{
 		if(!self::systemMayBeEnhanced($ship, $system)) return $out;
 		foreach(self::$systemEnhancementRegistry as $enhID => $def){
 			if(!self::systemEnhancementAllowsAge($ship, $enhID)) continue;  //hull age, per enhancement
+			if(!Officers::grantMayHost($ship, $system, $enhID)) continue;   //Stage 38: a granted refit only where it can be free
 			if(!self::regCall($enhID, 'eligible', array($ship, $system))) continue;
 			if(self::systemEnhancementLimit($ship, $system, $enhID) < 1) continue; //nothing left to buy
 			$out[] = $enhID;
@@ -4806,7 +4813,7 @@ class Enhancements{
 				continue;
 			}
 			if(!self::systemMayBeEnhanced($ship, $system) || !self::systemEnhancementAllowsAge($ship, $enhID)
-			   || !self::regCall($enhID, 'eligible', array($ship, $system))){
+			   || !Officers::grantMayHost($ship, $system, $enhID) || !self::regCall($enhID, 'eligible', array($ship, $system))){
 				$out['notices'][] = self::systemEnhancementLabel($enhID) . " is no longer available on $sysname #$systemid - removed.";
 				continue;
 			}

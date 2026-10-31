@@ -78,7 +78,12 @@ Stage 37, the Lucky Captain (every faction; the Dilgar Imperium 25%, everyone el
 picked from a green Lucky Captain button in his own ship's tooltip and played by fixed rules (the server rolls every die): EW Last, Disengage (a d20 at
 or under the range of the nearest armed enemy that sees him, none in the 120 degrees ahead) or Best Initiative in Initial Orders; in the Firing phase,
 ARMED and spent only if it fires, a volley re-roll (when the ship's to-hit dice score below what they expected), Sure Shot, Dodge or Lucky Escape - the
-to-hit dice rolled before any is used (§9.44) - BUILT 2026-10-31, uncommitted.**
+to-hit dice rolled before any is used (§9.44) - BUILT 2026-10-31, uncommitted.
+Stage 38, the ANCIENT exceptions (user request 2026-10-31) - the Kirishiac Lords' one Expert War Leader (Kingship or Lordship) or Expert Warrior (any C&C
+hull), the Walkers' one Pathfinder Expert ELINT Officer, the Mindriders' one Consortium Expert Religious Leader, the Torvalus' Expert Gambler (their
+Political Officer: his free expert and Hardened Armour opened to them through him, Torvalus speech topics) and one Lucky Captain at the Dilgar price -
+built as six new $factionRules keys (`ancients`, `hulls`, `perFleet`, `notWith`, `label`, `grants`) for any faction to use, README how-to (§9.45) -
+BUILT 2026-10-31, uncommitted.**
 Written
 against `dab951bf5`. The user
 ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
@@ -5905,3 +5910,103 @@ Docs `ammo-options.html`. No new PHP class, no schema change. Legacy bundles reb
   a gun's hit); `officersClientHarness.js` **1194 / 0** (the picker's frame, its order and the spent state); `enhancementsDifferential.js` **964 / 0**;
   `fvbuild -Check` **all checks passed** (replay 189 / 0); legacy bundles rebuilt, `fvbuild -Sync`. **Mutation 69 / 70 + 1 equivalent**
   (C12, as before; three new mutants on the fix - Dodge's two stages mixed, a Sure Shot die re-altered, Dodge rolling over the shooter's dice - all caught).
+
+### 9.45 Stage 38: the Ancient exceptions (2026-10-31)
+
+**The user's request (2026-10-31).** "Up until now Ancient factions have been prevented from using any officers. However there are a few exceptions to
+this rule: Kirishiac can use a single Expert War Leader on a Kingship or Lordship. If no War Leader chosen can take Expert Warrior instead on any ship. The
+two are mutually exclusive. A single Walker Pathfinder may be equipped with an Expert ELINT officer. Torvalus: Have Expert Political Officer but this is
+renamed as Expert Gambler (effects are the same, however we should change the topics of the speeches when the faction is Torvalus). One ship in a Torvalus
+fleet can get the Lucky Captain too, and they pay the Dilgar price for it, not the inflated price. One Mindrider Consortium ship may have the Expert
+Religious Leader." The user's note: these need more specificity in when a ship is eligible, and the lobby must refuse a pick once another is made -
+"incorporate this to the overall officer setting method, in case it proves useful for custom faction developers", and update the README.
+
+**Rulings (user, 2026-10-31, asked before building):**
+1. **Kirishiac: ONE of the two in a fleet** - a single War Leader (Kingship or Lordship) or a single Expert Warrior (any hull with a C&C), never both.
+2. **Mindriders: the Consortium HULL** (not any Mindrider ship), one in a fleet.
+3. **The Gambler's freebies OPEN to the Torvalus** - his free expert (Helmsman, Scanner, Engineer or Navigator) and five free Hardened Armour work for
+   them, though Ancients can buy neither otherwise. (No Torvalus hull has a hangar, so no armed shuttle - stated.) No limit to a fleet, as for the
+   Centauri; capital ships and larger, as for the Centauri (Black Rapier, Dark Knife, Black Dagger).
+4. **Primordial hulls of these factions included** (factionAge 4: the Torvalus Black Dagger, the Kirishiac Conqueror) - the exceptions are per FACTION.
+
+**Six new `$factionRules` keys** (Officers.php; the README's "Narrower rules" section is the custom-faction how-to):
+- `ancients` - the Ancient factions he is offered to. `factionAllows` now reads `ancients` ALONE for a hull of factionAge 3+, `only`/`never` for every
+  other. `mayCarryOfficers($ship, $id = null)`: asked about no officer, an Ancient hull still answers no (D9, and every harness caller); asked about one, the
+  faction rules decide. Its non-age half is `unitMayCarry` (OSATs, mines, remote craft, terrain), now asked first by `isEligible`.
+- `hulls` - faction => PHP class names (case-insensitive, `isHullListed`).
+- `perFleet`, `notWith` - read by `fleetRule($ship, $id)` (by rulesId; notWith both ways, so one side's list is enough).
+- `label` - `labelFor($ship, $id)`: the offer (so the static row, the stored enhname), every note's notekey_human, loadSavedFleet's notices, the speech.
+- `grants` - faction => ids that come ONLY with this officer: `grantorOf($ship, $id)` (only what `grantGroups($grantor)` says his rules make free:
+  the Political Officer's four experts, one free, and SYS_HARM, five free, never on Structure). A granted officer is offered exactly where his grantor is
+  (`factionAllows`), serves only as the grantor's free one (`grantStands` in pickPosts, sanitiseFleet and loadSavedFleet's offered test); a granted refit
+  passes the refit age gate only where the hull is offered the grantor (`grantsRefit`, first thing in `Enhancements::systemEnhancementAllowsAge`), never on
+  Structure (`grantMayHost`, in systemEnhancementsFor and the sanitiser), and stands only while free (`dropUngrantedRefits`, last in `priceFreeRefits`).
+  The commit's random picks (placePoliticalPicks) work unchanged: their candidates are what the hull is offered.
+
+**The fleet rules on the server: `Officers::sanitiseFleet($fleet)`**, called once per slot in `BuyingGamePhase::process` over the submitting player's
+units, before any is saved: unit by unit in fleet order, officers in REGISTRY order (the offers are listed by label, not registry order - found by the
+harness), then placed rows; a row past `perFleet`, beside a `notWith` officer of the same faction kept before it, or a granted one not freed, is ZEROED (it
+buys nothing, its points stay spent - pickPosts' way with a row it refuses). The rules are per faction: a Kirishiac War Leader beside a Drazi Warrior in one
+fleet is fine. Placed twins (OFF_RELIP) count as their rulesId and are judged only where the system is offered them.
+
+**Placed officers on Ancient hulls:** the per-system registry's officer entries carry `ages => array(1, 2)`, so the Consortium got no OFF_RELIP offer at
+first (found by the probe). `systemEnhancementAllowsAge` now asks `Officers::mayCarryOfficers($ship, $id)` for an officer entry on an Ancient hull.
+
+**The lobby** - no mirror of the table: the static blueprint carries three new annotations (`blueprintAnnotations`, also in game.php's blueprints):
+`officerLabels` (every hull of a faction with a `label`), `officerFleet` ({rulesId: {max, notWith}} for the offered officers that have rules) and
+`officerGrants` ({grantor: [{ids, count, notStructure}]}).
+- `officers.label(id, ship)` reads `officerLabels`; every caller with a ship passes it (13 legacy, 5 React).
+- `officers.fleetBlock(ship, id)` - the rest of the lobby slot (never the unit itself: an edit, or a copy's fresh clone): returned by `shipLevelBlock` (the
+  buy dialog's static note) and `placedBlock` (the system menu). A COPY seeds such a row at 0 (`addBuyEnhancementRows`).
+- `officers.dialogBlock(ship, id, rows)` - the rows ticked beside him: a `notWith` officer on the same unit, a granted expert with no Gambler ticked or a
+  second one. `confirm.officerBlocked` asks it through the row's `dialogRules` (the unit, set only on officer rows of a unit with rules) and flashes a
+  note of its own (`.buyOfficerLive`); `confirm.clampGrantedRows` (every total) untakes a granted row once its grantor is unticked; the row's price note
+  reads "free, only with the Expert Gambler (one of 4)".
+- `officers.refitBlock(ship, systemid, enhID)` - a granted refit with no grantor (his C&C standing), on Structure, or past his five: the system menu row's
+  `blocked` and `systemEnhancements.set`'s refusal.
+- `officers.dropUngranted(ship)` - run at the end of `dropDestroyedPosts` (every edit, fleet load and pre-battle damage refresh): a granted expert or refit
+  no longer free is removed and refunded, `describeRemoved` saying "this ship has it only free, with the Expert Gambler".
+- `officers.fleetConflicts(units)` - the Fleet Correctness Report: one line per ruled officer the slot carries, FAILURE past a rule (a saved fleet).
+
+**The speech:** "The Gambler on-board <ship> begins a stirring speech about ..." - the label without "Expert ", on `$speechTopicsByFaction['Torvalus
+Speculators']` (22 topics, odds and wagers and the Speculators' ledger).
+
+**Offers measured (probe `tests/replay/ancientProbe.php`):** Kirishiac - Expert Warrior on all 7 C&C hulls (Citadel starbase and the Primordial Conqueror
+included; the Overlord has a C&C too), War Leader on the Kingship and Lordship (fleet-priced, x1.5 outside the Narn Regime as everyone's); Walkers - ELINT
+on the Pathfinder (30%); Mindriders - Religious Leader on the Consortium (15%) and his twin on 5 of its systems; Torvalus - the Gambler (40%) and his four
+experts on the three capitals, with Hardened Armour on 18-20 systems each, and the Lucky Captain (25%) on all six C&C hulls. No other Ancient hull is
+offered anything.
+
+**Not built / left as is:** the statics sweeps of earlier stages that assume "no Ancient" pass (they filter by faction); the client harness's Stage 28
+Warrior count moved 51 -> 58. UNRESOLVED, not changed (user's call, 2026-10-31): whether a lobby COPY keeps the original's PER-SYSTEM rows (refits and
+placed officers). Ship-level officers do copy, priced right (the user's test). A probe running the real copyShip / doCopyShip with the real officers.js
+and systemEnhancements.js through a fake dialog (scratchpad `copyprobe.js`: an Omega with Gunsights and a placed Gunner copied as a bare 925) says the
+per-system rows are not carried - doCopyShip rebuilds the unit from a fresh blueprint - but the user does not see that on the local site. Look in a real
+browser before acting on it.
+- Verified (stack up, 2026-10-31): `officersHarness.php` WITH the database **2853 / 0** (61 new: the statics sweep of every Ancient/Primordial hull, prices,
+  label, mayCarryOfficers, the Consortium's twin offers, the three annotations, serving, sanitiseFleet incl. notWith from one side only, the Gambler's
+  armour and speech; `checkFactionRules` knows the six keys and checks each - an Ancient faction, a faction's own hull class, a label short enough, a grant
+  his rules free); `officersClientHarness.js` **1219 / 0** (25 new; the Stage 28 Warrior statics count 51 -> 58); `enhancementsHarness.php` **302 / 0**
+  (fingerprint unchanged); `enhancementsDifferential.js` **964 / 0**; `fvbuild -Check` **all checks passed** (replay 189 / 0); statics regenerated,
+  bundles rebuilt (`fvbuild -Client`), `fvbuild -Sync`. **Mutation 37 / 37** (`mutate38.js`, 20 server against the generated `ancientChecksProbe.php`,
+  17 client); the first pass let two through - notWith read from one side (both table entries list the pair) and dropUngranted's refund read after
+  re-pricing (every caller re-totals first) - both pinned by a test since. Not play-tested.
+
+**Follow-ups (user, 2026-10-31, same day):**
+- **Unavailable options are not shown** ("players often refuse to read the text"): in the buy dialog an untaken officer row is hidden while the fleet has
+  no room for him (fleetBlock) or the rows ticked beside him rule him out (dialogBlock) - `officers.offerUnavailable`, `confirm.refreshOfficerRows` (once
+  the rows are built, before `openBuySections` counts them, and with every total), class `.buyRow.is-unavailable` (confirm.css); a section of hidden rows
+  only is not shown, and its badge counts only rows shown. A TAKEN row always shows, so it can be untaken. `shipLevelBlock` no longer carries the fleet
+  reason (no note for a row that is not there). The ship window's system menus likewise leave out a placed twin past a fleet limit and a granted refit
+  that would not be free (`officers.menuRowUnavailable`, filtered in `systemEnhancements.menuRowsFor`); every older greyed-out reason is unchanged.
+- **A copy, not an edit:** the copy dialog's "no room" reset now applies only to a unit not yet in the fleet. An EDITED unit in a fleet already past a
+  limit (a saved fleet) keeps its officer, shown, for the player to keep or take off - found by the browser driver: the first version zeroed it silently.
+- **The Expert Evangelist: one to a fleet** (`perFleet`, Corillani Theocracy), replacing the 2026-10-29 note that allowed several; applyMorale still
+  copes with several (a game committed before the limit). Docs card and registry note updated.
+- **Ruled, not built:** `grants` stays the Political Officer's (the user had read it as a general freebie mechanism - not needed for the Quartermaster or
+  Ballistic Officer); the Gambler stays capital ships only, as for the Centauri.
+- **The copy note is now UNRESOLVED** (see "Not built" above): the user's local tests show copies keeping what was bought.
+- Verified: `officersHarness.php` (DB) **2854 / 0**; `officersClientHarness.js` **1222 / 0**; differential **964 / 0**; enhancements **302 / 0**;
+  `fvbuild -Check` **all checks passed** (replay 189 / 0); new browser driver `tests/replay/officersE2E/ancient38.mjs` (the REAL buy dialog over the
+  real bundles, no PHP/session) **19 / 19**; mutation `mutate38b.js` **11 / 11** (E05, a taken row hidden, survived until the edit-a-saved-fleet case
+  was added). Statics, bundles, `-Sync` done. Not play-tested.

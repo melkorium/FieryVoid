@@ -544,6 +544,15 @@ public function addMoons($gameData, $dbManager, $smallCount, $mediumCount, $larg
                independently of each other. See numberBulkCopy() below. */
             $bulkNameCounters = array();
 
+            /* OFFICERS_PLAN.md Stage 38: the officer rules that span a FLEET - $factionRules' perFleet / notWith, and an officer another one
+               grants - judged ONCE over this player's units in the slot, in fleet order, before any is saved: a row that breaks one is zeroed
+               and saved as nothing (Officers::sanitiseFleet). The lobby refuses the same purchases up front. */
+            $forPlayer = $gameData->forPlayer;
+            $slotNo = $slot->slot;
+            Officers::sanitiseFleet(array_values(array_filter($ships, function ($s) use ($forPlayer, $slotNo){
+                return $s->slot == $slotNo && $s->userid == $forPlayer;
+            })));
+
             foreach ($ships as $ship){
 
                 if ($ship->slot != $slot->slot)

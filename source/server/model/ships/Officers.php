@@ -106,6 +106,10 @@
    since the server rolls every die: in Initial Orders EW set last, a disengage, or the best initiative die (saveLuckyOrder); in the Firing
    phase ARMED and spent only when it fires - his volley's to-hit dice re-rolled, a Sure Shot, a Dodge or a Lucky Escape (saveLuckyArm; the
    to-hit dice rolled ahead - planLuckyRolls, toHitRoll; luckyEscape). Each told in the combat log.
+   Stage 38: the ANCIENT exceptions (user request 2026-10-31) - officers a few Ancient factions may carry after all, on the hulls they
+   name (`hulls`), as many in a fleet as they allow (`perFleet`, `notWith` - sanitiseFleet as the fleet is committed), under a name of
+   their own (`label`: the Torvalus' Political Officer is their Expert Gambler), and what one officer brings free opened to a faction
+   through him alone (`grants`: the Gambler's free expert and Hardened Armour). All of it more $factionRules keys.
 
    Which FACTIONS may buy an officer, and what some of them pay, is one table: $factionRules below. */
 class Officers{
@@ -279,6 +283,19 @@ class Officers{
 		'the splendour of the Imperial Palace gardens', 'his own distinguished family', 'his favourite colour, purple',
 		'the price of spoo', 'the importance of good tailoring' 
 	);
+	/* Stage 38: the Torvalus' Political Officer is their Expert Gambler - "effects are the same, however we should change the topics of the
+	   speeches when the faction is Torvalus" (user request 2026-10-31). A faction listed here speaks of these instead (speechLog). */
+	private static $speechTopicsByFaction = array(
+		'Torvalus Speculators' => array(
+			'the odds of this engagement, worked out to the fourth decimal place', 'the elegance of a well-placed wager', 'the thrill of risk',
+			'the long game, played over ten thousand years', 'the value of knowing what no one else knows', 'the beauty of an unseen blade',
+			'the folly of younger races who never count the odds', 'why the house always wins', 'fortune favouring the patient',
+			'the shadows that hide every true hand', 'probability, the only honest god', 'the debts the younger races do not know they owe',
+			'a wager lost a thousand years ago', 'the art of the bluff', 'why the longest odds pay the sweetest', 'hedging every bet twice',
+			'the price of certainty', 'the Speculators\' ancient ledger', 'the Shadows\' poor sense of timing', 'the Vorlons\' refusal to gamble',
+			'the dice that never lie', 'his own unbroken winning streak'
+		),
+	);
 	//...a Medium ship's side, looked at from its own bearing (a "TAG:" hit chart entry is arc-filtered): Front, Aft, Left, Right
 	private static $sideBearing = array(1 => 0, 2 => 180, 3 => 270, 4 => 90);
 	//the fire orders that are NOT the flight firing, for his Spark Field relief: interception uses neither OB nor jinking
@@ -295,6 +312,19 @@ class Officers{
 	            of one craft for a fighter officer); the registry's rounding still applies
 	     max    (an officer bought as a count - `multi`) how many one unit of these factions may carry, in place
 	            of the registry's `multi`
+	   Stage 38 (user request 2026-10-31: the Ancient exceptions, "in case it proves useful for custom faction developers"):
+	     ancients  the ANCIENT factions he is offered to - D9 keeps every Ancient and Primordial hull (factionAge 3+) from every
+	               officer this list does not name it for; `only` and `never` are about the younger factions and never read for them
+	     hulls     these factions are offered him only on these hulls - each a ship file's PHP class name (case-insensitive)
+	     perFleet  at most this many of him in one player's fleet of these factions' units - counted with every officer sharing
+	               his rulesId (the Religious Leader's placed twin is the Religious Leader)
+	     notWith   never in one fleet with these officers, on these factions' units; either side's list is enough
+	     label     his name for these factions, everywhere he is shown or told (the Torvalus' Expert Gambler)
+	     grants    for these factions, what HIS OWN RULES MAKE FREE comes with him and only with him: officers and refits otherwise closed
+	               to them, offered where he is, bought only alongside him and only as many as he frees (grantGroups) - never at a price.
+	               Today only the Political Officer frees anything (one of four experts, five Hardened Armour)
+	   The fleet rules are judged as the fleet is committed (sanitiseFleet); the lobby refuses as the player buys and reports
+	   them (officers.fleetBlock, the Fleet Correctness Report) off the blueprint's `officerFleet` (blueprintAnnotations).
 	   A faction is named by its hulls' $faction string, exactly as the ship files write it - the name the
 	   faction has in Fleet Selection. A name that matches no faction simply never applies, so
 	   officersHarness checks every name here against the factions that exist.
@@ -316,7 +346,9 @@ class Officers{
 		//"5% of the ship's basic value for Earth Alliance (EA) factions ... Non-EA factions increase the cost by 50%" - the registry's 7.5
 		'OFF_SECU' => array('pct' => array('Earth Alliance' => 5, 'Earth Alliance (Early)' => 5, 'Earth Alliance (defenses)' => 5)),
 		//"Availability: Minbari, Markab, Corillani and Yolu factions" - the Minbari Protectorate not included (user ruling 2026-10-17)
-		'OFF_RELI' => array('only' => array('Minbari Federation', 'Markab Theocracy', 'Corillani Theocracy', 'Yolu Confederation')),
+		//Stage 38: "One Mindrider Consortium ship may have the Expert Religious Leader" - the Consortium hull, one in a fleet (user ruling 2026-10-31)
+		'OFF_RELI' => array('only' => array('Minbari Federation', 'Markab Theocracy', 'Corillani Theocracy', 'Yolu Confederation'),
+			'ancients' => array('Mindriders'), 'hulls' => array('Mindriders' => array('Consortium')), 'perFleet' => array('Mindriders' => 1)),
 		//"Availability: Ipsha only" - not the Civilians' Ipsha-built Cargo Hauler
 		'OFF_SURG' => array('only' => array('Ipsha Baronies')),
 		//"Availability: Cascor only" - not the Civilians' Cascor-built Calacca and Caracti
@@ -332,7 +364,10 @@ class Officers{
 			'Narn Regime', 'Minbari Federation', 'Yolu Confederation', 'Torata Regency', 'Gaim Intelligence', 'Drazi Freehold',
 			'Vree Conglomerate', 'Dilgar Imperium', 'Brakiri Syndicracy', 'Hyach Gerontocracy', 'Markab Theocracy', 'Corillani Theocracy',
 			'Llort', 'Deneth Tribes', 'Minbari Protectorate'),
-			'pct' => array('Abbai Matriarchate' => 15, 'Abbai Matriarchate (WotCR)' => 15)),
+			'pct' => array('Abbai Matriarchate' => 15, 'Abbai Matriarchate (WotCR)' => 15),
+			//Stage 38: "A single Walker Pathfinder may be equipped with an Expert ELINT officer" (user request 2026-10-31)
+			'ancients' => array('Walkers of Sigma-957'), 'hulls' => array('Walkers of Sigma-957' => array('Pathfinder')),
+			'perFleet' => array('Walkers of Sigma-957' => 1)),
 		//"Availability: Vree only" - not the Custom Ships' Shadow-built Xonn, whose turrets are Vree-style too
 		'OFF_TURR' => array('only' => array('Vree Conglomerate')),
 		//"10% of the ship's base value for Torata ... Races other than the Torata pay 50% more for this officer" - the registry's 15
@@ -341,14 +376,24 @@ class Officers{
 		//cost" - the registry's 50, and 25 here
 		'OFF_BRCH' => array('pct' => array('Balosian Underdwellers' => 25, 'Yolu Confederation' => 25, 'Narn Regime' => 25, 'Gaim Intelligence' => 25)),
 		//"Availability: ... Centauri Only" - the Wars of the Centauri Republic too (user ruling 2026-10-21)
-		'OFF_POL'  => array('only' => array('Centauri Republic', 'Centauri Republic (WotCR)')),
+		/* Stage 38: "Torvalus: Have Expert Political Officer but this is renamed as Expert Gambler (effects are the same ...)" - and his free
+		   expert and five free Hardened Armour work for them too (user ruling 2026-10-31), though they can buy neither otherwise (`grants`).
+		   No hangar on a Torvalus hull, so no armed shuttle; no limit to a fleet, as for the Centauri. */
+		'OFF_POL'  => array('only' => array('Centauri Republic', 'Centauri Republic (WotCR)'), 'ancients' => array('Torvalus Speculators'),
+			'label' => array('Torvalus Speculators' => 'Expert Gambler'),
+			'grants' => array('Torvalus Speculators' => array('OFF_HELM', 'OFF_SCAN', 'OFF_ENG', 'OFF_NAV', 'SYS_HARM'))),
 		//"Availability: Hyach only" - and only a Hyach hull has his post, the Computer
 		'OFF_SOFT' => array('only' => array('Hyach Gerontocracy')),
 		//"Availability: Gaim Only" - on a ship, and in a Gaim breaching pod (user notes 2026-10-23)
 		'OFF_TROOP' => array('only' => array('Gaim Intelligence')),
 		'OFF_TRPOD' => array('only' => array('Gaim Intelligence')),
 		//"Availability: Drazi only" - the Wars of the Centauri Republic's Drazi too (user ruling 2026-10-23)
-		'OFF_WARR' => array('only' => array('Drazi Freehold', 'Drazi Freehold (WotCR)')),
+		/* Stage 38: "Kirishiac can use a single Expert War Leader on a Kingship or Lordship. If no War Leader chosen can take Expert Warrior
+		   instead on any ship. The two are mutually exclusive" - ONE of the two in a Kirishiac fleet (user ruling 2026-10-31). */
+		'OFF_WARR' => array('only' => array('Drazi Freehold', 'Drazi Freehold (WotCR)'), 'ancients' => array('Kirishiac Lords'),
+			'perFleet' => array('Kirishiac Lords' => 1), 'notWith' => array('Kirishiac Lords' => array('OFF_WLEAD'))),
+		'OFF_WLEAD' => array('ancients' => array('Kirishiac Lords'), 'hulls' => array('Kirishiac Lords' => array('kirishiacKingship', 'kirishiacLordship')),
+			'perFleet' => array('Kirishiac Lords' => 1), 'notWith' => array('Kirishiac Lords' => array('OFF_WARR'))),
 		//"5% of the base cost of the ship, plus 1% for each missile rack ... Races other than the Kor-Lyans pay double" - the registry's 10, and 5 here
 		//(the racks' part grows with it: `perPick`)
 		'OFF_BALL' => array('pct' => array('Kor-Lyan Kingdoms' => 5)),
@@ -361,10 +406,13 @@ class Officers{
 		'OFF_REDL' => array('pct' => array('Cascor Commonwealth' => 100)),
 		//"Availability: Corillani CPN and OSF sub-faction units only" - the Theocracy's own hulls (user ruling 2026-10-29: not the Civilians'
 		//Vostova freighters or the Custom Ships' Shadow hulls, whose notes name the CPN or OSF too); the sub-faction is his `needs` (isCpnOrOsf)
-		'OFF_EVAN' => array('only' => array('Corillani Theocracy')),
+		//Stage 38: one to a fleet (user request 2026-10-31, in place of the 2026-10-29 note that allowed several) - his placed twin counts as him
+		'OFF_EVAN' => array('only' => array('Corillani Theocracy'), 'perFleet' => array('Corillani Theocracy' => 1)),
 		//"Cost: 25% of the ship's base value. Availability: Any race can have such an officer, but ... costing double the listed price for non-Dilgar
 		//ships" - the registry's 50, and 25 here
-		'OFF_LUCK' => array('pct' => array('Dilgar Imperium' => 25)),
+		//Stage 38: "One ship in a Torvalus fleet can get the Lucky Captain too, and they pay the Dilgar price for it, not the inflated price"
+		'OFF_LUCK' => array('pct' => array('Dilgar Imperium' => 25, 'Torvalus Speculators' => 25), 'ancients' => array('Torvalus Speculators'),
+			'perFleet' => array('Torvalus Speculators' => 1)),
 	);
 
 	/* One literal per officer (D6), walked in THIS order by apply() (D5).
@@ -650,8 +698,9 @@ class Officers{
 		   the scenario. If the evangelist's ship disengages, there are no ill effects, though any bonuses are lost" - every unit of his
 		   PLAYER's fleet (user ruling 2026-10-29), applied fleet-wide once every ship is constructed (applyMorale), so `apply` is null.
 		   The +5% is +1 fire control on every weapon (user expectation, §9.35), which interception never reads ("does not affect defensive
-		   fire"); on a serving Expert Gunner's weapon the Gunner's +1 replaces it, the -1 still applies (user ruling). Several are allowed
-		   (the user's note, over "no more than one"): they do not stack, and a lost one's penalty stands beside a serving one's bonus. "5%
+		   fire"); on a serving Expert Gunner's weapon the Gunner's +1 replaces it, the -1 still applies (user ruling). One to a fleet since
+		   Stage 38 ($factionRules `perFleet`, user 2026-10-31 - the 2026-10-29 note had allowed several); applyMorale still lets several sit
+		   side by side without stacking, a lost one's penalty beside a serving one's bonus (a game committed before the limit). "5%
 		   of the cost of the fleet" (`fleet`): of the slot's points, or of the fleet itself in an Unlimited slot - the LOBBY's to work
 		   out (officers.repriceFleet), so the server keeps what the row says it cost (fleetRowPrice). "Corillani CPN and OSF sub-faction
 		   units only": the Corillani Theocracy ($factionRules) hulls whose notes name either (isCpnOrOsf - user ruling 2026-10-29). Moves
@@ -905,19 +954,187 @@ class Officers{
 		return isset(self::$registry[$id]) ? self::$registry[$id]['label'] : (string)$id;
 	}
 
+	/* Stage 38: his name on this unit - its faction's `label` ($factionRules, by his rulesId), else the registry's: the Torvalus'
+	   Political Officer is their Expert Gambler in the buy dialog, his stored row, his notes and the combat log alike. The lobby and the
+	   game read the same names off the blueprint's `officerLabels` (blueprintAnnotations - officers.label). */
+	public static function labelFor($ship, $id){
+		$rules = isset(self::$registry[$id]) ? self::rulesId($id) : (string)$id;
+		$faction = is_object($ship) ? (string)$ship->faction : '';
+		return isset(self::$factionRules[$rules]['label'][$faction]) ? self::$factionRules[$rules]['label'][$faction] : self::getLabel($id);
+	}
+
 	public static function getFactionRules(){
 		return self::$factionRules;
 	}
 
-	//Does $factionRules let this unit's faction be offered him?
+	//Stage 38: an Ancient or Primordial hull (factionAge 3+) - offered only the officers whose `ancients` rule names its faction (D9)
+	private static function isAncient($ship){
+		return (int)$ship->factionAge >= 3;
+	}
+
+	/* Does $factionRules let this unit be offered him? For a younger hull `only` and `never`, for an Ancient one `ancients` alone (Stage 38),
+	   and then the faction's `hulls`. An officer another one grants this faction (`grants`) is offered exactly where his grantor is,
+	   whatever his own rules say - his only way aboard. */
 	private static function factionAllows($ship, $id){
+		$grantor = self::grantorOf($ship, $id);
+		if ($grantor !== null) return self::isEligible($ship, $grantor);
 		$id = self::rulesId($id);
-		if (!isset(self::$factionRules[$id])) return true;
-		$rule = self::$factionRules[$id];
+		$rule = isset(self::$factionRules[$id]) ? self::$factionRules[$id] : array();
 		$faction = (string)$ship->faction;
-		if (isset($rule['only']) && !in_array($faction, $rule['only'], true)) return false;
-		if (isset($rule['never']) && in_array($faction, $rule['never'], true)) return false;
+		if (self::isAncient($ship)){
+			if (!in_array($faction, $rule['ancients'] ?? array(), true)) return false;
+		} else {
+			if (isset($rule['only']) && !in_array($faction, $rule['only'], true)) return false;
+			if (isset($rule['never']) && in_array($faction, $rule['never'], true)) return false;
+		}
+		return !isset($rule['hulls'][$faction]) || self::isHullListed($ship, $rule['hulls'][$faction]);
+	}
+
+	//Stage 38: is this hull one of a `hulls` list - its PHP class name, as its ship file declares it (case-insensitive, as PHP's own)
+	private static function isHullListed($ship, array $classes){
+		foreach ($classes as $class) if (strcasecmp(get_class($ship), (string)$class) === 0) return true;
+		return false;
+	}
+
+	/* ------------------------------------------------------------------ Stage 38: grants and fleet rules */
+
+	/* Who brings this officer or refit to this unit's faction ($factionRules `grants`) - an officer whose list names it for the faction AND
+	   whose own rules make it free (grantGroups: nothing else can be granted) - or null. Granted, it is offered only where he is (factionAllows,
+	   Enhancements::systemEnhancementAllowsAge) and stands only while he makes it free (grantStands, dropUngrantedRefits). */
+	public static function grantorOf($ship, $id){
+		$faction = is_object($ship) ? (string)$ship->faction : '';
+		foreach (self::$factionRules as $grantor => $rule){
+			if (empty($rule['grants'][$faction]) || !in_array((string)$id, $rule['grants'][$faction], true)) continue;
+			foreach (self::grantGroups($grantor) as $group) if (in_array((string)$id, $group['ids'], true)) return $grantor;
+		}
+		return null;
+	}
+
+	/* What an officer's own rules make FREE - all he can grant: groups of ids, how many of a group he frees on one unit, and whether a refit's
+	   free one may sit on Structure. The Expert Political Officer: one of his four experts (freeExpertId) and five Hardened Armour, never on
+	   Structure (freeArmourRows). Sent to the lobby as `officerGrants` (blueprintAnnotations). */
+	private static function grantGroups($grantor){
+		if ($grantor === 'OFF_POL') return array(
+			array('ids' => self::$politicalExperts, 'count' => 1, 'notStructure' => false),
+			array('ids' => array('SYS_HARM'), 'count' => self::POLITICAL_ARMOUR_SYSTEMS, 'notStructure' => true),
+		);
+		return array();
+	}
+
+	/* May this bought officer row stand as far as `grants` go? Yes for one nobody grants this unit's faction; a granted one only while his
+	   grantor is aboard and frees him - the Political Officer's free expert (freeExpertId, the dearest of the four bought: so of two bought,
+	   one stands). A granted officer is never bought at a price. pickPosts, the commit (sanitiseFleet) and a saved fleet's reload ask it. */
+	public static function grantStands($ship, $id){
+		$grantor = self::grantorOf($ship, $id);
+		if ($grantor === null) return true;
+		if ($grantor === 'OFF_POL') return self::freeExpertId($ship) === $id;
+		return false;
+	}
+
+	/* Is this a refit his `grants` bring this hull - the age gate's answer for it (Enhancements::systemEnhancementAllowsAge): true where the
+	   hull is offered its grantor, false where it is not, null for a refit nobody grants this faction (its own `ages` decide). */
+	public static function grantsRefit($ship, $enhID){
+		$grantor = self::grantorOf($ship, $enhID);
+		if ($grantor === null) return null;
+		return self::isEligible($ship, $grantor);
+	}
+
+	//...and may this system carry it - never Structure where the free ones may not sit there (the Political Officer's armour)
+	public static function grantMayHost($ship, $system, $enhID){
+		$grantor = self::grantorOf($ship, $enhID);
+		if ($grantor === null) return true;
+		foreach (self::grantGroups($grantor) as $group){
+			if (in_array((string)$enhID, $group['ids'], true) && $group['notStructure'] && $system instanceof Structure) return false;
+		}
 		return true;
+	}
+
+	/* A granted refit stands only while it is free: run last in priceFreeRefits, on rows already priced, so every row of a refit his grantor
+	   brings this unit that still costs points (a sixth Hardened Armour, or any with no Gambler aboard) is dropped, with a notice. */
+	private static function dropUngrantedRefits($ship, array $out){
+		$rows = array();
+		$out['total'] = 0;
+		foreach ($out['rows'] as $row){
+			if (self::grantorOf($ship, (string)$row[0]) !== null && (float)$row[4] > 0){
+				$out['notices'][] = Enhancements::systemEnhancementLabel((string)$row[0]) . " on {$row[7]} #{$row[6]} was removed: this unit has it only"
+					. ' as the ' . self::labelFor($ship, self::grantorOf($ship, (string)$row[0])) . '\'s, free.';
+				continue;
+			}
+			$rows[] = $row;
+			$out['total'] += $row[4];
+		}
+		$out['rows'] = $rows;
+		return $out;
+	}
+
+	/* Stage 38: the fleet rules of his rulesId for this unit's faction ($factionRules `perFleet`, `notWith`): array('max' => n or null,
+	   'notWith' => rulesIds). notWith reads both ways: his own list, and every officer whose list names him. */
+	public static function fleetRule($ship, $id){
+		$faction = (string)$ship->faction;
+		$id = self::rulesId((string)$id);
+		$max = isset(self::$factionRules[$id]['perFleet'][$faction]) ? (int)self::$factionRules[$id]['perFleet'][$faction] : null;
+		$not = isset(self::$factionRules[$id]['notWith'][$faction]) ? self::$factionRules[$id]['notWith'][$faction] : array();
+		foreach (self::$factionRules as $other => $rule){
+			if (in_array($id, $rule['notWith'][$faction] ?? array(), true)) $not[] = $other;
+		}
+		$out = array();
+		foreach ($not as $other) if (isset(self::$registry[$other])) $out[self::rulesId($other)] = true;
+		unset($out[$id]);
+		return array('max' => $max, 'notWith' => array_keys($out));
+	}
+
+	/* ⭐ THE FLEET-WIDE OFFICER RULES, as the fleet is COMMITTED (BuyingGamePhase, once per slot, before any unit is saved). $fleet: one player's
+	   units in that slot, in fleet order. Unit by unit, its officer rows in registry order and then its placed rows, each bought officer the hull
+	   is offered stands only while it keeps within his faction's `perFleet` and meets no officer his `notWith` (either side's) on a unit of the
+	   same faction kept before him, and - a granted one - while his grantor frees him (grantStands). A row that does not stand is ZEROED: it
+	   buys nothing, as a row pickPosts refuses buys nothing, and its points stay spent. The lobby refuses all of it as the player buys
+	   (officers.fleetBlock, officers.dialogBlock, officers.refitBlock) and the Fleet Correctness Report names it (officers.fleetConflicts); this is the guarantee for
+	   a doctored or stale fleet. Returns how many rows it zeroed. ⚠️ MIRROR PAIR with officers.fleetConflicts (JS). */
+	public static function sanitiseFleet(array $fleet){
+		$kept = array(); //faction => rulesId => officers kept so far
+		$zeroed = 0;
+		foreach ($fleet as $ship){
+			if (!is_object($ship) || !is_array($ship->enhancementOptions ?? null)) continue;
+			$faction = (string)$ship->faction;
+			foreach (self::$registry as $id => $officer){ //registry order - the offers are listed by label
+				if (self::isPlacedOfficer($id)) continue;
+				foreach ($ship->enhancementOptions as $i => $entry){
+					$count = isset($entry[2]) ? (int)$entry[2] : 0;
+					if (!isset($entry[0]) || (string)$entry[0] !== $id || $count < 1 || !self::isEligible($ship, $id)) continue;
+					$room = self::fleetRoom($ship, $id, $kept);
+					if (!self::grantStands($ship, $id)) $room = 0;
+					if ($room < $count){
+						$ship->enhancementOptions[$i][2] = max(0, $room);
+						$zeroed++;
+						$count = max(0, $room);
+					}
+					if ($count > 0) $kept[$faction][self::rulesId($id)] = ($kept[$faction][self::rulesId($id)] ?? 0) + $count;
+				}
+			}
+			if (empty($ship->systemEnhancements) || !is_array($ship->systemEnhancements)) continue;
+			foreach ($ship->systemEnhancements as $k => $row){
+				if (!is_array($row) || !isset($row[0], $row[2], $row[6]) || (int)$row[2] < 1 || !self::isPlacedOfficer((string)$row[0])) continue;
+				$system = $ship->getSystemById((int)$row[6]);
+				if (!$system || !Enhancements::systemEnhancementOffered($ship, $system, (string)$row[0])) continue;
+				if (self::fleetRoom($ship, (string)$row[0], $kept) < 1){
+					$ship->systemEnhancements[$k][2] = 0;
+					$zeroed++;
+					continue;
+				}
+				$rules = self::rulesId((string)$row[0]);
+				$kept[$faction][$rules] = ($kept[$faction][$rules] ?? 0) + 1;
+			}
+		}
+		return $zeroed;
+	}
+
+	//how many more of him this unit's faction may still add to the fleet ($kept: sanitiseFleet's tally) - PHP_INT_MAX with no perFleet
+	private static function fleetRoom($ship, $id, array $kept){
+		$faction = (string)$ship->faction;
+		$rule = self::fleetRule($ship, $id);
+		foreach ($rule['notWith'] as $other) if (!empty($kept[$faction][$other])) return 0;
+		if ($rule['max'] === null) return PHP_INT_MAX;
+		return max(0, $rule['max'] - ($kept[$faction][self::rulesId($id)] ?? 0));
 	}
 
 	/* His price in percent for this unit's faction: $factionRules' when it names one, else the registry's - and for an officer with
@@ -937,8 +1154,14 @@ class Officers{
 	   controlled ($remoteControl - the Orieni Hunter-Killers): "they have no pilots" (user ruling
 	   2026-10-11). The Hunter-Killers were offered the Expert Motivator while it was an enhancement,
 	   so a saved fleet can still hold one - Manager::loadSavedFleet refunds what it cost (legacyPrice). */
-	public static function mayCarryOfficers($ship){
-		if ((int)$ship->factionAge >= 3) return false;
+	public static function mayCarryOfficers($ship, $id = null){
+		//Stage 38: an Ancient hull carries the officers its faction's `ancients` rules name - asked per officer (factionAllows)
+		if (self::isAncient($ship) && ($id === null || !self::factionAllows($ship, (string)$id))) return false;
+		return self::unitMayCarry($ship);
+	}
+
+	//D9's unit test without the hull's age: no OSATs, mines, remotely controlled craft or terrain - whatever the officer
+	private static function unitMayCarry($ship){
 		if ($ship instanceof OSAT || !empty($ship->osat)) return false;
 		if (!empty($ship->mine)) return false;
 		if (!empty($ship->remoteControl)) return false;
@@ -953,11 +1176,11 @@ class Officers{
 	   "one of each type" (D9) - or an officer bought as a count, maxCount; a flight's "one officer in
 	   total" is the buy dialog's to enforce, and pickPosts' to defend. */
 	public static function addOffers($ship){
-		if (!self::mayCarryOfficers($ship)) return;
+		if (!self::unitMayCarry($ship)) return;
 		foreach (self::$registry as $id => $officer){
 			if (in_array($id, $ship->enhancementOptionsDisabled)) continue;
-			if (!self::isEligible($ship, $id)) continue;
-			$ship->enhancementOptions[] = array($id, $officer['label'], 0, self::maxCount($ship, $id), self::offerPrice($ship, $id), 0, false);
+			if (!self::isEligible($ship, $id)) continue; //Stage 38: an Ancient hull's faction rules too (factionAllows)
+			$ship->enhancementOptions[] = array($id, self::labelFor($ship, $id), 0, self::maxCount($ship, $id), self::offerPrice($ship, $id), 0, false);
 		}
 	}
 
@@ -1195,6 +1418,7 @@ class Officers{
 	//($factionRules), the hull has the post, and passes the officer's own test if he has one
 	private static function isEligible($ship, $id){
 		$officer = self::$registry[$id];
+		if (!self::unitMayCarry($ship)) return false; //D9 - and the hull's age is factionAllows' (Stage 38)
 		/* Track 2 has no ship-level row - offered per weapon by setSystemEnhancementOptions, posted by
 		   pickPlacedPosts, asked per system by mayHost - so neither addOffers nor a doctored row reaches it. */
 		if (!empty($officer['placed'])) return false;
@@ -1218,12 +1442,13 @@ class Officers{
 	   $ship->fighters is still the blueprint's - Enhancements' hangar conversions rewrite it next. */
 	public static function pickPosts($ship){
 		$list = array();
-		if (self::hasOfficerRow($ship) && self::mayCarryOfficers($ship)){
+		if (self::hasOfficerRow($ship) && self::unitMayCarry($ship)){
 			$first = null; //a flight's first officer bought as a count, whose `mixesWith` may follow him
 			$craft = 0;    //...and the crafts taken so far
 			foreach (self::$registry as $id => $officer){
 				if (!self::isBought($ship, $id)) continue;
 				if (!self::isEligible($ship, $id)) continue;
+				if (!self::grantStands($ship, $id)) continue; //Stage 38: a granted officer only as his grantor's free one
 				if ($first !== null && !in_array($id, self::$registry[$first]['mixesWith'], true)) continue;
 				if (!empty($officer['multi']) && $ship instanceof FighterFlight){
 					$n = min(self::boughtCount($ship, $id), self::maxCount($ship, $id), self::craftCount($ship) - $craft);
@@ -1346,7 +1571,7 @@ class Officers{
 	   ship-level officer he IS (sameAs) covers him too. */
 	public static function mayHost($ship, $system, $id){
 		if (!self::isPlacedOfficer($id)) return false;
-		if ($ship instanceof FighterFlight || !self::mayCarryOfficers($ship)) return false;
+		if ($ship instanceof FighterFlight || !self::mayCarryOfficers($ship, $id)) return false;
 		if (in_array($id, $ship->enhancementOptionsDisabled) || in_array(self::rulesId($id), $ship->enhancementOptionsDisabled)) return false; //the per-hull opt-out, as addOffers honours it
 		if (!self::factionAllows($ship, $id)) return false;
 		if (empty(self::$registry[$id]['nonWeapon']) && !($system instanceof Weapon)) return false;
@@ -1877,7 +2102,7 @@ class Officers{
 			$list[$i]['stays'][] = array('id' => $as, 'post' => (int)$target->id, 'from' => $turn + 1, 'to' => null);
 			$list[$i]['transit'][] = $turn;
 			Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $ship->id, (int)$claim['from'],
-				self::TRANSFER_NOTE, substr(self::getLabel($list[$i]['id']) . ' moves to #' . (int)$target->id, 0, 40),
+				self::TRANSFER_NOTE, substr(self::labelFor($ship, $list[$i]['id']) . ' moves to #' . (int)$target->id, 0, 40),
 				$list[$i]['id'] . ':' . (int)$target->id));
 		}
 	}
@@ -2058,7 +2283,7 @@ class Officers{
 					//notekey_human is varchar(40) and an overflow aborts the whole advance: the longest
 					//planned label, "Expert Software Engineer killed", is 31
 					Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase,
-						$ship->id, $post->id, self::KILL_NOTE, substr(self::getLabel($id) . ' killed', 0, 40), $id));
+						$ship->id, $post->id, self::KILL_NOTE, substr(self::labelFor($ship, $id) . ' killed', 0, 40), $id));
 				}
 			}
 			if ($changed) $ship->setOfficers($list);
@@ -2304,7 +2529,7 @@ class Officers{
 		$ship->setOfficers($list);
 		$ship->recordOfficerUse($list[$i]['id'], $list[$i]['post'], $ability, $turn, $unit);
 		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, (int)$turn, $gamedata->phase, $ship->id, (int)$list[$i]['post'],
-			self::USE_NOTE, substr(self::getLabel($list[$i]['id']) . ': ' . self::$abilityNames[$ability] . ' used', 0, 40),
+			self::USE_NOTE, substr(self::labelFor($ship, $list[$i]['id']) . ': ' . self::$abilityNames[$ability] . ' used', 0, 40),
 			$list[$i]['id'] . ':' . $ability . ($unit !== null ? ':' . (int)$unit : '')));
 	}
 
@@ -3252,7 +3477,7 @@ class Officers{
 	   would not be offered buys nothing, as in pickPosts. */
 	public static function politicalAboard($ship){
 		if (!is_object($ship) || empty($ship->enhancementOptions) || !is_array($ship->enhancementOptions)) return false;
-		if (!self::isBought($ship, 'OFF_POL') || !self::mayCarryOfficers($ship)) return false;
+		if (!self::isBought($ship, 'OFF_POL') || !self::mayCarryOfficers($ship, 'OFF_POL')) return false;
 		return self::isEligible($ship, 'OFF_POL');
 	}
 
@@ -3361,7 +3586,7 @@ class Officers{
 				return;
 			}
 		}
-		$ship->enhancementOptions[] = array($id, self::getLabel($id), 1, 1, self::shipPrice($ship, $id), 0, false);
+		$ship->enhancementOptions[] = array($id, self::labelFor($ship, $id), 1, 1, self::shipPrice($ship, $id), 0, false);
 	}
 
 	/* "Once during each scenario, the political officer can give a stirring speech ... This provides the ship with +30 to its
@@ -3409,8 +3634,10 @@ class Officers{
 				$ram = $ship->getSystemByName('RammingAttack');
 				if (!$ram) continue;
 				$order = new FireOrder(-1, 'normal', $ship->id, $ship->id, $ram->id, -1, $turn, 1, 0, 1, 0, 0, 0, 0, 0, self::SPEECH_DAMAGE_CLASS, 10000);
-				$order->pubnotes = 'The Political Officer on-board <span class="shiplink" data-id="' . (int)$ship->id . '">' . $ship->name
-					. '</span> begins a stirring speech about ' . self::$speechTopics[Dice::d(count(self::$speechTopics)) - 1] . '.';
+				//Stage 38: by his faction's name for him, on his faction's topics - "The Gambler on-board ..." for the Torvalus
+				$topics = isset(self::$speechTopicsByFaction[(string)$ship->faction]) ? self::$speechTopicsByFaction[(string)$ship->faction] : self::$speechTopics;
+				$order->pubnotes = 'The ' . preg_replace('/^Expert /', '', self::labelFor($ship, 'OFF_POL')) . ' on-board <span class="shiplink" data-id="'
+					. (int)$ship->id . '">' . $ship->name . '</span> begins a stirring speech about ' . $topics[Dice::d(count($topics)) - 1] . '.';
 				$order->addToDB = true;
 				$ram->fireOrders[] = $order;
 			}
@@ -3789,7 +4016,7 @@ class Officers{
 		$list[$i]['how'] = 'killed';
 		$flight->setOfficers($list);
 		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $flight->id, (int)$craft->id,
-			self::KILL_NOTE, substr(self::getLabel('OFF_TRPOD') . ' killed', 0, 40), 'OFF_TRPOD'));
+			self::KILL_NOTE, substr(self::labelFor($flight, 'OFF_TRPOD') . ' killed', 0, 40), 'OFF_TRPOD'));
 	}
 
 	/* "If any of his own ship's breaching pods attack an opponent, they gain a +1 bonus on any attack table": "his own ship's" are as many
@@ -4686,7 +4913,7 @@ class Officers{
 		if ((int)$entry['post'] !== (int)$cnc->id || !self::luckyMay($entry, $ability, $turn)) return;
 		$ship->recordLuckyArm($turn, $ability);
 		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $ship->id, (int)$entry['post'], self::LUCK_NOTE,
-			substr(self::getLabel('OFF_LUCK') . ': ' . self::$abilityNames[$ability] . ' armed', 0, 40), $ability));
+			substr(self::labelFor($ship, 'OFF_LUCK') . ': ' . self::$abilityNames[$ability] . ' armed', 0, 40), $ability));
 	}
 
 	/* ------ feat 4, disengaging */
@@ -5235,7 +5462,7 @@ class Officers{
 		$post = null;
 		foreach ($ship->getOfficers() as $entry) if ($entry['id'] === 'OFF_SCAV') $post = (int)$entry['post'];
 		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase,
-			$ship->id, $post, self::SAVE_NOTE, substr(self::getLabel('OFF_SCAV') . ' save used', 0, 40), 'OFF_SCAV'));
+			$ship->id, $post, self::SAVE_NOTE, substr(self::labelFor($ship, 'OFF_SCAV') . ' save used', 0, 40), 'OFF_SCAV'));
 		return $damage - min(self::SAVE_POINTS, $dealt);
 	}
 
@@ -5387,7 +5614,7 @@ class Officers{
 		$crafts = $ordered;
 
 		$id = $travelling[0]['id']; //a flight's one officer, or several of one kind bought as a count (D9)
-		$label = self::getLabel($id);
+		$label = self::labelFor($source, $id);
 		$count = count($travelling);
 		Manager::insertSingleEnhancement($gamedata, $target->id, $id, $count, $label);
 		$target->enhancementOptions[] = array($id, $label, $count, 0, 0, 0);
@@ -5440,7 +5667,7 @@ class Officers{
 	   ship. A row the hull would not be offered buys nothing, as in pickPosts. */
 	public static function ballisticAboard($ship){
 		if (!is_object($ship) || empty($ship->enhancementOptions) || !is_array($ship->enhancementOptions)) return false;
-		if (!self::isBought($ship, 'OFF_BALL') || !self::mayCarryOfficers($ship)) return false;
+		if (!self::isBought($ship, 'OFF_BALL') || !self::mayCarryOfficers($ship, 'OFF_BALL')) return false;
 		return self::isEligible($ship, 'OFF_BALL');
 	}
 
@@ -5591,6 +5818,38 @@ class Officers{
 			$picks = self::quartermasterPicks($ship);
 			if ($picks > 0) $out['quartermasterPicks'] = $picks;
 		}
+		/* Stage 38: the faction's names for officers (`label`), on every hull of it whatever it is offered - game.php's blueprints are these
+		   too, so the game's insignia and tooltips read them (officers.label). */
+		$labels = array();
+		foreach (self::$registry as $id => $officer){
+			$label = self::labelFor($ship, $id);
+			if ($label !== $officer['label']) $labels[$id] = $label;
+		}
+		if ($labels) $out['officerLabels'] = $labels;
+		//...the fleet rules of the officers it is offered, placed twins by their rulesId (officers.fleetBlock, the Fleet Correctness Report)
+		foreach ((array)($ship->systemEnhancementOffers ?? array()) as $offer) if (isset($offer[0]) && self::isPlacedOfficer((string)$offer[0])) $offered[$offer[0]] = true;
+		$fleet = array();
+		foreach (array_keys($offered) as $id){
+			if (!isset(self::$registry[$id])) continue;
+			$rule = self::fleetRule($ship, $id);
+			if ($rule['max'] === null && !$rule['notWith']) continue;
+			$entry = array();
+			if ($rule['max'] !== null) $entry['max'] = $rule['max'];
+			if ($rule['notWith']) $entry['notWith'] = $rule['notWith'];
+			$fleet[self::rulesId($id)] = $entry;
+		}
+		if ($fleet) $out['officerFleet'] = $fleet;
+		//...and what an officer it is offered grants it (`grants`): each free group's ids, how many he frees, and whether Structure may take one
+		$faction = (string)$ship->faction;
+		$grants = array();
+		foreach (array_keys($offered) as $id){
+			if (empty(self::$factionRules[$id]['grants'][$faction])) continue;
+			foreach (self::grantGroups($id) as $group){
+				$ids = array_values(array_intersect($group['ids'], self::$factionRules[$id]['grants'][$faction]));
+				if ($ids) $grants[$id][] = array('ids' => $ids, 'count' => $group['count'], 'notStructure' => $group['notStructure']);
+			}
+		}
+		if ($grants) $out['officerGrants'] = $grants;
 		return $out;
 	}
 
@@ -5600,7 +5859,7 @@ class Officers{
 	   at buy, save and reload) and the commit's picks. A row the hull would not be offered buys nothing, as in pickPosts. */
 	public static function quartermasterAboard($ship){
 		if (!is_object($ship) || empty($ship->enhancementOptions) || !is_array($ship->enhancementOptions)) return false;
-		if (!self::isBought($ship, 'OFF_QM') || !self::mayCarryOfficers($ship)) return false;
+		if (!self::isBought($ship, 'OFF_QM') || !self::mayCarryOfficers($ship, 'OFF_QM')) return false;
 		return self::isEligible($ship, 'OFF_QM');
 	}
 
@@ -5764,7 +6023,7 @@ class Officers{
 			}
 			$out['total'] += $out['rows'][$i][4];
 		}
-		return $out;
+		return self::dropUngrantedRefits($ship, $out); //Stage 38: a refit an officer grants stands only while it is free
 	}
 
 	/* As the fleet is COMMITTED (BuyingGamePhase, after the refits are sanitised, before placePoliticalPicks), what the player left of his free
