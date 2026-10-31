@@ -717,6 +717,23 @@ window.officers = {
 		return null;
 	},
 
+	/* Stage 38: a COPY's placed officers the fleet has no room for (fleetBlock - the copy is not in the fleet yet, the original is): their rows
+	   taken off before the copy is priced, as the copy dialog leaves a ship-level one at 0. Returns one sentence per officer left behind. */
+	dropFleetBlockedPlaced: function dropFleetBlockedPlaced(ship) {
+		if (!ship || !Array.isArray(ship.systemEnhancements)) return [];
+		var self = this;
+		var dropped = [];
+		ship.systemEnhancements = ship.systemEnhancements.filter(function (row) {
+			var officer = row ? self.get(row[0]) : null;
+			if (!officer || !officer.placed || (parseInt(row[2], 10) || 0) < 1) return true;
+			var reason = self.fleetBlock(ship, row[0]);
+			if (!reason) return true;
+			dropped.push('The ' + self.label(row[0], ship) + ' was not copied: ' + reason);
+			return false;
+		});
+		return dropped;
+	},
+
 	/* Stage 38: is this ship-level officer not to be offered in a buy dialog now - the rest of the fleet has no room for him (fleetBlock) or
 	   the rows ticked beside him rule him out (dialogBlock)? confirm.refreshOfficerRows hides such a row while it is untaken (user request
 	   2026-10-31: unavailable options do not appear). */

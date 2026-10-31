@@ -5978,11 +5978,7 @@ experts on the three capitals, with Hardened Armour on 18-20 systems each, and t
 offered anything.
 
 **Not built / left as is:** the statics sweeps of earlier stages that assume "no Ancient" pass (they filter by faction); the client harness's Stage 28
-Warrior count moved 51 -> 58. UNRESOLVED, not changed (user's call, 2026-10-31): whether a lobby COPY keeps the original's PER-SYSTEM rows (refits and
-placed officers). Ship-level officers do copy, priced right (the user's test). A probe running the real copyShip / doCopyShip with the real officers.js
-and systemEnhancements.js through a fake dialog (scratchpad `copyprobe.js`: an Omega with Gunsights and a placed Gunner copied as a bare 925) says the
-per-system rows are not carried - doCopyShip rebuilds the unit from a fresh blueprint - but the user does not see that on the local site. Look in a real
-browser before acting on it.
+Warrior count moved 51 -> 58. FIXED the same day (user confirmed it): a lobby COPY now keeps the original's PER-SYSTEM rows - see the copy follow-up below.
 - Verified (stack up, 2026-10-31): `officersHarness.php` WITH the database **2853 / 0** (61 new: the statics sweep of every Ancient/Primordial hull, prices,
   label, mayCarryOfficers, the Consortium's twin offers, the three annotations, serving, sanitiseFleet incl. notWith from one side only, the Gambler's
   armour and speech; `checkFactionRules` knows the six keys and checks each - an Ancient faction, a faction's own hull class, a label short enough, a grant
@@ -6005,8 +6001,15 @@ browser before acting on it.
   copes with several (a game committed before the limit). Docs card and registry note updated.
 - **Ruled, not built:** `grants` stays the Political Officer's (the user had read it as a general freebie mechanism - not needed for the Quartermaster or
   Ballistic Officer); the Gambler stays capital ships only, as for the Centauri.
-- **The copy note is now UNRESOLVED** (see "Not built" above): the user's local tests show copies keeping what was bought.
-- Verified: `officersHarness.php` (DB) **2854 / 0**; `officersClientHarness.js` **1222 / 0**; differential **964 / 0**; enhancements **302 / 0**;
+- **Copies keep their refits and placed officers** (pre-existing bug, user-confirmed once "refits" was explained - ship-level officers always copied):
+  copyShip put the original's per-system rows on the dialog's unit, but doCopyShip rebuilds the unit from a fresh blueprint and dropped them, uncharged.
+  Now carried across the rebuild (DEEP clone, as the damage), painted after lobbyEnhancements.apply and the damage preview as doEditShip does, priced
+  by what the copy bought (a Gambler's / Political Officer's / Quartermaster's free ones stay free only with him), swept - a placed officer past a
+  fleet limit (`officers.dropFleetBlockedPlaced`, with a notice), a system the damage destroys (D11), what an unticked officer granted
+  (dropDestroyedPosts) - and the affordability check moved after, so the refits count. The copy's rows always replace the rebuilt unit's own
+  (copyShip's stand-in can register a class off a bought unit on a loaded fleet). Client harness +5 (real copyShip / doCopyShip in a vm), browser
+  driver +1 (the real Copy window: an Omega with Gunsights and a Gunner copies at 1033), mutants K01-K03 caught.
+- Verified: `officersHarness.php` (DB) **2854 / 0**; `officersClientHarness.js` **1227 / 0** (after the copy fix); differential **964 / 0**; enhancements **302 / 0**;
   `fvbuild -Check` **all checks passed** (replay 189 / 0); new browser driver `tests/replay/officersE2E/ancient38.mjs` (the REAL buy dialog over the
-  real bundles, no PHP/session) **19 / 19**; mutation `mutate38b.js` **11 / 11** (E05, a taken row hidden, survived until the edit-a-saved-fleet case
+  real bundles, no PHP/session) **20 / 20**; mutation `mutate38b.js` **14 / 14** (E05, a taken row hidden, survived until the edit-a-saved-fleet case
   was added). Statics, bundles, `-Sync` done. Not play-tested.

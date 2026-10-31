@@ -4413,13 +4413,11 @@ window.gamedata = {
 		if ($(".confirm .totalUnitCostAmount").length > 0) {
 			ship.pointCost = $(".confirm .totalUnitCostAmount").data("value");
 		}
-		var newPointCost = ship.pointCost;
-
-		if (!gamedata.canAfford(ship)) {
-			$(".confirm").remove();
-			window.confirm.error("You cannot afford this ship!", function () { });
-			return;
-		}
+		var newPointCost = ship.pointCost; //the dialog's total: the hull and the ship-level rows - the refits are added below
+		/* Per-system refits and placed officers (WEAPON_ENHANCEMENTS_PLAN.md §5.2 - user report 2026-10-31: a copy kept neither). copyShip put
+		   the original's rows on the dialog's unit, but the rebuild below starts again from the blueprint: carried across like the damage,
+		   DEEP-cloned so the copy never shares the original's rows. The affordability check moved below, to price them in. */
+		var copiedRefits = window.systemEnhancements ? systemEnhancements.clone(ship.systemEnhancements) : null;
 
 		//Pre-battle damage (§5.3): the line below rebuilds the ship from its blueprint, so
 		//carry the payload across the rebuild (deep-cloned by battleDamage.clone).
@@ -4534,12 +4532,44 @@ window.gamedata = {
 		var copyDamageDiscarded = window.battleDamage
 			&& battleDamage.onShipRebuilt(ship, copiedFlightSize);
 
+		/* The carried refits, as doEditShip paints them: after lobbyEnhancements.apply (a refit stacks ON TOP of ELITE_CREW's bump) and after
+		   the damage preview (the D11 sweep needs its structure cascade). Priced by what THIS copy bought - an Expert Political Officer's free
+		   armour or a Quartermaster's free refit is free only with him aboard (totalCost re-prices them) - and swept: a placed officer the
+		   fleet has no room for (OFFICERS_PLAN.md Stage 38 - the copy is not in the fleet yet, the original is), a refit or placed officer on
+		   a system the damage destroys (D11), and anything the officers unticked in the dialog granted or posted (dropDestroyedPosts). */
+		var refitsDropped = [];
+		var fleetDropped = [];
+		if (copiedRefits) {
+			//the copy's own rows, never a blueprint's (a loaded fleet registers its class off a bought unit - copyShip's stand-in)
+			ship.systemEnhancements = copiedRefits;
+			ship.pointCostSysEnh = 0;
+		}
+		if (copiedRefits && copiedRefits.length) {
+			lobbyEnhancements.apply(ship);
+			if (window.officers) fleetDropped = officers.dropFleetBlockedPlaced(ship);
+			systemEnhancements.apply(ship);
+			systemEnhancements.totalCost(ship);
+			refitsDropped = systemEnhancements.dropDestroyed(ship);
+		}
+		ship.pointCost = newPointCost + (parseFloat(ship.pointCostSysEnh) || 0);
+		if (window.officers && typeof officers.dropDestroyedPosts === 'function') {
+			refitsDropped = refitsDropped.concat(officers.dropDestroyedPosts(ship)); //moves pointCost itself
+		}
+
+		if (!gamedata.canAfford(ship)) {
+			$(".confirm").remove();
+			window.confirm.error("You cannot afford this ship!", function () { });
+			return;
+		}
+
 		$(".confirm").remove();
 		gamedata.updateFleet(ship);
 
 		if (copyDamageDiscarded) {
 			confirm.warning("Size reduced - pre-battle damage on the units above the new size was not copied.");
 		}
+		if (refitsDropped.length) confirm.warning(systemEnhancements.describeRemoved(refitsDropped));
+		if (fleetDropped.length) confirm.warning(fleetDropped.join(' '));
 		//gamedata.populateFleetDropdown();
 	},
 
