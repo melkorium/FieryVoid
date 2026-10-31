@@ -430,6 +430,9 @@ CnC.prototype.doIndividualNotesTransfer = function () {
 		//OFFICERS_PLAN.md Stage 25: an Expert Political Officer's speech, ordered this Firing phase (CnC::saveFirePhaseDeclaration reads it)
 		//Stage 28: or, on an Expert Warrior's C&C, his Supreme Anticipation
 		if (this.active) declared.unshift(this.isWarriorPost() ? 'anticipation' : 'speech');
+		//OFFICERS_PLAN.md Stage 37: a Lucky Captain's Firing-phase feat, armed from his menu (CnC::saveFirePhaseDeclaration -> Officers::saveLuckyArm)
+		var luck = this.getLuckyTransfer();
+		if (luck) declared.push(luck);
 		if (!declared.length) return false;
 		this.individualNotesTransfer = declared;
 		return true;
@@ -441,9 +444,19 @@ CnC.prototype.doIndividualNotesTransfer = function () {
 		transfer = [1, swap]; //the Triad's reads its first two places only
 	}
 	if (leader) transfer.push(leader);
+	//Stage 37: a Lucky Captain's Initial Orders feat (Officers::saveLuckyOrder reads it)
+	var luck = this.getLuckyTransfer();
+	if (luck) transfer.push(luck);
 	if (!transfer.length) return false;
 	this.individualNotesTransfer = transfer;
 	return true;
+};
+
+//Stage 37: what this C&C's Lucky Captain picked for the commit - 'luck:<ability>' - or null. Only the C&C he is posted in carries it (officers.luckyCnc).
+CnC.prototype.getLuckyTransfer = function () {
+	if (!window.officers || officers.luckyCnc(this.ship) !== this) return null;
+	var choice = officers.luckyChoice(this.ship);
+	return choice ? 'luck:' + choice : null;
 };
 
 //Stage 34: what this C&C's Expert War Leader has ordered for the commit - 'taunt' / 'anticipate' (Initial Orders), 'wrath:<id>' / 'glory:<id>'
@@ -505,7 +518,7 @@ CnC.prototype.doDeactivate = function () {
 };
 
 //Save Orders (SAVE_ORDERS_PLAN.md §1.4): the Command Node's nomination and swap in Initial Orders, the speech in the Firing phase.
-CnC.prototype.draftStateKeys = ['commandNodeTurn', 'commandNodeSwap', 'active', 'warLeaderOrder', 'warLeaderPick']; //Stage 34: the War Leader's
+CnC.prototype.draftStateKeys = ['commandNodeTurn', 'commandNodeSwap', 'active', 'warLeaderOrder', 'warLeaderPick', 'luckyOrder']; //Stage 34: the War Leader's; Stage 37: the Lucky Captain's
 CnC.prototype.draftStatePhases = [1, 3];
 
 //The ship's Triad C&C (in any state), or null.

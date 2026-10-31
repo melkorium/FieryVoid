@@ -77,6 +77,9 @@ window.ShipTooltipInitialOrdersMenu = function () {
            yellow menu of - / + for its offensive bonus and its thrust (ElectricianPicker). An Initial Orders choice, so not in ewButtons. Fails closed
            on a null selection. */
         { className: "electricianShunt", condition: [isSelf, canElectrify], action: openElectricianPicker, info: electricianInfo },
+        /* OFFICERS_PLAN.md Stage 37 - a Lucky Captain's Initial Orders feat (EW Last, Disengage, Best Initiative): on his own ship, his menu
+           (LuckyPicker; the Firing-phase menu offers the same button for his Firing-phase feats). Not in ewButtons. Fails closed on a null selection. */
+        { className: "luckyCaptain", condition: [isSelf, canLucky], action: openLuckyPicker, info: luckyInfo },
         { className: "targetWeapons", condition: [isEnemy, hasShipWeaponsSelected], action: targetWeapons, info: "Target selected weapons on ship" },
         { className: "targetWeaponsHex", condition: [hasOrderSource, hasHexWeaponsSelected], action: targetHexagon, info: "Target selected weapons on hexagon" },
         { className: "targetSuppWeapons", condition: [isFriendly, hasShipWeaponsSelected, FFWeaponSelected, notSelf], action: targetWeapons, info: "Target support weapons" },//30 June 2024 - DK - Added for Ally targeting.
@@ -450,6 +453,24 @@ window.ShipTooltipInitialOrdersMenu = function () {
         var anchor = (event && event.currentTarget) ? event.currentTarget : null;
         if (!window.ElectricianPicker) return;
         ElectricianPicker.open(this.selectedShip, anchor, function () {
+            redrawAfterTriadChoice.call(menu);
+        });
+    }
+
+    function canLucky() {
+        return !!this.selectedShip && !!window.officers && officers.canLucky(this.selectedShip);
+    }
+
+    function luckyInfo() {
+        return officers.luckyButtonInfo(this.selectedShip);
+    }
+
+    //Anchored to the clicked button, as the Analyst's; the tooltip redraws after a pick, so its line shows it
+    function openLuckyPicker(isMaxClick, event) {
+        var menu = this;
+        var anchor = (event && event.currentTarget) ? event.currentTarget : null;
+        if (!window.LuckyPicker) return;
+        LuckyPicker.open(this.selectedShip, anchor, function () {
             redrawAfterTriadChoice.call(menu);
         });
     }

@@ -102,6 +102,10 @@
    fires a sustained shot, built in this stage), boosts and an added Piercing mode (that turn), and every refit on the ship (from then on); the
    officers serving and the Hyach Specialists (also hidden from this stage); a hangar's craft; every magazine's ordnance, or a flight's missiles.
    Cargo is a log line.
+   Stage 37: the Lucky Captain (every faction; the Dilgar at half price) - four once-per-battle feats, one a turn, each played by a fixed rule
+   since the server rolls every die: in Initial Orders EW set last, a disengage, or the best initiative die (saveLuckyOrder); in the Firing
+   phase ARMED and spent only when it fires - his volley's to-hit dice re-rolled, a Sure Shot, a Dodge or a Lucky Escape (saveLuckyArm; the
+   to-hit dice rolled ahead - planLuckyRolls, toHitRoll; luckyEscape). Each told in the combat log.
 
    Which FACTIONS may buy an officer, and what some of them pay, is one table: $factionRules below. */
 class Officers{
@@ -228,6 +232,17 @@ class Officers{
 	const FRY_DIE = 6;                   //...: "Roll 1d6 for each weapon (not just one roll for the whole flight), and on a roll of 1, it is lost for the rest of the scenario"
 	const FRY_ON = 1;
 	const FRIED_PARAM = 'electrician';   //...a fried weapon's ForcedOfflineForTurns critical (turnend 0: for good) carries this param - its power still counts (isFried)
+	const LUCK_NOTE = 'OffLuck';         //Lucky Captain (Stage 37): a Firing-phase feat ARMED for the turn: value = the ability, on his post (saveLuckyArm)
+	const LUCKY_LOG_CLASS = 'LuckyCaptain'; //...every feat told in the combat log - combatLog.js heads it "LUCKY CAPTAIN:"
+	const LUCKY_REROLL_BELOW_PCT = 100;  //...feat 1: the volley re-rolled when it scores below this % of what it expected (user ruling 2026-10-31: below expected)
+	const LUCKY_SURE_ROLL = 1;           //...Sure Shot: his missed shot's d100 set to this - the best roll there is
+	const LUCKY_DODGE_ROLL = 100;        //...Dodge: the enemy hit's d100 set to this - a miss wherever the shot needed less
+	const LUCKY_ESCAPE_DIE = 1;          //...Lucky Escape: the catastrophic critical roll's d20 set to this
+	const LUCKY_ESCAPE_OFFICERS = true;  //...and a roll that would kill an officer serving there is catastrophic too (false: $luckyEscapeSystems alone)
+	const LUCKY_INITIATIVE_DIE = 100;    //...Best Initiative: "the best possible result in an initiative die roll" - FV's d100 at 100
+	const LUCKY_EW_HOLD = 1000;          //...feat 3: "wait until all other ships have determined and announced their EW values" - ALL his EW held, as an anticipating War Leader's
+	const LUCKY_DISENGAGE_DIE = 20;      //...feat 4: "roll a single d20. If his roll is less than or equal to the range, he disengages successfully"
+	const LUCKY_DISENGAGE_ARC = 60;      //...: no enemy "in the 120-degree arc ahead of his vessel (relative to his current direction of motion)" - 60 each side
 	/* ...: the magazine rounds he may pick free - "change one of their single-space ... missiles to any other legal type at no cost" - by
 	   enhancement id, each with the round it loads (Enhancements::setEnhancementOptionsShip's list). A pick is one of these the hull is
 	   enabled for, single-slot and priced on that hull (paidPickTypes); Basic is not among them, as no swap to it is worth anything (user
@@ -347,6 +362,9 @@ class Officers{
 		//"Availability: Corillani CPN and OSF sub-faction units only" - the Theocracy's own hulls (user ruling 2026-10-29: not the Civilians'
 		//Vostova freighters or the Custom Ships' Shadow hulls, whose notes name the CPN or OSF too); the sub-faction is his `needs` (isCpnOrOsf)
 		'OFF_EVAN' => array('only' => array('Corillani Theocracy')),
+		//"Cost: 25% of the ship's base value. Availability: Any race can have such an officer, but ... costing double the listed price for non-Dilgar
+		//ships" - the registry's 50, and 25 here
+		'OFF_LUCK' => array('pct' => array('Dilgar Imperium' => 25)),
 	);
 
 	/* One literal per officer (D6), walked in THIS order by apply() (D5).
@@ -662,6 +680,18 @@ class Officers{
 		   cargo - a combat log line and nothing else (analystLog). Rulings (user 2026-10-29): a flight's missiles COUNTED by any unit at 16 / 12 hexes, their types by his scan; cargo the only
 		   scan told, to everyone; nothing through a Chameleon disguise. "Llort capital ships or ELINT ships only ... cannot be used on bases" (`needs`). 10%. */
 		'OFF_ANLY' => array('label' => 'Expert Analyst', 'post' => 'scanner', 'pct' => 10, 'apply' => null, 'needs' => 'isAnalystHull'),
+		/* Lucky Captain (Stage 37; rules text, user 2026-10-31) - the Dilgar "Lucky Ship Captain", in the C&C, on every hull with one. "A lucky captain
+		   may perform each of the following feats once per scenario. He may not perform more than one in any given turn" ($luckyFeats). FV rolls every
+		   die on the server, so each feat is chosen ahead and played by a fixed rule (the user's notes and rulings 2026-10-31). In Initial Orders,
+		   from his tooltip menu (saveLuckyOrder): EW LAST - all his ship's EW held to the late window (savedEwBonus); DISENGAGE - with no enemy in
+		   the 120 degrees ahead, a d20 at or under the range of the nearest armed enemy that sees him (resolveLuckyDisengages, as Initial Orders
+		   close); or feat 2 as the BEST INITIATIVE die (applyLuckyInitiative). In the Firing phase ARMED (saveLuckyArm), spent only when it fires:
+		   RE-ROLL his ship's to-hit dice when the volley scores below what it expected; feat 2 as SURE SHOT (his best missed shot hits), DODGE (the
+		   enemy hit on his ship worth the most - a ram first - misses) or LUCKY ESCAPE (a catastrophic critical's d20 set to 1 - luckyEscape). The
+		   to-hit dice are rolled before any is used (planLuckyRolls, toHitRoll). No Firing-phase feat on a turn he used one in Initial Orders (the
+		   user's note). Each told in the combat log. "25% of the ship's base value ... double the listed price for non-Dilgar ships": 50%, the
+		   Dilgar 25% ($factionRules). */
+		'OFF_LUCK' => array('label' => 'Lucky Captain', 'post' => 'cnc', 'pct' => 50, 'apply' => null),
 
 		/* PLACED OFFICERS (Stage 8), posted in a weapon the player picks. AFTER every fixed-post officer, so
 		   apply() has already raised the C&C Matter Weapons Expert's guns when it reaches them, and before
@@ -1867,6 +1897,11 @@ class Officers{
 	   ship and never handed to its system (§4.4's reason - a Jump Engine misreads a note it does not know).
 	   true = taken. Their values are "id:to" and "id:ability" - or "id:ability:unit" (Stage 34, the unit a War Leader's ability names). */
 	public static function takeNote($ship, $note){
+		//Stage 37: a Lucky Captain's Firing-phase feat armed for that turn - the ability
+		if ($note->notekey === self::LUCK_NOTE){
+			if (!($ship instanceof FighterFlight)) $ship->recordLuckyArm($note->turn, (string)$note->notevalue);
+			return true;
+		}
 		//Stage 36: an Expert Electrician's split of a turn's shunted power, "ob:thrust"
 		if ($note->notekey === self::SHUNT_NOTE){
 			$parts = explode(':', (string)$note->notevalue, 2);
@@ -2091,8 +2126,10 @@ class Officers{
 	   and the write are the detectors' own and need nothing. ⚠️ MIRROR PAIR with officers.savedEwBonus. */
 	public static function savedEwBonus($ship, $turn = null){
 		$scanner = self::isActive($ship, 'OFF_SCAN', $turn) ? 1 : 0;
+		$turn = ($turn === null) ? TacGamedata::$currentTurn : $turn;
 		//Stage 34: an Expert War Leader who anticipated this turn holds back ALL his ship's EW (anticipationEwHold)
-		return $scanner + self::anticipationEwHold($ship, $turn === null ? TacGamedata::$currentTurn : $turn);
+		//Stage 37: and so does a Lucky Captain who set his EW last this turn
+		return $scanner + self::anticipationEwHold($ship, $turn) + (self::luckyUsed($ship, 'ewlast', $turn) ? self::LUCKY_EW_HOLD : 0);
 	}
 
 	/* Expert Technician: the reactor's output, raised at load, and its critical rolls eased. `output` is
@@ -2223,7 +2260,10 @@ class Officers{
 		'patch' => 'patch',             //Stage 30: the Expert Quartermaster's (patchCritical)
 		'rotate' => 'gravitic rotation', //Stage 31: the Expert Graviton Controller's (rotateGravitic)
 		//Stage 34: the Expert War Leader's - Initial Orders (saveWarLeaderOrder), then the Firing phase (saveWarLeaderPick)
-		'taunt' => 'taunt', 'anticipate' => 'anticipation', 'wrath' => 'wrath', 'glory' => 'center of glory');
+		'taunt' => 'taunt', 'anticipate' => 'anticipation', 'wrath' => 'wrath', 'glory' => 'center of glory',
+		//Stage 37: the Lucky Captain's - feat 1, feat 2's four uses, feats 3 and 4 ($luckyFeats)
+		'reroll' => 're-roll', 'sure' => 'Sure Shot', 'dodge' => 'Dodge', 'escape' => 'Lucky Escape', 'initiative' => 'Best Initiative',
+		'ewlast' => 'EW last', 'disengage' => 'disengage');
 	//...and the unit each of the War Leader's Firing-phase abilities names: its OffUsed value carries it ("id:ability:unit", takeNote)
 	private static $unitAbilities = array('wrath', 'glory');
 
@@ -4089,6 +4129,7 @@ class Officers{
 		self::applyMorale($gamedata); //Stage 33: an Expert Evangelist's fleet-wide morale
 		self::applyLeadership($gamedata); //Stage 34: an Expert War Leader's +5 on his fleet's ships
 		self::settleAnalystScans($gamedata); //Stage 35: what each Expert Analyst's scans show, put on the units scanned
+		self::settleLuckyDisengage($gamedata); //Stage 37: in Initial Orders, whether each Lucky Captain may disengage - for his team's menu
 	}
 
 	/* The unit each serving Expert Warrior's charge this turn holds against (chargeTarget), on his entry as `charged` - for his team's hit-chance
@@ -4523,6 +4564,557 @@ class Officers{
 				$order->addToDB = true;
 				$ram->fireOrders[] = $order;
 			}
+		}
+	}
+
+	/* ------------------------------------------------------------------ Lucky Captain (Stage 37) */
+
+	/* His four feats - "may perform each of the following feats once per scenario. He may not perform more than one in any given turn" - each with
+	   the abilities that spend it. Feat 2, "alter one die roll, either by himself or an opponent, to any number desired", is ONE feat used one of
+	   four named ways (user ruling 2026-10-31). ⚠️ MIRROR PAIR with officers.LUCKY_FEATS (JS). */
+	private static $luckyFeats = array(
+		'reroll' => array('reroll'),                              //1. the volley's to-hit dice discarded and rolled again (Firing phase)
+		'luck' => array('sure', 'dodge', 'escape', 'initiative'), //2. Sure Shot, Dodge, Lucky Escape (Firing phase), Best Initiative (Initial Orders)
+		'ewlast' => array('ewlast'),                              //3. his EW determined after every other ship's (Initial Orders)
+		'disengage' => array('disengage'),                        //4. disengage from the battle (Initial Orders)
+	);
+	//...those ordered in Initial Orders and spent at once (saveLuckyOrder); the rest are ARMED in the Firing phase, spent only if they fire (saveLuckyArm).
+	//⚠️ MIRROR PAIR with officers.LUCKY_ORDERS / LUCKY_ARMS (JS)
+	private static $luckyOrders = array('ewlast', 'disengage', 'initiative');
+	private static $luckyArms = array('reroll', 'sure', 'dodge', 'escape');
+	/* Lucky Escape's "catastrophic critical hit" (user ruling 2026-10-31: "a good basis to start", to be easy to change after player feedback): a
+	   critical roll on a system of one of these classes (subclasses too) that gives a critical, and (LUCKY_ESCAPE_OFFICERS) any critical roll that
+	   would kill an officer serving where it is rolled. Add or remove a class here; nothing else names them. */
+	private static $luckyEscapeSystems = array('CnC', 'Reactor');
+
+	//the to-hit dice planLuckyRolls rolled ahead this request (order => shot => d100), the dice a Sure Shot or Dodge changed (order => shot => spend),
+	//and the gamedata they belong to - set at the start of firing, cleared at its end (endLuckyRolls)
+	private static $luckRolls = array();
+	private static $luckAlters = array();
+	private static $luckGamedata = null;
+
+	//the index of his ship's Lucky Captain serving on $turn, or null (a C&C officer: never a flight's)
+	private static function luckyIndex($ship, $turn){
+		if ($ship instanceof FighterFlight) return null;
+		foreach ($ship->getOfficers() as $i => $entry){
+			if ($entry['id'] === 'OFF_LUCK' && self::serves($entry, $turn)) return $i;
+		}
+		return null;
+	}
+
+	//the feat $ability spends, or null for one he has not got
+	private static function luckyFeat($ability){
+		foreach (self::$luckyFeats as $feat => $abilities){
+			if (in_array($ability, $abilities, true)) return $feat;
+		}
+		return null;
+	}
+
+	/* May he use $ability on $turn: its feat not spent before (by any of its abilities), and none of his feats used on $turn ("not more than one in
+	   any given turn" - so no Firing-phase feat after an Initial Orders one, the user's note). ⚠️ MIRROR PAIR with officers.luckyMay (JS). */
+	private static function luckyMay(array $entry, $ability, $turn){
+		$feat = self::luckyFeat($ability);
+		if ($feat === null) return false;
+		foreach (self::$luckyFeats[$feat] as $sibling){
+			if (isset($entry['abilities'][$sibling])) return false;
+		}
+		foreach (self::$luckyFeats as $abilities){
+			foreach ($abilities as $other){
+				if (self::spentOn($entry, $other, $turn)) return false;
+			}
+		}
+		return true;
+	}
+
+	//Did the Lucky Captain serving on $ship on $turn use $ability on it?
+	private static function luckyUsed($ship, $ability, $turn){
+		$i = self::luckyIndex($ship, $turn);
+		return $i !== null && self::spentOn($ship->getOfficers()[$i], $ability, $turn);
+	}
+
+	//the Firing-phase feat armed on $ship for $turn (its first OffLuck note that turn), or null
+	private static function luckyArmOn($ship, $turn){
+		if ($ship instanceof FighterFlight) return null;
+		foreach ($ship->getLuckyArms() as $arm){
+			if ($arm['turn'] === (int)$turn) return $arm['ability'];
+		}
+		return null;
+	}
+
+	//the index of the Lucky Captain whose feat $ability is armed on $ship this turn and still his to use, or null - asked by every Firing-phase feat before it plays
+	private static function luckyArmedIndex($ship, $ability, $turn){
+		$i = self::luckyIndex($ship, $turn);
+		if ($i === null || self::luckyArmOn($ship, $turn) !== $ability) return null;
+		return self::luckyMay($ship->getOfficers()[$i], $ability, $turn) ? $i : null;
+	}
+
+	/* InitialOrdersGamePhase::process: the feat a POST orders from his C&C - "luck:ewlast", "luck:disengage" or "luck:initiative" in that C&C's
+	   individualNotesTransfer (CnC.doIndividualNotesTransfer) on $postShip - checked against the RELOADED $ship and gamedata $gd (the POST-side copy
+	   has no officers) and spent at once: one OffUsed note. A disengage only where he may (luckyDisengageState). Initial Orders are committed once,
+	   so there is no second order to refuse. */
+	public static function saveLuckyOrder($ship, $postShip, $gamedata, $gd){
+		if (!TacGamedata::$officersPresent || !$ship || !$postShip || $ship instanceof FighterFlight) return;
+		if ((int)$ship->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::luckyIndex($ship, $turn);
+		if ($i === null || !self::isOnField($ship, $gd, $turn)) return;
+		$entry = $ship->getOfficers()[$i];
+		$cnc = $postShip->getSystemById((int)$entry['post']);
+		$transfer = ($cnc && is_array($cnc->individualNotesTransfer)) ? $cnc->individualNotesTransfer : array();
+		foreach (self::$luckyOrders as $ability){
+			if (!in_array('luck:' . $ability, $transfer, true) || !self::luckyMay($entry, $ability, $turn)) continue;
+			if ($ability === 'disengage' && !self::luckyDisengageState($ship, $gd)['ok']) return;
+			self::spend($ship, $i, $ability, $turn, $gamedata);
+			return;
+		}
+	}
+
+	/* FireGamePhase::process, through CnC::saveFirePhaseDeclaration: the Firing-phase feat a POST arms on his C&C $cnc ("luck:reroll", "luck:sure",
+	   "luck:dodge" or "luck:escape") - checked on the LOADED ship (that phase's process is handed the authoritative gamedata) and ARMED, not spent:
+	   one OffLuck note, read back as firing resolves (takeNote). It is spent only if it fires (planLuckyRolls, luckyEscape); an armed feat that
+	   never fires stays his. Refused: another player's ship, a C&C he is not posted in, a feat spent or any feat used this turn, a second arm. */
+	public static function saveLuckyArm($cnc, $gamedata, $ability){
+		if (!TacGamedata::$officersPresent || !is_object($cnc) || !in_array($ability, self::$luckyArms, true)) return;
+		$postShip = $cnc->getUnit();
+		if (!$postShip) return;
+		$ship = $gamedata->getShipById((int)$postShip->id);
+		if (!$ship || $ship instanceof FighterFlight || (int)$ship->userid !== (int)$gamedata->forPlayer) return;
+		$turn = (int)$gamedata->turn;
+		$i = self::luckyIndex($ship, $turn);
+		if ($i === null || self::luckyArmOn($ship, $turn) !== null || !self::isOnField($ship, $gamedata, $turn)) return;
+		$entry = $ship->getOfficers()[$i];
+		if ((int)$entry['post'] !== (int)$cnc->id || !self::luckyMay($entry, $ability, $turn)) return;
+		$ship->recordLuckyArm($turn, $ability);
+		Manager::insertIndividualNote(new IndividualNote(-1, $gamedata->id, $turn, $gamedata->phase, $ship->id, (int)$entry['post'], self::LUCK_NOTE,
+			substr(self::getLabel('OFF_LUCK') . ': ' . self::$abilityNames[$ability] . ' armed', 0, 40), $ability));
+	}
+
+	/* ------ feat 4, disengaging */
+
+	/* May his ship disengage now - array('ok' => bool, 'range' => int|null, 'why' => string|null). "He must be facing an edge of the map with no enemy
+	   units (excepting any unarmed or disabled units, or units that lack line-of-sight to his ship) in the 120-degree arc ahead of his vessel
+	   (relative to his current direction of motion)": every heading points at some edge, and an open map has none, so the edge is not tested -
+	   the arc is (user ruling 2026-10-31); a base has no direction of motion and never may. 'range' is the range to the nearest such enemy
+	   anywhere, null when there is none ("success is automatic"). No client mirror: his team is sent the answer (settleLuckyDisengage). */
+	public static function luckyDisengageState($ship, $gamedata){
+		if (!empty($ship->base)) return array('ok' => false, 'range' => null, 'why' => 'a base cannot disengage');
+		$move = $ship->getLastMovement();
+		$heading = $move ? (int)$move->heading * 60 : 0;
+		$range = null;
+		$ahead = null;
+		foreach ($gamedata->ships as $unit){
+			if (!self::isLuckyFoe($ship, $unit, $gamedata)) continue;
+			$distance = (int)Mathlib::getDistanceHex($ship, $unit); //whole hexes - the log and the d20 read it as a number
+			if ($range === null || $distance < $range) $range = $distance;
+			$bearing = Mathlib::addToDirection(Mathlib::getCompassHeadingOfShip($ship, $unit), -$heading);
+			if ($ahead === null && Mathlib::isInArc($bearing, 360 - self::LUCKY_DISENGAGE_ARC, self::LUCKY_DISENGAGE_ARC)) $ahead = $unit;
+		}
+		if ($ahead !== null) return array('ok' => false, 'range' => $range, 'why' => $ahead->name . ' is ahead of the ship');
+		return array('ok' => true, 'range' => $range, 'why' => null);
+	}
+
+	/* An enemy that counts against his disengaging: another team's unit on the board (deployed, not destroyed - never terrain or a mine), armed (a
+	   weapon that is no ram or jump drive, not destroyed), not disabled, and with line of sight to his ship (Enormous units block it). */
+	private static function isLuckyFoe($ship, $unit, $gamedata){
+		if ($unit === $ship || (int)$unit->team === (int)$ship->team || $unit->isTerrain() || !empty($unit->mine) || $unit->isDestroyed()) return false;
+		if (!self::isOnField($unit, $gamedata, (int)$gamedata->turn)) return false;
+		if (!($unit instanceof FighterFlight) && $unit->isDisabled()) return false; //BaseShip::isDisabled reads a flight's missing C&C as disabled
+		if (!self::isArmedUnit($unit)) return false;
+		return !$unit->isLoSBlocked($unit->getHexPos(), $ship->getHexPos(), $gamedata);
+	}
+
+	//a weapon that is no ram or jump drive and not destroyed - a flight's on its craft still flying
+	private static function isArmedUnit($unit){
+		$systems = array();
+		if ($unit instanceof FighterFlight){
+			foreach ($unit->systems as $craft){
+				if (!$craft->isDestroyed()) $systems = array_merge($systems, $craft->systems);
+			}
+		} else {
+			$systems = $unit->systems;
+		}
+		foreach ($systems as $system){
+			if ($system instanceof Weapon && empty($system->isRammingAttack) && !($system instanceof JumpEngine) && !$system->isDestroyed()) return true;
+		}
+		return false;
+	}
+
+	//afterShipsConstructed, in Initial Orders: whether each serving Lucky Captain who still has the feat may disengage, on his entry as `disengage` - his team's menu
+	//shows it (the payload), with no geometry of its own
+	private static function settleLuckyDisengage($gamedata){
+		if ((int)$gamedata->phase !== 1) return;
+		$turn = (int)$gamedata->turn;
+		foreach ($gamedata->ships as $ship){
+			$i = self::luckyIndex($ship, $turn);
+			if ($i === null) continue;
+			$list = $ship->getOfficers();
+			if (!self::luckyMay($list[$i], 'disengage', $turn) && !self::spentOn($list[$i], 'disengage', $turn)) continue;
+			$list[$i]['disengage'] = self::luckyDisengageState($ship, $gamedata);
+			$ship->setOfficers($list);
+		}
+	}
+
+	/* ⭐ WHEN INITIAL ORDERS CLOSE (InitialOrdersGamePhase::advance, before the first active ship is picked - a ship that has left must read as gone for
+	   that pick): every Lucky Captain who ordered his disengage this turn rolls it. "Determine the range from his ship to the nearest applicable enemy
+	   and roll a single d20. If his roll is less than or equal to the range, he disengages successfully ... if no unit has LOS to his ship ...,
+	   success is automatic. This die roll is made at the start of the turn ... so if he fails the roll he can still operate his ship normally" -
+	   and "the status of his vessel has no bearing on the roll". A success takes his ship out of the battle as a jump out does (Movement::applyJumpOut
+	   - it counts as having left, never as destroyed), with anything attached to it (Movement::resolveJumpOuts' way); a failure is a log line.
+	   Persisted here, as resolveJumpOuts does: advance() has no submit of its own for these. Behind $officersPresent. */
+	public static function resolveLuckyDisengages($gamedata, $dbManager){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		$left = array();
+		$told = false;
+		foreach ($gamedata->ships as $ship){
+			if ($ship instanceof FighterFlight || $ship->isDestroyed() || !self::luckyUsed($ship, 'disengage', $turn)) continue;
+			$state = self::luckyDisengageState($ship, $gamedata);
+			$roll = Dice::d(self::LUCKY_DISENGAGE_DIE);
+			$odds = ($state['range'] === null) ? 'no enemy can see him' : 'rolled ' . $roll . ', needing ' . $state['range'] . ' or less';
+			$told = true;
+			if (!$state['ok'] || ($state['range'] !== null && $roll > $state['range'])){
+				self::luckyLine($ship, $turn, 'The Lucky Captain aboard ' . self::shipLink($ship) . ' fails to disengage ('
+					. ($state['ok'] ? $odds : $state['why']) . ').');
+				continue;
+			}
+			Movement::applyJumpOut($ship, $gamedata, ' disengages from the battle - its Lucky Captain\'s luck holds (' . $odds . ').');
+			$left[] = $ship;
+			foreach (array_keys((array)$ship->hasAttached) as $attachedId){
+				$attached = $gamedata->getShipById((int)$attachedId);
+				if (!$attached || $attached->isDestroyed()) continue;
+				Movement::applyJumpOut($attached, $gamedata, ' leaves the battle with ' . $ship->name . '.');
+				$left[] = $attached;
+			}
+		}
+		if (!$told) return;
+		//Phase 2 explicitly, as Movement::resolveJumpOuts: submitFireorders reads the phase only to filter ballistic and pre-firing orders
+		$dbManager->submitFireorders($gamedata->id, $gamedata->getNewFireOrders(), $turn, 2);
+		if (!empty($left)) $dbManager->submitDamages($gamedata->id, $turn, $gamedata->getNewDamages());
+		foreach ($left as $ship) $ship->saveIndividualNotes($dbManager);
+	}
+
+	/* ------ feat 2 as Best Initiative */
+
+	/* "The best possible result in an initiative die roll", ordered in Initial Orders, when the player has seen the roll (the one use the tabletop
+	   plays the same): FIRST thing as Initial Orders close (InitialOrdersGamePhase::advance, before the Triad Command Node, the fighter missions and
+	   the War Leader move initiative on, so each of those lands on top of it), his ship's total this turn is what a d100 of LUCKY_INITIATIVE_DIE
+	   would have given with the bonus and modifiers the roll had - by their mechanism (CnC::shiftIniative). A tie it makes is broken AGAINST his
+	   ship, as the War Leader's +60 is (classic movement keeps every total distinct). Written to tac_iniative, and the ships re-sorted. */
+	public static function applyLuckyInitiative($gamedata, $dbManager){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		$rule = $gamedata->rules ? $gamedata->rules->getRuleByName('initiativeCategories') : null;
+		$changed = array();
+		foreach ($gamedata->ships as $ship){
+			if (!self::luckyUsed($ship, 'initiative', $turn)) continue;
+			$best = self::LUCKY_INITIATIVE_DIE + $ship->getInitiativebonus($gamedata) + $ship->getCommonIniModifiers($gamedata);
+			$now = $rule ? (int)$ship->unmodifiedIniative : (int)$ship->iniative;
+			if ($best <= $now) continue; //rolled the best already
+			CnC::shiftIniative($ship, $best - $now, $rule);
+			$changed[$ship->id] = $ship;
+		}
+		if (empty($changed)) return;
+		if (!$rule) CnC::breakCommandNodeTies($gamedata, $changed, -1);
+		foreach ($changed as $ship) $dbManager->updateIniative($gamedata->id, $turn, $ship->id, $ship->iniative, $ship->unmodifiedIniative);
+		$gamedata->doSortShips();
+	}
+
+	/* ------ the Firing phase's dice: rolled before any of them is used
+
+	   Firing::fireWeapons resolves every ship's shots in ONE priority-sorted pass, each shot's damage rolled the moment it hits - so "after all the
+	   ship's weapons have been fired, but before any damage has been rolled" never comes. Instead the to-hit dice of the orders a Lucky Captain's
+	   armed feat may touch are rolled AHEAD (planLuckyRolls), the feat decided on the whole set as the tabletop player would decide it looking at
+	   them, and each die handed to its shot when that shot rolls (toHitRoll, at every to-hit roll site). Hit chances are final by then
+	   (prepareFiring, automateIntercept). */
+
+	/* Firing::fireWeapons, behind $officersPresent. $stage 'rams', first thing: an armed Dodge at the RAMS aimed at his ship, which resolve before
+	   anything else ("to prevent a successful ramming attack" - a ram first). 'fire', just before the ship weapons' pass (after the rams, which may
+	   have destroyed guns): FIRST every shooter's own feat on its own volley - the re-roll, Sure Shot - and THEN every defender's Dodge, on those dice
+	   as they now stand: the target alters a die of the shooter's final roll, never one the shooter's luck rolls again afterwards (play test 4527: a
+	   re-roll planned after a Dodge replaced the dodged die, and the Dodge was spent and told on a shot that hit). Only ships whose armed feat is still
+	   his (luckyArmedIndex - a dodged ram has spent it by the second stage). */
+	public static function planLuckyRolls($gamedata, $stage){
+		if ($stage === 'rams'){
+			self::$luckRolls = array();
+			self::$luckAlters = array();
+		}
+		self::$luckGamedata = $gamedata;
+		$turn = (int)$gamedata->turn;
+		$ships = array();
+		foreach ($gamedata->ships as $ship){
+			if (!($ship instanceof FighterFlight) && !$ship->isDestroyed()) $ships[] = $ship;
+		}
+		if ($stage === 'fire'){
+			foreach ($ships as $ship){
+				$i = self::luckyArmedIndex($ship, 'reroll', $turn);
+				if ($i !== null) self::planReroll($ship, $i, $gamedata, $turn);
+				$i = self::luckyArmedIndex($ship, 'sure', $turn);
+				if ($i !== null) self::planSureShot($ship, $i, $gamedata, $turn);
+			}
+		}
+		foreach ($ships as $ship){
+			$i = self::luckyArmedIndex($ship, 'dodge', $turn);
+			if ($i !== null) self::planDodge($ship, $i, $gamedata, $turn, $stage === 'rams');
+		}
+	}
+
+	//Firing::fireWeapons, once every shot has rolled: nothing planned outlives the firing
+	public static function endLuckyRolls(){
+		self::$luckRolls = array();
+		self::$luckAlters = array();
+		self::$luckGamedata = null;
+	}
+
+	/* ⭐ THE TO-HIT d100 OF SHOT $shot OF $fireOrder - asked by every to-hit roll site at a unit (Weapon::fire, and the weapons that roll their own:
+	   the Vortex Disruptor, the Hypergraviton Blaster's first roll). The die planLuckyRolls rolled ahead for it when there is one, else a fresh
+	   Dice::d(100). A die a Sure Shot or Dodge changed spends that feat as it is used, and tells the log. */
+	public static function toHitRoll($fireOrder, $shot = 0){
+		if (empty(self::$luckRolls)) return Dice::d(100);
+		$key = spl_object_id($fireOrder);
+		if (!isset(self::$luckRolls[$key][$shot])) return Dice::d(100);
+		$roll = self::$luckRolls[$key][$shot];
+		unset(self::$luckRolls[$key][$shot]);
+		if (isset(self::$luckAlters[$key][$shot])){
+			$alter = self::$luckAlters[$key][$shot];
+			unset(self::$luckAlters[$key][$shot]);
+			self::spendAlteredDie($alter, $fireOrder);
+		}
+		return $roll;
+	}
+
+	/* The to-hit dice an order rolls in Weapon::fire, and what a hit of it is worth: array(shot index => needed, worth). Pulses roll one die, a linked
+	   weapon's later shots copy its first; a shot needs the order's chance after interception, less its grouping for each shot before it. A hit is
+	   worth its mode's average damage (at least 1, so a gun that deals none still counts), a pulse hit its average pulses more, a linked hit all its
+	   shots. Read off the mode arrays, never changeFiringMode: the weapon's mode is fire()'s to set. */
+	private static function luckyDice($weapon, $fire){
+		$mode = (int)$fire->firingMode;
+		$pulse = (($weapon->damageTypeArray[$mode] ?? $weapon->damageType) === 'Pulse');
+		$linked = !empty($weapon->isLinked);
+		$min = $weapon->minDamageArray[$mode] ?? $weapon->minDamage;
+		$max = $weapon->maxDamageArray[$mode] ?? $weapon->maxDamage;
+		$worth = max(1, ((float)$min + (float)$max) / 2);
+		if ($pulse){
+			$pulses = isset($weapon->maxpulsesArray[$mode]) ? $weapon->maxpulsesArray[$mode] : (isset($weapon->maxpulses) ? $weapon->maxpulses : 1);
+			$worth *= max(1, (1 + (int)$pulses) / 2);
+		} else if ($linked){
+			$worth *= max(1, (int)$fire->shots);
+		}
+		$grouping = (int)($weapon->groupingArray[$mode] ?? $weapon->grouping);
+		$base = (int)$fire->needed - (int)$fire->totalIntercept;
+		$count = ($pulse || $linked) ? 1 : max(1, (int)$fire->shots);
+		$needed = array();
+		for ($s = 0; $s < $count; $s++) $needed[$s] = $pulse ? $base : $base - $grouping * $s;
+		return array($needed, $worth);
+	}
+
+	//an order that rolls a to-hit die at a unit this turn and has not rolled yet - not an interception, a declaration, a log line or a jump drive
+	private static function rollsAtUnit($fire, $weapon, $gamedata){
+		if ((int)$fire->turn !== (int)$gamedata->turn || (int)$fire->rolled > 0) return false;
+		if ($fire->type === 'intercept' || $fire->type === 'selfIntercept' || $fire->type === 'prefiring') return false;
+		if (Firing::isDeclarationOnly($fire) || Firing::isHyperspaceLogOrder($fire)) return false;
+		if (!($weapon instanceof Weapon) || $weapon instanceof JumpEngine) return false;
+		return $gamedata->getShipById($fire->targetid) !== null; //a hex-targeted order rolls no die at a unit
+	}
+
+	//his ship's own shots this turn, as Firing::fireWeapons' ship pass gathers them (never the ram, resolved before it; a destroyed gun's only if ballistic), in resolution order
+	private static function luckyVolley($ship, $gamedata){
+		$orders = array();
+		foreach ($ship->getAllFireOrders($gamedata->turn) as $fire){
+			$weapon = $ship->getSystemById($fire->weaponid);
+			if (!self::rollsAtUnit($fire, $weapon, $gamedata) || !empty($weapon->isRammingAttack)) continue;
+			if ($weapon->isDestroyed($gamedata->turn) && !$weapon->ballistic) continue;
+			$orders[] = $fire;
+		}
+		usort($orders, array('Firing', 'compareFiringOrders'));
+		return $orders;
+	}
+
+	//every shot another team aims at $ship this turn - ships', fighters' and rams (a ram rolls its own to-hit die in Weapon::fire), in resolution order
+	private static function luckyIncoming($ship, $gamedata){
+		$orders = array();
+		foreach ($gamedata->ships as $shooter){
+			if ((int)$shooter->team === (int)$ship->team) continue;
+			foreach ($shooter->getAllFireOrders($gamedata->turn) as $fire){
+				if ((int)$fire->targetid !== (int)$ship->id) continue;
+				if (self::rollsAtUnit($fire, $shooter->getSystemById($fire->weaponid), $gamedata)) $orders[] = $fire;
+			}
+		}
+		usort($orders, array('Firing', 'compareFiringOrders'));
+		return $orders;
+	}
+
+	//one fresh d100 for every die of every order of $plan (rows of luckyDice), by row and shot
+	private static function rollLuckyDice(array $plan){
+		$rolls = array();
+		foreach ($plan as $k => $row){
+			foreach ($row['needed'] as $s => $needed) $rolls[$k][$s] = Dice::d(100);
+		}
+		return $rolls;
+	}
+
+	//array(hits, worth of the hits) of $rolls against $plan
+	private static function luckyScore(array $plan, array $rolls){
+		$hits = 0;
+		$worth = 0;
+		foreach ($plan as $k => $row){
+			foreach ($row['needed'] as $s => $needed){
+				if ($rolls[$k][$s] > $needed) continue;
+				$hits++;
+				$worth += $row['worth'];
+			}
+		}
+		return array($hits, $worth);
+	}
+
+	/* Feat 1, ARMED: "After all the ship's weapons have been fired, but before any damage has been rolled, the player may choose to discard those dice
+	   and roll again. He is, however, stuck with whatever is rolled on the second attempt" - his volley's to-hit dice rolled; when the worth of the
+	   hits they score comes below LUCKY_REROLL_BELOW_PCT of the volley's expected worth (every die's chance times its hit's worth - luckyDice), every
+	   die is rolled again and the second set stands, the feat spent and told in the log. Otherwise the first set stands and the feat is still his. */
+	private static function planReroll($ship, $i, $gamedata, $turn){
+		$plan = array();
+		foreach (self::luckyVolley($ship, $gamedata) as $fire){
+			list($needed, $worth) = self::luckyDice($ship->getSystemById($fire->weaponid), $fire);
+			$plan[] = array('fire' => $fire, 'needed' => $needed, 'worth' => $worth);
+		}
+		if (empty($plan)) return;
+		$expected = 0;
+		$dice = 0;
+		foreach ($plan as $row){
+			foreach ($row['needed'] as $needed){
+				$expected += max(0, min(100, $needed)) / 100 * $row['worth'];
+				$dice++;
+			}
+		}
+		$rolls = self::rollLuckyDice($plan);
+		list($hits, $worth) = self::luckyScore($plan, $rolls);
+		if ($expected > 0 && $worth * 100 < $expected * self::LUCKY_REROLL_BELOW_PCT){
+			$rolls = self::rollLuckyDice($plan);
+			list($again) = self::luckyScore($plan, $rolls);
+			self::spend($ship, $i, 'reroll', $turn, $gamedata);
+			self::luckyLine($ship, $turn, 'The Lucky Captain aboard ' . self::shipLink($ship) . ' discards his ship\'s to-hit rolls (' . $hits . ' of ' . $dice
+				. ' hit) and rolls again: ' . $again . ' of ' . $dice . ' hit.');
+		}
+		foreach ($plan as $k => $row) self::$luckRolls[spl_object_id($row['fire'])] = $rolls[$k];
+	}
+
+	/* Feat 2 as SURE SHOT, ARMED: one of his own dice altered "to any number desired" - his volley's to-hit dice rolled, and of its misses the one whose
+	   hit is worth most (luckyDice; the first to resolve on a tie) set to LUCKY_SURE_ROLL, a hit - "to guarantee the location of a called shot" a
+	   called shot among them. Spent, and told in the log, when that shot rolls (toHitRoll). A volley with no miss a 1 would turn leaves it his. */
+	private static function planSureShot($ship, $i, $gamedata, $turn){
+		$best = null;
+		foreach (self::luckyVolley($ship, $gamedata) as $fire){
+			list($needed, $worth) = self::luckyDice($ship->getSystemById($fire->weaponid), $fire);
+			$key = spl_object_id($fire);
+			foreach ($needed as $s => $n){
+				$roll = Dice::d(100);
+				self::$luckRolls[$key][$s] = $roll;
+				if ($roll <= $n || $n < self::LUCKY_SURE_ROLL) continue; //a hit already, or a shot even a 1 misses
+				if ($best === null || $worth > $best['worth']) $best = array('key' => $key, 'shot' => $s, 'worth' => $worth);
+			}
+		}
+		if ($best === null) return;
+		self::$luckRolls[$best['key']][$best['shot']] = self::LUCKY_SURE_ROLL;
+		self::$luckAlters[$best['key']][$best['shot']] = array('ship' => $ship, 'i' => $i, 'ability' => 'sure', 'turn' => $turn);
+	}
+
+	/* Feat 2 as DODGE, ARMED: an opponent's die altered, "the effect or damage ... directed at his ship" - "to prevent a successful ramming attack"
+	   first. $rams (the first stage): the rams another team aims at his ship; otherwise its other shots, on their dice as they stand after the
+	   shooters' own luck (planLuckyRolls - a die not rolled ahead yet is rolled now). Of the hits, the one worth most (luckyDice; the first to resolve
+	   on a tie) is set to LUCKY_DODGE_ROLL, a miss - never one that needed that much anyway, nor a die another Lucky Captain's luck has changed already
+	   (a Sure Shot's: "alter one die roll" - each die once). Spent, and told in the log, when that shot rolls (toHitRoll); none hitting leaves it his. */
+	private static function planDodge($ship, $i, $gamedata, $turn, $rams){
+		$best = null;
+		foreach (self::luckyIncoming($ship, $gamedata) as $fire){
+			$shooter = $gamedata->getShipById($fire->shooterid);
+			$weapon = $shooter->getSystemById($fire->weaponid);
+			if (empty($weapon->isRammingAttack) === $rams) continue; //the rams at the first stage, every other shot at the second
+			list($needed, $worth) = self::luckyDice($weapon, $fire);
+			$key = spl_object_id($fire);
+			foreach ($needed as $s => $n){
+				if (isset(self::$luckAlters[$key][$s])) continue; //changed by luck already
+				if (!isset(self::$luckRolls[$key][$s])) self::$luckRolls[$key][$s] = Dice::d(100);
+				$roll = self::$luckRolls[$key][$s];
+				if ($roll > $n || $n >= self::LUCKY_DODGE_ROLL) continue; //a miss already, or a shot even the worst roll hits
+				if ($best === null || $worth > $best['worth']) $best = array('key' => $key, 'shot' => $s, 'worth' => $worth);
+			}
+		}
+		if ($best === null) return;
+		self::$luckRolls[$best['key']][$best['shot']] = self::LUCKY_DODGE_ROLL;
+		self::$luckAlters[$best['key']][$best['shot']] = array('ship' => $ship, 'i' => $i, 'ability' => 'dodge', 'turn' => $turn);
+	}
+
+	//a Sure Shot's or Dodge's die, as its shot rolls it: the feat spent and told
+	private static function spendAlteredDie(array $alter, $fireOrder){
+		$gamedata = self::$luckGamedata;
+		if ($gamedata === null) return;
+		$ship = $alter['ship'];
+		self::spend($ship, $alter['i'], $alter['ability'], $alter['turn'], $gamedata);
+		$shooter = $gamedata->getShipById($fireOrder->shooterid);
+		$weapon = $shooter ? $shooter->getSystemById($fireOrder->weaponid) : null;
+		$gun = $weapon ? $weapon->displayName : 'weapon';
+		$captain = 'The Lucky Captain aboard ' . self::shipLink($ship);
+		if ($alter['ability'] === 'sure'){
+			$target = $gamedata->getShipById($fireOrder->targetid);
+			self::luckyLine($ship, $alter['turn'], $captain . ' makes a sure shot: his ' . $gun . ' hits ' . ($target ? self::shipLink($target) : 'its target') . '.');
+		} else {
+			self::luckyLine($ship, $alter['turn'], $captain . ' dodges: ' . ($shooter ? self::shipLink($shooter) . '\'s ' : 'a ') . $gun . ' misses his ship.');
+		}
+	}
+
+	/* Feat 2 as LUCKY ESCAPE, ARMED - ShipSystem::testCritical, behind $officersPresent, with the roll it has just made ($roll) and the same roll had its
+	   d20 come up LUCKY_ESCAPE_DIE ($lucky): "typically, this ability is used to prevent a catastrophic critical hit". On his ship, when the roll is
+	   catastrophic - a critical on a system of $luckyEscapeSystems, or (LUCKY_ESCAPE_OFFICERS) a roll that would kill an officer serving in it - and
+	   $lucky would make it less so (a lower critical, or none; an officer spared), the die is set: $lucky comes back, the feat spent and told in the
+	   log. Otherwise $roll does. The first such roll of the turn takes it, as the player watching each die would. */
+	public static function luckyEscape($ship, $system, $gamedata, $roll, $lucky){
+		if ($lucky >= $roll || !($ship instanceof BaseShip) || $ship instanceof FighterFlight) return $roll;
+		$turn = (int)$gamedata->turn;
+		$i = self::luckyArmedIndex($ship, 'escape', $turn);
+		if ($i === null) return $roll;
+		$eased = false;
+		foreach (self::$luckyEscapeSystems as $class){
+			if ($system instanceof $class && $system->criticalTier($lucky) < $system->criticalTier($roll)) $eased = true;
+		}
+		$spared = self::LUCKY_ESCAPE_OFFICERS && $roll >= self::KILL_ROLL && $lucky < self::KILL_ROLL && self::officerServesIn($ship, $system, $turn);
+		if (!$eased && !$spared) return $roll;
+		self::spend($ship, $i, 'escape', $turn, $gamedata);
+		self::luckyLine($ship, $turn, 'The Lucky Captain aboard ' . self::shipLink($ship) . ' escapes a catastrophic critical hit on his ' . $system->displayName
+			. ' (critical roll ' . $roll . ', now ' . $lucky . ').');
+		return $lucky;
+	}
+
+	//is an officer of $ship serving in $system on $turn (a fighter officer never rolls a kill)
+	private static function officerServesIn($ship, $system, $turn){
+		foreach ($ship->getOfficers() as $entry){
+			if ((int)$entry['post'] === (int)$system->id && !self::isFighterOfficer($entry['id']) && self::serves($entry, $turn)) return true;
+		}
+		return false;
+	}
+
+	/* ------ his combat log */
+
+	//a Lucky Captain's line in the combat log: the War Leader's clothes - a log line on his ship's own RammingAttack, at itself, rolled 1, no shot
+	//([[howto_create_fire_orders]]); Firing::isHyperspaceLogOrder keeps one written as Initial Orders close out of the firing
+	private static function luckyLine($ship, $turn, $text){
+		$ram = $ship->getSystemByName('RammingAttack');
+		if (!$ram) return;
+		$order = new FireOrder(-1, 'normal', $ship->id, $ship->id, $ram->id, -1, (int)$turn, 1, 0, 1, 0, 0, 0, 0, 0, self::LUCKY_LOG_CLASS, 10000);
+		$order->pubnotes = $text;
+		$order->addToDB = true;
+		$ram->fireOrders[] = $order;
+	}
+
+	/* FireGamePhase::advance, beside the War Leader's: the Initial Orders feats that leave no line of their own - his EW set last, his best initiative
+	   - told once firing has resolved, to every player (the War Leader's way; the tabletop announces each). The disengage was told as Initial Orders
+	   closed; the Firing-phase feats are told as they fire. Behind $officersPresent. */
+	public static function luckyOrdersLog($gamedata){
+		if (!TacGamedata::$officersPresent) return;
+		$turn = (int)$gamedata->turn;
+		foreach ($gamedata->ships as $ship){
+			if ($ship instanceof FighterFlight) continue;
+			$captain = 'The Lucky Captain aboard ' . self::shipLink($ship);
+			if (self::luckyUsed($ship, 'ewlast', $turn)) self::luckyLine($ship, $turn, $captain . ' waits until every other ship has set its EW.');
+			if (self::luckyUsed($ship, 'initiative', $turn)) self::luckyLine($ship, $turn, $captain . ' rolls the best initiative there is.');
 		}
 	}
 
@@ -5907,6 +6499,12 @@ class Officers{
 			if (isset($entry['charged'])) $row['charged'] = (int)$entry['charged'];
 			//Stage 34: the units an Expert War Leader's wrath and center of glory named - his team's hit-chance preview and crosshairs
 			if (!empty($entry['units'])) $row['units'] = $entry['units'];
+			//Stage 37: a Lucky Captain's Firing-phase feat armed this turn (his menu shows it), and in Initial Orders whether he may disengage (settleLuckyDisengage)
+			if ($entry['id'] === 'OFF_LUCK'){
+				$armed = self::luckyArmOn($ship, $turn);
+				if ($armed !== null) $row['armed'] = $armed;
+				if (isset($entry['disengage'])) $row['disengage'] = $entry['disengage'];
+			}
 			if (!empty(self::$registry[$entry['id']]['movable']) && (int)TacGamedata::$currentPhase === 1 && !TacGamedata::$currentGameFinished){
 				$targets = self::moveTargets($ship, $list, $i, $turn);
 				if (!empty($targets)) $row['targets'] = $targets;

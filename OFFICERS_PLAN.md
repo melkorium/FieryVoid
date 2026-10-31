@@ -73,7 +73,12 @@ missiles, counted by a unit within 16 / 12 hexes and their dummies told at 4 (§
 Stage 36, the Expert Electrician (every faction; 100% of a fighter), in a flight's first craft - the flight's weapons switched off in Initial Orders with
 their own Power Off, the maximum damage of every gun switched off over the flight's guns that turn's points, split between its offensive bonus (direct
 fire only) and its thrust from a yellow Initial Orders menu, what is left placed at random as Initial Orders close; each weapon switched off fried on a
-d6 of 1 as the turn ends, its power still counted (§9.43) - BUILT 2026-10-30, uncommitted.**
+d6 of 1 as the turn ends, its power still counted (§9.43) - BUILT 2026-10-30, uncommitted.
+Stage 37, the Lucky Captain (every faction; the Dilgar Imperium 25%, everyone else 50%), in the C&C - four feats, once per battle each and one a turn,
+picked from a green Lucky Captain button in his own ship's tooltip and played by fixed rules (the server rolls every die): EW Last, Disengage (a d20 at
+or under the range of the nearest armed enemy that sees him, none in the 120 degrees ahead) or Best Initiative in Initial Orders; in the Firing phase,
+ARMED and spent only if it fires, a volley re-roll (when the ship's to-hit dice score below what they expected), Sure Shot, Dodge or Lucky Escape - the
+to-hit dice rolled before any is used (§9.44) - BUILT 2026-10-31, uncommitted.**
 Written
 against `dab951bf5`. The user
 ruled D1–D12 and QX1–QX5 on 2026-10-09; three rulings changed the draft (D3 kill roll, D9 eligibility and
@@ -406,6 +411,7 @@ One literal per officer in `Officers::$registry`: `label`, `post` (a key into th
 | Expert Evangelist *(Stage 33, §9.40)* | `OFF_EVAN` | C&C (his rules text - the draft's random primary dropped), movable | 1, Corillani Theocracy CPN and OSF hulls, priced off the fleet (`fleet`) |
 | Expert Evangelist, elsewhere *(§9.40)* | `OFF_EVANP` | a chosen system or Structure block - weapons included - but his C&C | 2 |
 | Expert War Leader *(added 2026-10-29, §9.41)* | `OFF_WLEAD` | C&C | 1, every hull with one; priced off the fleet and his ship (`fleet`) |
+| Lucky Captain *(added 2026-10-31, §9.44)* | `OFF_LUCK` | C&C | 1, every hull with one; the Dilgar Imperium at half the price |
 | Expert Laser Technician | `OFF_LASR` | Reactor | 1 |
 | Expert Plasma Scientist *(added 2026-10-17, §9.18)* | `OFF_PLAS` | Engine | 1 |
 | Expert Security Officer *(added 2026-10-17, §9.19)* | `OFF_SECU` | C&C | 1 |
@@ -5736,3 +5742,166 @@ bundles rebuilt (`node scripts/bundle-legacy.js`), the React bundle by the watch
   withdrawn per-weapon numerator as a mutant, the button without points, Cancel all with nothing placed); the menu headless **14 / 0**
   (three off: 6 points; All to OB, All to thrust, Cancel all - the footer buttons 22px, were 26; the steppers 20px, were 24). Legacy bundles
   rebuilt, `fvbuild -Sync`.
+
+### 9.44 Stage 37: Lucky Captain (2026-10-31)
+
+**Rules text (user, 2026-10-31) - an officer the user added, the last planned.** "Lucky Ship Captain: The Dilgar were known to have several of these
+officers, whose skillful tactics in battle were matched only by their incredible luck. [...] A lucky captain may perform each of the following feats once
+per scenario. He may not perform more than one in any given turn. 1. After all the ship's weapons have been fired, but before any damage has been rolled,
+the player may choose to discard those dice and roll again. He is, however, stuck with whatever is rolled on the second attempt. This decision must be
+made before any damage or weapon effects are determined. 2. The player may choose to alter one die roll, either by himself or an opponent, to any number
+desired. If used against an opponent, the effect or damage must have been directed at his ship, not another unit in the same fleet or even a fighter or
+shuttle from the lucky captain's ship. Typically, this ability is used to prevent a catastrophic critical hit, to alter the hit location of a weapon, or to
+prevent a successful ramming attack. It can also be used to guarantee the location of a called shot, or the best possible result in an initiative die
+roll [...] 3. The player may wait until all other ships have determined and announced their EW values before determining his own. 4. The player may
+attempt to automatically disengage his ship from the battle. To do this, he must be facing an edge of the map with no enemy units (excepting any unarmed
+or disabled units, or units that lack line-of-sight to his ship) in the 120-degree arc ahead of his vessel (relative to his current direction of motion).
+If this is attempted, determine the range from his ship to the nearest applicable enemy and roll a single d20. If his roll is less than or equal to the
+range, he disengages successfully. Obviously, if the closest unit is 20 or more hexes away, or if no unit has LOS to his ship [...], success is automatic.
+This die roll is made at the start of the turn, before systems are deactivated for extra power, so if he fails the roll he can still operate his ship
+normally. Note that the status of his vessel has no bearing on the roll [...]. Location: C&C. Cost: 25% of the ship's base value. Availability: Any race
+can have such an officer, but they are extremely rare, costing double the listed price for non-Dilgar ships."
+
+**The user's notes (2026-10-31).** FV automates the dice on the server, so the player chooses WHICH feat to use on a turn - in the Firing phase for
+feats 1 and 2, in Initial Orders for 3 and 4 - and the dice are changed by the rule a player would follow (feat 1: re-rolled when the hit rolls came in
+below an average threshold, noted in the combat log). No Firing-phase feat once one was used in Initial Orders (as the War Leader). Feat 3 = the War
+Leader's Anticipate EW hold. The icon: `img/luckyCaptain.png` (the user's d20, 50x50 white), recoloured.
+
+**Rulings (user, 2026-10-31, asked before building):**
+1. **Feat 1 - re-rolled when the volley scores below what it expected** (recommended over "only below half"): the player has chosen this turn, and an
+   armed feat that does not fire stays his.
+2. **Feat 2 as four named uses**, each with a fixed rule: **Sure Shot** (Firing - his missed shot worth most becomes a hit; a called shot among them),
+   **Dodge** (Firing - the enemy hit on his ship worth most becomes a miss, a ram first), **Lucky Escape** (Firing - a catastrophic critical's d20 set to 1)
+   and **Best Initiative** (moved to Initial Orders - the die as 100, applied as Initial Orders close: the one use where the player sees the roll before
+   choosing, as at the table). "Alter the hit location" dropped: when the choice comes before the dice, Dodge always does better.
+3. **Lucky Escape's "catastrophic"** = a critical on his C&C or Reactor, or a roll that would kill an officer serving where it is rolled - "a good basis
+   to start", to be **easy to edit after player feedback**: one table (`Officers::$luckyEscapeSystems`) and one switch (`LUCKY_ESCAPE_OFFICERS`).
+4. **Disengage**: the map-edge test dropped (every heading points at some edge; an open map has none) - the enemy-free 120-degree arc is the condition;
+   no Disengage on a base. (OSATs carry no officers - D9.)
+
+**Built with defaults, stated here (ask before changing):**
+- **Offered on every hull with a C&C** (every faction - "any race"), 50%, the Dilgar Imperium 25% (`$factionRules`). Fixed in the C&C.
+- **An armed Firing feat is spent only if it fires** (the user's note); otherwise it is still his, and nothing is logged. One armed a turn.
+- **Feat 1's score**: every to-hit die of his ship's own shots this turn (not interceptions, not the ram - rams resolve before fire - not Pre-Firing),
+  a hit worth its mode's average damage (at least 1), a pulse hit its average pulses more, a linked shot all its shots; expected = each die's chance
+  (after interception, less grouping) times that worth. Re-rolled when the score is under `LUCKY_REROLL_BELOW_PCT` (100) % of expected; the log gives
+  both results ("1 of 2 hit ... 0 of 2").
+- **Sure Shot**: the die set to 1 (`LUCKY_SURE_ROLL` - a Pulse weapon's best result); never a shot a 1 still misses (needed under 1); the first to resolve
+  on equal worth. **Dodge**: the die set to 100 (`LUCKY_DODGE_ROLL`); never a shot that needed 100 or more; only another team's shots aimed at his ship
+  (not hex-targeted); a ram before any shot, else the worth. Both are spent - and told - when that shot rolls, so a fighter shot down before it fires
+  spends nothing.
+- **Lucky Escape**: the FIRST qualifying critical roll of the turn on his ship takes it (as a player watching each die would), and only when a d20 of 1
+  makes it better (a lower critical or none; an officer spared). Pass 1's rolls only (ShipSystem::testCritical): the kill roll a post destroyed this turn
+  rolls for itself (Officers::rollFor) is not covered.
+- **Best Initiative**: his total becomes what a d100 of 100 gives with his bonus and modifiers - FIRST in InitialOrdersGamePhase::advance, so the Triad
+  Command Node, a fighter mission and the War Leader's +60 land on top of it; a tie it makes is lost (the War Leader's rule); nothing when he already
+  rolled that high.
+- **EW Last**: the War Leader's hold - `LUCKY_EW_HOLD` 1000 through `savedEwBonus` (the late window, clamped to what he left unspent).
+- **Disengage**: an applicable enemy is another team's unit on the board (deployed, not destroyed, never terrain or a mine), armed (a weapon that is no ram
+  or jump drive, not destroyed; a flight's on craft still flying), not disabled (`isDisabled`; flights never), with line of sight (Enormous units block
+  it). The arc is 60 degrees each side of his HEADING. Ordered only where allowed (checked at the commit on the positions of the turn start); rolled as
+  Initial Orders close, "at the start of the turn", so a failure leaves his orders standing. A success leaves as a jump out does
+  (`Movement::applyJumpOut`: a HyperspaceJump order and structure row, the CV note - counted as having left, never destroyed), with anything attached.
+  The attempt spends the feat.
+- **Visibility**: an armed feat own-team only (`armed`) until the log tells it; the disengage answer own-team, Initial Orders only (`disengage`); the
+  spent feats as every officer's `abilities`. Every feat used is told in the combat log under "LUCKY CAPTAIN:" - the Initial Orders ones once firing
+  resolves (EW Last, Best Initiative), the disengage as Initial Orders close, the Firing ones as they fire.
+
+**Design.**
+- `Officers`: registry `OFF_LUCK` (post `cnc`, pct 50, `apply` null) right after the Analyst - the last fixed-post ship officer; `$factionRules` line;
+  constants `LUCK_NOTE` 'OffLuck', `LUCKY_LOG_CLASS` 'LuckyCaptain', `LUCKY_REROLL_BELOW_PCT`, `LUCKY_SURE_ROLL`, `LUCKY_DODGE_ROLL`, `LUCKY_ESCAPE_DIE`,
+  `LUCKY_ESCAPE_OFFICERS`, `LUCKY_INITIATIVE_DIE`, `LUCKY_EW_HOLD`, `LUCKY_DISENGAGE_DIE`, `LUCKY_DISENGAGE_ARC`; `$luckyFeats` (feat => the abilities that
+  spend it - ⚠️ MIRROR PAIR), `$luckyOrders` / `$luckyArms` (⚠️ MIRROR PAIRS), ⭐ `$luckyEscapeSystems`; `$abilityNames` + seven. `luckyIndex`,
+  `luckyFeat`, ⭐ `luckyMay` (⚠️ MIRROR PAIR), `luckyUsed`, `luckyArmOn`, `luckyArmedIndex`; `saveLuckyOrder` (spent at once, one OffUsed note),
+  `saveLuckyArm` (one OffLuck note "ability", never spent); `luckyDisengageState` / `isLuckyFoe` / `isArmedUnit` / `settleLuckyDisengage`
+  (afterShipsConstructed, phase 1) / ⭐ `resolveLuckyDisengages`; ⭐ `applyLuckyInitiative`; the dice rolled ahead - `$luckRolls` / `$luckAlters` /
+  `$luckGamedata` (per request, keyed by spl_object_id of the order), ⭐ `planLuckyRolls($gd, 'rams' | 'fire')`, `endLuckyRolls`, ⭐ `toHitRoll`,
+  `luckyDice`, `rollsAtUnit`, `luckyVolley`, `luckyIncoming`, `rollLuckyDice`, `luckyScore`, `planReroll`, `planSureShot`, `planDodge`,
+  `spendAlteredDie`; ⭐ `luckyEscape`, `officerServesIn`; `luckyLine`, `luckyOrdersLog`. `takeNote` reads OffLuck; `savedEwBonus` adds the hold;
+  `addForJson` sends `armed` and `disengage`.
+- `BaseShip`: protected `$luckyArms` (`getLuckyArms` / `recordLuckyArm`). `ShipSystem`: ⭐ `criticalTier($roll)` (testCritical's own reading of the
+  protected possibleCriticals), and testCritical keeps its d20 apart to ask `Officers::luckyEscape`.
+- Hooks: `InitialOrdersGamePhase::process` (saveLuckyOrder beside the War Leader's) and `::advance` (applyLuckyInitiative FIRST, resolveLuckyDisengages
+  after the War Leader's +60, before the first active ship is picked); `CnC::saveFirePhaseDeclaration` ("luck:<ability>"); `FireGamePhase::advance`
+  (luckyOrdersLog); `Firing::fireWeapons` (planLuckyRolls 'rams' first, 'fire' after the rams, endLuckyRolls after the fighters);
+  `Firing::isHyperspaceLogOrder` (a LuckyCaptain line is inert - the failed disengage's is written before the firing gathers); the to-hit roll sites:
+  `Weapon::fire`, the Vortex Disruptor's own `fire`, the Hypergraviton Blaster's first roll (every other `Dice::d(100)` site is an auto-hit or a hex shot).
+- Client `officers.js`: the registry row; `LUCKY_FEATS` / `LUCKY_ORDERS` / `LUCKY_ARMS` / `LUCKY_EW_HOLD`; `LUCKY_ABILITIES` (the menu's rows - ⚠️ Lucky
+  Escape's line names `$luckyEscapeSystems`); `luckyEntry`, `luckyAbilityName`, `luckyFeat`, `luckyMay` (mirror), `luckySpent`, `luckyUsed`, `luckyCnc`,
+  `luckyPhaseAbilities`, `canLucky`, `luckyChoice` (the pick on his C&C: `luckyOrder`), `luckyArmed`, `luckyDisengage`, `luckyPickable`,
+  `setLuckyChoice`, `luckyButtonInfo`; `savedEwBonus` + the hold; ABILITY_NAMES + seven. `model/system/baseSystems.js` CnC: `getLuckyTransfer`,
+  posted in both phases by `doIndividualNotesTransfer`; Save Orders key `luckyOrder`. NEW `UI/luckyPicker.js` (plain DOM, the picker surface): the seven
+  rows, this phase's open ones picks, the rest dimmed with a chip saying why (used / the other phase / one a turn / blocked), the disengage row the
+  server's range or who is ahead; Cancel. Buttons `luckyCaptain` in `shipTooltipInitialOrdersMenu.js` [isSelf, canLucky] and `shipTooltipFireMenu.js`
+  [isMine, isFiringPhase, canLucky]; `combatLog.js` "LUCKY CAPTAIN:" (standalone); `weaponManager.doShortLogText` LuckyCaptain; `game.php` script tag.
+  `shipTooltip.css` `.luckyCaptain` (50x50, so `background-size: contain`); `hexPicker.css` `.fv-missionpicker--lucky` (local `--lk-*` palette).
+  `img/luckyCaptain.png` recoloured `#5fd38d` (alpha kept; the white original in the session scratchpad).
+- Docs (`ammo-options.html`): a Lucky Captain card between the Expert Warrior and the Matter Weapons Expert.
+
+**Files.** Server: `Officers.php`, `ShipClasses.php`, `systems/ShipSystem.php`, `systems/baseSystems.php` (CnC), `handlers/firing.php`,
+`weapons/weapon.php`, `weapons/gravitic.php`, `weapons/specialWeapons.php`, `Phase/InitialOrdersGamePhase.php`, `Phase/FireGamePhase.php`. Client:
+`officers.js`, `model/system/baseSystems.js`, `UI/luckyPicker.js` (new), `UI/shipTooltipInitialOrdersMenu.js`, `UI/shipTooltipFireMenu.js`,
+`combatLog.js`, `weaponManager.js`, `game.php`, `styles/shipTooltip.css`, `styles/hexPicker.css`, `img/luckyCaptain.png` (the user's, recoloured).
+Docs `ammo-options.html`. No new PHP class, no schema change. Legacy bundles rebuilt (`node scripts/bundle-legacy.js` - no watcher was running).
+
+**Verified (the Docker stack was down - harnesses run in the throwaway `fv-phpcheck:8.4` image with `-d memory_limit=2G`, no database).**
+- `officersHarness.php --no-db` **2691 passed, 1 failed**: the one Stage 37's statics sweep, which waits for `fvbuild -Statics`. Eight registry-order
+  checks moved by one. Stage 37's nine sections (`tests/replay/luckyProbe.php`, a generated copy running only them, ~3s): the registry place and keys,
+  offers (AthraskalaAM at 25%, an Omega and a Gquan at 50%, none on a flight or an OSAT), the post; luckyMay (once per battle, feat 2's four uses one
+  feat, one a turn); the Initial Orders feats through saveLuckyOrder (the notes and their words, Best Initiative, one a turn, after a Dodge, beside a
+  Triad and a taunt, Disengage with the enemy behind / ahead, a Firing feat refused, another player, killed, the gate); the Firing feats through the REAL
+  saveFirePhaseDeclaration (the OffLuck note, nothing spent, one a turn, after EW Last, feat 2 spent, wrong phase, unknown, another player, another
+  system, takeNote); the dice rolled ahead with forced dice (re-rolled at 3 of 13.8 expected and the second set used, kept at 20 of 13.8 and at exactly
+  expected, re-rolled at 62%, nothing armed, last turn's arm; Sure Shot on the heavy gun's miss, every hit, needing 0, intercepted into a miss, the REAL
+  Weapon::fire rolling 1; Dodge on the heavy gun, an ally's shot never planned, a ram first, all missed, needing 100, never at the 'fire' stage); Lucky
+  Escape through the REAL testCritical (the C&C eased, a gun not, an Expert Scanner spared, one a 1 cannot save, a d20 of 1, no critical, Dodge armed
+  instead, feat 2 spent); Best Initiative (40 -> the best, a tie lost, already past it, last turn's, simultaneous movement); Disengage (ahead, behind,
+  destroyed, unarmed, disabled, line of sight blocked, a flight ahead, a base, the payload per phase; the roll: 4 and 5 at range 5 leave, 12 stays and
+  is told, 20 at range 30, last turn's order, EW Last instead); the log lines, the EW hold and the payload per viewer.
+- `officersClientHarness.js` **1192 passed, 0 failed**: eight registry-order checks moved by one; a Stage 37 block - the row, the feats / lists / EW hold
+  against Officers.php, the menu rows (Lucky Escape's line naming `$luckyEscapeSystems`), luckyMay, the pick and the REAL C&C transfer in both phases with
+  Save Orders, the server's `armed` and `disengage`, the EW hold, the REAL tooltip menus' buttons (both phases, never Pre-Firing), and the REAL
+  LuckyPicker on a small fake DOM (its chips in both phases, pick and take back).
+- `enhancementsHarness` **301 / 0** after re-recording: the fingerprint gained exactly 20 lines, all `offer OFF_LUCK` (one per test hull with a C&C);
+  nothing else changed. Old copy `fingerprint.before-officers-stage37.txt`.
+- **Mutation 67 / 68 caught + 1 equivalent** (53 server against `tests/replay/luckyProbe.php`, 15 client against the client harness; `mutate37.js`, session
+  scratchpad only), every file byte-identical after. The first pass broke on one (S47 - no EW Last line): the check's own message read `$lines[0]`
+  unguarded, which FV's error handler makes fatal - now null-safe, and S47 is caught. C12 is EQUIVALENT: the Firing menu button's `isFiringPhase`
+  never decides, as `canLucky` already refuses every phase but 1 and 3 (kept, as the hangar buttons beside it have it).
+
+**Not built / observed:**
+- **To run with the stack up**: `fvbuild -Statics` (the offers), the officers harness WITH the database, `enhancementsDifferential.js`, `fvbuild -Check`,
+  `fvbuild -Sync`.
+- The one-line hooks (InitialOrdersGamePhase::process / advance, FireGamePhase::advance, the two plan calls in Firing::fireWeapons) are not
+  harness-covered, nor the picker in a browser. Not play-tested.
+
+**Play test 4527 (user, 2026-10-31) - statics regenerated by the user; checked against the database, follow-ups built, uncommitted.**
+- **What the game showed, feat by feat** (five ships, all with him): EW Last on turns 1, 2 and 3 (one note each, a log line for the first two once firing
+  resolved); turn 1's armed feats - a re-roll (877874: "3 of 6 hit ... 3 of 6", the six orders' final dice exactly that), a Sure Shot (877875: its one
+  Heavy Pulse Cannon order rolled 1, six pulses), a Dodge (877871) and a Sure Shot on a ship that fired nothing (877873: kept, as ruled - its EW Last
+  on turn 3 was allowed); turn 2's Disengage failed fairly ("rolled 12, needing 4 or less"), the ship played on. Lucky Escape and Best Initiative were
+  not used.
+- ⚠️⚠️ **A BUG, FIXED: a defender's Dodge against a shooter's own re-roll.** 877874 re-rolled its volley at 877871, which had Dodge armed. The Dodge was
+  planned at the 'rams' stage, BEFORE the re-roll ('fire' stage), and set one Light Pulse Cannon hit to 100; the re-roll then replaced every die of the
+  volley, but the Dodge's "spend when this die rolls" mark stayed - so the Dodge was spent and told ("misses his ship") on the re-roll's die. One of the
+  two Light Pulse Cannon orders (498067) rolled 23 and hit 877871 five times. Now (`planLuckyRolls`): the 'rams' stage plans a Dodge at RAMS only; the
+  'fire' stage plans every shooter's own feat first (re-roll, Sure Shot), THEN every Dodge, on the dice as they stand (a die not rolled ahead yet is
+  rolled then) - the target alters a die of the shooter's FINAL roll. And a die another Lucky Captain changed is never changed again (a Sure Shot's
+  1 cannot be dodged - "alter one die roll", each die once): built default, ask to change. "A ram first" holds - rams resolve before the second stage,
+  so a ram dodged has spent it.
+- **The picker grouped (user request).** Feats in the rules' order (`officers.LUCKY_FEATS`): Re-roll Volley; **Alter One Die** - a full-width band (a
+  lifted fill, under a small uppercase heading) holding Sure Shot, Dodge, Lucky Escape and Best Initiative, its heading's line "One feat, four ways to use it - using any
+  one of them uses all four for the rest of the battle" and, once spent, "used, turn N" on the heading and "used" on the use that spent it, the other
+  three shut; EW Last; Disengage. `officers.LUCKY_FEAT_NAMES` / `LUCKY_FEAT_NOTES`; `luckyPicker.js` `useRow` / `featGroup`; `hexPicker.css`
+  `.fv-missionpicker--lucky .fv-missionpicker__group` / `__grouphead` (`--lk-group`). Re-done after the user's review the same day:
+  the first take - an inset frame with its own green rail and indented rows - put its rows out of line with the rest; now no inset, no rail, no indent,
+  every label (the heading's too) on one column (measured: 11px in all three states). Rendered headless with the real CSS in three
+  states (Initial Orders, a Sure Shot picked in the Firing phase, feat 2 spent) - scratchpad driver `lucky37.mjs`.
+- **The Vortex Disruptor and Hypergraviton Blaster roll sites (user's note: their factions cannot take him).** Kept - each is one gate check. The
+  Disruptor's is never reached (it fires at a jump point, never at his ship, and its own side cannot carry him); the Blaster's still matters: an enemy
+  Blaster's hit on HIS ship can be Dodged, and its first roll is the die that would be.
+- Verified (stack up): `officersHarness.php` WITH the database **2792 / 0** (Stage 37's statics sweep passes on the user's statics; probe 104 / 0 with
+  the play test cases: an enemy re-roll then his Dodge on the second set, an enemy Sure Shot's die left alone, a ram dodged first and a missed ram then
+  a gun's hit); `officersClientHarness.js` **1194 / 0** (the picker's frame, its order and the spent state); `enhancementsDifferential.js` **964 / 0**;
+  `fvbuild -Check` **all checks passed** (replay 189 / 0); legacy bundles rebuilt, `fvbuild -Sync`. **Mutation 69 / 70 + 1 equivalent**
+  (C12, as before; three new mutants on the fix - Dodge's two stages mixed, a Sure Shot die re-altered, Dodge rolling over the shooter's dice - all caught).

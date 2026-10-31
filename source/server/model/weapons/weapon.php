@@ -2615,7 +2615,8 @@ public function getFullStartLoading()
             if ($i == 0) { //clear variables that may be relevant for further shots in line
                 $fireOrder->linkedHit = null;
             }
-            $rolled = Dice::d(100);
+            //OFFICERS_PLAN.md Stage 37: the die a Lucky Captain's armed feat rolled ahead for this shot, if one did (Officers::toHitRoll)
+            $rolled = TacGamedata::$officersPresent ? Officers::toHitRoll($fireOrder, $i) : Dice::d(100);
             if ($this->isLinked && $i > 0) { //linked shot - number rolled (and effect) for furthr shots will be just the same as for first
                 $rolled = $fireOrder->rolled;
             }

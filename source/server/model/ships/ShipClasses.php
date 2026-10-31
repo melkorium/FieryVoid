@@ -210,6 +210,9 @@ class BaseShip {
 	protected $analystScans = array();
 	protected $analystReveals = array();
 	protected $analystScanClaim = null;
+	//Stage 37: $luckyArms lists this ship's Lucky Captain's OffLuck notes (array('turn', 'ability')) - a Firing-phase feat armed for that turn - read off by
+	//DBManager's note loop (Officers::takeNote), or one armed in this request (Officers::saveLuckyArm)
+	protected $luckyArms = array();
 
 	
 	public $halfPhaseThrust = 0; //needed for half phasing; equal to thrust from two BioThrusters on a given ship; 0 for ships that cannot half phase, eg. vast majority
@@ -1993,6 +1996,15 @@ class BaseShip {
 
 	public function setAnalystScanClaim($claim){
 		$this->analystScanClaim = is_array($claim) ? $claim : null;
+	}
+
+	//Stage 37: the Lucky Captain's armed Firing-phase feats (OffLuck notes, or one armed in this request)
+	public function getLuckyArms(){
+		return $this->luckyArms;
+	}
+
+	public function recordLuckyArm($turn, $ability){
+		$this->luckyArms[] = array('turn' => (int)$turn, 'ability' => (string)$ability);
 	}
 
 	//Stage 28: the initiative an Expert Warrior's ship gave this flight it launched (0: none)

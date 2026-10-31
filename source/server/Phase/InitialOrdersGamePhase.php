@@ -5,6 +5,11 @@ class InitialOrdersGamePhase implements Phase
 
 public function advance(TacGamedata $gameData, DBManager $dbManager)
 {
+    // OFFICERS_PLAN.md Stage 37 - a Lucky Captain who took the best initiative die in the Initial Orders that just closed: his ship's total as a
+    // d100 of 100 would have made it - FIRST, so every shift below (the Command Node, the fighter missions, the War Leader) lands on top of it, as
+    // they land on a rolled total. Returns at once in a game with no officers.
+    Officers::applyLuckyInitiative($gameData, $dbManager);
+
     // TRIAD COMMAND NODE (TRIAD_ADVANCED_FEATURES_PLAN.md §4) - FIRST, before the first active ship is
     // picked below: that pick reads initiative, and a node nominated in the Initial Orders that just
     // closed changes it. Returns at once in a game where no node was nominated this turn.
@@ -18,6 +23,11 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
     // OFFICERS_PLAN.md Stage 34 - an Expert War Leader who anticipated in the Initial Orders that just closed: +60 to his ship, by the same
     // mechanism and for the same reason (it wins no ties). Returns at once in a game with no officers.
     Officers::applyWarLeaderInitiative($gameData, $dbManager);
+
+    // OFFICERS_PLAN.md Stage 37 - every Lucky Captain's disengage ordered in the Initial Orders that just closed is rolled now, "at the start of the
+    // turn": a ship that leaves is gone before the first active ship is picked below. Persists its own log lines and damage. Returns at once in a
+    // game with no officers.
+    Officers::resolveLuckyDisengages($gameData, $dbManager);
 
     $dbManager->setPlayersWaitingStatusInGame($gameData->id, true);
     $gameData->setPhase(2);
@@ -322,6 +332,9 @@ public function advance(TacGamedata $gameData, DBManager $dbManager)
                copy) and checked against the RELOADED ship, which alone has officers: one OffUsed note. Any other ship asks nothing. */
             if (TacGamedata::$officersPresent && !($ship instanceof FighterFlight)){
                 Officers::saveWarLeaderOrder($gd->getShipById($ship->id), $ship, $gameData);
+                /* Stage 37 - a Lucky Captain's Initial Orders feat (EW last, disengage, best initiative) the same way, checked against the RELOADED ship
+                   and gamedata (a disengage needs the board): one OffUsed note. */
+                Officers::saveLuckyOrder($gd->getShipById($ship->id), $ship, $gameData, $gd);
             }
 
             /* OFFICERS_PLAN.md Stage 35 - an Expert Analyst's scan, checked against the RELOADED ship and gamedata (officers, positions) and

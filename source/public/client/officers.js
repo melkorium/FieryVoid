@@ -149,6 +149,12 @@ window.officers = {
 		   Analyse button - canAnalyse, client/UI/analystPicker.js), and what it shows his team is the server's (the payload's masks). */
 		{ id: 'OFF_ANLY', label: 'Expert Analyst', post: 'scanner', needs: 'analyst',
 			summary: 'One scan per turn of an enemy unit he holds OEW on, within 30 hexes: its weapons, officers, hangars, ammo or cargo' },
+		/* Stage 37: in the C&C, on every hull with one (the Dilgar at half price - the offers'). No `stats`: his four once-per-battle feats are picked
+		   from his own ship's tooltip (the Lucky Captain button - canLucky, client/UI/luckyPicker.js) - EW Last, Disengage and Best Initiative in
+		   Initial Orders; Re-roll Volley, Sure Shot, Dodge and Lucky Escape armed in the Firing phase - and played by the server (the payload's
+		   `armed` and `disengage`); the EW hold is savedEwBonus. */
+		{ id: 'OFF_LUCK', label: 'Lucky Captain', post: 'cnc',
+			summary: 'Once per battle each, one per turn: re-roll a volley; alter one die (Sure Shot, Dodge, Lucky Escape or Best Initiative); set EW last; disengage' },
 		/* PLACED officers (Stage 8): posted in the weapon the player buys him on, from that system's own menu
 		   (a per-system row - systemEnhancements.js), so they have no `post`. `sameAs`: the ship-level officer he
 		   IS at another post (one or the other); `anyDamage`: disabled by any damage to his weapon.
@@ -805,7 +811,9 @@ window.officers = {
 	//charge, precision, anticipation: the Expert Warrior's (Stage 28); patch: the Expert Quartermaster's (Stage 30)
 	ABILITY_NAMES: { reload: 'faster reload', pierce: 'Piercing shot', called: 'called shot', capture: 'capture assault', speech: 'speech',
 		reuse: 'Specialist reuse', charge: 'charge', precision: 'precision strike', anticipation: 'Supreme Anticipation', patch: 'critical patch',
-		rotate: 'gravitic rotation', taunt: 'taunt', anticipate: 'anticipation', wrath: 'wrath', glory: 'center of glory' }, //Stage 34: the War Leader's
+		rotate: 'gravitic rotation', taunt: 'taunt', anticipate: 'anticipation', wrath: 'wrath', glory: 'center of glory', //Stage 34: the War Leader's
+		reroll: 'volley re-roll', sure: 'Sure Shot', dodge: 'Dodge', escape: 'Lucky Escape', initiative: 'Best Initiative', ewlast: 'EW last',
+		disengage: 'disengage' }, //Stage 37: the Lucky Captain's
 	abilitiesText: function abilitiesText(entry) {
 		var spent = entry && entry.abilities ? entry.abilities : null;
 		if (!spent) return '';
@@ -1389,7 +1397,9 @@ window.officers = {
 	   ⚠️ MIRROR PAIR with Officers::savedEwBonus (PHP). */
 	savedEwBonus: function savedEwBonus(ship) {
 		//Stage 34: an Expert War Leader who anticipated this turn holds back ALL his ship's EW - the pool clamps it to what is unspent
-		return (this.isActive(ship, 'OFF_SCAN') ? 1 : 0) + (this.warLeaderUsed(ship, 'anticipate') ? this.WARLEADER_EW_HOLD : 0);
+		//Stage 37: and so does a Lucky Captain who set his EW last this turn
+		return (this.isActive(ship, 'OFF_SCAN') ? 1 : 0) + (this.warLeaderUsed(ship, 'anticipate') ? this.WARLEADER_EW_HOLD : 0)
+			+ (this.luckyUsed(ship, 'ewlast') ? this.LUCKY_EW_HOLD : 0);
 	},
 
 	/* Expert Missileer: the OB a fighter's ballistic launch gets, when it gets the flight's OB at all, is 1
@@ -3170,6 +3180,154 @@ window.officers = {
 		if (split.points <= 0) return 'Expert Electrician: switch weapons off to shunt their power';
 		return 'Expert Electrician: ' + split.points + ' point' + (split.points === 1 ? '' : 's') + ' - OB +' + split.ob + ', thrust +' + split.thrust
 			+ (split.free > 0 ? ', ' + split.free + ' unplaced' : '');
+	},
+
+	/* ------------------------------------------------------------------ the Lucky Captain (Stage 37) */
+
+	/* His four feats - "may perform each of the following feats once per scenario. He may not perform more than one in any given turn" - with the
+	   abilities that spend each: feat 2, one die altered, is one feat used four named ways. ⚠️ MIRROR PAIR with Officers::$luckyFeats (PHP). */
+	LUCKY_FEATS: { reroll: ['reroll'], luck: ['sure', 'dodge', 'escape', 'initiative'], ewlast: ['ewlast'], disengage: ['disengage'] },
+	LUCKY_ORDERS: ['ewlast', 'disengage', 'initiative'], //ordered in Initial Orders. ⚠️ MIRROR PAIR with Officers::$luckyOrders (PHP)
+	LUCKY_ARMS: ['reroll', 'sure', 'dodge', 'escape'],   //armed in the Firing phase. ⚠️ MIRROR PAIR with Officers::$luckyArms (PHP)
+	LUCKY_EW_HOLD: 1000, //EW Last: all his ship's EW held to the late window. ⚠️ MIRROR PAIR with Officers::LUCKY_EW_HOLD (PHP)
+	/* His menu lists the feats in LUCKY_FEATS' order, the rules' (luckyPicker.js): a feat used one way is a row, a feat used several ways - feat 2 -
+	   a frame around its uses, under this name and line, so a player sees that using one uses them all (user request, play test 4527). */
+	LUCKY_FEAT_NAMES: { reroll: 'Re-roll Volley', luck: 'Alter One Die', ewlast: 'EW Last', disengage: 'Disengage' },
+	LUCKY_FEAT_NOTES: { luck: 'One feat, four ways to use it.' },
+	/* What each use does - its row's name and line. ⚠️ Lucky Escape's line names Officers::$luckyEscapeSystems (PHP) - keep the two in step. */
+	LUCKY_ABILITIES: [
+		{ id: 'ewlast', name: 'EW Last', note: 'Hold back all this ship\'s EW and set it in the Firing phase.' },
+		{ id: 'disengage', name: 'Disengage', note: 'Leave the battle after Initial Orders by rolling a d20 at or under the range to the nearest enemy.' },
+		{ id: 'initiative', name: 'Best Initiative', note: 'This turn\'s initiative die counts as 100 - applied as Initial Orders close.' },
+		{ id: 'reroll', name: 'Re-roll Volley', note: 'If this ship\'s to-hit rolls come in below expected odds, all dice are rolled again - second rolls stand.' },
+		{ id: 'sure', name: 'Sure Shot', note: 'This ship\'s missed shot with the most damage expected becomes a hit.' },
+		{ id: 'dodge', name: 'Dodge', note: 'The enemy hit on this ship with the most damage expected misses instead.' },
+		{ id: 'escape', name: 'Lucky Escape', note: 'A critical roll on C&C or Reactor, or that kills an officer, rolls a 1 on its d20 instead.' }
+	],
+
+	//this ship's Lucky Captain entry if he serves now, or null - through his list, so never an enemy's
+	luckyEntry: function luckyEntry(ship) {
+		if (!ship || ship.flight) return null;
+		var turn = this.currentTurn();
+		var self = this;
+		return this.listFor(ship).filter(function (entry) { return entry.id === 'OFF_LUCK' && self.serves(entry, turn); })[0] || null;
+	},
+
+	//a feat's name in his menu
+	luckyAbilityName: function luckyAbilityName(ability) {
+		var row = this.LUCKY_ABILITIES.filter(function (a) { return a.id === ability; })[0];
+		return row ? row.name : String(ability);
+	},
+
+	//the feat `ability` spends, or null
+	luckyFeat: function luckyFeat(ability) {
+		var self = this;
+		return Object.keys(this.LUCKY_FEATS).filter(function (feat) { return self.LUCKY_FEATS[feat].indexOf(ability) !== -1; })[0] || null;
+	},
+
+	/* May he use `ability` now: its feat not spent (by any of its abilities), and none of his feats used this turn (so no Firing-phase feat after an
+	   Initial Orders one). ⚠️ MIRROR PAIR with Officers::luckyMay (PHP). */
+	luckyMay: function luckyMay(entry, ability) {
+		var feat = this.luckyFeat(ability);
+		if (!entry || feat === null) return false;
+		var self = this;
+		if (this.LUCKY_FEATS[feat].some(function (sibling) { return self.spentTurn(entry, sibling) !== null; })) return false;
+		var turn = this.currentTurn();
+		return !Object.keys(this.LUCKY_FEATS).some(function (f) {
+			return self.LUCKY_FEATS[f].some(function (other) { return self.spentTurn(entry, other) === turn; });
+		});
+	},
+
+	//when the feat of `ability` was spent and by which of its abilities - {turn, ability} - or null
+	luckySpent: function luckySpent(entry, ability) {
+		var feat = this.luckyFeat(ability);
+		if (!entry || feat === null) return null;
+		var self = this;
+		var found = null;
+		this.LUCKY_FEATS[feat].forEach(function (a) {
+			var turn = self.spentTurn(entry, a);
+			if (turn !== null && (found === null || turn < found.turn)) found = { turn: turn, ability: a };
+		});
+		return found;
+	},
+
+	//Did this ship's serving Lucky Captain use `ability` THIS turn (the server's record)?
+	luckyUsed: function luckyUsed(ship, ability) {
+		return this.spentTurn(this.luckyEntry(ship), ability) === this.currentTurn();
+	},
+
+	//the C&C he is posted in - where his pick waits for the commit (CnC.doIndividualNotesTransfer)
+	luckyCnc: function luckyCnc(ship) {
+		var entry = this.luckyEntry(ship);
+		return entry ? this.systemById(ship, entry.post) : null;
+	},
+
+	//the feats this phase offers: Initial Orders' or the Firing phase's
+	luckyPhaseAbilities: function luckyPhaseAbilities() {
+		if (!window.gamedata) return [];
+		if (gamedata.gamephase == 1) return this.LUCKY_ORDERS;
+		if (gamedata.gamephase == 3) return this.LUCKY_ARMS;
+		return [];
+	},
+
+	/* Does his own ship's tooltip offer the Lucky Captain button now: Initial Orders or the Firing phase, the player's own ship on the board, he serves,
+	   and this phase has a feat he may still use - or one picked or armed to show. */
+	canLucky: function canLucky(ship) {
+		if (!ship || ship.flight || !window.gamedata || (gamedata.gamephase != 1 && gamedata.gamephase != 3)) return false;
+		if (typeof gamedata.isMyShip === 'function' && !gamedata.isMyShip(ship)) return false;
+		var entry = this.luckyEntry(ship);
+		if (!entry || !this.onBoardUnit(ship)) return false;
+		if (this.luckyChoice(ship) || this.luckyArmed(ship)) return true;
+		var self = this;
+		return this.luckyPhaseAbilities().some(function (ability) { return self.luckyMay(entry, ability); });
+	},
+
+	//the feat waiting on his C&C for this phase's commit, or null
+	luckyChoice: function luckyChoice(ship) {
+		var cnc = this.luckyCnc(ship);
+		var choice = cnc ? cnc.luckyOrder : null;
+		return (choice && this.luckyPhaseAbilities().indexOf(choice) !== -1) ? choice : null;
+	},
+
+	//the Firing-phase feat the server holds armed for this turn (the payload's `armed`), or null
+	luckyArmed: function luckyArmed(ship) {
+		var entry = this.luckyEntry(ship);
+		return (entry && entry.armed && window.gamedata && gamedata.gamephase == 3) ? entry.armed : null;
+	},
+
+	//the server's word on his disengage this Initial Orders - {ok, range, why} (Officers::luckyDisengageState) - or null
+	luckyDisengage: function luckyDisengage(ship) {
+		var entry = this.luckyEntry(ship);
+		return (entry && entry.disengage) ? entry.disengage : null;
+	},
+
+	//may `ability` be picked now: this phase's, still his, nothing armed yet - and a disengage only where the server says he may
+	luckyPickable: function luckyPickable(ship, ability) {
+		var entry = this.luckyEntry(ship);
+		if (!entry || this.luckyPhaseAbilities().indexOf(ability) === -1 || !this.luckyMay(entry, ability) || this.luckyArmed(ship)) return false;
+		if (ability === 'disengage') {
+			var state = this.luckyDisengage(ship);
+			return !!(state && state.ok);
+		}
+		return true;
+	},
+
+	//pick `ability` for this phase's commit, or take the pick back (null) - true when it changed. The server judges it again.
+	setLuckyChoice: function setLuckyChoice(ship, ability) {
+		var cnc = this.luckyCnc(ship);
+		if (!cnc) return false;
+		if (ability !== null && !this.luckyPickable(ship, ability)) return false;
+		if ((this.luckyChoice(ship) || null) === ability) return false;
+		cnc.luckyOrder = ability;
+		return true;
+	},
+
+	//the button's line in the tooltip: the feat picked or armed, if any
+	luckyButtonInfo: function luckyButtonInfo(ship) {
+		var armed = this.luckyArmed(ship);
+		var choice = armed || this.luckyChoice(ship);
+		if (!choice) return 'Lucky Captain';
+		return 'Lucky Captain: ' + this.luckyAbilityName(choice) + (armed ? ' (armed)' : '');
 	},
 
 	/* ------------------------------------------------------------------ what a flight's officer costs */

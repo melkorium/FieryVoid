@@ -1249,6 +1249,150 @@
     outline-offset: -1px;
 }
 
+/* ── The Lucky Captain's menu (client/UI/luckyPicker.js) ──────────────────────
+   OFFICERS_PLAN.md Stage 37: the picker above in the green of his tooltip button (img/luckyCaptain.png, #5fd38d), as the Analyst's wears violet. Its
+   rows are his feats - this phase's open ones are picks, the rest dimmed with a muted chip saying why. Solid colours, never alphas (the
+   alpha-compounding trap). The palette is these local properties - change it here. */
+.fv-missionpicker--lucky {
+    --lk-panel: linear-gradient(180deg, #10291b, #0a1a11);
+    --lk-frame: #2f7a4f;          /* the border, and the header's underline */
+    --lk-rule: #1c4630;           /* the rules between rows and around the footer */
+    --lk-wash: linear-gradient(180deg, #1d4d32, #133722);
+    --lk-green: #5fd38d;          /* the icon: the title, the accent rail, the chip, a button on hover */
+    --lk-light: #b8f0cf;          /* the ship's name, the button's text */
+    --lk-text: #ecfff3;
+    --lk-note: #96bfa6;
+    --lk-hover: #163a26;
+    --lk-pending: #1b4730;
+    --lk-btn: #153a26;
+    --lk-btn-line: #3f9a66;
+    --lk-on-green: #07190e;       /* dark text on the green */
+    --lk-muted: #2a3d32;          /* a chip saying why a feat cannot be picked */
+    --lk-group: #133322;          /* the band behind feat 2's four uses */
+    background: var(--lk-panel);
+    border: 1px solid;
+    border-color: var(--lk-frame);
+    color: var(--lk-note);
+    max-width: 340px;
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__header {
+    background: var(--lk-wash);
+    border-left-color: var(--lk-green);
+    border-bottom-color: var(--lk-frame);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__title {
+    color: var(--lk-green);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__subtitle {
+    color: var(--lk-light);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__close {
+    color: var(--lk-note);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__close:hover {
+    color: var(--lk-text);
+    border-color: var(--lk-frame);
+    background: var(--lk-pending);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__cost {
+    color: var(--lk-note);
+    border-bottom-color: var(--lk-rule);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__row {
+    border-bottom-color: var(--lk-rule);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__row:hover {
+    background: var(--lk-hover);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__row--disabled:hover {
+    background: transparent;
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__row--pending {
+    border-left-color: var(--lk-green);
+    background: var(--lk-pending);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__label {
+    color: var(--lk-text);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__note {
+    color: var(--lk-note);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__chip {
+    color: var(--lk-on-green);
+    background: var(--lk-green);
+    border-color: var(--lk-green);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__chip--muted {
+    color: var(--lk-note);
+    background: var(--lk-muted);
+    border-color: var(--lk-rule);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__footer {
+    border-top-color: var(--lk-rule);
+}
+
+/* Feat 2 - one feat, four uses (play test 4527, re-done after the user's review: the first take's inset frame, rail and indent put its rows out of
+   line with the rest). A full-width band in a lifted fill under a small heading - the heading's text on the rows' own 10px (3px rail + 7px padding),
+   the rows unchanged, so everything stays in one column and a picked row's rail is the same as anywhere else. One rule above the heading and one
+   below the band, as between any two rows. */
+.fv-missionpicker--lucky .fv-missionpicker__group {
+    background: var(--lk-group);
+    border-bottom: 1px solid var(--lk-rule);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__grouphead {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px 8px 4px 10px;
+    border-bottom: 1px solid var(--lk-rule);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__grouphead .fv-missionpicker__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lk-green);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__grouphead .fv-missionpicker__note {
+    font-size: 10.5px;
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__button {
+    color: var(--lk-light);
+    background: var(--lk-btn);
+    border-color: var(--lk-btn-line);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__button:hover {
+    color: var(--lk-on-green);
+    background: var(--lk-green);
+    border-color: var(--lk-green);
+}
+
+.fv-missionpicker--lucky .fv-missionpicker__row:focus-visible,
+.fv-missionpicker--lucky .fv-missionpicker__close:focus-visible,
+.fv-missionpicker--lucky .fv-missionpicker__button:focus-visible {
+    outline-color: var(--lk-green);
+}
+
 /* ── Focus ───────────────────────────────────────────────────────────────── */
 .fv-hexpicker:focus,
 .fv-hexpicker__row:focus,

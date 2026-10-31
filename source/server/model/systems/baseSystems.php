@@ -3395,21 +3395,25 @@ class CnC extends ShipSystem implements SpecialAbility {
 	   phase: the client posts ['speech']. This is the POST-side rebuild, which has no officers, so Officers::saveSpeech judges it on
 	   the real load and writes it there. Stage 28: an Expert Warrior's Supreme Anticipation, the same way - ['anticipation'],
 	   Officers::saveAnticipation. Stage 34: an Expert War Leader's wrath or center of glory, picked with his War Leader icon - "wrath:<unit id>" /
-	   "glory:<unit id>", Officers::saveWarLeaderPick. */
+	   "glory:<unit id>", Officers::saveWarLeaderPick. Stage 37: a Lucky Captain's Firing-phase feat, armed from his menu - "luck:<ability>",
+	   Officers::saveLuckyArm. */
 	public function saveFirePhaseDeclaration($gamedata, $dbManager){
 		$transfer = $this->individualNotesTransfer;
 		if (!is_array($transfer)) return;
 		$speech = in_array('speech', $transfer, true);
 		$anticipation = in_array('anticipation', $transfer, true);
 		$picks = array();
+		$luck = array();
 		foreach ($transfer as $item){
 			if (is_string($item) && preg_match('/^(wrath|glory):(\d+)$/', $item, $match)) $picks[] = array($match[1], (int)$match[2]);
+			if (is_string($item) && preg_match('/^luck:([a-z]+)$/', $item, $match)) $luck[] = $match[1];
 		}
-		if (!$speech && !$anticipation && empty($picks)) return;
+		if (!$speech && !$anticipation && empty($picks) && empty($luck)) return;
 		$this->individualNotesTransfer = array();
 		if ($speech) Officers::saveSpeech($this, $gamedata);
 		if ($anticipation) Officers::saveAnticipation($this, $gamedata);
 		foreach ($picks as $pick) Officers::saveWarLeaderPick($this, $gamedata, $pick[0], $pick[1]);
+		foreach ($luck as $ability) Officers::saveLuckyArm($this, $gamedata, $ability);
 	}
 
 	/* Initial Orders: persist the nomination the client made - it posts [1, partner id or -1] from the

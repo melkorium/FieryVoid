@@ -5927,6 +5927,9 @@ window.weaponManager = {
             //AnalystScan (OFFICERS_PLAN.md Stage 35): an Expert Analyst's cargo scan - its sentence alone, under a "CARGO SCAN:" header, 0 shots on
             //his ship's own Ramming Attack, as the speech.
             "AnalystScan",
+            //LuckyCaptain (OFFICERS_PLAN.md Stage 37): a Lucky Captain's feat - its sentence alone, under a "LUCKY CAPTAIN:" header, 0 shots on his ship's
+            //own Ramming Attack, as the speech.
+            "LuckyCaptain",
             //HangarEscape (HangarOps::escapeLogOrder): a destroyed carrier's escape roll - what flew free and what was lost with the
             //ship. 0 shots on the carrier's own Ramming Attack; its sentence continues the header with "'s".
             "HangarEscape"

@@ -75,6 +75,8 @@ class FireGamePhase implements Phase
         Officers::warLeaderLog($servergamedata);
         //Stage 35: and every Expert Analyst's cargo scan this turn - the only scan told (user ruling 2026-10-29)
         Officers::analystLog($servergamedata);
+        //Stage 37: and every Lucky Captain's Initial Orders feat that has no line yet - his EW set last, his best initiative
+        Officers::luckyOrdersLog($servergamedata);
 
         $newFireOrders = $servergamedata->getNewFireOrders();
         $dbManager->submitFireorders($servergamedata->id, $newFireOrders, $servergamedata->turn, 3);

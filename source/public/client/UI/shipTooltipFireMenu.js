@@ -19,7 +19,10 @@ window.ShipTooltipFireMenu = function () {
         { className: "recoverFlights", condition: [isMine, isFiringPhase, hasReceivableFlights, isLaunchEnabledGame, carrierNotPivotingOrRolling], action: openHangarRecover, info: "Hangars" },
         //"Enter Hangar" is reused for LCVs: isDockableUnit accepts a flight OR an
         //LCV, and openHangarDock routes an LCV through the LCV-rail dock dialog.
-        { className: "dockFlight", condition: [isMine, isFiringPhase, isDockableUnit, isLaunchEnabledGame, hasEligibleCarrierInHex], action: openHangarDock, info: "Enter Hangar" }
+        { className: "dockFlight", condition: [isMine, isFiringPhase, isDockableUnit, isLaunchEnabledGame, hasEligibleCarrierInHex], action: openHangarDock, info: "Enter Hangar" },
+        /* OFFICERS_PLAN.md Stage 37 - a Lucky Captain's Firing-phase feat (Re-roll Volley, Sure Shot, Dodge, Lucky Escape), armed from his menu
+           (LuckyPicker) on his own ship - the Initial Orders menu offers the same button for his Initial Orders feats. Firing phase only. */
+        { className: "luckyCaptain", condition: [isMine, isFiringPhase, canLucky], action: openLuckyPicker, info: luckyInfo }
 	];
 
     ShipTooltipFireMenu.prototype.getAllButtons = function () {
@@ -299,6 +302,27 @@ window.ShipTooltipFireMenu = function () {
             if (shipManager.movement.isPivoting && shipManager.movement.isPivoting(ship) !== "no") return false;
         }
         return true;
+    }
+
+    function canLucky() {
+        return !!window.officers && officers.canLucky(this.targetedShip);
+    }
+
+    function luckyInfo() {
+        return officers.luckyButtonInfo(this.targetedShip);
+    }
+
+    //Anchored to the clicked button; the tooltip redraws after a pick, so its line shows it
+    function openLuckyPicker(isMaxClick, event) {
+        var menu = this;
+        var anchor = (event && event.currentTarget) ? event.currentTarget : null;
+        if (!window.LuckyPicker) return;
+        LuckyPicker.open(this.targetedShip, anchor, function () {
+            if (menu.shipTooltip) {
+                menu.currentInfo = "";
+                menu.shipTooltip.update();
+            }
+        });
     }
 
     function openHangarLaunch() {
