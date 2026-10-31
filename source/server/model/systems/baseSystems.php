@@ -5405,7 +5405,17 @@ class Hangar extends ShipSystem{
 			$this->data["Special"] .= "<br>Details of Hangar Operations can be found in Fiery Void FAQ.";
 			$this->data["Launch Rate"] = $this->output;
 		}
-		$this->data["Type"] = $isLCVRail ? "LCVs" : ucwords($this->hangarType);
+		//The tooltip comes from the class blueprint, which never runs the load-time
+		//inferHangarType, so show the single size the bay will be narrowed to in play.
+		$unit = $this->getUnit();
+		$shownType = $unit ? HangarOps::narrowedHangarType($this, $unit) : null;
+		if ($shownType === null) $shownType = $this->hangarType;
+		$this->data["Type"] = $isLCVRail ? "LCVs" : ucwords($shownType);
+		//A ship that declares no $fighters at all carries only its default shuttles,
+		//so its universal 'fighters' bay reads as a shuttle bay.
+		if (!$isLCVRail && strtolower($shownType) === 'fighters' && $unit && empty($unit->fighters)) {
+			$this->data["Type"] = "Shuttles";
+		}
 
 		//LCV rails hold exactly one LCV; their box count is HP, not capacity.
 		if ($isLCVRail) {

@@ -2846,19 +2846,28 @@ class HangarOps {
 	 * size of fighter through hangarAcceptsCategory's 'fighters' shortcut.
 	 */
 	public static function inferHangarType($hangar, $ship){
+		$narrowed = self::narrowedHangarType($hangar, $ship);
+		if ($narrowed !== null) $hangar->hangarType = $narrowed;
+	}
+
+	/* The size category inferHangarType WOULD narrow this hangar to, or null when it
+	 * stays as it is. Changes nothing, so the class blueprint (which never runs the
+	 * load-time inferHangarType) can still show the narrowed size in its tooltip.
+	 */
+	public static function narrowedHangarType($hangar, $ship){
 		//Catapults are fixed at 'superheavy' by design — never narrow them from
 		//the ship's $fighters declaration (Stage 16). Fighter Rails carry an
 		//explicit category from the ship file (load-bearing for launch/dock
 		//eligibility) — leave them untouched too. LCV Rails are fixed at 'LCVs'
 		//(whole-ship dock, not a fighter category) — never narrow them either.
-		if (!empty($hangar->isCatapult) || !empty($hangar->isRail) || !empty($hangar->isLCVRail) || !empty($hangar->isShadowHangar)) return;
+		if (!empty($hangar->isCatapult) || !empty($hangar->isRail) || !empty($hangar->isLCVRail) || !empty($hangar->isShadowHangar)) return null;
 		$hType = strtolower(trim((string)$hangar->hangarType));
 		//Only narrow universal slots. Anything specific (medium, heavy, shuttles,
 		//assault shuttles, BPods, custom 'Raiders', etc.) was an intentional
 		//ship-file choice and stays.
-		if ($hType !== '' && $hType !== 'fighters' && $hType !== 'normal') return;
+		if ($hType !== '' && $hType !== 'fighters' && $hType !== 'normal') return null;
 
-		if (!isset($ship->fighters) || !is_array($ship->fighters) || empty($ship->fighters)) return;
+		if (!isset($ship->fighters) || !is_array($ship->fighters) || empty($ship->fighters)) return null;
 
 		$sizes = array('heavy', 'medium', 'light', 'ultralight');
 		//Categories a narrowed SIZE bay still accepts (shuttle family + BPs) via the
@@ -2899,11 +2908,11 @@ class HangarOps {
 		//combat category shares the bay, or when the declaration is ambiguous (0 or
 		//>1 specific sizes). Only narrow when the ship declares EXACTLY ONE specific
 		//size and no universal 'normal' / custom-combat slots.
-		if ($hasNormal) return;
-		if ($hasCustomCombat) return;
-		if (count($declared) !== 1) return;     //ambiguous — leave universal
+		if ($hasNormal) return null;
+		if ($hasCustomCombat) return null;
+		if (count($declared) !== 1) return null;     //ambiguous — leave universal
 
-		$hangar->hangarType = $declared[0];
+		return $declared[0];
 	}
 
 	/* Returns the size category a flight physically requires, independent of
