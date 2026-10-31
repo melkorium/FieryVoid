@@ -844,7 +844,7 @@ class Enhancements{
 		  $enhLimit = 2;	
 		  $enhPrice = -ceil($ship->pointCost*0.25); //-25%	  
 		  $enhPriceStep = -ceil($enhPrice*0.4); //+10%, for total price of -40% for second level
-		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);//this is NOT an enhancement - rather an OPTION
 	  }
 	  
 	  //Increased Diffuser Capability: +1 output for every Energy Diffuser; cost: 2.5x new capability, step: 2.5x number of diffusers
@@ -976,7 +976,7 @@ class Enhancements{
 		  $enhLimit = 7;	
 		  $enhPrice = -6; //fixed, very low value
 		  $enhPriceStep = 0; //flat rate
-		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);//this is NOT an enhancement - rather an OPTION
 	  }
 	  
 
@@ -1079,7 +1079,7 @@ class Enhancements{
 		  $enhLimit = 4;	
 		  $enhPrice = -4; //fixed, very low value
 		  $enhPriceStep = 0; //flat rate
-		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,false);
+		  $ship->enhancementOptions[] = array($enhID, $enhName,0,$enhLimit, $enhPrice, $enhPriceStep,true);//this is NOT an enhancement - rather an OPTION
 	  }
 	  
 	  
