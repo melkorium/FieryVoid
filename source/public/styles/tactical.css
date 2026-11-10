@@ -778,9 +778,14 @@ body {
    The 7px radius is kept ROUNDED on purpose while the rest of the screen goes square
    at Stage 4: tooltips are transient and float over the map rather than docking to
    chrome, and both stacks already agreed on 7px. Retune --fv-radius-tooltip if that
-   judgement changes. */
-#shipNameContainer,
-.shipNameContainer {
+   judgement changes.
+
+   ⚠️ SPLIT 2026-11-10 (SHIP_TOOLTIP_REDESIGN_PLAN.md Stage 2): `.shipNameContainer` - the jQuery
+   ShipTooltip - is now the square, opaque SHIP CARD, and its frame lives in shipTooltip.css
+   (`.shipNameContainer.fv-shipcard`). D7 ended the 7px exception for that surface ONLY:
+   common/Tooltip.js keeps its corners. What is left here is the static #shipNameContainer div in
+   game.php, which no script reads (it looks dead; left alone, plan §13). */
+#shipNameContainer {
 
     z-index: 7001;
     position: absolute;
@@ -809,13 +814,11 @@ body {
     display: none;
 }
 
-#shipNameContainer span,
-.shipNameContainer span {
+#shipNameContainer span {
     padding-top: 2px;
 }
 
-#shipNameContainer .name,
-.shipNameContainer .name {
+#shipNameContainer .name {
     font-size: 16px;
     font-style: normal;
 

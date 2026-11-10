@@ -756,44 +756,18 @@ window.weaponManager = {
             return;
         }
 
-        if (!(calledid > 0)) {
-            //(calledid == null){
-            var html = "";
-            var section = weaponManager.getShipHittingSide(selectedShip, ship);
-
-            for (var i = 0; i < section.length; i++) {
-                switch (section[i]) {
-                    case 1:
-                        html += "-FORWARD-";
-                        break;
-                    case 2:
-                        html += "-AFT-";
-                        break;
-                    case 3:
-                        html += "-PORT-";
-                        break;
-                    case 4:
-                        html += "-STARBORD-";
-                        break;
-                    case 31:
-                        html += "-PORT.FWD-";
-                        break;
-                    case 32:
-                        html += "-PORT.AFT-";
-                        break;
-                    case 41:
-                        html += "-STBD.FWD-";
-                        break;
-                    case 42:
-                        html += "-STBD.AFT-";
-                        break;
-                    default:
-                        html += "-OTHER-";
-                        break;
-                }
-            }
-            $('<div><span class="weapon">' + html + '</span></div>').appendTo(f);
+        /* One weapon per row (SHIP_TOOLTIP_REDESIGN_PLAN.md Stage 4): weapon | mode | hit chance,
+           with no "Approx:" - every number in the last column is a hit chance. A weapon that cannot
+           shoot shows its reason across the last two columns instead; the reason keeps its old
+           class, so it keeps its old colour. */
+        function row(weaponName, statusClass, statusText) {
+            return '<div class="tt-row"><span class="weapon" title="' + String(weaponName).replace(/"/g, "&quot;") + '">' + weaponName + '</span>'
+                + '<span class="' + statusClass + ' tt-status">' + statusText + '</span></div>';
         }
+
+        /* The "-PORT-" side line that used to open this list is the ship card's Facing now
+           (SHIP_TOOLTIP_REDESIGN_PLAN.md §4.4: "TARGETING list incl. -PORT- side line -> From
+           <sel> Facing"), read from the same getShipHittingSide, in the "From" section above. */
 
         /* Boarding attaches to the section its ENTRY HEX EDGE points at, not to whichever arc
            the bearing happens to fall in, so name that one section. Without this the player was
@@ -817,7 +791,7 @@ window.weaponManager = {
                 } else {
                     attachHtml = 'BOARDING: section rolled by server (two sections tie)';
                 }
-                $('<div><span class="weapon">' + attachHtml + '</span></div>').appendTo(f);
+                $('<div class="tt-line"><span class="weapon">' + attachHtml + '</span></div>').appendTo(f);
             }
         }
 
@@ -928,28 +902,28 @@ window.weaponManager = {
                     //Mine's orb - plan 3.10c). Same refusal as Huge terrain, and deliberately in
                     //the same line: what the player needs is one "Cannot Target", not a new reason.
                     if (abductionLine) {
-                        $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="hexTargeted"> Abduction</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'hexTargeted', 'Abduction')).appendTo(f);
                     } else if (ship.Huge > 0 || !shipManager.isTargetable(ship) || attachedUnitHidden || attachedWeaponHidden || clawBlindSpot) { //Cannot Target larger terrain or POds that are attached to non-facing sides
-                        $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotTarget"> Cannot Target</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'cannotTarget', 'Cannot Target')).appendTo(f);
                     } else if (loSBlocked) {
                         // LOS is blocked - only display the blocked message
-                        $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="losBlocked"> Line of Sight Blocked</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'losBlocked', 'Line of Sight Blocked')).appendTo(f);
                     } else if (skinDanceBlocked !== null) {
                         // Can't target outside forward 120 degrees if skin-dancing
-                        $('<div><span class="weapon">' + weapon.displayName + ': </span><span class="skinDanceBlocked">' + skinDanceBlocked + ' is Skin Dancing</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'skinDanceBlocked', skinDanceBlocked + ' is Skin Dancing')).appendTo(f);
                     } else if (weapon.hextarget) {
                         // Don't show hit chance if targeting the hex.
-                        $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="hexTargeted"> Hex Targeted</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'hexTargeted', 'Hex Targeted')).appendTo(f);
                     } else if (weaponManager.getLinkedFiringBlock(selectedShip, weapon, ship) != null) {
                         // Firing-linked weapon: this target is disallowed by a sibling's existing order
                         // (a different unit, or outside the group's angular spread). Shown while aiming
                         // so the restriction is visible before the click; the click itself is blocked
                         // with the full reason in targetShip.
-                        $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotTarget"> Linked Firing</span></div>').appendTo(f);
+                        $(row(weapon.displayName, 'cannotTarget', 'Linked Firing')).appendTo(f);
                     } else {
                         // LOS is not blocked, not hex targeted, show normal hit chance info, check Sweeping weapons first.
                         if (calledid != null && !weaponManager.canWeaponCall(weapon)) {
-                            $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="cannotCalled"> Cannot Called Shot</span></div>').appendTo(f);
+                            $(row(weapon.displayName, 'cannotCalled', 'Cannot Called Shot')).appendTo(f);
                         } else {
                             var result = weaponManager.calculateHitChange(selectedShip, ship, weapon, calledid);
                             var hitChance = result.hitChance;
@@ -960,17 +934,17 @@ window.weaponManager = {
                             var dataAttr = tooltipText ? ' data-tooltip="' + tooltipText + '"' : '';
 
                             if (keys.length > 1) {
-                                $('<div><span class="weapon">' + weapon.displayName + ': <span class="firingMode"> (' + value + ')</span> - <span class="' + chanceClass + '"' + dataAttr + '>Approx: ' + hitChance + '%</span></div>').appendTo(f);
+                                $('<div class="tt-row"><span class="weapon" title="' + String(weapon.displayName).replace(/"/g, "&quot;") + '">' + weapon.displayName + '</span><span class="firingMode">' + value + '</span><span class="' + chanceClass + '"' + dataAttr + '><span class="hitvalue">' + hitChance + '%</span></span></div>').appendTo(f);
                             } else {
-                                $('<div><span class="weapon">' + weapon.displayName + ': </span><span class="' + chanceClass + '"' + dataAttr + '>Approx: ' + hitChance + '%</span></div>').appendTo(f);
+                                $('<div class="tt-row"><span class="weapon" title="' + String(weapon.displayName).replace(/"/g, "&quot;") + '">' + weapon.displayName + '</span><span class="firingMode"></span><span class="' + chanceClass + '"' + dataAttr + '><span class="hitvalue">' + hitChance + '%</span></span></div>').appendTo(f);
                             }
                         }
                     }
                 } else {
-                    $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="notInRange"> Not In Range</span></div>').appendTo(f);
+                    $(row(weapon.displayName, 'notInRange', 'Not In Range')).appendTo(f);
                 }
             } else {
-                $('<div><span class="weapon">' + weapon.displayName + ':</span><span class="notInArc"> Not In Arc </span></div>').appendTo(f);
+                $(row(weapon.displayName, 'notInArc', 'Not In Arc')).appendTo(f);
             }
         }
 
