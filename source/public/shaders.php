@@ -37,7 +37,7 @@
         textureColor.rgb *= 1.0 - damage.g * damageScorchStrength;
         //dull ember at the edge of a fire, a deeper orange at its heart (linear values: this is before
         //the output colour-space conversion below)
-        vec3 fire = mix(vec3(0.16, 0.014, 0.001), vec3(0.40, 0.048, 0.002), damage.b);
+        vec3 fire = mix(vec3(0.16, 0.014, 0.001), vec3(0.30, 0.038, 0.002), damage.b);
         textureColor.rgb = mix(textureColor.rgb, fire, min(1.0, damage.b * 1.5));
         #endif
 
