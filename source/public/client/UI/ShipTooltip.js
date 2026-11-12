@@ -123,12 +123,37 @@ window.ShipTooltip = function () {
             this.element.addClass('fv-shipcard--insheet').appendTo(this.dock.container);
             this.element.show();
             if (typeof this.dock.picker.onCardDocked === 'function') this.dock.picker.onCardDocked(this);
+            //AFTER onCardDocked: until the picker swaps its list for the card, the card is not laid out
+            alignEwRows.call(this);
             return;
         }
         this.element.appendTo('body');
         this.element.show();
+        alignEwRows.call(this);
         this.place();
     };
+
+    /* Round 8 (user, 2026-11-12): every EW row's icon starts where "DEFENCE" does in the cell above.
+       That label is CENTRED in its cell, so where it starts depends on the font the platform drew it
+       in - it is MEASURED here rather than guessed in CSS, and handed to the rows as --tt-ew-indent
+       (shipTooltip.css puts it on the icon's left margin). Needs the card in the DOM, so it runs
+       from show() and after every re-render (update, refreshButtons). Only beside the two-cell grid:
+       a lone centred Defence cell (an enemy mine) sits mid-card, and its rows stay flush left. */
+    function alignEwRows() {
+        var node = this.element[0];
+        var label = this.element.find('.fv-shipcard__cells--n2 .fv-shipcard__cell[data-cell="defence"] .fv-shipcard__cl')[0];
+        var row = this.element.find('.fv-shipcard__ewr')[0];
+        if (!label || !row || !label.firstChild || !document.createRange) {
+            node.style.removeProperty('--tt-ew-indent');
+            return;
+        }
+        var range = document.createRange();
+        range.selectNodeContents(label);
+        var textRect = range.getBoundingClientRect();
+        var rowRect = row.getBoundingClientRect();
+        if (!rowRect.width || !textRect.width) return; //not laid out (yet)
+        node.style.setProperty('--tt-ew-indent', Math.max(0, textRect.left - rowRect.left).toFixed(2) + 'px');
+    }
 
     ShipTooltip.prototype.reposition = function (position) {
         if (position) {
@@ -360,6 +385,7 @@ window.ShipTooltip = function () {
         }
 
         //A docked card re-derives its place (its caret follows the new height); any other keeps it.
+        alignEwRows.call(this);
         if (this.dock) this.place(); else this.keepInView();
     };
 
@@ -429,6 +455,7 @@ window.ShipTooltip = function () {
         renderBody.call(this, this.model);
         renderFoot.call(this, this.model);
         renderActions.call(this);
+        alignEwRows.call(this);
         if (this.dock) this.place();
     };
 
@@ -960,9 +987,11 @@ window.ShipTooltip = function () {
         'DEW': { label: 'DEW', icon: 'DEW', color: 'DEW' },
         'CCEW': { label: 'CCEW', icon: 'CCEW', color: 'CCEW', scope: 'self' },
         'BDEW': { label: 'BDEW', icon: 'BDEW', color: 'BDEW', scope: 'self' },
-        'Detect Stealth': { label: 'Detect stealth', icon: 'DetectSEW', color: 'Detect Stealth', scope: 'self' },
-        'Detect Mines': { label: 'Detect mines', icon: 'MDEW', color: 'Detect Mines', scope: 'self' },
-        'Support DEW': { label: 'Support DEW', icon: 'SDEW', color: 'SDEW' },
+        //Round 8 (user, 2026-11-12): the icons moved in under "DEFENCE", and these three no longer fit -
+        //a SHORT label on the row, the `full` name on hover and wherever else a name is spoken.
+        'Detect Stealth': { label: 'Det. stealth', full: 'Detect stealth', icon: 'DetectSEW', color: 'Detect Stealth', scope: 'self' },
+        'Detect Mines': { label: 'Det. mines', full: 'Detect mines', icon: 'MDEW', color: 'Detect Mines', scope: 'self' },
+        'Support DEW': { label: 'Supp. DEW', full: 'Support DEW', icon: 'SDEW', color: 'SDEW' },
         'OEW': { label: 'OEW', icon: 'OEW', color: 'OEW', scope: 'target' },
         'DIST': { label: 'DIST', icon: 'DIST', color: 'DIST', scope: 'target' },
         'JAM': { label: 'Jamming', icon: 'JAM', color: 'JAM', scope: 'target' },
@@ -1125,9 +1154,16 @@ window.ShipTooltip = function () {
            Round 4 (user, 2026-11-10): Speed before Ini, and the order in the brackets is the bare
            movement-order number - `−20 (1)`, not `(1st)` - as the Order of Battle and the picker print it. */
         if (movement && (kind === 'ship' || kind === 'base' || kind === 'flight')) {
-            var iniValue = (ini && ini.order) ? signed(ini.total) + ' (' + ini.order + ')' : '—';
+            var iniValue = (ini && ini.order) ? '(' + ini.order + ') ' + signed(ini.total) : '—';
             //Round 5 (user, 2026-11-10): Thrust and Speed swapped - Thrust + Ini, then Speed + Accel.
-            var spec = [
+            //Round 6 (user, 2026-11-12): the Ini base / mod pair is the FIRST row (it was the footer's,
+            //then chips in a MOVEMENT heading - the heading is gone), Ini mod above the Initiative it adds to.
+            var spec = [];
+            if (ini) {
+                spec.push({ label: 'Ini Base', value: signed(ini.base), title: 'Initiative base ' + ini.base },
+                    { label: 'Ini Mod', value: signed(ini.mod), title: 'Initiative modifier ' + ini.mod });
+            }
+            spec.push(
                 { label: 'Thrust', value: movement.thrustLeft + '/' + movement.thrustFull, title: 'Thrust remaining / full' },
                 { label: 'Initiative', value: iniValue, title: (ini && ini.order) ? 'Initiative ' + ini.total + ', order ' + ini.order : 'No initiative order' },
                 { label: 'Speed', value: movement.speed },
@@ -1135,13 +1171,13 @@ window.ShipTooltip = function () {
                 { label: 'Turn Cost', value: movement.turnCost, title: 'Turn cost ' + movement.turnCost + ' (rate ' + movement.turnRate + ')' },
                 { label: 'Turn Delay', value: movement.turnDelay, title: 'Turn delay ' + movement.turnDelay + ' (rate ' + movement.turnDelayRate + ')' },
                 { label: 'Pivot', value: movement.pivot, title: 'Pivot cost' }
-            ];
+            );
             spec.push(ship.flight
                 ? { label: 'Cbt piv', value: movement.combatPivot, title: 'Combat pivot cost' }
                 : { label: 'Roll', value: movement.roll, title: 'Roll cost' });
             model.movementFirst = own && gamedata.gamephase == 2;
-            //Round 5: the Ini base / mod pair left the footer for this section's heading row.
-            model.sections.push({ key: 'move', title: 'Movement', spec: spec, ini: ini ? { base: ini.base, mod: ini.mod } : null });
+            //No heading (round 6, user 2026-11-12) - the rows say what they are.
+            model.sections.push({ key: 'move', title: null, spec: spec });
         }
 
         return model;
@@ -1294,7 +1330,7 @@ window.ShipTooltip = function () {
         //One colour per row (round 3, user 2026-11-10): the label AND its −/+ buttons wear it.
         element[0].style.setProperty('--ew-color', ewColor(type.color));
         element.append(iconImg(type.icon, 'fv-shipcard__ewi'));
-        element.append(jQuery('<span class="fv-shipcard__ewl"></span>').text(type.label));
+        element.append(jQuery('<span class="fv-shipcard__ewl"></span>').text(type.label).attr('title', type.full || type.label));
         element.append(jQuery('<span class="fv-shipcard__vb"></span>')
             .append('<span class="fv-shipcard__sp fv-shipcard__sp--remove"></span>')
             .append(jQuery('<span class="fv-shipcard__sv"></span>').text(fmt(row.value)))
@@ -1319,13 +1355,9 @@ window.ShipTooltip = function () {
             body.append(chips);
         }
 
-        if (model.cells.length) {
-            var cells = jQuery('<div class="fv-shipcard__cells"></div>')
-                .addClass('fv-shipcard__cells--n' + model.cells.length);
-            model.cells.forEach(function (cell) { cells.append(cellElement(cell)); });
-            body.append(cells);
-        }
-
+        /* Round 6 (user, 2026-11-12): "From ‹selected›" and Range / Facing sit ABOVE the cells - the
+           facing is what lights one of the Defence numbers - while the EW spent on this unit (OEW,
+           DIST, …) stays BELOW them, in a section of its own (`--relew`), next to DEW. */
         if (model.rel) {
             var rel = sectionElement('rel', null);
             var heading = jQuery('<div class="fv-shipcard__mh"></div>');
@@ -1337,23 +1369,25 @@ window.ShipTooltip = function () {
             //"FWD/PORT" - without the spaces - to fit the half-width column.
             if (model.rel.facing) spec.push({ label: 'Facing', value: model.rel.facing.label.split(' / ').join('/'), title: 'The section that faces ' + model.rel.sourceName });
             rel.append(specElement(spec));
-            model.rel.rows.forEach(function (row) { rel.append(ewRowElement(row)); });
             body.append(rel);
+        }
+
+        if (model.cells.length) {
+            var cells = jQuery('<div class="fv-shipcard__cells"></div>')
+                .addClass('fv-shipcard__cells--n' + model.cells.length);
+            model.cells.forEach(function (cell) { cells.append(cellElement(cell)); });
+            body.append(cells);
+        }
+
+        if (model.rel && model.rel.rows.length) {
+            var relEw = sectionElement('relew', null);
+            model.rel.rows.forEach(function (row) { relEw.append(ewRowElement(row)); });
+            body.append(relEw);
         }
 
         var renderSections = function () {
             model.sections.forEach(function (section) {
-                var element = sectionElement(section.key, section.title);
-                //"MOVEMENT – Ini base 12 · mod −20": the pair that used to be the footer's (round 5)
-                if (section.ini) {
-                    element.children('.fv-shipcard__mh').append(
-                        jQuery('<span class="fv-shipcard__mhsep"></span>').text('–'),
-                        jQuery('<span class="fv-shipcard__ini"></span>')
-                            .attr('title', 'Initiative: base ' + section.ini.base + ', modifier ' + section.ini.mod)
-                            .append('Ini base ', jQuery('<b></b>').text(signed(section.ini.base)),
-                                ' · mod ', jQuery('<b></b>').text(signed(section.ini.mod))));
-                }
-                body.append(element.append(specElement(section.spec)));
+                body.append(sectionElement(section.key, section.title).append(specElement(section.spec)));
             });
         };
         if (model.movementFirst) renderSections();
@@ -1494,7 +1528,7 @@ window.ShipTooltip = function () {
             if (!type || !type.scope || !carried[group] || steppers[group]) return;
             var mine = type.scope === 'self' ? (source && source === ship) : (source && source !== ship);
             if (!mine) return;
-            jQuery(this).addClass('fv-shipcard__ewr--off').attr('title', type.label + ': not available now');
+            jQuery(this).addClass('fv-shipcard__ewr--off').attr('title', (type.full || type.label) + ': not available now');
         });
     }
 
@@ -1588,16 +1622,20 @@ window.ShipTooltip = function () {
         var section = body.find('.fv-shipcard__sec--' + key);
         if (section.length) return section;
 
-        if (key === 'rel') {
-            section = sectionElement('rel', 'From');
-            var after = body.find('.fv-shipcard__cells');
-            if (after.length) section.insertAfter(after); else body.prepend(section);
+        var anchor;
+        if (key === 'relew') {
+            //EW spent ON this unit, under the cells (round 6). With no From block above it (no unit
+            //selected) the rows keep the "From" heading they always had.
+            section = sectionElement('relew', body.find('.fv-shipcard__sec--rel').length ? null : 'From');
+            anchor = body.find('.fv-shipcard__cells');
+            if (!anchor.length) anchor = body.find('.fv-shipcard__sec--rel');
         } else {
             section = sectionElement('ew', 'Electronic warfare');
-            var anchor = body.find('.fv-shipcard__sec--rel');
+            anchor = body.find('.fv-shipcard__sec--relew');
             if (!anchor.length) anchor = body.find('.fv-shipcard__cells');
-            if (anchor.length) section.insertAfter(anchor); else body.prepend(section);
+            if (!anchor.length) anchor = body.find('.fv-shipcard__sec--rel');
         }
+        if (anchor.length) section.insertAfter(anchor.last()); else body.prepend(section);
         return section;
     }
 
@@ -1608,7 +1646,7 @@ window.ShipTooltip = function () {
         if (row.length) return row.first();
 
         var targetScope = type.scope === 'target';
-        var section = ensureSection.call(this, targetScope ? 'rel' : 'ew');
+        var section = ensureSection.call(this, targetScope ? 'relew' : 'ew');
         var ship = this.ships[0];
         var source = this.menu.selectedShip;
         //The stepper's own subject: the selected unit spending, on this card's unit or on itself.
@@ -1637,7 +1675,7 @@ window.ShipTooltip = function () {
             var role = half[0];
             var buttonData = halves[role];
             var element = jQuery('<button type="button" class="fv-shipcard__sb"></button>').text(half[1])
-                .attr('aria-label', (role === 'add' ? 'Add ' : 'Remove ') + type.label);
+                .attr('aria-label', (role === 'add' ? 'Add ' : 'Remove ') + (type.full || type.label));
             if (buttonData) {
                 element.attr('data-action', buttonData.className);
                 var info = infoOf(buttonData, self.menu);

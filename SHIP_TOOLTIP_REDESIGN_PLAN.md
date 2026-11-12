@@ -698,3 +698,41 @@ Screenshot of the four round-4 cases. Bundles rebuilt; `-Sync` still owed.
 ⚠️ The first attempt at this round's CSS never reached disk (a Python edit script; `python` in Git Bash
 is the WindowsApps stub and exits "Permission denied") while the JS did - which is why R5.2, R5.3 and the
 R5.7 gap looked untouched in the first play test.
+
+### 14.4 Refinement round 6 (user, 2026-11-12) - overrides §14.3
+
+| # | Ruling | Built |
+|---|---|---|
+| R6.1 | "From ‹selected›" and Range / Facing above the Defence / DEW cells; the OEW / DIST rows stay below them (asked: "FROM + Range/Facing only") | The From block keeps `.fv-shipcard__sec--rel` (heading + spec only); the EW spent ON the unit is a new `.fv-shipcard__sec--relew` under the cells. `findOrMakeEwRow` → `ensureSection('relew')` (after the cells; keeps its "From" heading only when no From block exists); `ensureSection('ew')` anchors after `--relew`, else the cells, else `--rel`. Body order: chips › rel › cells › relew › … |
+| R6.2 | Head band and footer: a subtle wash of the rail colour instead of `--fv-card`'s blue | `--tt-wash` = rail 16% into black (`--fv-card` without `color-mix`); the footer's Ship details hovers to `--tt-wash-hover` (30%) - the shared `--tt-btn-hover` (14%) would be darker than the washed ground. The strong rail rule moved from the cells' top to the head's bottom (the cells are no longer first); the body's first block draws no rule; the stack grid's head opts out. |
+| R6.3 | Ini base / Ini mod as chips, no "–" | Two `.fv-shipcard__inichip` beside MOVEMENT: `INI BASE 0`, `INI MOD −50`, outlined in the label colour, value in mono. 9px / line-height 12px / 14px tall = the heading line, so the row is no taller. Measured on the ink: 3 / 3 at 1x; at 1.25x-2x half a CSS px low at most (odd ink in an even box - unavoidable; low is the better side for caps). |
+
+### 14.5 Refinement round 7 (user, 2026-11-12) - overrides §14.4 R6.3
+
+| # | Ruling | Built |
+|---|---|---|
+| R7.1 | The Ini chips did not work: no MOVEMENT heading at all; Ini Base + Ini Mod as a stat row above Thrust + Initiative | The movement section has `title: null`; its spec starts `Ini Base`, `Ini Mod` (signed values, only when the unit has an initiative). Five rows of two; Ini Mod sits above the Initiative it adds to. The chip markup and CSS are gone. |
+| R7.2 | EW values in one column with the DEW cell's number | `.fv-shipcard__vb { margin-right: max(0px, calc(25% - 4.5px - var(--tt-vb-half))) }` - derived from the card width, so it holds in the wider in-sheet card; `--tt-vb-half` 40px (70px on touch, where a 250px card is too narrow and the block sits right-aligned). Measured 0.0px off the DEW number on every card, desktop and the 390px sheet. Labels lose 12.5px; "DETECT STEALTH" (100px) still fits its 101.5px. |
+
+### 14.6 Refinement round 8 (user, 2026-11-12)
+
+| # | Ruling | Built |
+|---|---|---|
+| R8.1 | Every EW row's icon starts under the "D" of the DEFENCE label above it | The label is CENTRED, so its start depends on the platform's font: `alignEwRows` MEASURES it (a Range on the label text) and sets `--tt-ew-indent` on the card; the CSS puts it on the ICON's left margin (a row padding would shrink the row the value column's 25% margin is taken from). Runs from `show()` (in the sheet: AFTER `onCardDocked`, before which the card is not laid out), `update()` and `refreshButtons()`. Only beside the two-cell grid - an enemy mine's lone centred Defence cell leaves its rows flush. Measured 0.00px on every card: desktop, scrolling, docked, the 390px sheet. |
+| R8.2 | The indent cost the labels 15px (asked): shorter names | `EW_TYPE` gains `full`: rows read DET. STEALTH / DET. MINES / SUPP. DEW, the full name in the label's title, the stepper aria-labels and the greyed-row title. Row gap 7 → 5px. Tightest: Det. stealth 9.1px spare (5.1 while the card scrolls). |
+| R8.3 | The card's scrollbar in the head band's dress | `::-webkit-scrollbar` 8px: thumb `--tt-wash` with a `--tt-rail` border, hover `--tt-wash-hover`, track `--fv-overlay`. `scrollbar-color` only under `@supports not selector(::-webkit-scrollbar)` - Chrome 121+ IGNORES the pseudo-elements when it is set. ⚠️ The visual kit's cdp.mjs launches Chrome with `--hide-scrollbars`; `cdp_sb.mjs` drops it. |
+
+### 14.7 Refinement round 9 (user, 2026-11-12)
+
+| # | Ruling | Built |
+|---|---|---|
+| R9.1 | CLEAR EW centred on the column of EW values below it | `.fv-shipcard__clr` is a ZERO-width slot on that column's centre line - `margin-right: max(var(--tt-vb-half), calc(25% - 4.5px))`, the value block's own centre (it follows the block to the right edge on a narrow touch card) - and the button, `justify-content: center`, overflows it equally both ways: centred at any button width, and the heading text loses no room. `--tt-vb-half` moved up to the card (40px; 70px on touch) so the value block and the slot share it. Measured ≤ 0.01px off the values: desktop, scrolling, touch. |
+| R9.2 | CLEAR EW on the same background as Ship details | `--tt-wash` (Ship details is transparent on the footer's `--tt-wash`), hover `--tt-wash-hover`. |
+
+Observation (not changed): the EW icon BOXES start exactly under DEFENCE's "D" (R8.1), but the icon art has transparent margins - the drawn DEW / MDEW art starts ~4px right of the "D", CCEW's dots ~2px.
+
+### 14.8 Refinement round 10 (user, 2026-11-12)
+
+| # | Ruling | Built |
+|---|---|---|
+| R10.1 | Hide CLEAR EW when there is no EW to clear (everything still in DEW) | A menu condition, `hasEwToClear` (shipTooltipInitialOrdersMenu.js), on the `removeAllEW` entry: true only for a row of THIS turn's EW, other than DEW, with points in it - DEW is the remainder, not an allocation. Null-safe on its own. Live, because every EW change rebuilds the card (`onShipEwChanged` → `update`). Checked: no rows / a 0-point row / a DEW row / last turn's rows → hidden; CCEW 2 or OEW 1 → shown; spend a point → appears, Clear → gone; nothing selected → card builds, no button. |

@@ -56,7 +56,7 @@ window.ShipTooltipInitialOrdersMenu = function () {
     ];
 
     ShipTooltipInitialOrdersMenu.buttons = ShipTooltipInitialOrdersMenu.ewButtons.concat([
-        { className: "removeAllEW", kind: "clear", label: "Clear EW", condition: [isSelf, notFlight, notMine, sourceEwNotSuspended], action: removeAllEW, info: "Remove All EW" },
+        { className: "removeAllEW", kind: "clear", label: "Clear EW", condition: [isSelf, notFlight, notMine, sourceEwNotSuspended, hasEwToClear], action: removeAllEW, info: "Remove All EW" },
         /* ⭐ TRIAD (TRIAD_ADVANCED_FEATURES_PLAN.md §3, §4) - two per-turn choices made from the ship's own
            tooltip. Deliberately NOT in ewButtons: that subset is reused verbatim in the late-EW window,
            and both of these belong to Initial Orders alone. Every predicate below fails closed on a null
@@ -608,6 +608,21 @@ window.ShipTooltipInitialOrdersMenu = function () {
        ⚠️ DEW is NOT suspended - the rider keeps it, and nothing here touches convertUnusedToDEW. */
     function sourceEwNotSuspended() {
         return !ew.isEwSuspended(this.selectedShip);
+    }
+
+    /* Clear EW only when there is something to clear (user, 2026-11-12): a row of this turn's EW other
+       than DEW, with points in it. DEW is the remainder, not an allocation, so a ship with everything
+       still in DEW has nothing for ew.removeEW to give back. Live: every EW change rebuilds the card
+       (PhaseStrategy.onShipEwChanged -> ShipTooltip.update), so the button returns with the first point
+       spent. Null-safe on its own - see arch_tooltip_menu_null_selection. */
+    function hasEwToClear() {
+        var ship = this.selectedShip;
+        if (!ship || !ship.EW) return false;
+        for (var i in ship.EW) {
+            var entry = ship.EW[i];
+            if (entry && entry.turn == gamedata.turn && entry.type !== 'DEW' && Number(entry.amount) > 0) return true;
+        }
+        return false;
     }
 
     function targetEwNotSuspended() {
