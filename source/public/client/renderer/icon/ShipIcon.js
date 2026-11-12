@@ -1882,6 +1882,14 @@ window.ShipIcon = function () {
        SECTION_SLENDER_FROM. Measured: Omega ~7, Hyperion ~9, Tinashi ~4.5, B5 ~12; G'Quan, Sharlin,
        Primus and an Artemis all ~2-2.6, so they are untouched. The flanks are never deepened.
 
+       TWO_SECTION: a hull with only two outer sections - an HCV's fore and aft, a Drazi's port and
+       starboard - has each one stand for half the ship, so its band goes this much deeper (DEPTH
+       and MIN_DEPTH alike; user, 2026-11-12: "cut deeper into the hull when a ship only has two
+       external structures"). MAX_THROUGH goes up by the same factor, so a Drazi's spine is cut
+       deeper too, but no further than SECTION_THROUGH_MOST: with both halves gone a fifth of the
+       hull is still left between the two bands. That limit holds whether or not the other half
+       is lost - were it eased while it stood, the first band would shrink back when it fell.
+
        All of these are meant to be tuned by eye; a sweep of 262 hull shapes in 27 factions has one section taking 4-27% of the art
        (typically 14%) and every section together typically 44%. */
     ShipIcon.SECTION_DAMAGE_DEPTH = 0.35;
@@ -1893,6 +1901,7 @@ window.ShipIcon = function () {
     ShipIcon.SECTION_DAMAGE_SCORCH_WIDTH = 0.12;
     ShipIcon.SECTION_DAMAGE_FIRE = 0.35;
     ShipIcon.SECTION_DAMAGE_LONG_END = 0.5;
+    ShipIcon.SECTION_DAMAGE_TWO_SECTION = 1.7;
 
     //Used only when a structure carries no usable arc (a stale static bundle): the standard B5W layout.
     var SECTION_FALLBACK_BEARINGS = { 1: 0, 2: 180, 3: 270, 4: 90, 31: 300, 32: 240, 41: 60, 42: 120 };
@@ -1903,6 +1912,10 @@ window.ShipIcon = function () {
     var SECTION_ARC_FLOOR = 52;  //degrees either side of its bearing that even a narrow section reaches on the art (getSectionFrame)
     var SECTION_SLENDER_FROM = 2.8; //hull slenderness (measureBulk) where the deeper bow and stern of SECTION_DAMAGE_LONG_END...
     var SECTION_SLENDER_TO = 6;     //...start, and where they are at full depth
+    var SECTION_TORN_SPREAD = 16;   //pixels: how far into the empty space round torn-away art the map still reads torn (drawDamageMap)
+    var SECTION_THROUGH_MOST = 0.4; //the furthest TWO_SECTION takes MAX_THROUGH: two opposite bands still leave a fifth of the hull between them
+    var SECTION_EDGE_SLOPE = 1;     //steps deeper per line along the edge: the steepest a torn edge turns where it runs in behind a pod or fin (1 = 45 degrees; easeSteps)
+    var CUT_DROPPED = 255;          //in a damage map's cut[]: a loose piece dropped, rather than a section's number (drawDamageMap)
 
     /* The locations whose section is lost: any NON-primary structure block destroyed (one entry per
        location - a Vree section has an outer ring block as well as its own). Primary never appears:
@@ -1951,14 +1964,28 @@ window.ShipIcon = function () {
         }
 
         var self = this;
+        var deeper = countOuterSections(ship) === 2 ? ShipIcon.SECTION_DAMAGE_TWO_SECTION : 1;
         sprite.whenTextureReady(function (texture) {
             if (self.lostSectionsKey !== key) return; //superseded while the art was loading
             var hull = getHullAlpha(texture);
             if (!hull) return;
-            sprite.setDamageMap(drawDamageMap(hull, ship.id, sections), ShipIcon.SECTION_DAMAGE_SCORCH);
+            sprite.setDamageMap(drawDamageMap(hull, ship.id, sections, deeper), ShipIcon.SECTION_DAMAGE_SCORCH);
             requestSceneRender();
         });
     };
+
+    //How many sections the hull has outside its primary (distinct non-primary structure locations).
+    function countOuterSections(ship) {
+        var seen = {};
+        var count = 0;
+        for (var i in ship.systems) {
+            var s = ship.systems[i];
+            if (!s || s.name !== 'structure' || s.location == 0 || seen[s.location]) continue;
+            seen[s.location] = true;
+            count++;
+        }
+        return count;
+    }
 
     function requestSceneRender() {
         if (window.webglScene && window.webglScene.requestRender) window.webglScene.requestRender();
@@ -2099,16 +2126,22 @@ window.ShipIcon = function () {
     /* One ship's damage map: a canvas the size of its art, opaque, the three colour channels being
        amounts for the sprite shader - RED how much of the hull is torn away, GREEN how charred what
        is left is, BLUE where the torn edge burns. Drawn once per change in what the ship has lost
-       (a few milliseconds), never per frame. */
-    function drawDamageMap(hull, shipId, sections) {
+       (a few milliseconds), never per frame. deeper: the TWO_SECTION factor, or 1. */
+    function drawDamageMap(hull, shipId, sections, deeper) {
         var width = hull.width;
         var height = hull.height;
         var alpha = hull.alpha;
         var cut = new Uint8Array(width * height);
-        sections.forEach(function (section) {
-            cutSection(hull, shipId, section, sections, cut);
+        //cut[] marks each torn pixel with the section that took it (1, 2, ... in order) or CUT_DROPPED
+        var parts = sections.map(function (section, index) {
+            return cutSection(hull, shipId, section, sections, cut, deeper, index + 1);
         });
         dropLooseFragments(hull, cut);
+        var eased = false;
+        parts.forEach(function (part) {
+            if (easeSteps(hull, part, cut)) eased = true;
+        });
+        if (eased) dropLooseFragments(hull, cut); //a stub the easing cut through at its root
 
         var scorchWidth = Math.max(3, ShipIcon.SECTION_DAMAGE_SCORCH_WIDTH * hull.size);
         var fireWidth = Math.max(2.5, 0.05 * hull.size);
@@ -2123,6 +2156,23 @@ window.ShipIcon = function () {
         for (i = 0; i < distance.length; i++) distance[i] = cut[i] && alpha[i] >= HULL_PIECE_ALPHA ? 0 : scorchWidth + 2;
         spreadDistance(width, height, distance, false);
 
+        /* The empty space round the torn-away art reads torn as well, out to SECTION_TORN_SPREAD,
+           wherever torn art is nearer than art that is left. The shader multiplies the art's alpha
+           by (1 - torn), and both textures are filtered: with the map left at 0 out there, it blends
+           back toward "intact" across the old silhouette just where the art is fading out over it,
+           and the art's dark outline came back as a faint ghost of the lost hull (user, 2026-11-12:
+           "lingering outlines of their undamaged hull shapes") - more of it the further out the
+           camera, as the mipmaps average wider. Nearer art that is LEFT keeps its own surround at 0,
+           so a whole edge isn't thinned. */
+        var toTorn = new Float32Array(width * height);
+        var toLeft = new Float32Array(width * height);
+        for (i = 0; i < toTorn.length; i++) {
+            toTorn[i] = cut[i] ? 0 : SECTION_TORN_SPREAD + 1;
+            toLeft[i] = !cut[i] && alpha[i] >= HULL_DRAWN_ALPHA ? 0 : SECTION_TORN_SPREAD + 1;
+        }
+        spreadDistance(width, height, toTorn, false);
+        spreadDistance(width, height, toLeft, false);
+
         var canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -2135,7 +2185,7 @@ window.ShipIcon = function () {
                 i = y * width + x;
                 var o = i * 4;
                 px[o + 3] = 255;
-                if (cut[i]) {
+                if (cut[i] || (alpha[i] < HULL_DRAWN_ALPHA && toTorn[i] <= SECTION_TORN_SPREAD && toTorn[i] < toLeft[i])) {
                     px[o] = 255;
                     continue;
                 }
@@ -2176,8 +2226,11 @@ window.ShipIcon = function () {
        is what leaves the edge torn rather than drawn. Only pixels inside the section's own arc go:
        toward a neighbour that is still intact the band shallows out to nothing, with a little
        reach past the arc's end so the two never meet on a ruled line. Toward a neighbour that is
-       lost too it runs full depth to the boundary, or the corner between them would stand proud. */
-    function cutSection(hull, shipId, section, sections, cut) {
+       lost too it runs full depth to the boundary, or the corner between them would stand proud.
+
+       deeper: the TWO_SECTION factor on a hull with just two outer sections, otherwise 1. mark: what
+       this section writes into cut[]. Returns what easeSteps needs to work in the same frame. */
+    function cutSection(hull, shipId, section, sections, cut, deeper, mark) {
         var width = hull.width;
         var height = hull.height;
         var alpha = hull.alpha;
@@ -2198,18 +2251,22 @@ window.ShipIcon = function () {
         //reach, nor the band at under MIN_DEPTH
         var reach = Math.abs(dx) * hull.extentX + Math.abs(dy) * hull.extentY;
         var middleStep = hull.centreX * dx + hull.centreY * dy + half;
-        var leastBand = ShipIcon.SECTION_DAMAGE_MIN_DEPTH * hull.size;
+        var leastBand = ShipIcon.SECTION_DAMAGE_MIN_DEPTH * deeper * hull.size;
         //the bow or stern of a LONG hull goes deeper (SECTION_DAMAGE_LONG_END): `along` is how squarely
         //this section faces down the hull's length, squared so a diagonal quarter barely moves
         var along = hull.extentX >= hull.extentY ? dx : dy;
-        var endDepth = ShipIcon.SECTION_DAMAGE_DEPTH * (1 + ShipIcon.SECTION_DAMAGE_LONG_END * along * along *
+        var endDepth = ShipIcon.SECTION_DAMAGE_DEPTH * deeper * (1 + ShipIcon.SECTION_DAMAGE_LONG_END * along * along *
             smoothstep(SECTION_SLENDER_FROM, SECTION_SLENDER_TO, hull.slenderness));
-        var faceBand = Math.max(ShipIcon.SECTION_DAMAGE_DEPTH * reach, leastBand); //the deepest it gets, LONG_END apart
+        var faceBand = Math.max(ShipIcon.SECTION_DAMAGE_DEPTH * deeper * reach, leastBand); //the deepest it gets, LONG_END apart
+        //a two-section hull's band may also cross more of the hull, up to SECTION_THROUGH_MOST (see TWO_SECTION)
+        var through = Math.max(ShipIcon.SECTION_DAMAGE_MAX_THROUGH,
+            Math.min(ShipIcon.SECTION_DAMAGE_MAX_THROUGH * deeper, SECTION_THROUGH_MOST));
         var broad = Math.max(6, 0.25 * hull.size);  //the long swells in the band's depth...
         var fine = Math.max(2.5, 0.07 * hull.size); //...and the teeth on them
 
         var contact = new Int16Array(size);   //per line: the step at which it first meets bulk, -1 if never
         var lineBand = new Float32Array(size); //per line: how deep the band is there
+        var weights = new Float32Array(width * height); //per pixel: how far inside the section's arc (for easeSteps)
         var middle = 0.2 * (Math.abs(dy) * hull.extentX + Math.abs(dx) * hull.extentY); //lines this near the bearing's own...
         var face = -1;                                                                  //...set where the section's face is
 
@@ -2232,7 +2289,7 @@ window.ShipIcon = function () {
             var wander = valueNoise(s / broad, 0, seed) + valueNoise(s / fine, 7, seed) - 1; //-1..1
             var standsOut = Math.max(first + 1 - middleStep, SECTION_REACH_FLOOR * reach);
             var here = Math.max(endDepth * standsOut, leastBand);
-            lineBand[si] = Math.min(here * (1 + ShipIcon.SECTION_DAMAGE_RAGGED * wander), ShipIcon.SECTION_DAMAGE_MAX_THROUGH * crossed);
+            lineBand[si] = Math.min(here * (1 + ShipIcon.SECTION_DAMAGE_RAGGED * wander), through * crossed);
         }
 
         for (var y = 0; y < height; y++) {
@@ -2267,16 +2324,122 @@ window.ShipIcon = function () {
                     weight = edge >= 0 ? 1 : 0;
                 }
                 if (weight <= 0) continue;
+                weights[i] = weight;
 
                 var inward = contact[lineIndex] - Math.floor(px * dx + py * dy + half); //steps in from where the hull starts; negative = outside it
                 if (inward < 0) {
-                    if (weight >= 0.5) cut[i] = 1; //clutter standing off a stretch of hull that is going
+                    if (weight >= 0.5) cut[i] = mark; //clutter standing off a stretch of hull that is going
                     continue;
                 }
                 var depth = lineBand[lineIndex] * weight * (0.7 + 0.3 * valueNoise(x / 2.2, y / 2.2, seed + 1));
-                if (depth >= 1 && inward < depth) cut[i] = 1;
+                if (depth >= 1 && inward < depth) cut[i] = mark;
             }
         }
+
+        return { dx: dx, dy: dy, size: size, contact: contact, lineBand: lineBand, weights: weights, seed: seed, mark: mark };
+    }
+
+    /* Bevel the cliffs in a lost section's torn edge. Where a stretch of hull had pods or a fin
+       standing off it, the band was measured from them and ran out before the hull behind (or
+       left a stub of the fin's root on it), while the stretch beside, with nothing standing off
+       it, lost a strip off the same surface - so the torn edge stepped back at a right angle where
+       the pods began (user, 2026-11-12, a Drazi's spine: "smoother with a diagonal line instead").
+
+       So wherever the edge (the outermost hull left on each line, AFTER dropLooseFragments has
+       taken the pods) jumps out sharply from one line to the next - a CLIFF, more than half what
+       the deeper line lost - the shallower side is bevelled down to it, the edge rising no steeper
+       than SECTION_EDGE_SLOPE. The bevel is never taller than what the deeper line lost: it joins
+       the torn edge back up to the surface it was torn from, so a Drazi's spine gets a diagonal,
+       while a G'Quan's wing standing far out beyond the torn hull only has its torn corner taken
+       off, not its root. The ordinary raggedness of the edge is far short of a cliff and is left
+       alone. Works in cutSection's frame (part), inside the section's arc. True if it cut anything. */
+    function easeSteps(hull, part, cut) {
+        var width = hull.width;
+        var height = hull.height;
+        var alpha = hull.alpha;
+        var bulk = hull.bulk;
+        var cx = width / 2;
+        var cy = height / 2;
+        var dx = part.dx;
+        var dy = part.dy;
+        var size = part.size;
+        var half = size / 2;
+        var si;
+
+        var pixelAt = function (s, pi) { //the pixel at step pi of the line through s, -1 if off the art
+            var p = pi - half + 0.5;
+            var hx = Math.floor(cx + p * dx - s * dy);
+            var hy = Math.floor(cy - (p * dy + s * dx));
+            return hx < 0 || hy < 0 || hx >= width || hy >= height ? -1 : hy * width + hx;
+        };
+
+        var surface = new Float32Array(size); //per line: the step of the outermost hull left on it, Infinity if none
+        var lostHere = new Float32Array(size); //...and how much was torn off the hull it belongs to: the tallest bevel it can carry
+        for (si = 0; si < size; si++) {
+            surface[si] = Infinity;
+            if (part.contact[si] < 0) continue;
+            var s = si - half + 0.5;
+            for (var pi = size - 1; pi >= 0; pi--) {
+                var at = pixelAt(s, pi);
+                if (at < 0 || !bulk[at] || cut[at]) continue;
+                surface[si] = pi;
+                //up through the torn-off hull that was joined to it - not across a gap to a pod - and
+                //only what THIS section's band tore, never deeper than that band: a cliff in another
+                //lost section's edge is that one's to bevel (bevelling against it ate the corners
+                //between two lost sections), and a sliver dropped off the side of a spar is no tear
+                //(counted, it let the bevel cut through an Alykent's spar at the root)
+                var top = pi;
+                while (top + 1 < size && (at = pixelAt(s, top + 1)) >= 0 && bulk[at] && cut[at] === part.mark) top++;
+                lostHere[si] = Math.min(top - pi, part.lineBand[si]);
+                break;
+            }
+        }
+
+        //per line: how far down its edge is bevelled (a step; Infinity = not at all)
+        var bevelTo = new Float32Array(size).fill(Infinity);
+        var bevelled = false;
+        for (si = 0; si < size; si++) {
+            if (surface[si] === Infinity) continue;
+            var lost = lostHere[si];
+            var torn = surface[si] + lost; //where this line's surface was before the tear
+            for (var side = -1; side <= 1; side += 2) {
+                var next = si + side;
+                if (next < 0 || next >= size || surface[next] - surface[si] <= Math.max(2, 0.5 * lost)) continue;
+                for (var d = 1; d * SECTION_EDGE_SLOPE < lost; d++) {
+                    var line = si + side * d;
+                    //hull standing out past where this line's surface was is a fin, a prong, a wing - not
+                    //the same surface left whole beside the tear - and keeps its shape
+                    if (line < 0 || line >= size || surface[line] === Infinity || surface[line] > torn + 1) break;
+                    var bottom = surface[si] + d * SECTION_EDGE_SLOPE;
+                    if (bottom < bevelTo[line]) bevelTo[line] = bottom;
+                    bevelled = true;
+                }
+            }
+        }
+        if (!bevelled) return false;
+
+        var any = false;
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var i = y * width + x;
+                if (alpha[i] === 0 || cut[i] || !part.weights[i]) continue;
+
+                //the line and step pixelAt reaches this pixel by (it samples on pixel corners, so the
+                //pixel's centre sits half a step past it)
+                var px = x + 0.5 - cx;
+                var py = cy - (y + 0.5);
+                var lineIndex = Math.floor(px * -dy + py * dx + half - 0.5);
+                if (lineIndex < 0 || lineIndex >= size || bevelTo[lineIndex] >= surface[lineIndex]) continue;
+
+                var into = surface[lineIndex] - Math.floor(px * dx + py * dy + half - 0.5); //steps in from the edge
+                var ramp = (surface[lineIndex] - bevelTo[lineIndex]) * part.weights[i] * (0.7 + 0.3 * valueNoise(x / 2.2, y / 2.2, part.seed + 1));
+                if (into >= 0 && ramp >= 1 && into < ramp) {
+                    cut[i] = part.mark;
+                    any = true;
+                }
+            }
+        }
+        return any;
     }
 
     /* A section's frame on the hull art: (dx, dy) the unit vector pointing OUT of the hull along
@@ -2370,7 +2533,7 @@ window.ShipIcon = function () {
         for (i = 0; i < left.labels.length; i++) {
             var label = left.labels[i];
             if (!label || biggest[owner[label]] === label || left.sizes[label] >= limit) continue;
-            cut[i] = 1;
+            cut[i] = CUT_DROPPED;
             dropped[i] = 1;
             any = true;
         }
@@ -2386,7 +2549,7 @@ window.ShipIcon = function () {
                 }
             }
             for (var f = 0; f < fringe.length; f++) {
-                cut[fringe[f]] = 1;
+                cut[fringe[f]] = CUT_DROPPED;
                 dropped[fringe[f]] = 1;
             }
         }
