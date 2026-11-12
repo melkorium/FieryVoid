@@ -29,9 +29,25 @@ driver), then the stage you are building in section 10.
 
 ## 2. Scope, flag, and what already exists
 
-* Feature flag `cpuOpponent` through the same `Features::enabled()` helper and `$feature_flags`
-  array as the campaign (`CAMPAIGN_PLAN.md` section 8). Off on live until Beta: the Create Game option
-  is not rendered and the driver never runs.
+* **The off switch (user requirement, 2026-11-12).** FV is patched weekly and this feature will be
+  built across many of those patches, so half-built AI code will be on the live server for weeks.
+  One setting keeps it dark: `$feature_flags['cpuOpponent']` in `source/server/varconfig.php` (per
+  environment; the same `Features::enabled()` helper as the campaign, `CAMPAIGN_PLAN.md` section 8).
+  Absent or false = off, so **live is off by default with no action needed**; local Docker and the
+  test instance set it true. `Features` and the flag are the first thing built in T0 - whichever of
+  this plan and the campaign starts first creates the helper.
+  With the flag off, all of the following hold, and a harness asserts each:
+  * the CPU option is not rendered in Create Game or the lobby (hidden, not greyed);
+  * the server refuses to create or seat a CPU slot, whatever the POST says;
+  * `AIDriver::run` returns on its first line, before any query;
+  * bot accounts never appear in any player list, and no payload carries a CPU field;
+  * ordinary games are byte-identical in the replay harness.
+  An optional `betaTesters` list of player ids in the same config shows the option to chosen players
+  on live while the flag is otherwise off. Turning the flag off again later is safe at any time:
+  games already running with a CPU seat simply stop being driven (the human can surrender or wait),
+  so say so in the release note if it is ever used that way.
+* Migrations (`db/cpuOpponent.sql`) are additive and nullable, so they can be applied on live long
+  before the flag is turned on.
 * Existing structures this builds on (verified 2026-11-12):
   * `Manager::submitTacGamedata` -> `getShipsFromJSON` -> `Phase::process($gdS, $dbManager, $ships)`
     for each of the six phases; `Manager::advanceGameState` -> `DBManager::checkIfPhaseReady`
@@ -300,21 +316,60 @@ The Create Game dialog offers only ready factions for a CPU slot; the campaign a
 
 ---
 
-## 8. `FleetComposer` (shared with the strategic AI)
+## 8. The CPU's fleet
 
-A CPU needs a fleet. `FleetComposer::compose($faction, $points, $isd, $seed, $profile)` returns a
-legal fleet as the same ship array a lobby submit produces.
+Ruled by the user, 2026-11-12: **the game's creator may select a CPU slot in the lobby and build
+its fleet by hand, or load a saved fleet into it; a CPU slot left empty is auto-composed, and an
+auto-composed fleet must pass the Fleet Checker.**
+
+### 8.1 Creator-built fleet (the lobby path)
+
+* In the lobby the creator can select a CPU slot exactly as they select their own (the lobby
+  already has a selected-slot concept, `gamedata.selectedSlot`). With a CPU slot selected, the
+  ordinary buy dialog, Load Saved Fleet and Save Fleet all work on that slot; faction, points cap
+  and ISD are the slot's. Only the creator sees those controls on a CPU slot; other players see the
+  slot as "CPU (level)" with its fleet hidden, like any opponent's (A4).
+* A CPU slot shows one of three states: **Auto-compose** (the default, nothing bought), **Custom
+  fleet** (creator bought or loaded units), and a "Clear to auto-compose" action.
+* Server: buying for a slot runs through `BuyingGamePhase::process`, which keys on
+  `$gameData->forPlayer` and on each ship's `userid`. A new guarded entry
+  (`Manager::submitFleetForCpuSlot`) accepts the creator's POST only if the requester is the game's
+  creator, the slot's `cpu` column is set and the game is still in the lobby; it then stamps the
+  ships with the bot's id and calls `submitShipsForPlayer` (section 3.2) **as the bot**. No other
+  player's slot can ever be bought for this way.
+* The CPU slot does not "ready" by itself while the creator is editing it. It is committed when the
+  creator readies their own fleet: custom units are submitted as above; an empty CPU slot is
+  auto-composed at that moment (8.2) and submitted the same way.
+* Everything a human fleet may carry is allowed in a creator-built CPU fleet (enhancements, refits,
+  officers, pre-battle damage). The AI ignores what it has no handler for (P4); the lobby shows a
+  passive note listing bought items the CPU will not actively use.
+* This is also the test path for stages T0-T7: no composer is needed to get two bots a fleet.
+
+### 8.2 Auto-compose (`FleetComposer`, shared with the strategic AI)
+
+`FleetComposer::compose($faction, $points, $isd, $seed, $profile)` returns a legal fleet as the same
+ship array a lobby submit produces.
 
 * Template-driven: per faction a few weighted templates (line fleet, carrier group, raider pack,
   defence group) expressed as role shares; roles are filled from the faction's classes by ISD and
   cost. Hull roles are derived from class data (size, hangar capacity, ELINT, weapon mix), with an
   optional hand-tuned override table.
-* Respects the existing fleet checker rules (`fleetchecker.php` / the lobby's composition warnings)
-  - reuse that logic server-side rather than restating it; where it is client-only today, that is a
-  porting task listed in stage T8.
-* No enhancements, refits or officers in v1.
-* In skirmish the host may instead give the CPU one of their saved fleets (existing
-  `loadSavedFleet`), which needs no composer at all - that is the T0-T7 test path.
+* **It must pass the Fleet Checker.** Today the checker's rules run in the lobby client (fleet
+  warnings are configured in `gamelobby.js`; `fleetchecker.php` is the reference page), so:
+  * port the rules to a server class `FleetChecker::check($ships, $gameSettings)` returning the same
+    list of problems the lobby shows (deployment-availability limits, hangar and fighter capacity,
+    restricted and unique units, out-of-tier, required escorts, and whatever else the lobby checks -
+    inventory the client rules first and port all of them, not a subset);
+  * the composer is generate-and-test: build a candidate, run `FleetChecker`, repair the named
+    problem (swap or drop the offending unit, add the hangar or escort it lacks) and repeat, up to a
+    cap; fall back to the faction's simplest template if it cannot converge. It never returns a
+    fleet with a checker problem, and spends within 2% of the points without exceeding them;
+  * a parity test feeds a set of saved fleets to both the client checker (run under node) and the
+    PHP port and fails on any difference, so the two cannot drift. Once the port exists the lobby
+    may later ask the server for its verdict, but that is not part of this plan.
+* Auto-composed fleets are plain: no enhancements, refits or officers.
+* Carriers are composed with their fighters, and those flights fit the hangars (the same capacity
+  rules, in boxes, that Hangar Operations uses).
 * Used by `STRATEGIC_AI_PLAN.md` for Raider fleets, neutral garrisons and CPU empire purchases
   (there the result is turned into `camp_unit` rows and priced by `CampaignPricing`).
 
@@ -349,7 +404,7 @@ unchanged) and the self-play harness.
 
 | Stage | Deliverable | Done when |
 |---|---|---|
-| **T0 Skeleton** | `Features` flag, `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, `AIDriver`, fallback orders for every phase, self-play CLI harness | Two bots given saved fleets play a full game to FINISHED using only fallbacks, with zero rejected submissions; replay harness byte-identical |
+| **T0 Skeleton** | `Features` helper and the `cpuOpponent` off switch (first), `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, CPU slot in Create Game and the creator-built fleet path (8.1) behind the flag, `AIDriver`, fallback orders for every phase, self-play CLI harness, the flag-off harness (section 2) | With the flag off nothing is visible or reachable and the replay harness is byte-identical; with it on, the creator buys a fleet for a CPU slot and two bots play a full game to FINISHED on fallbacks with zero rejected submissions |
 | **T1 Deployment + ShipMover** | `DeployDecider`; `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
 | **T2 Firing** | engagement table, `FireDecider`, interception reserve | Bots destroy each other; a human loses to an EA bot by standing still |
 | **T3 EW and power** | `EWDecider`, `PowerDecider` (negative-power handling) | Bot EW passes `validateEW` in every self-play turn; hit rates rise measurably versus T2 |
@@ -357,7 +412,7 @@ unchanged) and the self-play harness.
 | **T5 Movement search** | `MoveDecider` scoring, range bands, terrain and mine avoidance, pivots and rolls | Hard beats Normal beats Easy in self-play ladders at >= 60% |
 | **T6 Withdrawal** | posture logic, surrender, jump-out | No game runs past the turn cap for lack of a decision |
 | **T7 Specials** | handler registry; handlers faction by faction; readiness list grows | Each added faction meets the section 7 criteria |
-| **T8 Skirmish release** | Create Game: "CPU opponent" per slot with level, personality, fleet source (saved fleet or auto); `FleetComposer`; lobby and games-list display of CPU seats; docs page | Beta on live behind the flag / `betaTesters` |
+| **T8 Skirmish release** | server `FleetChecker` port + parity test; `FleetComposer` (auto-compose as the default for an empty CPU slot); level and personality pickers; lobby and games-list display of CPU seats; docs page | Every auto-composed fleet across all ready factions and a range of point values passes the Fleet Checker; Beta on live via `betaTesters`, then the flag |
 | **T9 Campaign wiring** | section 9 | A campaign battle against a Raider fleet is played manually and harvested |
 
 T0-T3 produce an opponent that is already useful for new-player onboarding (a roadmap item in its
@@ -403,8 +458,9 @@ own right: a first game with no human needed).
 |---|---|---|
 | A1 | RULED 2026-11-12: CPU seats in ladder games | Never |
 | A2 | Do CPU games count in player statistics / recent games? | Listed, marked as CPU games, no ladder effect |
-| A3 | RULED 2026-11-12: fleet for a skirmish CPU | Host picks one of their saved fleets, or auto-composed (plain: no enhancements, refits or officers) |
-| A4 | May the human see the CPU's fleet in the lobby before the game? | Same as a human opponent (hidden until play) |
+| A3 | RULED 2026-11-12: fleet for a skirmish CPU | The creator selects the CPU slot and builds or loads a fleet for it; an empty slot is auto-composed (plain, and Fleet Checker clean). Section 8 |
+| A4 | May players see the CPU's fleet in the lobby before the game? | The creator sees what they built; an auto-composed fleet and other players' view stay hidden until play, like a human opponent's |
+| A9 | Who may build a CPU slot's fleet in a team game | Only the game's creator |
 | A5 | Team games with CPU allies | Allowed; bots do not coordinate with humans beyond sharing targets by proximity |
 | A6 | Handicap | Optional points bonus for the CPU, shown in the lobby; never hidden bonuses |
 | A7 | First factions | EA and Raiders, then Narn and Centauri |
