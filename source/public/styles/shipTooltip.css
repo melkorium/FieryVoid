@@ -94,7 +94,7 @@
 }
 
 /* ── Head band ───────────────────────────────────────────────────────────────
-   Art 44px, the name in the allegiance BRIGHT tier (tactical.css .mine/.ally/.enemy .name, or
+   Art (the hover peek only, RIGHT of the name - round 5; the pinned card has none), the name in the allegiance BRIGHT tier (tactical.css .mine/.ally/.enemy .name, or
    an inline team colour for observers and 3+ teams), and one sub line: the class when the name
    does not already carry it, or a flight's strength (§11.1 R2.6). Both ellipsise - a long name
    or class must never wrap the header (§11 item 12). The pinned card is dragged by it (D10). */
@@ -115,6 +115,8 @@
 }
 
 .fv-shipcard--pinned .fv-shipcard__head {
+    /* no art on the pinned card (round 5): the name starts on the sections' own 9px */
+    padding-left: 9px;
     cursor: grab;
     /* the head's pointer moves are the drag, not a page pan */
     touch-action: none;
@@ -244,8 +246,9 @@
 }
 
 .fv-shipcard .fv-shipcard__cells--n3 { grid-template-columns: 1fr 1fr 1fr; }
-/* DEFENCE carries two numbers (and Mindrider decimals: "48.75 · 48.75"), so it gets the room */
-.fv-shipcard .fv-shipcard__cells--n2 { grid-template-columns: 1.5fr 1fr; }
+/* Two cells are equal halves (round 5, user 2026-11-10; was 1.5fr 1fr). Mindrider decimals
+   ("48.75 · 48.75") still fit the half. */
+.fv-shipcard .fv-shipcard__cells--n2 { grid-template-columns: 1fr 1fr; }
 .fv-shipcard .fv-shipcard__cells--n1 { grid-template-columns: 1fr; }
 
 .fv-shipcard .fv-shipcard__cell {
@@ -327,16 +330,41 @@
     text-overflow: ellipsis;
 }
 
-/* Two columns: Movement is four rows of two (Ini + Speed, Thrust + Accel, Turn + Delay,
-   Pivot + Roll), and "From" is Range + a Facing that can read "P.FWD / PORT". */
+/* Movement's heading row: "MOVEMENT – Ini base 12 · mod −20" (round 5, user 2026-11-10 - the pair
+   used to be the footer's). Packed left; the title never gives way, the pair ellipsises. */
+.fv-shipcard .fv-shipcard__sec--move .fv-shipcard__mh {
+    justify-content: flex-start;
+    gap: 5px;
+}
+
+.fv-shipcard .fv-shipcard__sec--move .fv-shipcard__mh > span:first-child,
+.fv-shipcard .fv-shipcard__mhsep {
+    flex: none;
+}
+
+.fv-shipcard .fv-shipcard__ini {
+    flex: 0 1 auto;
+    min-width: 0;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fv-shipcard .fv-shipcard__ini b {
+    font-family: var(--fv-mono);
+    font-weight: 400;
+    color: var(--fv-text);
+}
+
+/* Two columns: Movement is four rows of two (Thrust + Ini, Speed + Accel, Turn + Delay,
+   Pivot + Roll), and "From" is Range + Facing. "From" used to give Facing the wider column
+   (0.8fr / 1.2fr); round 5 (user, 2026-11-10) puts both on these same two equal columns, so
+   Facing starts exactly where Ini does below it. A boundary reads "P.FWD/PORT" to fit. */
 .fv-shipcard .fv-shipcard__spec {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2px 14px;
-}
-
-.fv-shipcard .fv-shipcard__sec--rel .fv-shipcard__spec {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
 }
 
 .fv-shipcard .fv-shipcard__spec > div {
@@ -738,7 +766,8 @@
     display: none;
 }
 
-/* ── Footer: Ship details + Ini base · mod (§11 item 2, §11.1 R2.4) ──────── */
+/* ── Footer: Ship details, the whole width (round 5, user 2026-11-10 - Ini base · mod moved up to
+   Movement's heading). The peek has no button, so its footer is :empty and not drawn. ──────── */
 .fv-shipcard .fv-shipcard__foot {
     display: flex;
     align-items: center;
@@ -752,7 +781,9 @@
 
 .fv-shipcard .fv-shipcard__btn {
     display: flex;
+    flex: 1 1 auto;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     height: 22px;
     padding: 0 7px 0 3px;
@@ -764,20 +795,6 @@
 .fv-shipcard .fv-shipcard__btn .fv-shipcard__icon {
     width: 18px;
     height: 18px;
-}
-
-.fv-shipcard .fv-shipcard__ini {
-    margin-left: auto;
-    font-size: 10px;
-    letter-spacing: 0.04em;
-    color: var(--tt-dim);
-    white-space: nowrap;
-}
-
-.fv-shipcard .fv-shipcard__ini b {
-    font-family: var(--fv-mono);
-    font-weight: 400;
-    color: var(--fv-text);
 }
 
 /* ── The hull strip: D4 RULED NO (§11 item 9). Built and NOT rendered - ShipTooltip.js

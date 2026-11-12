@@ -210,7 +210,9 @@ window.ShipTooltipMenu = function () {
     }
 
     function openSCS() {
-        webglScene.customEvent("OpenShipWindowFor", {ship: this.targetedShip});
+        //toggle (round 5, user 2026-11-10): a second press closes that ship's window again.
+        //Only this button asks for it - the fleet list's row still always opens.
+        webglScene.customEvent("OpenShipWindowFor", {ship: this.targetedShip, toggle: true});
     }
 
     return ShipTooltipMenu;

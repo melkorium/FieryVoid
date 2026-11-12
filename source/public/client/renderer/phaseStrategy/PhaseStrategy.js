@@ -52,6 +52,13 @@ window.PhaseStrategy = function () {
        reveals no board position, which is the only thing those guards exist to protect - and
        for a docked unit the window is the only route to its contents at all. */
     PhaseStrategy.prototype.onOpenShipWindowFor = function (payload) {
+        //The ship card's "Ship details" button is a toggle: pressed while that ship's window is
+        //open, it closes it (payload.toggle - shipTooltipMenu.js openSCS).
+        if (payload.toggle && payload.ship && this.shipWindowManager.isOpen(payload.ship)) {
+            this.onCloseShipWindow(payload);
+            return;
+        }
+
         this.shipWindowManager.open(payload.ship);
 
         if (!payload.select || !payload.ship) return;

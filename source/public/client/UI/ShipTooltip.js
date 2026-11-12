@@ -1028,8 +1028,8 @@ window.ShipTooltip = function () {
             rel: null,
             ew: null,
             fire: null,
-            sections: [],
-            footer: (ini && kind !== 'terrain') ? { base: ini.base, mod: ini.mod } : null
+            sections: []
+            //footer: Ini base / mod moved to the Movement section's heading (round 5) - see sections[].ini
         };
 
         // ── From ‹selected› ──
@@ -1126,20 +1126,22 @@ window.ShipTooltip = function () {
            movement-order number - `−20 (1)`, not `(1st)` - as the Order of Battle and the picker print it. */
         if (movement && (kind === 'ship' || kind === 'base' || kind === 'flight')) {
             var iniValue = (ini && ini.order) ? signed(ini.total) + ' (' + ini.order + ')' : '—';
+            //Round 5 (user, 2026-11-10): Thrust and Speed swapped - Thrust + Ini, then Speed + Accel.
             var spec = [
-                { label: 'Speed', value: movement.speed },
-                { label: 'Ini', value: iniValue, title: (ini && ini.order) ? 'Initiative ' + ini.total + ', order ' + ini.order : 'No initiative order' },
                 { label: 'Thrust', value: movement.thrustLeft + '/' + movement.thrustFull, title: 'Thrust remaining / full' },
+                { label: 'Initiative', value: iniValue, title: (ini && ini.order) ? 'Initiative ' + ini.total + ', order ' + ini.order : 'No initiative order' },
+                { label: 'Speed', value: movement.speed },
                 { label: 'Accel', value: movement.accel, title: 'Acceleration cost' },
-                { label: 'Turn', value: movement.turnCost, title: 'Turn cost ' + movement.turnCost + ' (rate ' + movement.turnRate + ')' },
-                { label: 'Delay', value: movement.turnDelay, title: 'Turn delay ' + movement.turnDelay + ' (rate ' + movement.turnDelayRate + ')' },
+                { label: 'Turn Cost', value: movement.turnCost, title: 'Turn cost ' + movement.turnCost + ' (rate ' + movement.turnRate + ')' },
+                { label: 'Turn Delay', value: movement.turnDelay, title: 'Turn delay ' + movement.turnDelay + ' (rate ' + movement.turnDelayRate + ')' },
                 { label: 'Pivot', value: movement.pivot, title: 'Pivot cost' }
             ];
             spec.push(ship.flight
                 ? { label: 'Cbt piv', value: movement.combatPivot, title: 'Combat pivot cost' }
                 : { label: 'Roll', value: movement.roll, title: 'Roll cost' });
             model.movementFirst = own && gamedata.gamephase == 2;
-            model.sections.push({ key: 'move', title: 'Movement', spec: spec });
+            //Round 5: the Ini base / mod pair left the footer for this section's heading row.
+            model.sections.push({ key: 'move', title: 'Movement', spec: spec, ini: ini ? { base: ini.base, mod: ini.mod } : null });
         }
 
         return model;
@@ -1213,15 +1215,20 @@ window.ShipTooltip = function () {
         var identity = model.identity;
 
         //Art, one row high (round 3). ⚠️ Never a masked mine's: its silhouette names the type (trap 12).
+        var art;
         if (identity.art && window.AssetManager) {
-            head.append(jQuery('<img class="fv-shipcard__art" alt="">')
+            art = jQuery('<img class="fv-shipcard__art" alt="">')
                 .attr('src', window.AssetManager.getSmartImagePath(identity.art))
                 .on('error', function () {
                     jQuery(this).replaceWith('<span class="fv-shipcard__art fv-shipcard__art--generic"></span>');
-                }));
+                });
         } else {
-            head.append(jQuery('<span class="fv-shipcard__art fv-shipcard__art--generic"></span>'));
+            art = jQuery('<span class="fv-shipcard__art fv-shipcard__art--generic"></span>');
         }
+        /* Round 5 (user, 2026-11-10): no art on the PINNED card (the one a click opens - it has a
+           menu); the hover peek keeps it, to the RIGHT of the name (appended after `who` below).
+           The pinned card's art, as it was, left of the name: */
+        //if (this.menu) head.append(art);
 
         var who = jQuery('<div class="fv-shipcard__who"></div>');
         //`name value <allegiance>`: tactical.css paints .mine/.ally/.enemy/.terrain .name for a
@@ -1233,6 +1240,7 @@ window.ShipTooltip = function () {
                 .text(identity.sub).attr('title', identity.subTitle));
         }
         head.append(who);
+        if (!this.menu) head.append(art);
 
         //The rail and the border, from the same two-arm gate as the name (§11 item 3).
         this.element[0].style.setProperty('--tt-rail', identity.rail);
@@ -1325,7 +1333,9 @@ window.ShipTooltip = function () {
                 .append(jQuery('<span class="fv-shipcard__from"></span>').text(model.rel.sourceName).css('color', model.rel.sourceColor)));
             rel.append(heading);
             var spec = [{ label: 'Range', value: model.rel.range === null ? '—' : model.rel.range }];
-            if (model.rel.facing) spec.push({ label: 'Facing', value: model.rel.facing.label, title: 'The section that faces ' + model.rel.sourceName });
+            //Facing starts where Movement's second column does (round 5), so a boundary reads
+            //"FWD/PORT" - without the spaces - to fit the half-width column.
+            if (model.rel.facing) spec.push({ label: 'Facing', value: model.rel.facing.label.split(' / ').join('/'), title: 'The section that faces ' + model.rel.sourceName });
             rel.append(specElement(spec));
             model.rel.rows.forEach(function (row) { rel.append(ewRowElement(row)); });
             body.append(rel);
@@ -1333,7 +1343,17 @@ window.ShipTooltip = function () {
 
         var renderSections = function () {
             model.sections.forEach(function (section) {
-                body.append(sectionElement(section.key, section.title).append(specElement(section.spec)));
+                var element = sectionElement(section.key, section.title);
+                //"MOVEMENT – Ini base 12 · mod −20": the pair that used to be the footer's (round 5)
+                if (section.ini) {
+                    element.children('.fv-shipcard__mh').append(
+                        jQuery('<span class="fv-shipcard__mhsep"></span>').text('–'),
+                        jQuery('<span class="fv-shipcard__ini"></span>')
+                            .attr('title', 'Initiative: base ' + section.ini.base + ', modifier ' + section.ini.mod)
+                            .append('Ini base ', jQuery('<b></b>').text(signed(section.ini.base)),
+                                ' · mod ', jQuery('<b></b>').text(signed(section.ini.mod))));
+                }
+                body.append(element.append(specElement(section.spec)));
             });
         };
         if (model.movementFirst) renderSections();
@@ -1362,13 +1382,10 @@ window.ShipTooltip = function () {
         if (!model.movementFirst) renderSections();
     }
 
+    /* The footer holds the Ship details button alone now (renderActions puts it there), full width.
+       The peek has no button, so its footer is empty and takes no room (`:empty` in the CSS). */
     function renderFoot(model) {
-        var foot = this.element.find('.fv-shipcard__foot').empty();
-        if (model.footer) {
-            foot.append(jQuery('<span class="fv-shipcard__ini"></span>')
-                .append('Ini base ', jQuery('<b></b>').text(signed(model.footer.base)),
-                    ' · mod ', jQuery('<b></b>').text(signed(model.footer.mod))));
-        }
+        this.element.find('.fv-shipcard__foot').empty();
     }
 
     /* Kept for the day D4 is revisited (see buildHull). The ship window's fill colours; length

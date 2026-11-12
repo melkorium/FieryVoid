@@ -542,6 +542,19 @@
     border-color: var(--fv-accent);
 }
 
+/* The caps sat a pixel HIGH in the chip on a 100% (1x) screen (user, 2026-11-12). MEASURED on the
+   ink, not eyeballed: at 1x the caps are 7 device rows tall, and 7 rows cannot centre in the chip's
+   12-row interior - it came out 2 above / 3 below at every sub-pixel offset. A 1px top pad makes
+   the interior 13 rows, 3 / 3 everywhere; the -1px bottom margin gives that pixel back so a dense
+   row is no taller. Only at 1x: from 1.5x up the 12px box already centres exactly (6 / 6 at 2x)
+   and the pad would put the text low instead; at 1.25x neither is better. */
+@media (max-resolution: 1dppx) {
+    .fv-hexpicker__chip {
+        padding-top: 1px;
+        margin-bottom: -1px;
+    }
+}
+
 /* Initiative ORDER — the movement-group number the Order of Battle prints down its
    left edge, not the raw initiative total. Ships that move together share one, which
    is the thing actually worth knowing in a stacked hex.

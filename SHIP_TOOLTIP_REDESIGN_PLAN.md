@@ -681,3 +681,20 @@ OEW still live beside it, nothing greyed when all is open, BDEW greyed under DIS
 is not, DEW never, another own ship never, Firing never, the peek never), 10/10 mutants including two
 new ones (grey regardless of scope; never grey). `dock.js` 47, `stage1.js` 42, IO menu harness 23.
 Screenshot of the four round-4 cases. Bundles rebuilt; `-Sync` still owed.
+
+### 14.3 Refinement round 5 (user, 2026-11-10; finished 2026-11-12) - overrides §14.2
+
+| # | Ruling | Built |
+|---|---|---|
+| R5.1 | A second press of Ship details closes that ship's window | `openSCS` sends `OpenShipWindowFor` with `toggle: true`; `PhaseStrategy.onOpenShipWindowFor` closes instead when `ShipWindowManager.isOpen(ship)`. Only this button toggles - the fleet list still always opens. |
+| R5.2 | Facing lines up with Movement's second column | "From" uses the same two equal columns as Movement (its 0.8fr / 1.2fr override is gone). A boundary prints `P.FWD/PORT` (no spaces) to fit the half. Measured: Facing and Initiative share a left edge on every card. |
+| R5.3 | Defence and DEW cells are equal halves | `.fv-shipcard__cells--n2` 1.5fr 1fr → 1fr 1fr (123px each). |
+| R5.4 | "From" and the selected unit's name looked misaligned | NOT CHANGED: they are one span, one font, one line box; measured on the ink at 2x they occupy the same pixel rows. No stylesheet game.php loads (nor the React bundle) reaches that span. Asked for a close-up if it still reads low. |
+| R5.5 | No art on the pinned card; the peek keeps it, right of the name | The pinned card's `head.append(art)` is commented out in `renderHead`; the peek appends it after the name. Pinned head padding-left 9px. |
+| R5.6 | Thrust and Speed swap | Movement rows: Thrust + Initiative, Speed + Accel, Turn Cost + Turn Delay, Pivot + Roll. |
+| R5.7 | Ini base / mod beside MOVEMENT; Ship details fills the footer; no footer on the peek | `MOVEMENT – Ini base 0 · mod 0`, packed left (5px gaps), the pair ellipsises. `model.footer` is gone; `renderFoot` only empties. Ship details `flex: 1`, centred. The peek's footer is `:empty`. |
+| R5.8 | Hex-picker chip text sat high | At 1x the caps are 7 device rows in a 12-row interior → 2 above / 3 below at every sub-pixel offset. `@media (max-resolution: 1dppx)`: `padding-top: 1px; margin-bottom: -1px` → 3 / 3, row heights unchanged. Above 1x left alone: 6 / 6 at 2x already; at 1.25x neither value wins. |
+
+⚠️ The first attempt at this round's CSS never reached disk (a Python edit script; `python` in Git Bash
+is the WindowsApps stub and exits "Permission denied") while the JS did - which is why R5.2, R5.3 and the
+R5.7 gap looked untouched in the first play test.
