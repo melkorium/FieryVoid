@@ -43,7 +43,7 @@ const SystemText = styled.div`
     width:100%;
     height: calc(100% - 6.5px);
     color: white;
-    font-family: arial;
+    font-family: tahoma; /* changed form arial*/
     font-size: 10px;
     display: flex;
     align-items: flex-end;
