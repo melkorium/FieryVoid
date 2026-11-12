@@ -1,0 +1,411 @@
+# Tactical AI Plan (CPU opponent for Fiery Void battles)
+
+Status: **PLANNED 2026-11-12. Nothing built.** Companion plans: `CAMPAIGN_PLAN.md` (the campaign
+layer, which uses this for battles against NPCs - see its section 7) and `STRATEGIC_AI_PLAN.md` (what
+NPC empires do on the campaign map).
+
+This plan stands on its own. **The tactical AI may ship for ordinary skirmish games before the
+campaign goes live**, so nothing here depends on campaign code. Section 9 is the only place the
+campaign appears.
+
+Reading order: section 1 (principles), 3 (how a CPU plays through the existing engine), 4 (the
+driver), then the stage you are building in section 10.
+
+---
+
+## 1. Principles
+
+| # | Principle |
+|---|---|
+| P1 | **The CPU is a player.** It is a real row in `player`, seated in an ordinary slot, and it plays by submitting the same order payload a browser POSTs, through the same `Phase::process` methods. No phase, handler or rule gets an "if CPU" branch. |
+| P2 | **No cheating.** It decides from the gamedata its own player would be sent (`getTacGamedata` for its player id, after the per-viewer masking). It never reads hidden ships, hidden mines, enemy EW of the current phase or enemy orders. Difficulty comes from decision quality, never from hidden information or bonus dice. A points handicap is the only allowed thumb on the scale, and the lobby shows it. |
+| P3 | **Always legal, always finishes.** An AI order that the server would reject is a bug of the first rank, because nobody is there to fix it and the game stalls. Every generated order set is checked before submission, and a per-phase fallback (the safest legal "do nothing") guarantees the phase can always be submitted. |
+| P4 | **Unknown systems are left alone.** FV has ~90 factions with special systems. The AI uses only mechanics it has a handler for and leaves everything else at its default. A faction is offered as a CPU opponent only when it is on the readiness list (section 7). |
+| P5 | **Lazy and bounded.** No daemon. The AI runs inside ordinary requests with a time budget and resumes on the next one. |
+| P6 | **Inert when unused.** A game with no CPU slot executes none of this code beyond one cheap test, and its payload is byte-identical. The replay harness proves it. |
+| P7 | **Readable decisions.** Every decision is scored by named terms and can be logged (`tac_ai_log`), so "why did it do that" is answerable from data. |
+
+---
+
+## 2. Scope, flag, and what already exists
+
+* Feature flag `cpuOpponent` through the same `Features::enabled()` helper and `$feature_flags`
+  array as the campaign (`CAMPAIGN_PLAN.md` section 8). Off on live until Beta: the Create Game option
+  is not rendered and the driver never runs.
+* Existing structures this builds on (verified 2026-11-12):
+  * `Manager::submitTacGamedata` -> `getShipsFromJSON` -> `Phase::process($gdS, $dbManager, $ships)`
+    for each of the six phases; `Manager::advanceGameState` -> `DBManager::checkIfPhaseReady`
+    (every slot's `lastphase` / `lastturn` equals the game's) -> `Phase::advance`.
+  * `source/server/handlers/AutomatedMovement.php`: server-built `MovementOrder`s for a unit the
+    player does not control (Uncontrolled Hunter-Killers). Intents `drift` and `seek`, **flights
+    only** (no turn delay). Its header names itself the seam for CPU ships. Called from
+    `MovementGamePhase::advance` / `process`.
+  * `Weapon::calculateHitBase($gamedata, $fireOrder)`, `Weapon::getAvgDamage()`,
+    `Weapon::calculateRangePenalty`, `Weapon::isInDistanceRange` - the server already answers "what
+    is my chance to hit and what would it do".
+  * `Firing::validateFireOrders`, `Firing::automateIntercept` (unassigned defensive weapons intercept
+    by themselves), `EW::validateEW` and the `EW` getters, `Movement::validateMovement` and
+    `Movement::validateThrustPayment` (the latter is log-only today:
+    `$enforceThrustValidation = false`).
+  * `SimultaneousMovementRule` (initiative categories, `getNewActiveShip`), `tac_game.activeship`.
+  * `tests/replay/replayHarness.php` and its Dice stub pattern.
+* Hard fact that shapes the plan: **movement legality lives mostly in the client**
+  (`client/movement.js`, ~2,700 lines). The server validates a submitted move but cannot generate one
+  for a ship. A server-side ship move generator is the largest single piece of new code here.
+
+Out of scope for v1: boarding and marines, ramming as a tactic, mine laying, called shots, hangar
+recovery mid-battle, jump-point tactics other than leaving, Fighter Missions, extended turns,
+gravitic drive rotation, officers' active abilities, and every faction special not on the readiness
+list. Each is "leave at default", never "half use".
+
+---
+
+## 3. How the CPU plays through the existing engine
+
+### 3.1 Bot accounts
+
+* `player` gains `is_cpu tinyint NOT NULL DEFAULT 0` (migration `db/cpuOpponent.sql`). `player` is
+  MyISAM with a fixed column list in a few queries: grep every `INSERT INTO player` and
+  `SELECT ... FROM player` and confirm they name their columns before adding one.
+* A small pool of bot rows is seeded (`CPU Alpha` ... `CPU Hotel`), with an unusable password hash so
+  they can never log in, excluded from ladder, Discord pings, "players online" and player lists.
+  One game may seat several different bots; one bot may sit in any number of games.
+* The difficulty and personality of a seat are per game, not per account: stored in
+  `tac_playeringame` as a new nullable column `cpu` (JSON: `{level, personality, seed}`). NULL = human.
+  `PlayerSlot` gains the field; **do not send it to clients beyond a boolean `isCpu` and the level**
+  (new gamedata fields need adding to `parseServerData`'s named-key copy).
+
+### 3.2 Orders go through `process`
+
+`TacticalAI::play($gameid, $botId)`:
+
+1. `DBManager::getTacGamedata($botId, $gameid)` - the same load a human submit starts with.
+2. Build a **masked decision view**: clone and run the per-viewer masking (`prepareForPlayer`) so the
+   deciders cannot read what a human in that seat could not (P2). The unmasked object is kept only
+   for constructing the submission.
+3. The phase's decider (section 5) returns orders as plain data.
+4. `AIOrderBuilder` turns them into the **same ship array `getShipsFromJSON` produces** (ship objects
+   carrying `movement`, `EW`, `fireOrders` on systems, `power`, etc.). Extract the per-ship body of
+   `getShipsFromJSON` into a reusable builder; `CAMPAIGN_PLAN.md` section 6.2 needs the same
+   extraction - do it once, in whichever plan reaches it first.
+5. Pre-flight: run the relevant validators on the built ships (`Movement::validateMovement` and
+   `validateThrustPayment` in findings mode, `EW::validateEW`, `Firing::validateFireOrders`). Any
+   finding -> log it to `tac_ai_log` as an AI defect and substitute the fallback orders for that unit.
+6. Submit through a new `Manager::submitShipsForPlayer($gameid, $botId, $ships, ...)`: the body of
+   `submitTacGamedata` after the JSON decode, split out so the human path and the bot path share
+   every line (lock, transaction, `process`, cache touch, notifications).
+
+Trap list for step 4, from existing project notes: POST-side ships carry no enhancements and no
+loaded notes - build from the loaded gamedata's own ship objects rather than fresh instances;
+`FireOrder` constructor argument order (see the how-to note); a server-made order with id -1 has no
+identity; fire-order notes are dropped on POST; system ids are construction-order; the client has
+commit-time side effects (`doIndividualNotesTransfer`, `construcGamedata`) that the browser applies
+before POSTing - find each one the phase's `process` relies on and reproduce it in the builder.
+
+### 3.3 Fallback orders per phase (P3)
+
+| Phase | Fallback |
+|---|---|
+| Deployment (-1) | first free legal hex of the deployment zone, default facing, speed from the lobby default |
+| Initial Orders (1) | no power changes beyond what is needed to clear negative power, all EW to DEW, no ballistics |
+| Movement (2) | continue straight at current speed (the `drift` primitive), with a turn only if the straight path is blocked |
+| Pre-Firing (5) | nothing |
+| Firing (3) | no fire orders (automatic interception still happens server-side) |
+
+---
+
+## 4. The driver
+
+`AIDriver::run($gameid, $budgetSeconds)` - the only entry point the rest of FV calls.
+
+```
+loop while time remains:
+    load light game row (turn, phase, activeship, slots with cpu != NULL)
+    if no CPU slot owes a submission for the current phase/active ship: break
+    TacticalAI::play(gameid, thatBot)          // one submission
+    Manager::advanceGameState(botId, gameid)   // exactly as the human path does after a submit
+```
+
+* **Where it is called.** In `gamedata.php`, after a human's `submitTacGamedata` returns (the common
+  case: the human was the last to submit, the bot answers at once) and on a human's poll GET when the
+  game row says a CPU slot is owed. Both gated on `Features::enabled('cpuOpponent')` and on the game
+  having any CPU slot (one indexed query, cached in the existing APCu game key).
+* **Budget.** Default 4 s per request, one submission at a time, so a long CPU turn spreads across
+  polls. The client shows the bot as "thinking" using the existing waiting indicators.
+* **Locking.** A per-game AI lock (`GET_LOCK('fv_ai_<gameid>', 0)`) so two polling humans cannot run
+  the same bot twice. The existing player submit lock and game submit lock still apply inside.
+* **Movement phase.** Movement is by initiative: the bot moves only when one of its units is the
+  active ship (`activeship`), or its category is up under `SimultaneousMovementRule`. The driver's
+  "owes a submission" test must mirror `MovementGamePhase` exactly, including the automated-control
+  hand-off already in `process`.
+* **All-CPU games** (self-play, section 11) are driven from the CLI harness, not from requests.
+* **Stall guard.** If the same bot fails to complete the same phase three times, it submits the
+  fallback; if that fails, the bot's slot surrenders and the defect is logged. A human is never left
+  waiting on a broken bot.
+* **State across phases.** `tac_ai_state (gameid, playerid, turn, data JSON)` holds the turn plan
+  (target assignments, intended range band, withdrawal decision) so Firing agrees with what Movement
+  set up. Deleted with the game (`deleteGames` - add the table there; it runs on every game.php load,
+  so keep the delete keyed and cheap).
+
+---
+
+## 5. Decision design
+
+Source layout: `source/server/ai/` - `AIDriver`, `TacticalAI`, `AIOrderBuilder`, `AIView` (masked
+view + cached geometry), `ShipMover`, `ThreatMap`, `deciders/` (`DeployDecider`, `PowerDecider`,
+`EWDecider`, `BallisticDecider`, `MoveDecider`, `FireDecider`), `handlers/` (per-system specials),
+`AIConfig` (every weight and threshold), `FleetComposer`.
+
+### 5.1 Shared evaluation: the engagement table
+
+Built once per decision from the masked view and cached in `AIView`:
+
+* For each (my weapon, visible enemy unit): in arc? in range? expected damage =
+  `hit chance x getAvgDamage() x shots`, where hit chance comes from **`calculateHitBase` on a
+  tentative `FireOrder`** - the real formula, including EW, range penalty, jinking, profile and
+  terrain. Never re-derive hit chance in AI code.
+* For each visible enemy weapon against each of my units: the same estimate, using only what the
+  mask shows. Enemy EW of the current phase is hidden, so assume its last known split.
+* Unit value = point cost x remaining combat value (`calculateCombatValue`).
+* Threat of an enemy = expected damage it can deal to my fleet next turn; its vulnerability =
+  expected damage I can deal to it divided by its remaining structure.
+
+### 5.2 Deployment
+
+Formation by role around the zone centre: heavy ships forward and central, escorts on the flanks,
+carriers and ELINT at the back, bases and OSATs where the zone allows. Facing toward the enemy zone.
+Initial speed = the class's comfortable speed (enough thrust left for one turn). Terrain hexes and
+their footprints avoided. Reinforcement groups (if the game allows them) are not used in v1.
+
+### 5.3 Initial Orders
+
+* **Power.** Default configuration; if power is negative (damage), switch off systems in a fixed
+  priority (non-firing-this-turn weapons, then secondary systems) until it is not. No boosting in v1
+  except sensors where a surplus exists (later stage). Mind the lazy-window note: reactor state must
+  be computed, not read from a UI-initialised field.
+* **EW.** Pick primary targets from the engagement table. Split scanner output: DEW by threat faced,
+  OEW on the targets this unit will fire at (largest expected gain per point, computed by evaluating
+  the engagement table with and without the point), CCEW when enemy fighters are within reach.
+  ELINT functions (SOEW / SDEW / disruption) get a handler at stage T7; before that an ELINT ship
+  just runs OEW/DEW.
+* **Ballistics.** Missiles and torpedoes are fire orders placed in this phase: launch at the best
+  target in range when expected damage per round beats a threshold; conserve ammunition on Easy less,
+  on Hard more (magazines are finite).
+* **Fighters.** Launch from hangars on turn 1 if the fleet deployed them docked (v1: the CPU fleet
+  deploys flights on the map, so no hangar operations are needed).
+
+### 5.4 Movement
+
+**`ShipMover` (legal move generator).** Given a ship and the game state it enumerates legal
+manoeuvre sequences for one turn: speed change (accelerate / decelerate within thrust and
+`Movement::canAccelerate`), straight moves, turns left / right where turn delay allows, slips where
+legal, and the thrust channelled through the right thrusters for each (the allocation logic that
+`Movement::calculateThrustStillReq` / `calculateAssignedThrust` / `sortThrustersAllocations` check).
+Pivots and rolls arrive at stage T5; jinking for flights reuses `AutomatedMovement`.
+
+* Start from `AutomatedMovement`'s primitives (`advanceHex`, `turnOrder`, `moveOrder`,
+  `speedChangeOrder`, `slipOrder`, `isHexBlocked`) and generalise them from flights to ships: add
+  turn delay (`Movement::calculateTurndelay`, `getTurnDelay`), turn cost by speed and class, thruster
+  allocation, and critical effects on engines and thrusters.
+* The oracle is the server validator: every sequence `ShipMover` emits must pass
+  `Movement::validateMovement` and produce **zero findings** from `validateThrustPayment`. A harness
+  (`shipMoverHarness.php`) fuzzes this across every ship class on the readiness list at many speeds
+  and damage states. When this harness is clean the AI's moves are also a strong argument for finally
+  flipping `$enforceThrustValidation` - but that is a separate decision.
+* Flights: `AutomatedMovement` already builds legal flight moves; extend its intents rather than
+  writing a second generator.
+
+**`MoveDecider`.** For the unit to move:
+
+1. Take its assignment from the turn plan (target, desired range band from its weapon profile,
+   posture: close / hold range / kite / withdraw).
+2. Ask `ShipMover` for candidate end states (position, facing, speed), pruned to a few dozen by
+   beam search on distance-to-goal.
+3. Score each: expected damage dealt next fire phase from that hex and facing (engagement table,
+   arcs included) - expected damage received (enemy weapons that could bear, weighted by whether the
+   enemy has yet to move this turn) + range-band term + terrain and collision avoidance (asteroids,
+   moons, dust, mines it can see, map borders) + formation cohesion + keeping the strongest arc on
+   the target and a damaged side away.
+4. Take the best; Easy adds noise to the scores.
+
+Initiative is respected for free: the bot moves when the engine says it is its unit's turn, with
+whatever has already moved visible, exactly like a human.
+
+### 5.5 Pre-Firing
+
+Nothing in v1 (fallback). Systems that act in phase 5 get handlers with their faction at stage T7.
+
+### 5.6 Firing
+
+* For each ready direct-fire weapon list legal targets (arc, range, loading, line of sight - the
+  same tests `Firing::validateFireOrders` applies) with expected damage from the engagement table.
+* Assignment is greedy with a focus-fire bonus: prefer finishing a unit that the planned fire can
+  destroy or cripple over spreading damage; prefer high value x vulnerability; fighters are engaged
+  by anti-fighter weapons first.
+* Weapons with interception ability and no good offensive shot are left unassigned so
+  `Firing::automateIntercept` uses them. A defensive reserve fraction scales with incoming ballistics.
+* Firing modes: choose the mode with the best expected damage at that range. Multi-turn charge and
+  overload weapons: fire when ready, no holding in v1.
+* Every order is built with the documented `FireOrder` constructor order and validated before submission.
+
+### 5.7 Withdrawal and surrender
+
+* When the bot's remaining fleet value falls below `WITHDRAW_RATIO` of the enemy's and the trend is
+  negative, posture becomes withdraw: open range, keep firing. v1 then surrenders through the
+  ordinary surrender path once out of effective range or when nothing can still fight.
+* Stage T6 adds leaving by jump point for jump-capable ships (the existing jump-out flow), which is
+  what the campaign prefers (survivors return to the map).
+* The bot never surrenders on turn 1-2.
+
+### 5.8 Difficulty and personality
+
+| Level | Behaviour |
+|---|---|
+| Easy | score noise high; no focus-fire bonus; simple EW (half OEW on nearest, half DEW); fires ballistics whenever legal |
+| Normal | as designed above |
+| Hard | one-ply look-ahead in movement (assume each enemy's best reply), EW optimised per point, ammunition discipline, target priority by value x vulnerability, withdraws in good order |
+
+Personality is a weight preset (`aggressive`, `balanced`, `cautious`, `skirmisher`) that changes
+range band and withdrawal threshold. A faction has a default (also used by the strategic AI's
+flavour table). All randomness comes from the seat's seed, so a game is reproducible.
+
+---
+
+## 6. Special systems: the handler registry
+
+* `AISystemRegistry` maps a system class (matched by `instanceof` on the server object) to a handler
+  with optional hooks: `power()`, `ew()`, `initialOrders()`, `preFiring()`, `firing()`,
+  `moveConstraints()`.
+* No handler = the system is left at its default and never given orders (P4).
+* A system may also be marked **blocking**: its faction cannot be played by the CPU without a
+  handler because the default is illegal or self-destructive (for example a system that must be
+  given a setting every turn). Blocking systems keep a faction off the readiness list.
+* Handlers are small and independent; contributors who add a faction's systems can add its handler.
+
+---
+
+## 7. Faction readiness list
+
+`AIConfig::$readyFactions`: faction string -> minimum stage and notes. A faction is on the list
+when (a) `shipMoverHarness` is clean for all its hulls, (b) no blocking system lacks a handler,
+(c) 20 self-play games against EA finish with no AI defect logged.
+
+Suggested order, simplest technology first: Earth Alliance, Narn, Centauri, Drazi, Brakiri (gravitic
+drive needs its mover rules), Dilgar, then raiders and civilians (needed by the campaign's Raider
+faction - prioritise `raiders` right after EA), then Minbari (jammer, stealth handling), Abbai
+(shields), Vree, and onward. Ancients and custom universes last.
+
+The Create Game dialog offers only ready factions for a CPU slot; the campaign asks the same list
+(section 9).
+
+---
+
+## 8. `FleetComposer` (shared with the strategic AI)
+
+A CPU needs a fleet. `FleetComposer::compose($faction, $points, $isd, $seed, $profile)` returns a
+legal fleet as the same ship array a lobby submit produces.
+
+* Template-driven: per faction a few weighted templates (line fleet, carrier group, raider pack,
+  defence group) expressed as role shares; roles are filled from the faction's classes by ISD and
+  cost. Hull roles are derived from class data (size, hangar capacity, ELINT, weapon mix), with an
+  optional hand-tuned override table.
+* Respects the existing fleet checker rules (`fleetchecker.php` / the lobby's composition warnings)
+  - reuse that logic server-side rather than restating it; where it is client-only today, that is a
+  porting task listed in stage T8.
+* No enhancements, refits or officers in v1.
+* In skirmish the host may instead give the CPU one of their saved fleets (existing
+  `loadSavedFleet`), which needs no composer at all - that is the T0-T7 test path.
+* Used by `STRATEGIC_AI_PLAN.md` for Raider fleets, neutral garrisons and CPU empire purchases
+  (there the result is turned into `camp_unit` rows and priced by `CampaignPricing`).
+
+---
+
+## 9. Campaign wiring (stage T9)
+
+The campaign needs four things from this plan, and nothing else:
+
+1. `TacticalAI::canPlay($faction)` - the readiness list plus the `cpuOpponent` flag. The campaign
+   offers the Fight stance against an NPC only when this is true (`CAMPAIGN_PLAN.md` section 7).
+2. A bot seat: `BattleBridge::createGame` calls `AISeats::seat($gameid, $slot, $level, $personality,
+   $seed)`, which takes a free bot account, seats it with `takeSlot` and writes the `cpu` column.
+   The NPC empire's fleet is injected through `BuyingGamePhase::process` for that bot id, exactly as
+   for a human (campaign 6.2).
+3. Campaign-aware behaviour, read from the game's `campaign` rule and nothing else:
+   * withdrawal prefers jump-out over surrender, so survivors are harvested back to the map;
+   * the 12-TT pause (campaign 6.3) needs no AI support: a paused game owes no submissions, so the
+     driver idles;
+   * units held in hyperspace as reinforcements: the strategic AI decides at battle set-up; in v1 the
+     tactical AI brings them all in at the first legal opportunity.
+4. `FleetComposer` (section 8).
+
+Raider behaviour in battle is the `skirmisher` personality at the campaign's difficulty.
+
+---
+
+## 10. Stages
+
+Nothing is committed by the implementer. Every stage runs the replay harness (ordinary games
+unchanged) and the self-play harness.
+
+| Stage | Deliverable | Done when |
+|---|---|---|
+| **T0 Skeleton** | `Features` flag, `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, `AIDriver`, fallback orders for every phase, self-play CLI harness | Two bots given saved fleets play a full game to FINISHED using only fallbacks, with zero rejected submissions; replay harness byte-identical |
+| **T1 Deployment + ShipMover** | `DeployDecider`; `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
+| **T2 Firing** | engagement table, `FireDecider`, interception reserve | Bots destroy each other; a human loses to an EA bot by standing still |
+| **T3 EW and power** | `EWDecider`, `PowerDecider` (negative-power handling) | Bot EW passes `validateEW` in every self-play turn; hit rates rise measurably versus T2 |
+| **T4 Ballistics and fighters** | `BallisticDecider`; flight tactics on top of `AutomatedMovement` (escort, strike, intercept) | Missile and carrier fleets fight sensibly |
+| **T5 Movement search** | `MoveDecider` scoring, range bands, terrain and mine avoidance, pivots and rolls | Hard beats Normal beats Easy in self-play ladders at >= 60% |
+| **T6 Withdrawal** | posture logic, surrender, jump-out | No game runs past the turn cap for lack of a decision |
+| **T7 Specials** | handler registry; handlers faction by faction; readiness list grows | Each added faction meets the section 7 criteria |
+| **T8 Skirmish release** | Create Game: "CPU opponent" per slot with level, personality, fleet source (saved fleet or auto); `FleetComposer`; lobby and games-list display of CPU seats; docs page | Beta on live behind the flag / `betaTesters` |
+| **T9 Campaign wiring** | section 9 | A campaign battle against a Raider fleet is played manually and harvested |
+
+T0-T3 produce an opponent that is already useful for new-player onboarding (a roadmap item in its
+own right: a first game with no human needed).
+
+---
+
+## 11. Testing
+
+* **Self-play harness** (`tests/ai/selfPlayHarness.php`, CLI): creates a game with two or more bot
+  seats and given or composed fleets, loops the driver until FINISHED or a turn cap, and asserts: no
+  rejected submission, no validator finding, no PHP warning, the game ended. Run in batches across
+  faction pairs and seeds. This doubles as a fuzz test of the engine itself - expect it to find real
+  FV bugs; report them, do not fold fixes into AI work without asking.
+* **`shipMoverHarness.php`**: section 5.4.
+* **Ladder harness**: win rates between levels and against a frozen previous AI version, to catch
+  regressions in play strength.
+* **Masking test**: run a decider with the unmasked object swapped in; decisions must not change
+  unless a hidden unit is in play, and the test fails if any decider reads a field the mask removes
+  (wrap the masked view so access to masked sentinels is logged).
+* **Replay harness** stays green and byte-identical for the existing corpus (P6).
+* Self-play games are ordinary games, so `replay.php` shows them - the fastest way to judge play quality.
+* CLI harness bootstrap follows the replay harness (do not include `global.php`; the load guard
+  exits silently on CLI). APCu is off on CLI.
+
+---
+
+## 12. Performance notes
+
+* Loading gamedata is the dominant cost and is per-ship CPU; the driver loads once per submission.
+* The engagement table is O(my weapons x enemy units); cache hit-chance results per (weapon, target,
+  position) within a decision; in movement search, evaluate arcs and range with cheap geometry first
+  and call `calculateHitBase` only for the pruned candidates.
+* Live is lsphp with a memory limit that returns 503 when exceeded: keep per-request work to one
+  submission, free the gamedata between loop iterations, and measure memory in the self-play harness.
+* `tac_ai_log` is capped per game and off by default on live.
+
+---
+
+## 13. Open decisions (defaults will be built unless ruled otherwise)
+
+| # | Question | Default |
+|---|---|---|
+| A1 | RULED 2026-11-12: CPU seats in ladder games | Never |
+| A2 | Do CPU games count in player statistics / recent games? | Listed, marked as CPU games, no ladder effect |
+| A3 | RULED 2026-11-12: fleet for a skirmish CPU | Host picks one of their saved fleets, or auto-composed (plain: no enhancements, refits or officers) |
+| A4 | May the human see the CPU's fleet in the lobby before the game? | Same as a human opponent (hidden until play) |
+| A5 | Team games with CPU allies | Allowed; bots do not coordinate with humans beyond sharing targets by proximity |
+| A6 | Handicap | Optional points bonus for the CPU, shown in the lobby; never hidden bonuses |
+| A7 | First factions | EA and Raiders, then Narn and Centauri |
+| A8 | Does the bot chat? | A one-line greeting and "gg" only; no taunts |

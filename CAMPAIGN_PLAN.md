@@ -4,6 +4,10 @@ Status: **PLANNED 2026-11-12. Nothing built.** This file is the implementation b
 `CAMPAIGN_RULES_REFERENCE.md` (KS ch. 13-14); the user's spec and Part D answers of 2026-11-12 are
 folded into section 1 and override the book wherever they differ.
 
+Companion plans: `STRATEGIC_AI_PLAN.md` (NPC empires on the campaign map; campaign Stage 11) and
+`TACTICAL_AI_PLAN.md` (a CPU opponent for FV battles; independent, may ship first). Section 7 says
+how the three fit together.
+
 Reading order for an implementer: section 1 (rulings), 3 (architecture), 4 (schema), 6 (battle bridge -
 the riskiest part), then the stage you are building in section 12. Section 13 lists the decisions still
 open; each has a default, so nothing there blocks Stage 0-2.
@@ -24,7 +28,8 @@ Base = KS section 13 Tactical Campaigns, heavily simplified, with a Birth of the
 | R1 | One currency, **Credits**, 1:1 with FV points. Ships, fighters, bases, OSATs, mines cost their FV point cost. |
 | R2 | 1 ST = 12 TT (the standard length of an FV battle). Optional real-time limit per ST set at campaign creation. |
 | R3 | Galactic map is a generated hex map: star systems, nebulae, asteroid fields, black holes. Presets Small / Medium / Large plus custom size up to a cap. Systems sit 2-4 hexes apart. |
-| R4 | Each system is generated with a **base income** (100-300), paid to whoever controls it, and may have Mineral Deposits (permanent income bonus) and/or **Quantum-40** (no income; each source lets its empire build one jump lane at a time; giftable). |
+| R4 | Each system is generated with a **base income** (100-300), paid to whoever controls it, and may have Mineral Deposits (permanent income bonus) and/or a **Quantum-40** source. |
+| R4a | **Q-40 is a resource that is spent** (ruled 2026-11-12, replacing "one lane per source"). A system has a chance to be generated as a Q-40 source; a source yields Q-40 each ST to its owner; a **homeworld always yields 1 per ST**. A unit that has a jump drive costs **1 Q-40** on top of its credits; a jump lane costs **2 Q-40**. Q-40 can be gifted. |
 | R5 | Income = base income **plus a population bonus** (guideline 100 credits per billion; ruled 2026-11-12, to be fine-tuned). A newly claimed system starts with a small population that grows toward a cap; upgrades (terraforming, housing, hydroponics) raise cap or growth. No starvation in v1. |
 | R6 | Claiming: occupy an unclaimed system uncontested for 1 full ST; an enemy-owned one for 2 full STs. A turn spent raiding does not count. |
 | R7 | Raid: instead of claiming, steal 50% of the system's credit income for that ST. |
@@ -40,10 +45,11 @@ Base = KS section 13 Tactical Campaigns, heavily simplified, with a Birth of the
 | R16 | Ammunition is restocked from an Ordnance stock bought into a base / shipyard / system. |
 | R17 | Destroyed fighters are replaced at their point cost. Default shuttles are replaced free. |
 | R18 | Diplomacy states: Non-Aggression Pact, Friendship (NAP + trade routes), Alliance (Friendship + mutual defence), War. Gifts of credits and Q-40. Free-text messages; one public declaration per empire per ST. Campaign chat with whisper. |
-| R19 | NPCs: a generic Raider faction (payable; highest bidder is exempt), neutral single-system factions drawn from FV factions, each with a hidden favour value per empire. CPU empires for single-player. |
+| R19 | NPCs: a generic Raider faction (payable; highest bidder is exempt; **spawns in unclaimed systems at irregular intervals, never at the map edge; fleet value just under the players' average fleet; defeating one pays a credit reward** - ruled 2026-11-12), neutral single-system factions drawn from FV factions, each with a hidden favour value per empire. CPU empires for single-player. |
 | R19a | Campaign units are bought through the **existing FV buy dialog**, with all enhancements, options, refits and officers, since points = credits (ruled 2026-11-12). |
 | R20 | Set-up: starting credits, tech year (ISD), victory conditions, starting systems (equal total income and population per player), optional per-player handicap. |
-| R21 | Campaign mode may be a subscription feature: check the player record and grey out campaign entry points without it. |
+| R21 | **No subscription for now** (ruled 2026-11-12): every player is entitled. The entitlement architecture is still built, switched off, so it can be activated later. |
+| R21a | Campaign is built in the background across routine FV releases. **Its entry points stay hidden on the live server** behind a feature flag until it is ready for Beta. |
 | R22 | Existing FV maps and terrain are used for battles. Listening posts / sensor nets come later as units (+1 detection). |
 | Deferred | Starvation, supply and maintenance, endurance, research, espionage, ground combat, bombardment, crew experience, refits, hyperspace navigation, fleet missions (KS 13.8), officers' campaign clauses. Do not build hooks for these. |
 
@@ -139,7 +145,7 @@ Browser (campaign.php)                      Server (PHP)
 
 | File | Purpose |
 |---|---|
-| `source/public/campaigns.php` | List my campaigns, open campaigns, create form. Linked from `games.php`. Greyed without entitlement. |
+| `source/public/campaigns.php` | List my campaigns, open campaigns, create form. Linked from `games.php` only when the `campaign` feature flag is on (section 8). |
 | `source/public/campaign.php` | The campaign screen. Emits the initial `CampaignView` inline as JSON TEXT, then loads `campaign.bundle.js`. |
 | `source/public/campaigndata.php` | `GET ?campaign=ID&v=N` returns the view (or `{"unchanged":true}`); `POST` takes one action (section 9). |
 
@@ -192,9 +198,9 @@ New file `db/campaign.sql` (idempotent, `CREATE TABLE IF NOT EXISTS`, InnoDB, ut
 | Table | Key columns | Notes |
 |---|---|---|
 | `camp_campaign` | id, name, creator, status (LOBBY / ACTIVE / FINISHED), turn, phase (ORDERS / RESOLVING / BATTLES), resolve_step, resolve_lock, deadline, version, seed, settings (JSON), password_hash, created | `version` increments on every state change; the poll compares it. `settings` holds map size, ISD, starting credits, ST time limit, victory conditions, battle rules (sim move, desperate, mines), handicaps. |
-| `camp_empire` | id, campaign_id, playerid (NULL for NPC), kind (PLAYER / CPU / RAIDER / NEUTRAL), name, faction, colour, credits, q40_gifted, ready, eliminated, is_ancient, last_seen | Faction string exactly as FV uses it. `is_ancient` resolved once at join from the faction. |
+| `camp_empire` | id, campaign_id, playerid (NULL for NPC), kind (PLAYER / CPU / RAIDER / NEUTRAL), name, faction, colour, credits, q40, ready, eliminated, is_ancient, last_seen | Faction string exactly as FV uses it. `is_ancient` resolved once at join from the faction. |
 | `camp_hex` | campaign_id, q, r, terrain (EMPTY / SYSTEM / NEBULA / ASTEROIDS / BLACKHOLE), system_id | One row per non-empty hex only. Axial coordinates. |
-| `camp_system` | id, campaign_id, q, r, name, owner_empire, pop, pop_cap, growth, base_income, minerals_pct, has_q40, build_rate, claim_empire, claim_turns, raided_turn, upgrades (JSON), ordnance (JSON), icon_seed | `pop` in millions (int). |
+| `camp_system` | id, campaign_id, q, r, name, owner_empire, pop, pop_cap, growth, base_income, minerals_pct, q40_rate, build_rate, claim_empire, claim_turns, raided_turn, upgrades (JSON), ordnance (JSON), icon_seed | `pop` in millions (int). |
 | `camp_lane` | id, campaign_id, system_a, system_b, owner_empire, path (JSON hex list), status (BUILDING / OPEN), turns_left | |
 | `camp_fleet` | id, campaign_id, empire_id, name, q, r, prev_q, prev_r, status (IDLE / MOVING / IN_BATTLE / RETREATING), battle_id, stance | `prev_q/r` = hex it arrived from (retreat direction). |
 | `camp_unit` | id, campaign_id, empire_id, fleet_id (NULL = garrison of system_id), system_id, phpclass, name, flightsize, bulk, base_cost, enh (JSON), sysenh (JSON), damage (JSON), ammo (JSON), status (ACTIVE / BUILDING / DESTROYED), built_turn | One row per ship / flight / base / OSAT. `damage` is the **sanitised PreBattleDamage payload** (`sys` / `ftr` / `mne` buckets). `enh` uses the saved-fleet tuple format. |
@@ -232,11 +238,12 @@ All numbers are defaults in `CampaignConfig`.
 * Other terrain: 8% of remaining hexes nebula (clustered), 6% asteroid field (clustered), 1 black hole
   per ~150 hexes, never adjacent to a system.
 * Each system: `base_income` 100-300 in steps of 10; `pop_cap` 1-4 bn; `pop` 0 until claimed;
-  25% chance of minerals (+10% to +40% of base income); Q-40 on homeworlds plus 1 extra source per
-  12 systems.
+  25% chance of minerals (+10% to +40% of base income); `Q40_SOURCE_CHANCE` (default 12%) of being a
+  Q-40 source with `q40_rate` 1.
 * Homeworlds: placed to maximise the minimum pairwise distance, then a balance pass adjusts systems
   within 4 hexes so every empire's neighbourhood income is within 10% of the mean. Homeworld default:
-  base income 300, pop 5 bn (cap 8), Q-40, one shipyard, one free base slot.
+  base income 300, pop 5 bn (cap 8), `q40_rate` 1 always, one shipyard, one free base slot. Each
+  empire also starts with `START_Q40` (default 3).
 * Names from a word list; planet icon chosen by `icon_seed` from a small set of surface textures.
 * Battle terrain mapping: SYSTEM -> `moons` rule (one large body); ASTEROIDS -> `asteroids` rule;
   NEBULA -> `nebula` rule; BLACKHOLE -> `gravityWell` rule; EMPTY -> none. A system with
@@ -267,8 +274,12 @@ So during ORDERS every battle is either finished or paused; the two clocks never
   `getUnitJumpingEngine`, never sweep `$ship->systems`); one such unit carries the whole fleet
   (default; D15). Lane moves are open to any fleet. A fleet part-way along a lane is in hyperspace:
   it cannot be contacted and is seen only at the lane's ends (default; D16).
-* Hostile = relation WAR. NEUTRAL fleets coexist in a hex with no combat. NPC Raiders are hostile to
-  everyone not exempt.
+* Hostile = relation WAR. NEUTRAL fleets coexist in a hex with no combat.
+* **Raiders never start a fight** (ruled 2026-11-12). A Raider fleet entering a hex does not create
+  a contact. Every other empire with a fleet or garrison there is offered **Attack / Ignore** in the
+  BATTLES phase; only an Attack creates a battle, in which the Raiders fight or retreat. If the
+  Raiders are still in the hex at step 5 the raid succeeds (R7), whether or not defenders were
+  present (default; D20).
 * Steps 5-8 skip any system with an ACTIVE battle for building (R13) but still pay income to the owner
   unless raided.
 
@@ -289,6 +300,12 @@ So during ORDERS every battle is either finished or paused; the two clocks never
   reusing it). Costs and build times in `CampaignConfig`.
 * Capacity: shipyards <= 1 per 2 bn pop (min 0); defence points (OSATs + mines + bases) <=
   1,000 per bn pop; a starbase needs income >= 150.
+* **Q-40** (R4a): `camp_empire.q40` is a stock. Each ST every owned source adds its `q40_rate`
+  (step 6). A unit whose class has a jump drive (`getUnitJumpingEngine` on the server-built ship)
+  costs `Q40_PER_JUMP_UNIT` (1) and a jump lane `Q40_PER_LANE` (2), charged with the credits on
+  enqueue and refunded with them on cancel. The buy dialog in campaign purchase mode shows the Q-40
+  cost and stock beside the points. A raided source yields nothing to its owner that ST and nothing
+  to the raider (default; D19).
 * Queues: cost is paid in full on enqueue; cancel before any progress = full refund, after = refund
   of unbuilt share. Each ST a queue adds `build_rate` progress to its head item; overflow carries to
   the next item in the same ST. A finished ship appears in the system garrison.
@@ -346,7 +363,7 @@ bundle. Host it instead:
 * On WAR all trade routes between the two lapse at end of turn.
 * Trade route (Friendship or better): links one system of each empire; each gets +10% income; one
   route per system; suspended while either end has an active battle.
-* Gifts: credits and Q-40 sources (a gifted source is a counter on the empire, `q40_gifted`). Immediate.
+* Gifts: credits and Q-40 (moved between the two empires' stocks). Immediate.
 * Raider tribute: each ST empires may bid; the highest bidder is exempt from Raider attacks next ST;
   all bids are spent.
 * NPC favour: hidden integer -100..100 per (NPC, empire); moved by gifts, by attacking them, by
@@ -517,6 +534,10 @@ as a harvest** (damage payloads and destroyed units), so everything downstream i
   more round.
 * Retreat under fire: the retreating side takes 2 rounds of incoming fire at 50% and deals none,
   then retreats.
+* `AutoCombat::estimate($sides)`: a dry run over a fixed set of seeds that returns win probability
+  and expected loss share without changing state. The strategic AI's stance and target choices
+  depend on it (`STRATEGIC_AI_PLAN.md` sections 3 and 6), so build it with AutoCombat, not later.
+* Raider bounty (section 7) is paid here and in `BattleBridge::harvest`.
 * Calibration harness (`tests/campaign/autoCombatHarness.php`): equal-point mirror fleets win 50%
   +/- 3 over 1,000 seeds; a 2:1 points advantage wins > 95% and loses < 25% of its value; the
   typical winner of an even fight keeps 40-60%. Tune `K` and the spread to those targets.
@@ -536,7 +557,7 @@ as a harvest** (damage payloads and destroyed units), so everything downstream i
 | `DBManager::getGamesToBeDeleted` | never delete a game whose `camp_battle` is not RESOLVED. Note `deleteGames` runs on every game.php load - keep the added condition a cheap indexed NOT EXISTS |
 | `Firing::getVortexDeclarationBlock` + client twin | jump buffer |
 | game.php options tab | mid-battle auto-resolve offer; "Return to campaign" link |
-| `games.php` | Campaigns entry, greyed without entitlement |
+| `games.php` | Campaigns entry, rendered only when the `campaign` feature flag is on |
 | `Manager::createGame` path | untouched; the bridge calls `DBManager::createGame` itself |
 
 After a campaign battle is harvested the campaign no longer needs its `tac_*` rows, so the normal
@@ -546,34 +567,66 @@ After a campaign battle is harvested the campaign no longer needs its `tac_*` ro
 
 ## 7. NPCs and CPU opponents
 
-Two different problems; keep them apart.
+Two different problems, each with its own plan:
 
-* **Strategic AI** (moves fleets, builds, does diplomacy on the campaign map): rule-based, cheap, in
-  `source/server/campaign/ai/`. Runs in resolution step 1 for every non-player empire. Raiders: spawn
-  at a map-edge hex every N STs with a fleet sized to the average player fleet, path to the weakest
-  non-exempt system in range, raid, leave. Neutrals: never move, rebuild their defence fleet slowly,
-  react through favour. CPU empires: expand to the nearest unclaimed system, build to a target
-  fleet value, attack the weakest neighbour at war.
-* **Tactical AI** (plays an FV battle): a very large separate project - movement planning, EW, power,
-  weapon targeting, interception, across every faction's special systems. `AutomatedMovement` (drift
-  and seek for Uncontrolled Hunter-Killers) is a seam for movement only. It gets its own plan,
-  `CPU_OPPONENT_PLAN.md`, written when the campaign is playable.
+* **`STRATEGIC_AI_PLAN.md`** - what a non-player empire does on the campaign map (Raiders, neutral
+  systems, CPU empires). It submits the same actions a player does, through the same validators,
+  in resolution step 1. Built as campaign Stage 11.
+* **`TACTICAL_AI_PLAN.md`** - a CPU opponent that plays an FV battle. It is built on existing FV
+  structures (a bot player seated in an ordinary slot, orders pushed through the ordinary phase
+  `process` methods) and **may ship for ordinary skirmish games before the campaign goes live**.
 
-Until tactical AI exists, **every battle involving an NPC is resolved by AutoCombat** and the Fight
-option is hidden. That delivers Raiders, neutral systems and single-player campaigns without it.
+How the campaign uses them:
+
+* An NPC empire is a `camp_empire` row with `playerid = NULL`. When one of its fleets is in a
+  manual battle, `BattleBridge::createGame` seats the tactical AI's bot account in that empire's
+  slot (TACTICAL_AI_PLAN section 9). Nothing else in section 6 changes.
+* The **Fight** stance against an NPC is offered only when the feature flag `cpuOpponent` is on
+  and the NPC's faction is on the tactical AI's readiness list. Otherwise the battle is resolved by
+  `AutoCombat` and Fight is hidden. So Raiders, neutral systems and single-player campaigns work
+  with or without the tactical AI.
+* The NPC's own stance (fight / auto / retreat) is chosen by the strategic AI from an AutoCombat
+  dry run (STRATEGIC_AI_PLAN section 6).
+* `FleetComposer` (TACTICAL_AI_PLAN section 8) builds NPC fleets for both plans.
+
+**Raiders (R19):** they only ever choose Raid System, against player and CPU empire systems (never
+neutral systems), and never attack a fleet, though they can be attacked (5.2). They spawn in a
+random unclaimed system, at irregular intervals; fleet value is
+`RAIDER_SIZE_FACTOR` (0.9) x the mean value of all player fleets; destroying or routing a Raider
+fleet pays the victors `RAIDER_BOUNTY` (25%) of the Raider value destroyed, split by damage share in
+a manual battle or by strength share in AutoCombat. Behaviour is in STRATEGIC_AI_PLAN section 4.
 
 ---
 
-## 8. Subscription gate
+## 8. Access: feature flag and (dormant) entitlement
 
-* `CampaignManager::hasAccess($playerid)` reads `player_entitlement` (feature `campaign`, not
-  expired). `accesslevel` on `player` is not reused (it is an admin level).
-* Enforced server-side at the top of every campaign entry point; the UI greys out the Campaigns link
-  and campaign rows with a tooltip. A campaign setting `openAccess` (default off) lets the host's
-  entitlement cover invited players (D8).
-* Granting is manual at first (an admin page or SQL). Payment integration is out of scope.
-* A lapsed entitlement mid-campaign: the player keeps access to campaigns already joined, cannot
-  create or join new ones.
+Two independent switches.
+
+**Feature flag - is campaign code reachable at all on this server?**
+
+* New `$feature_flags` array in `source/server/varconfig.php` (per environment, like the DB
+  settings) read through a small `Features::enabled('campaign')` helper in `source/server/lib/`.
+  Absent or false = off. Local Docker and the test instance turn it on; **live leaves it off until
+  Beta** (R21a).
+* Off means: the Campaigns link is not rendered anywhere (hidden, not greyed), and
+  `campaigns.php`, `campaign.php` and `campaigndata.php` answer 404 before doing any work. The
+  `camp_*` tables may exist on live and stay empty.
+* Every edit to existing FV code in 6.6 is inert without a `campaign` rule on the game, so campaign
+  code can ride along in routine releases. Keep it that way: no campaign change may alter an
+  ordinary game's behaviour or payload, and the replay harness proves it at each stage.
+* The same helper carries the `cpuOpponent` flag (TACTICAL_AI_PLAN section 2).
+* An optional `betaTesters` list of player ids in the same config lets chosen players see the
+  feature on live while the flag is otherwise off.
+
+**Entitlement - may this player use it? Built, switched off.**
+
+* `CampaignManager::hasAccess($playerid)` returns true for everyone while
+  `CampaignConfig::REQUIRE_ENTITLEMENT` is false (the default, R21).
+* The `player_entitlement` table and the check exist from Stage 0 so that turning the model on
+  later is a config change plus a payment integration, not a refactor. When on: enforced at the top
+  of every campaign entry point, the UI greys out campaign entry with a tooltip, a campaign setting
+  `openAccess` lets a host cover invited players, and a lapsed player keeps campaigns already joined.
+* `accesslevel` on `player` is not reused (it is an admin level).
 
 ---
 
@@ -617,7 +670,7 @@ the pre-deploy check.
 
 One screen, map-first, panels as docked overlays (SCS look). Follow the standing UI rulings: passive
 fading notices for information, confirm dialogs only for destructive or costly acts, options the
-player cannot take are hidden rather than greyed (the subscription gate is the stated exception),
+player cannot take are hidden rather than greyed,
 combos keep their input affordances.
 
 * **Top bar**: campaign name, ST number, phase, deadline countdown, credits and income, End Turn.
@@ -666,20 +719,20 @@ runs the replay harness.
 
 | Stage | Deliverable | Done when |
 |---|---|---|
-| **0 Foundations** | `db/campaign.sql`; `CampaignConfig`, `CampaignDB`, `CampaignManager` skeletons; `player_entitlement` + gate; `campaigns.php` / `campaign.php` / `campaigndata.php` shells; TS toolchain and second Vite config; harness bootstrap | An entitled player opens an empty campaign page; a non-entitled one sees it greyed; `tsc` runs in `-Check` |
+| **0 Foundations** | `db/campaign.sql`; `CampaignConfig`, `CampaignDB`, `CampaignManager` skeletons; `Features` helper + `$feature_flags`; `player_entitlement` + dormant gate; `campaigns.php` / `campaign.php` / `campaigndata.php` shells; TS toolchain and second Vite config; harness bootstrap | With the flag on, any player opens an empty campaign page; with it off there is no link and the pages 404; `tsc` runs in `-Check` |
 | **1 Bridge spike** (no UI) | `CampaignRule`, `campunitid`, the extracted ship builder, `BattleBridge::createGame` and `harvest`, the two `process` seams, `getGamesToBeDeleted` guard | `bridgeHarness.php` round trip passes; a hand-seeded pair of fleets produces a real game two local players can play, and its result harvests correctly; replay harness green |
 | **2 Map and lobby** | `MapGenerator`; create / join / start; faction, name, colour; galactic map viewer with terrain, systems, owners; static icons | A started campaign shows a balanced generated map to every player |
 | **3 Turn engine** | orders, Ready, stepped `TurnResolver` (movement only), deadlines, `Visibility` + `camp_seen`, events, polling, Discord ping | Fleets move simultaneously in secret; fog verified by the harness; an interrupted resolution resumes |
-| **4 Economy** | income, population, claims, queues, shipyards, unit purchase through the buy dialog in campaign purchase mode + `CampaignPricing`, fleet split / merge, starting set-up and handicaps | A campaign can be played as a pure expansion race; a tampered enhancement price is rejected |
+| **4 Economy** | income, population, Q-40 stock and yield, claims, queues, shipyards, unit purchase through the buy dialog in campaign purchase mode + `CampaignPricing`, fleet split / merge, starting set-up and handicaps | A campaign can be played as a pure expansion race; a tampered enhancement price is rejected |
 | **5 Battles, manual** | contact detection, stance prompts, game creation from live campaign state, harvest, retreat, hex control, battle reports | Two players meet, fight in FV, and the survivors return damaged to the map |
 | **6 Automatic combat** | `AutoCombat`, retreat under fire, the full stance matrix, mid-battle auto-resolve | Calibration harness meets its targets; a campaign can be played without any manual battle |
 | **7 Repair and supply** | repair quotes and queue, Repair All, destroyed-section surcharge, fighter replacement, ordnance stock and resupply | A damaged fleet can be made whole for the quoted price; ammo persists between battles |
 | **8 Long battles** | pause at the 12-TT checkpoint, partial harvest of units that left, hold-in-hyperspace at set-up, reinforcements into a paused game (own jump point or the system's gate), jump buffer, no building under siege | A battle pauses at TT 12, a third fleet is moved in during the ST and arrives after the resume; a jump-less fleet arrives through the gate |
 | **9 Diplomacy and comms** | relations, proposals, mutual defence, gifts, trade routes, raiding, chat / whisper / declarations | The relation matrix gates combat correctly in a 3+ player campaign |
-| **10 Lanes and upgrades** | Q-40, jump lanes, system upgrades, bases and defences, defence caps | Lane movement at 3 hexes works; upgrades change growth and build rate |
-| **11 NPCs** | Raiders, tribute, neutral systems, favour, simple CPU empires (auto-combat only) | A single-player campaign is playable end to end |
+| **10 Lanes and upgrades** | jump lanes (2 Q-40), system upgrades, bases and defences, defence caps | Lane movement at 3 hexes works; upgrades change growth and build rate |
+| **11 NPCs** | `STRATEGIC_AI_PLAN.md` stages S0-S6: Raiders, bounty, tribute, neutral systems, favour, CPU empires. Manual battles against NPCs if the tactical AI is live, AutoCombat otherwise | A single-player campaign is playable end to end |
 | **12 Polish** | animated icons, read-only SSD, victory screens, rules document, phone pass | - |
-| **13 Tactical CPU** | separate `CPU_OPPONENT_PLAN.md` | - |
+| (parallel) **Tactical CPU** | `TACTICAL_AI_PLAN.md`, its own stages T0-T9; independent of the campaign and may ship first. T9 is the campaign wiring | - |
 
 Stages 0-7 are the minimum playable campaign. Stage 1 is first on purpose: if fleets cannot be
 injected and harvested cleanly through the existing buying path, the design changes, and it is
@@ -696,7 +749,10 @@ better to learn that before any UI exists.
 | D2 | Population of an unclaimed system | Income = base income + a population bonus; fine-tune later (R4, R5, 5.3) |
 | D3 | Pause a battle at each 12-TT checkpoint? | **Yes**, and an ST is played while it is paused (R12, 6.3) |
 | D5 | A fleet with no jump engine arriving at a battle | Joins through the system's jump gate; every lane has a gate at each end (R9, R12) |
-| D8 | Can a subscriber host non-subscribers? | No, unless the host enables `openAccess` |
+| D8 | Subscription | Not for now: everyone is entitled, architecture built but off; campaign hidden on live by feature flag until Beta (R21, R21a, section 8) |
+| - | Raiders | Spawn in unclaimed systems, irregularly; just under average player fleet size; bounty for defeating them; raid player and CPU empire systems only, never neutral ones; never attack a fleet but can be attacked (R19, 5.2, section 7) |
+| - | Neutral systems | Peaceful membership is in: a neutral system can join an empire at sustained maximum favour (`STRATEGIC_AI_PLAN.md` section 5) |
+| - | Q-40 | A spent resource: 1 per jump-drive unit, 2 per lane; sources yield per ST, homeworld always 1 (R4a, 5.3) |
 | D9 | Enhancements, refits and officers on campaign units | Yes, through the existing FV buy dialog (R19a, 5.3a) |
 | D10 | Surprise war | Allowed on a NEUTRAL empire, effective at the same resolution; pacts need one ST notice. (The user restated this default without objecting - confirm before Stage 9.) |
 
@@ -715,6 +771,8 @@ better to learn that before any UI exists.
 | D15 | Does one jump-capable unit carry a whole fleet off-lane? | Yes |
 | D16 | Can a fleet part-way along a lane be contacted or seen? | No; it is in hyperspace until it reaches an end |
 | D17 | Where the jump gate stands on the battle map | Mid-map, outside both deployment zones; neutral, usable by anyone |
+| D20 | Does a Raider raid succeed when defenders are present but choose not to attack? | Yes; only driving the Raiders off or destroying them that ST stops it |
+| D19 | Does raiding a Q-40 source steal Q-40? | No; the source simply yields nothing that ST |
 | D18 | Can a fleet with no jump engine retreat from a system with no lane? | It cannot have got there, so no case; if its lane is destroyed later it is stranded and cannot retreat |
 
 ---
