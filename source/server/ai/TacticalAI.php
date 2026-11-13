@@ -48,8 +48,20 @@ class TacticalAI
             return self::result($error === null ? 'surrendered' : 'rejected', $error);
         }
 
-        //The decision. Deciders (stages T1-T5) go here; with none, the fallback is the play.
-        $entries = AIFallback::orders($gamedata, $botId);
+        /* The decision. A phase with a decider uses it; a phase without one, a decider that threw,
+           and any retry after a refusal play the fallback (principle P3). Deciders so far:
+           Deployment (stage T1a). */
+        $entries = null;
+        if ($refusals == 0) {
+            try {
+                if ($phase == -1) $entries = DeployDecider::orders($gamedata, $botId, $seat);
+            } catch (Throwable $e) {
+                Debug::error($e);
+                $db->aiLog($gameid, $botId, $turn, $phase, 'defect', 'Decider threw: ' . get_class($e) . ': ' . $e->getMessage(), AIConfig::LOG_CAP);
+                $entries = null;
+            }
+        }
+        if ($entries === null) $entries = AIFallback::orders($gamedata, $botId);
         $ships = AIOrderBuilder::build($entries);
         unset($gamedata, $entries); //the load is the big thing in memory, and process() makes its own
 

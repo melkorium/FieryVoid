@@ -1568,8 +1568,9 @@ window.ShipTooltip = function () {
        button can never promise a weapon the list says cannot fire. */
     function primaryLabel() {
         var count = this.element.find('.fire.targeting .tt-row .posHitchange, .fire.targeting .tt-row .negHitchange').length;
-        if (count === 1) return 'Target 1 weapon';
-        return count > 1 ? 'Target ' + count + ' weapons' : 'Target weapons';
+        if (count === 1) return 'Target selected weapon';
+        //return count > 1 ? 'Target ' + count + ' weapons' : 'Target weapons';
+        return 'Target selected weapons';
     }
 
     function primaryButton(buttonData) {

@@ -59,7 +59,11 @@ class AIFallback
 
        Facing, heading and speed are the 'start' row's, which is what the client's deploy copies
        (movement.js deploy) - except that a unit which cannot move is placed at speed 0. */
-    private static function deployment(TacGamedata $gamedata, $botId)
+    /* $planned (DeployDecider, stage T1a): ship id => array('x', 'y', 'facing', 'speed') for the
+       units a formation has a place for. Those stand where it says; every other unit that places
+       now - a base, an OSAT, a mine, one the formation had no room for - gets the fallback hex,
+       clear of the planned ones. */
+    public static function deployment(TacGamedata $gamedata, $botId, array $planned = array())
     {
         $entries = array();
         $taken = array();
@@ -67,12 +71,22 @@ class AIFallback
             $blocked = new OffsetCoordinate($hex);
             $taken[$blocked->q . ',' . $blocked->r] = true;
         }
+        foreach ($planned as $place) $taken[(int)$place['x'] . ',' . (int)$place['y']] = true;
 
         foreach (self::ownUnits($gamedata, $botId) as $ship) {
             $entry = AIOrderBuilder::entry($ship);
 
             if (self::placesNow($ship, $gamedata)) {
                 $start = $ship->getLastMovement();
+
+                if ($start && isset($planned[(int)$ship->id])) {
+                    $place = $planned[(int)$ship->id];
+                    $entry['movement'][] = AIOrderBuilder::move('deploy', new OffsetCoordinate((int)$place['x'], (int)$place['y']),
+                        $place['speed'], $place['facing'], $place['facing'], $gamedata->turn, 0);
+                    $entries[] = $entry;
+                    continue;
+                }
+
                 $hex = self::findDeploymentHex($ship, $gamedata, $start, $taken);
                 if ($hex !== null && $start) {
                     $taken[$hex->q . ',' . $hex->r] = true;

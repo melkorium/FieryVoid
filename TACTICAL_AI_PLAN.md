@@ -1,7 +1,8 @@
 # Tactical AI Plan (CPU opponent for Fiery Void battles)
 
-Status: **Stage T0 BUILT 2026-11-13, uncommitted, not yet play-tested in a browser** (as-built
-notes: section 10.1). T1a onward not started. Companion plans: `CAMPAIGN_PLAN.md` (the campaign
+Status: **Stage T0 BUILT and committed 2026-11-13 (5807979b8, play-tested in game 4568; as-built
+notes: section 10.1). Stage T1a BUILT 2026-11-13, uncommitted, the Auto-Deploy button not yet
+tried in a browser (section 10.2).** T1b onward not started. Companion plans: `CAMPAIGN_PLAN.md` (the campaign
 layer, which uses this for battles against NPCs - see its section 7) and `STRATEGIC_AI_PLAN.md` (what
 NPC empires do on the campaign map).
 
@@ -487,7 +488,7 @@ Harnesses, all in `tests/ai/`: `selfPlayHarness.php` (two bots to FINISHED on fa
   (`gamedata.canEditSlot`). Units bought for it keep the creator's id in the page;
   `gamedata.php` sends a Ready with `cpuSlot` to `Manager::submitFleetForCpuSlot`, which keeps
   only that slot's units, stamps them with the bot's id and commits as the bot.
-* **Differences from section 8.1, for a ruling:**
+* **Differences from section 8.1 - all three ACCEPTED by the user, 2026-11-13:**
   * a CPU slot is readied by its own Ready press (select it, press Ready), the way a player
     holding two slots readies each - not together with the creator's own fleet. The combined
     commit needs auto-compose for an empty slot, which is T8;
@@ -504,6 +505,61 @@ Harnesses, all in `tests/ai/`: `selfPlayHarness.php` (two bots to FINISHED on fa
 * No pre-flight validators yet (3.2 step 5) - the fallbacks cannot fail them; they come with the
   deciders. Fallback gaps left to their stages: negative power is not cleared (T3), movement never
   turns away from terrain or the map edge (T1b).
+
+### 10.2 Stage T1a as built (2026-11-13)
+
+Flag: `$feature_flags['autoDeploy']` (on in `docker/php/varconfig.php`). No migration.
+Harness: `tests/ai/deployerHarness.php` (188 checks over seven zone / terrain / fleet scenarios;
+`--show` prints each layout as a text map).
+
+* **`source/server/handlers/FleetDeployer.php`** - `plan($gamedata, $playerid, $slot, $options)`,
+  `maxGroups`, `eligibleUnits`, `inZone`. Options: `groups`, `unitIds`, `occupied`, `seed`.
+  Formation per group: line at depth 0 (lead anchor in the centre, then by hull size outward,
+  2 hexes apart, 1 when the zone is short), carriers and ELINT hulls at depth -1, line overflow
+  behind them, flights at depth +1. A wanted hex that is not acceptable becomes the nearest one
+  that is; a unit with nowhere to go is left out of the plan.
+* **Legality.** Each hex passes `validateDeploymentArea` and a server copy of the page's box test
+  (`DeploymentPhaseStrategy` `getValidDeploymentCallback`), which is tighter at the edges - the two
+  were compared over 43 million hex/zone cases and agree exactly. Terrain footprints are never
+  stood on; two hulls never share a hex (the page's rule; flights may share).
+* **The CPU.** `ai/deciders/DeployDecider` plans each of the bot's slots (groups by personality)
+  and hands the result to `AIFallback::deployment`, which still places what the formation does
+  not: bases, OSATs, mines and any unit left out. `TacticalAI::play` uses a decider only on a first
+  attempt; a decider that throws, and every retry after a refusal, plays the plain fallback.
+* **The player.** `autoDeploy.php` -> `Manager::getAutoDeployPlan` (flag, ACTIVE game, phase -1,
+  holds a slot, not yet committed; writes nothing). `game.php` prints
+  `window.fvFeatures = {autoDeploy: true}` only when the flag is on for the viewer.
+  `client/renderer/phaseStrategy/AutoDeploy.js` draws nothing itself: `gamedata.drawIniGUI` adds
+  the button after Deploy Minefield. The panel (battlegroup stepper, "Replace units I have already
+  placed") is skipped when there is nothing to choose. Placements go through
+  `shipManager.movement.deploy` + `onShipMovementChanged`, then facing and speed are written on the
+  unit's `deploymove`; the commit button is armed by `validateAllDeploymentGlobal`, as a manual
+  placement arms it. The page sends its own uncommitted placements as `occupied`.
+* **Rulings, 2026-11-13 (after the user's play-test - "the autodeploy button seems to work well"):**
+  * *Speed.* A group's hulls share the units' starting speed, lowered while any of them would
+    need its whole engine output for one turn at it, but **never below 3** ("even cumbersome
+    ships should start at speed 3 or 4, e.g. Hurr and Grome vessels"); never raised. **Flights
+    start faster** ("often 6-9"): two thirds of the slowest flight's thrust, kept within 6..9.
+    Constants `MIN_SPEED`, `FLIGHT_MIN_SPEED`, `FLIGHT_MAX_SPEED`.
+  * *A dedicated carrier* is a hull with 36 or more fighter boxes
+    (`FleetDeployer::CARRIER_MIN_FIGHTERS`); an Omega (24) stays on the line. A group's lead anchor
+    is never moved to the support row. ACCEPTED.
+  * *Long axis* decides the line even when the enemy lies along it (a tall zone with the enemy to
+    the north gives a column, not a line abreast). ACCEPTED.
+  * The deployer never reads where an opponent stands - only terrain and its own team.
+* **Known gap, to fix later (user, 2026-11-13): Hunter-Killers.** Flights always form the screen;
+  "on their carrier's hex when the game expects them launched from it" is not built. So a flight
+  that should START IN A HANGAR - Orieni Hunter-Killers (`remoteControl`) above all - is put on
+  the map by both callers unless the player has already queued its deploy-start dock (queued
+  craft are left alone). On the map, HKs beyond the control nodes' capacity start Uncontrolled
+  (`HkControlNodeOrieni::resolveDeploymentShortfall`). The fix is for the deployer to dock such
+  flights (the deploy-start dock in `DeploymentDock.js` / `HangarOps`) instead of placing them.
+* **Not decided: a "shuffle" control.** Pressing Auto-Deploy twice gives the same layout. The
+  server can already produce variants (`seed`: mirrors the wings, changes which group stands
+  where - the bot uses its seat's seed), but the panel has no button for it.
+* **Sticky button footer (user request, same day).** `gamedata.drawIniGUI` now puts Deploy
+  Minefield, Auto-Deploy and Manage Reinforcements in one `#iniGuiActions` footer, sticky to the
+  bottom of `#iniGui` (tactical.css), so a long initiative list scrolls behind the buttons.
 
 ---
 

@@ -24,6 +24,7 @@ $keep_idle_games = true;
 // Feature flags (Features.php) - LOCAL docker turns part-built features ON; live leaves them out.
 $feature_flags = array(
     'cpuOpponent' => true,   // CPU-controlled slots (TACTICAL_AI_PLAN.md)
+    'autoDeploy' => true,    // the Deployment phase's Auto-Deploy button (TACTICAL_AI_PLAN.md 5.2)
 );
 $feature_beta_testers = array();
 

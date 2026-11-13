@@ -2223,6 +2223,49 @@ class Manager{
         return self::submitShipsForPlayer($gameid, $botId, $turn, $phase, $activeship, $fleet, '', $slotid);
     }
 
+    /* The player's Auto-Deploy button (TACTICAL_AI_PLAN.md section 5.2, "Caller 2"): where
+       FleetDeployer would stand this player's fleet. NOTHING IS WRITTEN - the page places the
+       units itself, as if by hand, and the player commits when ready.
+       $options, all from the page and all optional:
+         groups    battlegroups wanted (FleetDeployer clamps it per slot)
+         seed      0 = the standard layout; anything else a variant of it (the panel's Shuffle)
+         ships     ship ids to place (the page leaves out what the player placed and is keeping)
+         occupied  [{q, r, flight}] - those kept placements, which are not in the database yet
+       Returns JSON: {"placements": [{shipid, x, y, facing, speed, group}, ...]} or {"error": ...}. */
+    public static function getAutoDeployPlan($gameid, $userid, array $options = array()){
+        try {
+            if (!is_numeric($gameid) || !is_numeric($userid) || !Features::enabledFor('autoDeploy', $userid))
+                throw new Exception("Auto-Deploy is not available.");
+
+            self::initDBManager();
+            $gamedata = self::$dbManager->getTacGamedata((int)$userid, (int)$gameid);
+            if (!$gamedata || $gamedata->status !== 'ACTIVE' || $gamedata->phase != -1)
+                throw new Exception("Auto-Deploy only works in the Deployment phase.");
+
+            $slots = $gamedata->getSlotsByPlayerId($userid);
+            if (count($slots) == 0) throw new Exception("You have no fleet in this game.");
+            if ($gamedata->hasAlreadySubmitted($userid)) throw new Exception("You have already committed this phase.");
+
+            $deployerOptions = array('groups' => isset($options['groups']) && is_numeric($options['groups']) ? (int)$options['groups'] : 1);
+            if (isset($options['seed']) && is_numeric($options['seed']))
+                $deployerOptions['seed'] = max(0, min(1000000, (int)$options['seed'])); //the panel's Shuffle
+            if (isset($options['ships']) && is_array($options['ships']))
+                $deployerOptions['unitIds'] = array_slice(array_filter($options['ships'], 'is_numeric'), 0, 1000);
+            if (isset($options['occupied']) && is_array($options['occupied']))
+                $deployerOptions['occupied'] = array_slice($options['occupied'], 0, 1000);
+
+            $placements = array();
+            foreach ($slots as $slot) {
+                if ($slot->surrendered !== null) continue;
+                $placements = array_merge($placements, FleetDeployer::plan($gamedata, (int)$userid, $slot->slot, $deployerOptions));
+            }
+
+            return json_encode(array('placements' => $placements));
+        } catch (Exception $e) {
+            return json_encode(array("error" => $e->getMessage()));
+        }
+    }
+
     /* The lobby's `cpuSlots` key: {slot: {level}} for the game's CPU seats, so the page can tell
        them from humans and let the creator select one. Added to the payload only while the
        feature is on, the game is in its lobby and it has a CPU seat - every other payload is
