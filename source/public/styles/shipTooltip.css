@@ -728,7 +728,8 @@
     align-items: center;
     justify-content: center;
     width: 34px;
-    background: rgba(0, 0, 0, 0.45);
+    /*background: rgba(0, 0, 0, 0.45);*/
+    background: transparent;
 }
 
 .fv-shipcard .fv-shipcard__well .fv-shipcard__icon {
