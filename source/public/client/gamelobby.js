@@ -3726,6 +3726,9 @@ window.gamedata = {
 		gamedata.status = serverdata.status;
 		gamedata.gamespace = serverdata.gamespace;
 		gamedata.rules = serverdata.rules;
+		//CPU opponent (TACTICAL_AI_PLAN.md 8.1): {slot: {level}}, sent only when the game has a CPU seat
+		gamedata.cpuSlots = serverdata.cpuSlots || null;
+		gamedata.isCreator = serverdata.creator == serverdata.forPlayer;
 
 		//REINFORCEMENTS_PLAN.md §4 Stage 1 - the buy-mode toggle ships hidden in the markup and
 		//is revealed here, because this is the first point at which gamedata.rules exists. Runs
@@ -3788,9 +3791,24 @@ window.gamedata = {
 		gamedata.setSlotData(data);
 	},
 
+	/* CPU opponent (TACTICAL_AI_PLAN.md 8.1). A CPU slot is an ordinary slot held by a bot account;
+	   the game's creator may select it and buy, load and ready its fleet exactly as their own.
+	   Units bought for it keep userid = thisplayer here, so every fleet-list path treats them as
+	   the creator's; the server stamps them with the bot's id when the slot is readied. */
+	isCpuSlot: function isCpuSlot(slot) {
+		return !!(slot && gamedata.cpuSlots && gamedata.cpuSlots[slot.slot]);
+	},
+
+	//May this player buy for the slot? Their own, or - for the creator - a CPU player's.
+	canEditSlot: function canEditSlot(slot) {
+		if (!slot) return false;
+		if (slot.playerid == gamedata.thisplayer) return true;
+		return gamedata.isCreator === true && gamedata.isCpuSlot(slot);
+	},
+
 	createSlots: function createSlots() {
 		var selectedSlot = playerManager.getSlotById(gamedata.selectedSlot);
-		if (selectedSlot && selectedSlot.playerid != gamedata.thisplayer) {
+		if (selectedSlot && !gamedata.canEditSlot(selectedSlot)) {
 			$('.slot.slotid_' + selectedSlot.slot).removeClass("selected");
 			gamedata.selectedSlot = null;
 		}
@@ -3814,11 +3832,13 @@ window.gamedata = {
 				$(".playername", slotElement).html(player.name);
 
 				//Only show select button if it's a viable option
-				if (slot.playerid == gamedata.thisplayer && slot.slot !== gamedata.selectedSlot) $(".selectslot", slotElement).show();
+				if (gamedata.canEditSlot(slot) && slot.slot !== gamedata.selectedSlot) $(".selectslot", slotElement).show();
 
-				if (slot.playerid == gamedata.thisplayer && slot.slot == gamedata.selectedSlot ||
-					slot.playerid !== gamedata.thisplayer)
+				if (gamedata.canEditSlot(slot) && slot.slot == gamedata.selectedSlot ||
+					!gamedata.canEditSlot(slot))
 					$(".selectslot", slotElement).hide();
+
+				slotElement.toggleClass("lb-slot--cpu", gamedata.isCpuSlot(slot));
 				//if() $(".selectslot", slotElement).hide();
 
 				if (slot.lastphase >= "-2") {
@@ -3917,7 +3937,7 @@ window.gamedata = {
 
 	enableBuy: function enableBuy() {
 		var selectedSlot = playerManager.getSlotById(gamedata.selectedSlot);
-		if (selectedSlot && selectedSlot.playerid == gamedata.thisplayer) {
+		if (gamedata.canEditSlot(selectedSlot)) {
 			$(".buy").show();
 		} else {
 			$(".buy").hide();
@@ -4976,14 +4996,15 @@ window.gamedata = {
 		var slotid = gamedata.selectedSlot;
 		var selectedSlot = playerManager.getSlotById(slotid);
 		var slotElement = $('.slot.slotid_' + selectedSlot.slot);
+		var forCpu = gamedata.isCpuSlot(selectedSlot); //the creator readying a CPU player's fleet
 
 		if (selectedSlot.lastphase >= "-2") {
-			window.confirm.error("You have already confirmed your fleet for this game!", function () { });
+			window.confirm.error(forCpu ? "This CPU player's fleet is already confirmed!" : "You have already confirmed your fleet for this game!", function () { });
 			return;
 		}
 
 		if (points == 0) {
-			window.confirm.error("You have to buy at least one ship!", function () { });
+			window.confirm.error(forCpu ? "Buy at least one ship for the CPU player first!" : "You have to buy at least one ship!", function () { });
 			return;
 		}
 
@@ -4995,7 +5016,7 @@ window.gamedata = {
 
 		//Pre-battle damage (D1): no rule gates it, so the Ready confirm is where a fleet
 		//carrying damaged or crippled units says so out loud. confirm.confirm renders HTML.
-		var readyMessage = "Are you sure you wish to ready your fleet?";
+		var readyMessage = forCpu ? "Are you sure you wish to ready this CPU player's fleet?" : "Are you sure you wish to ready your fleet?";
 		if (window.battleDamage && battleDamage.fleetHasDamage()) {
 			//Only WARNING: is the warning; the rest is ordinary body text, so it carries its
 			//own class (see confirm.css .prebattle-note).
@@ -5552,7 +5573,7 @@ window.gamedata = {
 		var slotid = slotElement.data("slotid");
 		var slot = playerManager.getSlotById(slotid);
 
-		if (slot.playerid == gamedata.thisplayer) gamedata.selectSlot(slot);
+		if (gamedata.canEditSlot(slot)) gamedata.selectSlot(slot);
 	},
 
 	selectSlot: function selectSlot(slot) {

@@ -1,6 +1,7 @@
 # Tactical AI Plan (CPU opponent for Fiery Void battles)
 
-Status: **PLANNED 2026-11-12. Nothing built.** Companion plans: `CAMPAIGN_PLAN.md` (the campaign
+Status: **Stage T0 BUILT 2026-11-13, uncommitted, not yet play-tested in a browser** (as-built
+notes: section 10.1). T1a onward not started. Companion plans: `CAMPAIGN_PLAN.md` (the campaign
 layer, which uses this for battles against NPCs - see its section 7) and `STRATEGIC_AI_PLAN.md` (what
 NPC empires do on the campaign map).
 
@@ -469,6 +470,40 @@ unchanged) and the self-play harness.
 
 T0-T3 produce an opponent that is already useful for new-player onboarding (a roadmap item in its
 own right: a first game with no human needed).
+
+### 10.1 Stage T0 as built (2026-11-13)
+
+Needs `db/cpuOpponent.sql` and `$feature_flags['cpuOpponent']` (or a beta list) to do anything.
+Harnesses, all in `tests/ai/`: `selfPlayHarness.php` (two bots to FINISHED on fallbacks),
+`cpuLobbyHarness.php` (the Create Game / lobby path below), `flagOffHarness.php`.
+
+* **Create Game.** Each slot but slot 1 has a "CPU player" tick, printed only when
+  `AISeats::allowedFor` the viewer and hidden in a ladder game. `Manager::createGame` hands the
+  posted slots to `AISeats::seatMarkedSlots`; a slot that cannot be seated (no bot left - there are
+  eight) is logged and stays an ordinary open slot. The tick is not part of a saved preset.
+* **Lobby.** The payload gains `cpuSlots` (`{slot: {level}}`) only while the game is in its lobby
+  and has a CPU seat (`Manager::addCpuSlots`); `gamelobby.js` copies it by name. The creator gets
+  Select on a CPU slot and then buys, loads and readies it like their own
+  (`gamedata.canEditSlot`). Units bought for it keep the creator's id in the page;
+  `gamedata.php` sends a Ready with `cpuSlot` to `Manager::submitFleetForCpuSlot`, which keeps
+  only that slot's units, stamps them with the bot's id and commits as the bot.
+* **Differences from section 8.1, for a ruling:**
+  * a CPU slot is readied by its own Ready press (select it, press Ready), the way a player
+    holding two slots readies each - not together with the creator's own fleet. The combined
+    commit needs auto-compose for an empty slot, which is T8;
+  * so an empty CPU slot blocks the start until a fleet is bought for it. No "Auto-compose" /
+    "Custom fleet" / "Clear" states, no note of items the CPU will not use, no level picker
+    (every seat is `normal`), and a CPU slot cannot be added or removed in the lobby;
+  * when the creator leaves the lobby, every bot leaves with them and the slots open up
+    (`AISeats::releaseAbandoned`) - nobody else could commit their fleets.
+* `cpu` is not on `PlayerSlot` or in its SELECTs (it would ship on every slot of every game, and
+  break a database without the migration); AI code reads seats with its own query.
+* `AIOrderBuilder` writes the plain array a browser posts and runs it through `ShipPayload`,
+  rather than reusing loaded ship objects (section 3.2's trap list): `process()` is written for
+  POST-side ships.
+* No pre-flight validators yet (3.2 step 5) - the fallbacks cannot fail them; they come with the
+  deciders. Fallback gaps left to their stages: negative power is not cleared (T3), movement never
+  turns away from terrain or the map edge (T1b).
 
 ---
 
