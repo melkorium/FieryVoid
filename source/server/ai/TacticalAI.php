@@ -50,11 +50,12 @@ class TacticalAI
 
         /* The decision. A phase with a decider uses it; a phase without one, a decider that threw,
            and any retry after a refusal play the fallback (principle P3). Deciders so far:
-           Deployment (stage T1a). */
+           Deployment (stage T1a), Movement (stage T1b - holds course, steers clear of terrain). */
         $entries = null;
         if ($refusals == 0) {
             try {
                 if ($phase == -1) $entries = DeployDecider::orders($gamedata, $botId, $seat);
+                else if ($phase == 2) $entries = MoveDecider::orders($gamedata, $botId, $seat);
             } catch (Throwable $e) {
                 Debug::error($e);
                 $db->aiLog($gameid, $botId, $turn, $phase, 'defect', 'Decider threw: ' . get_class($e) . ': ' . $e->getMessage(), AIConfig::LOG_CAP);

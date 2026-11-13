@@ -1,8 +1,8 @@
 # Tactical AI Plan (CPU opponent for Fiery Void battles)
 
-Status: **Stage T0 BUILT and committed 2026-11-13 (5807979b8, play-tested in game 4568; as-built
-notes: section 10.1). Stage T1a BUILT 2026-11-13, uncommitted, the Auto-Deploy button not yet
-tried in a browser (section 10.2).** T1b onward not started. Companion plans: `CAMPAIGN_PLAN.md` (the campaign
+Status: **Stage T0 COMPLETE (committed 2026-11-13, 5807979b8, play-tested in game 4568; as-built
+notes: section 10.1). Stage T1a COMPLETE (committed 2026-11-13, 9537a8b72, Auto-Deploy play-tested
+by the user; section 10.2). Stage T1b COMPLETE (2026-11-13, uncommitted; harnesses and self-play green, play-tested by the user in game 4626; section 10.3).** T2 onward not started. Companion plans: `CAMPAIGN_PLAN.md` (the campaign
 layer, which uses this for battles against NPCs - see its section 7) and `STRATEGIC_AI_PLAN.md` (what
 NPC empires do on the campaign map).
 
@@ -276,7 +276,9 @@ Pivots and rolls arrive at stage T5; jinking for flights reuses `AutomatedMoveme
   `speedChangeOrder`, `slipOrder`, `isHexBlocked`) and generalise them from flights to ships: add
   turn delay (`Movement::calculateTurndelay`, `getTurnDelay`), turn cost by speed and class, thruster
   allocation, and critical effects on engines and thrusters.
-* The oracle is the server validator: every sequence `ShipMover` emits must pass
+* (As built, section 10.3: the server validator turned out to check far less than this
+  paragraph assumes, and the real oracle is the client's `movement.js` run under node.)
+  The oracle is the server validator: every sequence `ShipMover` emits must pass
   `Movement::validateMovement` and produce **zero findings** from `validateThrustPayment`. A harness
   (`shipMoverHarness.php`) fuzzes this across every ship class on the readiness list at many speeds
   and damage states. When this harness is clean the AI's moves are also a strong argument for finally
@@ -457,13 +459,13 @@ unchanged) and the self-play harness.
 
 | Stage | Deliverable | Done when |
 |---|---|---|
-| **T0 Skeleton** | `Features` helper and the `cpuOpponent` off switch (first), `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, CPU slot in Create Game and the creator-built fleet path (8.1) behind the flag, `AIDriver`, fallback orders for every phase, self-play CLI harness, the flag-off harness (section 2) | With the flag off nothing is visible or reachable and the replay harness is byte-identical; with it on, the creator buys a fleet for a CPU slot and two bots play a full game to FINISHED on fallbacks with zero rejected submissions |
-| **T1a Deployer + Auto-Deploy** | `FleetDeployer` (battlegroups, formation, legality), `autoDeploy.php`, the Auto-Deploy button and panel behind the `autoDeploy` flag, `DeployDecider` calling the same service; `deployerHarness.php` (every plan across zone shapes, terrain and fleet mixes passes `validateDeploymentArea`; deterministic; never touches placed units unless asked) | A player clicks Auto-Deploy, gets a legal formation, adjusts it and commits by hand; the phase is never committed for them. **Releasable to players on its own** |
-| **T1b ShipMover** | `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
+| **T0 Skeleton** ✅ COMPLETE | `Features` helper and the `cpuOpponent` off switch (first), `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, CPU slot in Create Game and the creator-built fleet path (8.1) behind the flag, `AIDriver`, fallback orders for every phase, self-play CLI harness, the flag-off harness (section 2) | With the flag off nothing is visible or reachable and the replay harness is byte-identical; with it on, the creator buys a fleet for a CPU slot and two bots play a full game to FINISHED on fallbacks with zero rejected submissions |
+| **T1a Deployer + Auto-Deploy** ✅ COMPLETE | `FleetDeployer` (battlegroups, formation, legality), `autoDeploy.php`, the Auto-Deploy button and panel behind the `autoDeploy` flag, `DeployDecider` calling the same service; `deployerHarness.php` (every plan across zone shapes, terrain and fleet mixes passes `validateDeploymentArea`; deterministic; never touches placed units unless asked) | A player clicks Auto-Deploy, gets a legal formation, adjusts it and commits by hand; the phase is never committed for them. **Releasable to players on its own** |
+| **T1b ShipMover** ✅ COMPLETE (uncommitted) | `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
 | **T2 Firing** | engagement table, `FireDecider`, interception reserve | Bots destroy each other; a human loses to an EA bot by standing still |
 | **T3 EW and power** | `EWDecider`, `PowerDecider` (negative-power handling) | Bot EW passes `validateEW` in every self-play turn; hit rates rise measurably versus T2 |
 | **T4 Ballistics and fighters** | `BallisticDecider`; flight tactics on top of `AutomatedMovement` (escort, strike, intercept) | Missile and carrier fleets fight sensibly |
-| **T5 Movement search** | `MoveDecider` scoring, range bands, terrain and mine avoidance, pivots and rolls | Hard beats Normal beats Easy in self-play ladders at >= 60% |
+| **T5 Movement search** | `MoveDecider` scoring, range bands, terrain (drifting too) and mine avoidance, pivots and rolls, gravitic hulls | Hard beats Normal beats Easy in self-play ladders at >= 60% |
 | **T6 Withdrawal** | posture logic, surrender, jump-out | No game runs past the turn cap for lack of a decision |
 | **T7 Specials** | handler registry; handlers faction by faction; readiness list grows | Each added faction meets the section 7 criteria |
 | **T8 Skirmish release** | server `FleetChecker` port + parity test; `FleetComposer` (auto-compose as the default for an empty CPU slot); level and personality pickers; lobby and games-list display of CPU seats; docs page | Every auto-composed fleet across all ready factions and a range of point values passes the Fleet Checker; Beta on live via `betaTesters`, then the flag |
@@ -472,7 +474,7 @@ unchanged) and the self-play harness.
 T0-T3 produce an opponent that is already useful for new-player onboarding (a roadmap item in its
 own right: a first game with no human needed).
 
-### 10.1 Stage T0 as built (2026-11-13)
+### 10.1 Stage T0 as built (2026-11-13) - COMPLETE, committed 5807979b8
 
 Needs `db/cpuOpponent.sql` and `$feature_flags['cpuOpponent']` (or a beta list) to do anything.
 Harnesses, all in `tests/ai/`: `selfPlayHarness.php` (two bots to FINISHED on fallbacks),
@@ -506,7 +508,7 @@ Harnesses, all in `tests/ai/`: `selfPlayHarness.php` (two bots to FINISHED on fa
   deciders. Fallback gaps left to their stages: negative power is not cleared (T3), movement never
   turns away from terrain or the map edge (T1b).
 
-### 10.2 Stage T1a as built (2026-11-13)
+### 10.2 Stage T1a as built (2026-11-13) - COMPLETE, committed 9537a8b72
 
 Flag: `$feature_flags['autoDeploy']` (on in `docker/php/varconfig.php`). No migration.
 Harness: `tests/ai/deployerHarness.php` (188 checks over seven zone / terrain / fleet scenarios;
@@ -560,6 +562,101 @@ Harness: `tests/ai/deployerHarness.php` (188 checks over seven zone / terrain / 
 * **Sticky button footer (user request, same day).** `gamedata.drawIniGUI` now puts Deploy
   Minefield, Auto-Deploy and Manage Reinforcements in one `#iniGuiActions` footer, sticky to the
   bottom of `#iniGui` (tactical.css), so a long initiative list scrolls behind the buttons.
+
+### 10.3 Stage T1b as built (2026-11-13) - COMPLETE, uncommitted
+
+No flag of its own (it is reached only through a CPU seat), no migration. `source/autoload.php`
+regenerated with phpab for the two new classes.
+
+* **`source/server/ai/ShipMover.php`** - a port of the client's movement rules onto the server's
+  ship objects. `forShip($ship, $gamedata)` (null = not a hull it handles), `options()`,
+  `apply($action, $extraThrust)`, `finish()`, `rows()`, `state()`, `path()`, `enumerate($limit)` /
+  `plans()`. Orders: `accel`, `decel`, `turnleft`, `turnright`, `slipleft`, `slipright`, `move`.
+  Handles thruster criticals, lost thrusters, engine damage / boost / shutdown, agile snap turns, a
+  rolled or stern-first ship, Elite / Poor Crew, a Quartermaster and docked LCVs. Never orders a
+  pivot, roll, jink, extended turn or jump-out. Refuses (`unsupportedReason`): flights, bases,
+  OSATs, mines, terrain, gravitic and Mindrider drives, a ship carrying or riding another unit.
+  Its one policy: **it never overthrusts** a thruster (the page allows twice the rating).
+* **⚠️ The oracle is the CLIENT, not the server validator** (this corrects section 5.4).
+  `Movement::validateThrustPayment` only checks that the cost a row STATES was paid through
+  thrusters that exist; `validateMovement` does nothing in the Movement phase. What a turn costs,
+  turn delay, the engine's budget, thruster ratings and "speed changes first" are enforced by
+  `movement.js` alone. So the harness has two halves:
+  * `tests/ai/shipMoverHarness.php` (no database; runs in the php container or an `fv-phpcheck`
+    image): every hull x 35 situations x random plans + the search, against all the server CAN
+    check; writes the plans to a file.
+  * `tests/ai/shipMoverOracle.js` (node, host): loads the REAL `movement.js`, `ships.js`,
+    `systems.js`, `power.js`, `criticals.js`, `mathlib.js` and replays every plan as clicks. At each
+    step the page's own `can*` answers, turn delay and thrust left must equal ShipMover's (both
+    directions), the page's row must equal ShipMover's, and every point of thrust must be
+    accepted by `assignThrust`.
+  * Result, EA + raiders (`--factions=EA,raiders`, the default): **128 hulls, 4,480 situations,
+    26,880 plans, 205,195 steps - all agree** (first run; final figures below). Not plotted there: 23 flights, 9 bases, 12 OSATs,
+    6 gravitic hulls. Mutation pass (32 broken copies of ShipMover): 28 caught, 26 of them ONLY
+    by the client replay; the 4 survivors are equivalent code.
+* **`ai/deciders/MoveDecider.php`** - the T1b rule, not tactics: a ship holds its course unless
+  that flies it into a blocked hex or off the map (this turn, or next turn's straight
+  continuation), and then takes the plainest plan that does not. `TacticalAI::play` uses it for
+  Movement on a first attempt; a refusal retries with `AIFallback` (straight on), which now
+  shares `AIFallback::straightRows`. Weights in `AIConfig::MOVE_*`. The map edge is
+  `gamespace` halved (no edge on an unlimited map). Checked DB-free on all 128 hulls (open space
+  = straight on; a rock ahead is missed; the ship stays on the map when a plan allows).
+* **Live data (section 13) used:** `tests/ai/analysis/hullTable.php` + `liveMovementCheck.js` read
+  the export FILE directly (nothing imported). Of 20,852 real turn / slip / speed-change rows on
+  hulls ShipMover plots, **all but 5 carry exactly the cost ShipMover charges** (4 on
+  PolarenGratherin, 1 on gaimGeun - a changed hull or a docked LCV). How people fly, for T5's
+  priors: 59.5% of ship-turns include a turn, 33.0% a sideslip, 35.4% a speed change; 22.7% of
+  turns are paid over their cost to shorten the delay; 4.2% of ship-turns overthrust a thruster;
+  mean speed 5.3 (medium 6.1, heavy 5.2, capital 4.7).
+* **Played for real (same day, once the stack was up):** self-play in both movement modes, no
+  refused submission and no defect; in a kept 31-turn game every hull turned back at the map edge
+  (8 turns each), held speed 5 and never left the 42x30 map. `cpuLobbyHarness`, `flagOffHarness`,
+  `deployerHarness` (195) green; replay check 203/205, the two failures being the played-on games
+  4504 and 4507 as before. Final harness figures: **128 hulls, 4,867 situations, 29,202 plans,
+  215,070 steps, all agree** (three Engine Shorted situations were added, see below).
+* **Play-tested by the user, game 4626 (human Bintak v CPU G'Quan, 42x30, 10 turns):** the bot flew straight for six turns, then came round at the west and north edges with three 60-degree turns (4 thrust each: 2 aft, 2 side, within every rating, each after its turn delay), reached q -21 and r -15 - the edge itself - and never crossed it; 5 hexes every turn; no row in `tac_ai_log`. It also made two sideslips that gained it nothing (a tie in the T1b scoring; T5 replaces that scoring).
+* **Two things the first real games showed, both fixed:**
+  * *The search was biased.* Working on "fewest hexes left" first filled the 300-plan quota with
+    slowed-down ships before one turn at cruising speed was tried, so the bots braked to a halt
+    at the edge. `enumerate` is now PLAINEST FIRST (fewest manoeuvres, then nearest the end).
+  * *Scoring.* `MoveDecider::score` counts next turn's overshoot per hex past the edge
+    (`MOVE_COST_PER_HEX_OVER`), so a first 60-degree turn already scores better, and charges for
+    speed given up (`MOVE_COST_SPEED_LOST`), so a ship that can turn does not brake instead.
+* **The self-play harness's turn cap had never really been exercised:** T0 / T1a games ended
+  because the fleets flew straight past each other until every enemy was 100+ hexes away
+  (`TacGamedata::isFinished`). Ships that stay on the map never do that, and there is no firing
+  before T2, so every game now runs to the cap. A game-ending surrender writes `SURRENDERED`
+  (`FINISHED` only follows at a later turn change); the harness now accepts that after the cap.
+  Use `--turns=14` or so until T2.
+* **Client fix, at the user's request (2026-11-13): Engine Shorted and a second engine.**
+  `deleteSpeedChange` (movement.js) treated ANY speed-change row of the turn as one the player
+  could take back, including Engine Shorted's PRETURN row, whose `value` is the whole speed
+  gained rather than 0 / 1 - so on such a turn an Accelerate or Decelerate click removed the
+  ship's last row (that row itself, when it was the only one) instead of changing speed with the
+  thrust of another engine. It now skips preturn and forced rows. ShipMover mirrors it, and the
+  harness builds the row with `Movement::doStuckEngine` itself. (That push may run the main
+  thrusters over their rating by the engine's own doing; the overthrust checks allow for it.)
+  **Not tried in a browser.**
+* **Left for later stages:**
+  * No pre-flight validators (3.2 step 5): ShipMover's rows are proven by the harness instead.
+  * The bot does not use extra thrust on a turn (ShipMover can).
+  * **T5 (user, 2026-11-13):** gravitic hulls (Brakiri, and the 6 in the raider lists) together
+    with pivots and rolls; avoiding mines the bot can see and terrain that moves (Terrain Drift);
+    a search aimed at a goal instead of the 300 plainest plans. Terrain and Enormous units that
+    stand still are avoided already (`blockedHexes`).
+  * **T5 - OVERTHRUST (user ruling, 2026-11-13).** "No overthrusting could be limiting ... having
+    to overthrust to turn to avoid leaving the map, or otherwise making a desired turn, would be
+    preferable and is how players will generally use it." So the never-overthrust policy is a
+    T1b default, not a rule: in T5 ShipMover takes an allowance (the page's own ceiling is twice a
+    thruster's rating, already ported in `click()`; only `clickBest()`'s "never beyond its
+    rating" line holds it back), plans say how far over each one goes, and `MoveDecider` weighs
+    that against the critical roll it invites (`Criticals`: one test per overthrust thruster, the
+    excess added to the roll). Order of preference stays: within rating first, overthrust only
+    when the within-rating plans are worse by more than the risk is worth - always to stay on the
+    map or off terrain. Live data: players overthrust in 4.2% of ship-turns. The harness's
+    "within its rating" checks then become "within the allowance asked for".
+  * Flights still fly straight (and so off the map): their moves are `AutomatedMovement`'s, T4.
+  * ShipMover re-reads its rows on every question - simple, and slow for a deep search.
 
 ---
 
@@ -655,6 +752,16 @@ Finished games only (`tac_game.status = 'FINISHED'` and `turn >= 4`), all rows f
 
 When to do it: before campaign Stage 6 (AutoCombat) or tactical stage T1a (deployer defaults),
 whichever comes first. Nothing earlier depends on it.
+
+**Received 2026-11-13:** `C:\FV_env\db_backups\liveDbTablesForAI\u253336_b5cgmAIData.sql` (93 MB,
+16 tables). First use: section 10.3. Two things about this export:
+* it has no `tac_playeringame` and no `tac_iniative`, so teams, slots, deployment zones,
+  surrenders and initiative order cannot be read from it - needed for AutoCombat calibration,
+  deployment priors and withdrawal;
+* `tac_game` came with its `password_hash` column (3 games have one). Leave that column out next
+  time, and keep this file out of the repo.
+It also holds games of every status, not only FINISHED ones; filter on `tac_game.status` / `turn`
+when it matters.
 
 ---
 

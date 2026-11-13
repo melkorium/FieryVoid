@@ -17,8 +17,9 @@
  * NOT YET, and each waits for the stage that owns it:
  *   - Initial Orders does not clear negative power (T3, PowerDecider). The server does not refuse
  *     a commit for it - the client does - so nothing is rejected meanwhile.
- *   - Movement does not turn away from a blocked hex or the map edge (T1b, ShipMover). A unit
- *     flying straight into terrain collides, as a human's would.
+ *   - Movement here never turns: a unit flying straight into terrain collides, as a human's
+ *     would. Steering clear is MoveDecider's job (stage T1b, on ShipMover); this stays the plain
+ *     retry for when its orders are refused.
  *
  * Every method returns the plain entries AIOrderBuilder describes - one per unit the bot owns.
  */
@@ -206,21 +207,30 @@ class AIFallback
         foreach (self::ownUnits($gamedata, $botId) as $ship) {
             $entry = AIOrderBuilder::entry($ship);
 
-            if (isset($active[$ship->id]) && !$ship->isDestroyed() && !self::isImmobile($ship) && empty($ship->attached)) {
-                $last = $ship->getLastMovement();
-                if ($last) {
-                    $order = AIOrderBuilder::initiativeOrder($ship, $gamedata);
-                    $position = new OffsetCoordinate($last->position);
-                    for ($step = 0; $step < (int)$last->speed; $step++) {
-                        $position = $position->moveToDirection((int)$last->heading);
-                        $entry['movement'][] = AIOrderBuilder::move('move', $position, $last->speed, $last->heading, $last->facing, $gamedata->turn, $order);
-                    }
-                }
-            }
+            if (isset($active[$ship->id])) $entry['movement'] = self::straightRows($ship, $gamedata);
 
             $entries[] = $entry;
         }
 
         return $entries;
+    }
+
+    //One unit's "straight on" rows; none for a unit that cannot move or is riding another.
+    public static function straightRows($ship, TacGamedata $gamedata)
+    {
+        $rows = array();
+        if ($ship->isDestroyed() || self::isImmobile($ship) || !empty($ship->attached)) return $rows;
+
+        $last = $ship->getLastMovement();
+        if (!$last) return $rows;
+
+        $order = AIOrderBuilder::initiativeOrder($ship, $gamedata);
+        $position = new OffsetCoordinate($last->position);
+        for ($step = 0; $step < (int)$last->speed; $step++) {
+            $position = $position->moveToDirection((int)$last->heading);
+            $rows[] = AIOrderBuilder::move('move', $position, $last->speed, $last->heading, $last->facing, $gamedata->turn, $order);
+        }
+
+        return $rows;
     }
 }

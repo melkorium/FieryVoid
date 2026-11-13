@@ -24,6 +24,16 @@ class AIConfig
     //How long "this game still has a bot waiting to play" is remembered between polls (seconds).
     const PENDING_TTL = 120;
 
+    /* Movement, stage T1b (MoveDecider): a ship holds its course unless that is bad, and "bad" is
+       scored with these. A blocked hex entered this turn, ending the turn off the map, and either
+       of them on next turn's straight continuation. */
+    const MOVE_PLANS = 300;             //candidate plans ShipMover is asked for when the course must change
+    const MOVE_COST_BLOCKED = 10000;
+    const MOVE_COST_OFF_MAP = 5000;
+    const MOVE_COST_NEXT_TURN = 1000;       //a blocked hex on next turn's straight continuation
+    const MOVE_COST_PER_HEX_OVER = 100;     //each hex past the map's edge, at this turn's end and next turn's
+    const MOVE_COST_SPEED_LOST = 150;       //each point of speed given up to avoid trouble
+
     //What a seat may be set to. Levels and personalities do nothing before stage T5 / T8; the
     //seat stores them from the start so that games created now keep their setting.
     const LEVELS = array('easy', 'normal', 'hard');
