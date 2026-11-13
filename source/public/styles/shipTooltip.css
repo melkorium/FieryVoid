@@ -838,22 +838,14 @@
     background: var(--tt-wash-hover);
 }
 
+/* Same size and layout as the Target button (user, 2026-11-13): 28px tall, the icon in a 34px
+   well, the label (.fv-shipcard__lab) centred in the rest. Colours stay the footer's own (above). */
 .fv-shipcard .fv-shipcard__btn {
     display: flex;
     flex: 1 1 auto;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    height: 22px;
-    padding: 0 7px 0 3px;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.fv-shipcard .fv-shipcard__btn .fv-shipcard__icon {
-    width: 18px;
-    height: 18px;
+    align-items: stretch;
+    height: 28px;
+    padding: 0;
 }
 
 /* ── The hull strip: D4 RULED NO (§11 item 9). Built and NOT rendered - ShipTooltip.js

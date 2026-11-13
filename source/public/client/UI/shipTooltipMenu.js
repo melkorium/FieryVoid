@@ -30,7 +30,7 @@ window.ShipTooltipMenu = function () {
          kind: 'clear'     "Clear all EW", at the foot of the EW section
          group + role      one half ('add' / 'remove') of an EW −/+ stepper; group = the EW type
        Anything without them is drawn as a captioned tile. */
-    ShipTooltipMenu.buttons = [{ className: "openSCS", condition: null, action: openSCS, info: "Open ship details", label: "Ship details", kind: "footer" }];
+    ShipTooltipMenu.buttons = [{ className: "openSCS", condition: null, action: openSCS, info: "Open ship details", label: "Show ship details", kind: "footer" }];
 
     ShipTooltipMenu.prototype.renderTo = function (parent, shipTooltip) {
 

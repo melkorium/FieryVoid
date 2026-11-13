@@ -1585,11 +1585,13 @@ window.ShipTooltip = function () {
         return element;
     }
 
+    //Same well + label build as the Target button (user, 2026-11-13: same size and layout), in
+    //the footer's own colours.
     function footerButton(buttonData) {
         var menu = this.menu;
         var element = jQuery('<button type="button" class="fv-shipcard__btn"></button>').attr('data-action', buttonData.className);
-        element.append(jQuery('<span class="fv-shipcard__icon"></span>').addClass(buttonData.className));
-        element.append(jQuery('<span></span>').text(captionOf(buttonData, menu)));
+        element.append(jQuery('<span class="fv-shipcard__well"></span>').append(jQuery('<span class="fv-shipcard__icon"></span>').addClass(buttonData.className)));
+        element.append(jQuery('<span class="fv-shipcard__lab"></span>').text(captionOf(buttonData, menu)));
         var info = infoOf(buttonData, menu);
         if (info) element.attr('title', info);
         menu.bindAction(element, buttonData, this);
