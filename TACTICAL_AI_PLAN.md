@@ -186,12 +186,63 @@ Built once per decision from the masked view and cached in `AIView`:
 * Threat of an enemy = expected damage it can deal to my fleet next turn; its vulnerability =
   expected damage I can deal to it divided by its remaining structure.
 
-### 5.2 Deployment
+### 5.2 Deployment: one deployer, two users (`FleetDeployer`)
 
-Formation by role around the zone centre: heavy ships forward and central, escorts on the flanks,
-carriers and ELINT at the back, bases and OSATs where the zone allows. Facing toward the enemy zone.
-Initial speed = the class's comfortable speed (enough thrust left for one turn). Terrain hexes and
-their footprints avoided. Reinforcement groups (if the game allows them) are not used in v1.
+User direction, 2026-11-13: **the CPU's deployer doubles as an Auto-Deploy button for human
+players.** So deployment is not written as AI code. It is a stand-alone server service,
+`source/server/handlers/FleetDeployer.php`, with no dependency on anything else in this plan, and it
+has two callers: `DeployDecider` (the CPU) and a player-facing endpoint.
+
+**The service.** `FleetDeployer::plan($gamedata, $playerid, $slot, $options)` returns a list of
+`{shipid, x, y, facing, speed}` for that player's undeployed units in that slot. It changes nothing.
+
+* **Battlegroups.** A battlegroup is built around its capital ship(s). `options.groups` = how many
+  to form, from 1 up to the number of capital ships (Capital and Enormous hulls). With no capital
+  ships the largest hull size present anchors the groups instead. Capitals are dealt across groups
+  by value, then every other unit is dealt to the group with the lowest total value so the groups
+  come out balanced.
+* **Formation inside a group**, centre outward (the user's sketch): capital ship(s) in the centre;
+  HCVs flanking them; medium ships outside those; LCVs on the wings; fighter flights in a screen in
+  front, or on their carrier's hex when the game expects them launched from it. Carriers and ELINT
+  ships sit one row behind the centre. Groups are spread evenly along the deployment zone's long
+  axis with a gap between them.
+* **Zone and legality.** Positions come from the slot's own deployment zone and must satisfy
+  exactly what `DeploymentGamePhase::validateDeploymentArea` enforces; terrain hexes and their
+  footprints, already-placed units and stacking limits are avoided. Bases, OSATs and mines are not
+  moved by it (mines keep their own Deploy Minefield tool); units arriving as reinforcements and
+  units the player has already placed are left alone unless `options.replace` is set.
+* **Facing and speed.** Facing toward the enemy zone. Speed is the fleet's common comfortable speed
+  (a speed every unit in the group can hold with thrust to spare), so a group starts in formation.
+* Deterministic for a given seed and options, so "Auto-Deploy" pressed twice gives the same layout
+  and a "shuffle" option can vary it.
+
+**Caller 1 - the CPU.** `DeployDecider` calls `plan` with a group count chosen by personality
+(cautious: 1; balanced: 1 per 2 capitals; aggressive or skirmisher: 1 per capital) and submits the
+result as its Deployment orders. Reinforcement groups are not used in v1.
+
+**Caller 2 - the player's Auto-Deploy button.**
+
+* A new **Auto-Deploy** button in the Deployment phase, placed at the bottom of the initiative GUI
+  beside the existing Deploy Minefield button (that one is created in `gamedata.js` near the
+  `mineBtn` code and driven by `renderer/phaseStrategy/MineDeployment.js` - follow the same
+  pattern). Shown only when the player has undeployed units of their own this phase.
+* Clicking it opens a small panel: number of battlegroups (1..capital count; hidden when the answer
+  can only be 1), "Replace units I have already placed" (off by default), then Deploy.
+* The client asks a new endpoint `autoDeploy.php` (`Manager::getAutoDeployPlan`, which checks the
+  requester owns the slot and the game is in Deployment) and **applies the returned placements
+  through the same client functions a manual placement uses** in `DeploymentPhaseStrategy`, so the
+  units look and behave exactly as if the player had put them there.
+* **It never commits the phase.** Nothing is written server-side by the endpoint. The player can
+  drag any unit elsewhere, change facing and speed, press Auto-Deploy again, and commits by hand as
+  usual. A passive notice says "Fleet auto-deployed - adjust and commit when ready".
+* If Save Orders is in use, the auto-placed layout is saved as a draft like any manual one.
+* The plan is computed on the server on purpose: one implementation for both callers, and the
+  legality rules are not mirrored into the client.
+
+**Independence from the CPU feature.** Auto-Deploy has its own flag, `$feature_flags['autoDeploy']`,
+and does not need bot accounts, the driver or `ShipMover`. It can be built and released to players
+as soon as `FleetDeployer` exists (stage T1a), long before the CPU opponent is ready - and player
+use of it is the best test the deployer could get.
 
 ### 5.3 Initial Orders
 
@@ -405,7 +456,8 @@ unchanged) and the self-play harness.
 | Stage | Deliverable | Done when |
 |---|---|---|
 | **T0 Skeleton** | `Features` helper and the `cpuOpponent` off switch (first), `db/cpuOpponent.sql` (bot accounts, `cpu` column, `tac_ai_state`, `tac_ai_log`), `submitShipsForPlayer` split, the extracted ship builder, CPU slot in Create Game and the creator-built fleet path (8.1) behind the flag, `AIDriver`, fallback orders for every phase, self-play CLI harness, the flag-off harness (section 2) | With the flag off nothing is visible or reachable and the replay harness is byte-identical; with it on, the creator buys a fleet for a CPU slot and two bots play a full game to FINISHED on fallbacks with zero rejected submissions |
-| **T1 Deployment + ShipMover** | `DeployDecider`; `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
+| **T1a Deployer + Auto-Deploy** | `FleetDeployer` (battlegroups, formation, legality), `autoDeploy.php`, the Auto-Deploy button and panel behind the `autoDeploy` flag, `DeployDecider` calling the same service; `deployerHarness.php` (every plan across zone shapes, terrain and fleet mixes passes `validateDeploymentArea`; deterministic; never touches placed units unless asked) | A player clicks Auto-Deploy, gets a legal formation, adjusts it and commits by hand; the phase is never committed for them. **Releasable to players on its own** |
+| **T1b ShipMover** | `ShipMover` for standard hulls (speed, straight, turns, slips, thruster allocation) | `shipMoverHarness` clean for all EA and raider hulls |
 | **T2 Firing** | engagement table, `FireDecider`, interception reserve | Bots destroy each other; a human loses to an EA bot by standing still |
 | **T3 EW and power** | `EWDecider`, `PowerDecider` (negative-power handling) | Bot EW passes `validateEW` in every self-play turn; hit rates rise measurably versus T2 |
 | **T4 Ballistics and fighters** | `BallisticDecider`; flight tactics on top of `AutomatedMovement` (escort, strike, intercept) | Missile and carrier fleets fight sensibly |
@@ -452,7 +504,70 @@ own right: a first game with no human needed).
 
 ---
 
-## 13. Open decisions (defaults will be built unless ruled otherwise)
+## 13. Live game data (offered by the user, 2026-11-13)
+
+The user can export tables from the live database. This is worth having, with one expectation set
+straight: **it is for calibrating and testing a rule-based AI, not for training a learned model.**
+A neural or learned policy is out of reach here: the live server purges games idle for 3 months, so
+the corpus is a few hundred recent games across ~90 factions; the state is huge and faction-specific;
+and live is shared PHP hosting with nowhere to run a model. Human orders are also made with hidden
+information the logs do not separate out. What the data is good for:
+
+| Use | What is measured | Feeds |
+|---|---|---|
+| **AutoCombat calibration** | per finished game: each side's points, faction, hull mix; who won; share of value lost by winner and loser; turns to decision | `CAMPAIGN_PLAN.md` 6.5 - replaces guessed targets with real ones. The single most valuable use |
+| **Fleet templates** | what players actually field per faction at each points level: hull-size shares, fighter share, common class combinations | `FleetComposer` templates (8.2), instead of hand-written ones |
+| **Deployment priors** | where each hull size sits relative to the fleet centre, group counts, starting speeds | `FleetDeployer` defaults (5.2) |
+| **Movement priors** | per class: usual speed, engagement range by turn, how often it turns | range bands and comfortable speeds in `AIConfig` |
+| **EW priors** | OEW / DEW / CCEW split by ship role and range to nearest enemy | `EWDecider` defaults and Easy-level behaviour |
+| **Targeting priors** | what humans shoot first (size, damage state, range), focus-fire rate, weapon-vs-target-type pairings | `FireDecider` weights |
+| **Withdrawal** | fleet value ratio and turn at which players surrender | `WITHDRAW_RATIO` |
+| **Agreement benchmark** | replay a human's situation, ask the AI for its order, compare | a regression score for play quality (11), alongside the ladder harness |
+| **Self-play seeds** | real fleets and set-ups | varied, realistic inputs for the self-play harness |
+
+Where ladder rankings exist, weight games by player skill so the priors come from good play.
+
+### 13.1 What to export
+
+Finished games only (`tac_game.status = 'FINISHED'` and `turn >= 4`), all rows for those game ids:
+
+* Needed: `tac_game` (**without `password_hash`**), `tac_playeringame`, `tac_ship`,
+  `tac_shipmovement`, `tac_fireorder`, `tac_damage`, `tac_critical`, `tac_ew`, `tac_iniative`,
+  `tac_flightsize`, `tac_enhancements`.
+* Useful: `tac_power`, `tac_ammo`, `tac_sys_enhancements`, `tac_individual_notes`, `tac_systemdata`,
+  `tac_ladder_games`, `tac_ladder_rankings`, and the saved-fleet tables for PUBLIC lists only
+  (`tac_saved_list` where `isPublic = 1`, with their `tac_saved_ship` / `_enh` / `_ammo` rows).
+* **Do not export:** `player` (password hashes, Discord ids), `chat`, `player_chat`,
+  `tac_savedorders`, `tac_minesweep`. Numeric player ids inside the game tables are all the analysis
+  needs; no usernames.
+
+### 13.2 Handling rules
+
+* ⚠️ **Import into a SEPARATE local database** (for example `B5CGM_live`), never into the local
+  `B5CGM`. The replay harness's corpus is "every game in the local DB"; importing live games there
+  changes the corpus and its committed baseline.
+* Keep the dump outside the repo (for example `c:\tmp`) - large files in the repo slow the Docker
+  boot sync. The local client is `mariadb`, not `mysql`.
+* Two kinds of analysis, with different reach:
+  * **SQL-only** (points, outcomes, positions, ranges, EW splits, target choices by ship id): works
+    on every exported game, whatever its age.
+  * **Engine reload** (the agreement benchmark, anything needing arcs or hit chances): the game must
+    load under today's ship classes. System ids are construction-order, so a game played before a
+    class was reshaped may not reload faithfully; filter to games that pass a reload check and
+    accept a smaller set.
+* Analysis scripts live in `tests/ai/analysis/` (gitignored with the rest of `/tests`) and write
+  their results into a committed, human-readable `source/server/ai/AIPriors.php` (plain arrays with
+  the sample size beside each figure). The AI reads priors, never the raw data, so live never needs
+  the dump. A prior with a small sample falls back to the hand-set default.
+* This is a one-off export, repeatable whenever a fresher snapshot would help (for example before
+  each faction joins the readiness list).
+
+When to do it: before campaign Stage 6 (AutoCombat) or tactical stage T1a (deployer defaults),
+whichever comes first. Nothing earlier depends on it.
+
+---
+
+## 14. Open decisions (defaults will be built unless ruled otherwise)
 
 | # | Question | Default |
 |---|---|---|
@@ -461,6 +576,10 @@ own right: a first game with no human needed).
 | A3 | RULED 2026-11-12: fleet for a skirmish CPU | The creator selects the CPU slot and builds or loads a fleet for it; an empty slot is auto-composed (plain, and Fleet Checker clean). Section 8 |
 | A4 | May players see the CPU's fleet in the lobby before the game? | The creator sees what they built; an auto-composed fleet and other players' view stay hidden until play, like a human opponent's |
 | A9 | Who may build a CPU slot's fleet in a team game | Only the game's creator |
+| A10 | Auto-Deploy: where do fighters go | A screen in front of their group; on the carrier's hex only where the game expects a launch from it |
+| A11 | Auto-Deploy: starting speed | One common speed per battlegroup that every unit in it can hold comfortably; the player can change it before committing |
+| A12 | Auto-Deploy with no capital ships | The largest hull size present anchors the groups, and the group-count choice is based on that |
+| A13 | Auto-Deploy in games with simultaneous or hidden deployment | Works unchanged: it only fills in the player's own placements before they commit |
 | A5 | Team games with CPU allies | Allowed; bots do not coordinate with humans beyond sharing targets by proximity |
 | A6 | Handicap | Optional points bonus for the CPU, shown in the lobby; never hidden bonuses |
 | A7 | First factions | EA and Raiders, then Narn and Centauri |

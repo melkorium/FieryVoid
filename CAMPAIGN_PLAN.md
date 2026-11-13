@@ -538,6 +538,9 @@ as a harvest** (damage payloads and destroyed units), so everything downstream i
   and expected loss share without changing state. The strategic AI's stance and target choices
   depend on it (`STRATEGIC_AI_PLAN.md` sections 3 and 6), so build it with AutoCombat, not later.
 * Raider bounty (section 7) is paid here and in `BattleBridge::harvest`.
+* Calibrate against real results where possible: the user has offered an export of finished live
+  games (`TACTICAL_AI_PLAN.md` section 13). Points per side against winner and value lost gives
+  measured targets in place of the guessed ones below. Get it before building this stage.
 * Calibration harness (`tests/campaign/autoCombatHarness.php`): equal-point mirror fleets win 50%
   +/- 3 over 1,000 seeds; a 2:1 points advantage wins > 95% and loses < 25% of its value; the
   typical winner of an even fight keeps 40-60%. Tune `K` and the spread to those targets.
