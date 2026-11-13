@@ -888,6 +888,11 @@ const getText = (ship, system) => {
 
         }
     } else if (system.outputType === "thrust") {
+        //A hull with more than one engine: each icon shows that engine's OWN thrust (boost and criticals in, 0 when
+        //offline) - the ship's remaining total on every one of them said nothing about which engine gives what.
+        if (shipManager.systems.getSystemListByName(ship, "engine").length > 1) {
+            return shipManager.systems.getOutput(ship, system);
+        }
         return shipManager.movement.getRemainingEngineThrust(ship);
     } else if (system.outputType === "power") {
         let power = shipManager.power.getReactorPower(ship, system);

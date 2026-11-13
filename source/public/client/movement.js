@@ -2803,6 +2803,10 @@ shipManager.movement = {
         for (var i in ship.movement) {
             var movement = ship.movement[i];
             if (movement.turn != gamedata.turn) continue;
+            //Engine Shorted's involuntary acceleration (Movement::doStuckEngine - the only PRETURN speedchange) is paid by the
+            //shorted engine, which is offline and so added nothing to rem above. Charging it here took it out of the thrust of
+            //any OTHER engine on the hull (and showed a lone engine as negative). The thrusters still count it as channelled.
+            if (movement.preturn && movement.type === "speedchange") continue;
 
             for (var a in movement.assignedThrust) {
                 rem -= movement.assignedThrust[a];
