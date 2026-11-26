@@ -232,7 +232,9 @@ class ShipMover
         }
 
         $this->pivotCost = (int)$ship->pivotcost;
-        $this->rollCost = (int)$ship->rollcost;
+        /* Plan 10.10 W0 (2026-11-26): kept as the page has it (movement.js doRoll: requiredThrust = [ship.rollcost, ...]) - the Usuuth
+           Sarlon, Serron, Sethrus, Sinthon and Sinthon LCV roll for 1.5. `+ 0` leaves every integer cost an int. */
+        $this->rollCost = is_numeric($ship->rollcost) ? $ship->rollcost + 0 : 0;
 
         $this->readSystems();
         foreach ($this->thrusters as $id => $thruster) $this->carried[$id] = $this->channeledEffective($id);
@@ -1821,7 +1823,8 @@ class ShipMover
         $surplus = 0;
 
         for ($d = 0; $d <= 4; $d++) {
-            $need = isset($required[$d]) ? (int)$required[$d] : 0;
+            //the fraction kept, as the page keeps it (W0): a 1.5 roll still owes 0.5 after one point, so it takes two
+            $need = (isset($required[$d]) && is_numeric($required[$d])) ? $required[$d] + 0 : 0;
             if ($assigned[$d] > $need) {
                 $surplus += $assigned[$d] - $need;
             } else {

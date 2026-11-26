@@ -320,9 +320,20 @@ class AIConfig
        Civilians, Custom Ships) are not on it.
        Stage T9 (the user, 2026-11-23: "Once a faction is available (either because all it's ships are playable by ai or because we've
        hidden the ones that aren't) add it to READY_FACTIONS"): the Major factions through the plan 10.10 gate, their unusable units hidden
-       by CPU_MISSING_SYSTEMS. */
+       by CPU_MISSING_SYSTEMS.
+       2026-11-26 (the user: factions that "essentially have nothing that requires unique consideration ... can just be added"): the
+       League, Minor and Other factions with nothing the AI lacks but what D4 lets it leave idle - plan 10.10 "THE OTHER GROUPS", with
+       the work list for the rest (Abbai, Brakiri and Hyach are BLOCKED by commit gates; Civilians stay out by ruling D5). The Usuuth
+       Coalition joined the same day after W0 (ShipMover's roll cost kept fractional - its rollcost 1.5 hulls). */
     const READY_FACTIONS = array('Earth Alliance', 'Raiders', 'Dilgar Imperium', 'Minbari Federation', 'Narn Regime', 'Centauri Republic',
-        'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium');
+        'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium',
+        //League of Non-Aligned Worlds
+        'Torata Regency', 'Drazi Freehold', 'Drazi Freehold (WotCR)', 'Hurr Republic', 'Cascor Commonwealth',
+        //Minor Factions
+        'Alacan Republic', 'Balosian Underdwellers', 'Belt Alliance', 'Corillani Theocracy', 'Deneth Tribes', 'Descari Committees', 'Llort',
+        'Markab Theocracy', 'Minbari Protectorate', 'Rogolon Dynasty', 'Small Races', 'Usuuth Coalition', 'Yolu Confederation',
+        //Other Factions
+        'Streib');
 
     /* Why a CPU player cannot field $unit (a ship or a blueprint), or null when it can: its faction is not on READY_FACTIONS, or it is
        a kind of unit ShipMover never plots for (ShipMover::unsupportedHullReason - "Hide any ships that are currently listed in
