@@ -328,7 +328,8 @@ class AIConfig
     const READY_FACTIONS = array('Earth Alliance', 'Raiders', 'Dilgar Imperium', 'Minbari Federation', 'Narn Regime', 'Centauri Republic',
         'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium',
         //League of Non-Aligned Worlds
-        'Torata Regency', 'Drazi Freehold', 'Drazi Freehold (WotCR)', 'Hurr Republic', 'Cascor Commonwealth',
+        //'Torata Regency', 'Drazi Freehold', 'Drazi Freehold (WotCR)', //Commmentedd out until Accelerator and Sustained Weapons stragies are finished.
+        'Hurr Republic', 'Cascor Commonwealth',
         //Minor Factions
         'Alacan Republic', 'Balosian Underdwellers', 'Belt Alliance', 'Corillani Theocracy', 'Deneth Tribes', 'Descari Committees', 'Llort',
         'Markab Theocracy', 'Minbari Protectorate', 'Rogolon Dynasty', 'Small Races', 'Usuuth Coalition', 'Yolu Confederation',
