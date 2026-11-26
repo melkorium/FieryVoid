@@ -1034,11 +1034,21 @@ class ShipMover
        on the side the turn needs - and paid greedily within the page's ceiling, criticals included, then the engine's total), asked of a
        copy of this mover moved on to next turn: no thrust spent yet, the engine without this turn's boost (thrustNextTurn), the thrusters as
        they stand. Until then ShipDecider compared the remainder with the engine's TOTAL alone, which a lost side thruster never fails.
-       A judgement aid, as turnPayableNextTurn: next turn's forced pivot (doForcedPivot, before the cancel) is not played. True when no
-       extended turn is begun. */
+       2026-11-26 (the loop seen again in self-play 6321 - a ROLLED HyperionPatrol, its starboard thruster lost, began a right extended turn
+       every turn from 13 to 48): the copy had NO rows of next turn, so isRolled() (non-agile: an isRolled row of the turn) read a rolled ship
+       as unrolled and put the side role on the live side - and next turn's forced pivot was not played. Now the copy starts next turn as
+       the real one does: the start rows the server writes when the turn advances (Movement::setPreturnMovementStatusForShip: isPivoting*,
+       isRolling - which flips rolled - and isRolled, from this turn's end), then the page's activation in the constructor's order -
+       doForcedPivot before the cancel test (levelsHarness J3). A judgement aid still: criticals taken in this turn's Fire phase cannot be
+       foreseen. True when no extended turn is begun. */
     public function extendedPayableNextTurn()
     {
         if ($this->flight || $this->extendedStart() === null) return true;
+        $pivoting = $this->isPivoting();
+        $rolling = $this->isRolling();
+        $rolled = $this->isRolled();
+        $last = $this->rows[count($this->rows) - 1];
+
         $next = clone $this;
         $next->turn = $this->turn + 1;
         $next->turnStart = count($next->rows);
@@ -1046,6 +1056,18 @@ class ShipMover
         $next->engineBoost = 0;
         $next->owedMemo = false;
         foreach (array_keys($next->carried) as $id) $next->carried[$id] = 0;
+
+        $start = array();
+        if ($pivoting !== 'no') $start[] = ($pivoting === 'left') ? 'isPivotingLeft' : 'isPivotingRight';
+        if ($rolling) { $start[] = 'isRolling'; $rolled = !$rolled; }
+        if ($rolled) $start[] = 'isRolled';
+        foreach ($start as $type) {
+            $row = $next->newRow($type, $last['q'], $last['r'], $last['speed'], $last['heading'], $last['facing'], array(0, 0, 0, 0, 0), 0);
+            $row['preturn'] = true;
+            $row['commit'] = true;
+            $next->rows[] = $row;
+        }
+        $next->forcedPivot();
         return $next->extendedCancelReason() === null;
     }
 
