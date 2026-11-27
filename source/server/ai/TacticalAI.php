@@ -117,9 +117,9 @@ class TacticalAI
                     }
                 }
                 else if ($phase == 5) {
-                    //stage T9, M6: Pre-Firing - the Gravity Nets (a seat is owed this phase only with a pre-firing weapon ready)
-                    $entries = GravityNetDecider::orders($gamedata, $botId, $seat);
-                    $summary = GravityNetDecider::$lastSummary; //null when no net fired
+                    //stage T9, M6 + W10: Pre-Firing - the Gravity Nets and Gravitic Shifters (a seat is owed this phase only with a pre-firing weapon ready)
+                    $entries = self::preFiring($gamedata, $botId, $seat);
+                    $summary = self::$lastSummary; //null when nothing fired
                 }
                 else if ($phase == 3) {
                     $entries = FireDecider::orders($gamedata, $botId, $seat);
@@ -156,6 +156,37 @@ class TacticalAI
         $db->aiLog($gameid, $botId, $turn, $phase, 'defect', 'Submission refused: ' . $error, AIConfig::LOG_CAP);
 
         return self::result('rejected', $error);
+    }
+
+    /* PRE-FIRING (stage T9, M6; W10): the Gravity Nets (GravityNetDecider) and the Gravitic Shifters (GraviticShifterDecider), on ONE
+       masked view of the bot's (principle P2 - the mask is put on once: prepareForPlayer must never run twice on a load). No faction
+       carries both, and neither prices the other's effect (a net moves a unit, a shifter turns one). Returns the entries, one per unit
+       the bot owns, its nets' and shifters' orders on them; the line for tac_ai_log is left in $lastSummary (null when nothing fired). */
+    public static function preFiring(TacGamedata $gamedata, $botId, array $seat)
+    {
+        $gamedata->prepareForPlayer();
+        $view = new AIView($gamedata, $botId, AIConfig::seatLevel($seat), AIConfig::seatSeed($seat));
+        $nets = GravityNetDecider::plan($view);
+        $shifts = GraviticShifterDecider::plan($view);
+
+        $systems = GravityNetDecider::systems($nets, $view->turn);
+        foreach (GraviticShifterDecider::systems($shifts, $view->turn) as $unitId => $rows) {
+            foreach ($rows as $systemId => $system) $systems[$unitId][$systemId] = $system;
+        }
+        $entries = array();
+        foreach (AIFallback::ownUnits($gamedata, $botId) as $unit) {
+            $entry = AIOrderBuilder::entry($unit);
+            if (isset($systems[(int)$unit->id])) {
+                foreach ($systems[(int)$unit->id] as $systemId => $system) $entry['systems'][$systemId] = $system;
+            }
+            $entries[] = $entry;
+        }
+
+        $lines = array();
+        if (count($nets) > 0) $lines[] = GravityNetDecider::describe($nets);
+        if (count($shifts) > 0) $lines[] = GraviticShifterDecider::describe($shifts);
+        self::$lastSummary = (count($lines) > 0) ? implode('; ', $lines) : null;
+        return $entries;
     }
 
     /* INITIAL ORDERS (stage T3): power first, then electronic warfare - a scanner switched off for

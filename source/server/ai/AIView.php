@@ -787,6 +787,55 @@ class AIView
         return is_numeric($net->moveDistance) ? max(0, (int)$net->moveDistance) : 0;
     }
 
+    /* W10 - the GRAVITIC SHIFTER (Brakiri; Pre-Firing - TACTICAL_AI_PLAN.md 10.10, "W10 as built"). A player fires one in ONE click,
+       the page's plain one (weaponManager.targetShip: an order a gun - it has one - 'prefiring', at the unit, in the mode set first -
+       1 clockwise, 2 anti-clockwise, as GraviticShifter::onDamagedSystem turns facing and heading - the weapon's shots, damage class
+       'gravitic', no called shot) - judged by fireOracle.js replayShifts. The page's tests: Pre-Firing, the shifter whole, switched on,
+       not stowed, loaded and without an order this turn, the unit able to fire (unitBlock - stricter than the page, as everywhere), the
+       fire control for the target's size, a clear line, the arc, the range (0 = any), a chance of at least 1 at the engine's formula
+       (GraviticShifter::calculateHitBase: -15 at a gravitic or Ancient unit). The target an ENEMY - or, with $allies (Hard's skill
+       'shiftAllies'), a FRIENDLY unit too, as the page lets a player click one (a canTargetAll weapon - netShot), never the shifter's
+       own ship - and one it can turn: not a mine nor Enormous (onDamagedSystem leaves those as they are; the page would make the order).
+       Null when there is no order to make; else array('chance' => percent, 'distance' => hexes) - the mode does not change the chance.
+       Why it is null: netWhy() (the same refusal: 'mode', 'unit', 'unloaded', 'ordered', 'target', 'fc', 'los', 'arc', 'range', 'edge',
+       'chance'). */
+    public function shiftShot($unit, Weapon $shifter, $target, $allies = false)
+    {
+        $this->refusal = null;
+        if ((int)$this->gamedata->phase !== 5 || !($shifter instanceof GraviticShifter) || $shifter->ballistic) return $this->refuse('mode');
+        if ($this->unitBlock($unit) !== null) return $this->refuse('unit');
+        if ($shifter->isDestroyed() || $shifter->isOfflineOnTurn($this->turn) || $shifter->stowed || !$this->loaded($shifter)) return $this->refuse('unloaded');
+        if ($shifter->firedOnTurn($this->turn) || count($this->ordersThisTurn($shifter)) > 0) return $this->refuse('ordered');
+
+        if ($target->id === $unit->id || ($target->team == $unit->team && !$allies)) return $this->refuse('target');
+        if (!empty($target->mine) || !empty($target->Enormous)) return $this->refuse('target');
+
+        $fc = $shifter->fireControl;
+        if ($target instanceof FighterFlight) {
+            if (!isset($fc[0])) return $this->refuse('fc');
+        } else if ($target->shipSizeClass < 2) {
+            if (!isset($fc[1])) return $this->refuse('fc');
+        } else if (!isset($fc[2])) {
+            return $this->refuse('fc');
+        }
+
+        $from = $unit->getHexPos();
+        $to = $target->getHexPos();
+        if (!$shifter->ignoresLoS && count($this->blocked) > 0 && Mathlib::isLoSBlocked($from, $to, $this->blocked)) return $this->refuse('los');
+        if (!$this->onArc($unit, $shifter, $target)) return $this->refuse('arc');
+        $distance = $from->distanceTo($to);
+        if (!$this->inRange($unit, $shifter, $target, $distance)) return $this->refuse('range');
+
+        $order = new FireOrder(-1, 'prefiring', $unit->id, $target->id, $shifter->id, -1, $this->turn, $shifter->firingMode, 0, 0, $shifter->defaultShots, 0, 0, null, null, 'gravitic');
+        $answers = $this->hitBase($shifter, $unit, $target, $order);
+        if (count($answers) == 0) return $this->refuse('edge');
+        $chance = 0;
+        foreach ($answers as $answer) $chance += $answer['weight'] * $answer['needed'];
+        $chance = (int)round($chance);
+        if ($chance < 1) return $this->refuse('chance');
+        return array('chance' => $chance, 'distance' => $distance);
+    }
+
     /* Stage T9, M7 - the PULSAR MINE (the Narn G'Karith; the JaStat base): the damage ONE of its attacks should do to a craft of
        $flight. It fires by itself (autoFireOnly - nobody aims it): after Movement, at every enemy craft that was within its 2 hexes and
        its arc at any moment of the craft's own move - judged from where the mine's ship stood then, as the units move in initiative order
@@ -1044,6 +1093,22 @@ class AIView
        as any shot of the weapon finds them, then the need the class gives it: 100. */
     private function engineHitBase(Weapon $weapon, FireOrder $order, $auto)
     {
+        /* W10: GraviticShifter::calculateHitBase MARKS the unit it is asked about (its static $alreadyShifted: only the first Shifter
+           tried at a unit in a turn may turn it - any later one is a sure miss), and the server resolves Pre-Firing in the same request
+           right after the bot submits (AIDriver::advance). A price left marked would make the real shot at that unit - the bot's own, or
+           another player's - miss by itself; and a second price (another shifter, another section entry) would read 0. So the registry
+           is emptied for the call and put back exactly as it was: the engine's formula, and nothing left behind. */
+        if ($weapon instanceof GraviticShifter) {
+            $registry = new ReflectionProperty('GraviticShifter', 'alreadyShifted');
+            $saved = $registry->getValue();
+            $registry->setValue(null, array());
+            try {
+                $weapon->calculateHitBase($this->gamedata, $order);
+            } finally {
+                $registry->setValue(null, $saved);
+            }
+            return;
+        }
         if (!$auto) {
             $weapon->calculateHitBase($this->gamedata, $order);
             return;

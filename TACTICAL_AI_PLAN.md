@@ -2505,7 +2505,7 @@ before. Ordered by what they unlock in the user's order:
 | E3 | **Magazine rounds outside `BALLISTIC_ROUNDS`** | Kor-Lyan 102 (D-racks 62, mine launchers 10); fighter racks elsewhere (mostly the survey's empty magazines - first CHECK with missiles bought) | Model each round's rules (interceptor, multiwarhead, mines...) or rule it left alone |
 | E4 | **Special hit chance** (`specialHitChanceCalculation`) | Vree 104 (antimatter - their arsenal), Gaim 60 (Packet Torpedo), Raiders 18 (Antiproton Defender), Minbari 11, Minbari Protectorate 4 | Port each family's page formula into AIView - the server's own `calculateHitBase`, as always - and an oracle board per family. **The ANTIMATTER family and the Point Pulsar are done (M3-M5, 2026-11-23: `AIView::PORTED_SPECIAL`)** - the Vree's antimatter guns now pass the fire pair; their turret links (E10) are what is left. Gaim's Packet Torpedo and the rest still to do |
 | E5 | **Hex-targeted weapons** | Pak'ma'ra 43 (Plasma Web), Ipsha 16 (Spark Field), Kor-Lyan 16 (Proximity Laser), Narn 12 (Energy Mine), Brakiri 7 (Gravitic Mine), Hyach 6, Vree 5, Cascor 4 | A hex-choice per family; fire-pair hex boards on T6c's vortex pattern (every hex clicked through the page) |
-| E6 | **A Pre-Firing decider** (phase 5 - "nothing in v1", 5.5) | Minbari 10 (Gravity Net), Brakiri 8 (Gravitic Shifter), Minbari Protectorate 8, Narn 2 (Pulsar Mine) | A new decider and a phase-5 oracle - or rule them left alone for v1 (D4). 2026-11-24: the Gravity Net BUILT (M6 - GravityNetDecider, fireOracle replayNets); the Pulsar Mine needed none (it fires by itself - M7 is a movement term); the Brakiri Gravitic Shifter not yet |
+| E6 | **A Pre-Firing decider** (phase 5 - "nothing in v1", 5.5) | Minbari 10 (Gravity Net), Brakiri 8 (Gravitic Shifter), Minbari Protectorate 8, Narn 2 (Pulsar Mine) | A new decider and a phase-5 oracle - or rule them left alone for v1 (D4). 2026-11-24: the Gravity Net BUILT (M6 - GravityNetDecider, fireOracle replayNets); the Pulsar Mine needed none (it fires by itself - M7 is a movement term); 2026-11-28: the Brakiri Gravitic Shifter BUILT (W10 - GraviticShifterDecider, fireOracle replayShifts) |
 | E7 | **Power models** PowerDecider leaves alone | Pak'ma'ra 14 hulls (Plasma Battery), Ipsha 13 (Mag-Grav), Vorlons 12 (Power Capacitor) | Port each balance into PowerDecider; the orders oracle |
 | E8 | **System handlers** - the section 6 registry, built with the first | shield generators and gravitic shields (Abbai 45 hulls, Brakiri 16) - **BLOCKING: the orders pair over abbai, abbai_old and brakiri (2026-11-22) fails ~400 of 756 situations at every level, every one listed on the page's commit gate "too many active shields" - a CPU fleet would commit a state no player can; a handler must choose the active shields** -, Hyach Computer and Specialists (12), tractor beams (Minbari 11, Streib 5), adaptive armour (Minbari 2, Vorlons 14), self-repair (Ancients), stealth units (Hyach 2, Torvalus 6), HK control nodes (Orieni 16), diffusers (EA 2, Shadows) | For each: a RULING "the default is fine" (most passive ones) or a small handler. Stealth needs a real decision (firing reveals the unit) |
 | E9 | **Exclusive fighter weapons** | Centauri 12, Raiders / Brakiri / Cascor / Centauri (WotCR) / Yolu 6 | Choose one of a craft's exclusive weapons (weaponManager.checkConflictingFireOrder) |
@@ -3016,7 +3016,7 @@ shields, below).
 |---|---|---|---|---|
 | Abbai Matriarchate | 19 | 100% | ✅ RELEASED 2026-11-27 - was BLOCKED: gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 ✅ |
 | Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | ✅ RELEASED 2026-11-27 - was BLOCKED by the shields, as above | W1 ✅ |
-| Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling) - ✅ unhidden with W2 the same day (all three are "rare": auto-compose never buys them, a player may); idle: Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 | W1 ✅ (W2 unhides the lance hulls; W10, W7 polish) |
+| Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling) - ✅ unhidden with W2 the same day (all three are "rare": auto-compose never buys them, a player may); idle: Gravitic Mine x7 (hex) - D4; the Gravitic Shifter x8 (Pre-Firing) fired since W10 (2026-11-28) | W1 ✅ (W2 unhides the lance hulls; W10 ✅; W7 polish) |
 | Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 (W11 polish) |
 | Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences; one EW difference on the Shamor (orders pair) | W3 + W4 |
 | Hyach Gerontocracy | 18 | 95% | **BLOCKED** - Specialists must be chosen in the Deployment phase (the page's commit gate); the 2 stealth units (Alichi Kav / Tal) never act; Computer BFCP unused; Proximity Laser x6 | W5 |
@@ -3042,7 +3042,7 @@ oracle, a mutation pass, then the gate):
 | W7 | **Hex-targeted weapons, by family** (E5) | Pak'ma'ra (Plasma Web 43); Kor-Lyan with W9 (Proximity Laser 16); polish for Hyach (Proximity Laser 6), Vree (Shredder 5), Cascor (Ion Field 4), Brakiri (Gravitic Mine 7) | A hex choice per family | AoEDecider (the Narn Energy Mine) is the template: candidate hexes from the enemies' forecast ends, valued by what lands, the page's targetHex as oracle (fireOracle replayMines). The Plasma Web first (it releases a faction); the Proximity Laser needs its launcher pairing (`hasSpecialLaunchHexCalculation`) | 1 session a family |
 | W8 | **Turret links** (E10 - angular spread) | Vree | The page's `getLinkedFiringBlock` for spread-linked turrets | Port the spread rule into AIView / FireDecider (a link's guns at targets within its spread); the fire pair over vree. Release with the Shredder idle | 1 session |
 | W9 | **Kor-Lyan odds and ends** (E11) | Kor-Lyan (with W7) | Limpet Bore Torpedo (special targeting - called shots at systems); mine launchers (D4 lets them idle) | Limpet Bore: a called-shot rule (⚠️ AIView never calls shots - the Expert Gunner trap in `calculateHitBase`); check the D-racks' Antifighter rounds when bought (already in BALLISTIC_ROUNDS) | 1 session |
-| W10 | **Brakiri Gravitic Shifter** (E6) | polish (Brakiri is released by W1) | A Pre-Firing weapon that turns a target | GravityNetDecider's pattern: a phase-5 decider valued by the same trade measure (a damaged side to the guns, a locked enemy's guns away) | 1 session |
+| W10 | ✅ **Brakiri Gravitic Shifter** (E6) - BUILT 2026-11-28, uncommitted ("W10 as built" below) | polish (Brakiri is released by W1) | A Pre-Firing weapon that turns a target | GravityNetDecider's pattern: a phase-5 decider valued by the same trade measure (a damaged side to the guns, a locked enemy's guns away) | 1 session |
 | W11 | **Power models** (E7) - polish, NOT blocking | better Ipsha / Pak'ma'ra play (the Vorlon capacitor for W12) | Mag-Grav (fixed-power) reactor; Plasma Battery; the Spark Field's boost | The orders pair found no commit refusal for either with power at default, so this is about USING the power (a damaged reactor's deficit, boosts, the battery's charge): port each page balance into PowerDecider::balance / understands (orders oracle) | 1 session |
 | W12 | **Ancients, one at a time** (D6) | each its own | Kirishiac (94% - the nearest: orbitals dock/deploy, Gravitic Augmenter Pre-Firing, Hypergraviton Blaster ammunition and order count - 53 differences, self-repair at default); Triad (Photonic Prism Beam 73, Light Prism Beam 12, Hyperplasma Matrix 8 differences; the Hyperplasma Cutter splits in every mode; hex weapons; the Triumvirons have no usable gun; cooperative repair); Vorlons (Lightning Cannon / Lightning Guns - 293 differences; Discharge Guns split in every mode; power capacitor = W11; petals; 3 hulls with no usable gun); Torvalus (6 of 7 are stealth units - a stealth decision; Transverse Drive; Shade Modulator; the oracle page throws on the Black Dagger); Shadows (the Molecular Slicer hides 10 of 14 - M9; phasing, diffusers); Walkers (turret links, energy-draining field / net / mines, lightning arrays, sensor probes); Mindriders (never, unless ShipMover learns the drive) | The user picks the order; Kirishiac first by distance; W3 and W8 do part of the Vorlon / Triad / Walkers work | 2-4 sessions each |
 | - | **M1 Marines / M14 Grappling Claw** (unchanged) | unhides 45 boarding craft (every faction's breaching pods) | as in "Missing systems" | - | - |
@@ -3596,6 +3596,114 @@ GraviticLance in particle.php / gravitic.php, ShipSystem::assignDamageReturnOver
 - Movement keeps a sequence's target in arc only through the weapon's own estimate (ShipDecider's trade): in self-play 4 of 16 auto-hit
   follow-ups were lost to the bot's own turn (a Tashkava's 60-degree Lance arc, three Cutters). A weight on "keep the sequence's target
   in arc" is the knob if the user wants more of them taken.
+
+#### W10 as built (2026-11-28) - the Brakiri Gravitic Shifter, and the engine's shift registry - uncommitted
+
+**The user's request (2026-11-28):** "Please implement W10 next in the TACTICAL AI PLAN, Gravitic Shifters."
+
+**The rules as the engine and the page hold them** (GraviticShifter in gravitic.php / gravitic.js, weaponManager.targetShip):
+- A Pre-Firing weapon (`preFires`, `canTargetAll`, `alliedEW`): loading 3, range penalty 1 a hex (5%), fire control -15 / +15 / +25, no range
+  limit, -15 at a gravitic or Ancient unit (both sides compute it). Two modes: 1 Clockwise, 2 Anti-Clockwise. A hit TURNS the unit where it
+  stands - facing AND heading one hex side (`MathLib::addToHexFacing(+-1)`), speed and hex kept - by a 'prefire' movement row
+  (`onDamagedSystem`). No effect on an Enormous unit or a mine (the page would still make the order). No size rule.
+- ONE shifter a unit a turn: the first `calculateHitBase` at a unit marks it in a static registry (`$alreadyShifted`), and every later
+  shifter at it this turn needs 0 - whether the first hit or not.
+- The page: the plain targetShip loop - one order (the weapon has one gun), 'prefiring', in the mode set, 'gravitic', one shot, no called
+  shot, no note; a friendly unit too (canTargetAll - the menu's target button), its ship's OEW on a friend allowed ('alliedEW').
+- **The trap found:** `calculateHitBase` MARKS the unit it is asked about, and the server resolves Pre-Firing in the same PHP request right
+  after the bot submits (AIDriver::advance -> Manager::advanceGameState). A bot that priced a shot would make the real one at that unit -
+  its own, or a human's - miss by itself.
+- **The engine bug found:** the registry was keyed by target id alone and never cleared, so any process that resolves several turns
+  (AIDriver plays a game on - up to MAX_SUBMISSIONS_PER_RUN 200 submissions a request when no human is owed a phase - and self-play) made
+  every later turn's shift at a unit shifted once a sure miss. Live single-turn requests were unaffected.
+
+**Asked first, answered (rulings, 2026-11-28):**
+1. *Levels*: **"Same as nets"** - every level shifts ENEMIES; only Hard also turns its own and its teammates' units; legacy off.
+2. *The registry*: **"Fix the engine too"** - keyed by game and turn (the bot's pricing is guarded either way).
+3. *Next turn* (the shifter turns the HEADING too): **"This turn only"** - the course change is not priced, as for the nets.
+4. *Floors*: **"Higher gain floor"** (15-20, as a shifter reloads in three turns, a net in two) - built 15, the implementer's pick within
+   the range (the nets' 10 scaled by the reload); the chance floor stays 15%.
+
+**As built** (NEW `ai/deciders/GraviticShifterDecider.php` - autoload +1 line, `fvbuild -Autoload`; `AIView`, `GravityNetDecider`,
+`TacticalAI`, `AIConfig`; the engine's `gravitic.php`):
+- **`AIView::shiftShot`** - the page's click: Pre-Firing, the shifter whole / on / not stowed / loaded / no order this turn, the unit able
+  to fire (unitBlock), an ENEMY or (with $allies) a friend - never its own ship - not a mine nor Enormous (the bot's rule: no effect), the
+  fire control, a clear line, the arc, the range, a chance >= 1 at the engine's formula. Refusals through `netWhy()`.
+- **The registry guard** (`AIView::engineHitBase` - the one place the bot asks a weapon's `calculateHitBase`): for a GraviticShifter the
+  registry is emptied for the call and put back exactly as it was - the engine's formula, no mark left, and a second price (another
+  shifter, another hit-table entry) not read as 0.
+- **The engine fix** (`GraviticShifter::calculateHitBase`): `$alreadyShifted` is "gameid:turn" => target id => true, only the current key
+  kept (a new turn or game starts clean). Within a turn the rule is unchanged.
+- **The measure - the Gravity Nets' own**: `GravityNetDecider::board` / `trade` / `friends` made public and reused - the bot's fire this
+  Fire phase (each gun at its best enemy, none counted past a kill, each target's health and worth from the shooter's side) less
+  shipDanger x the turned unit's fire at the bot; a FRIEND (Hard) by `friendTrade` (its fire, and every enemy's fire at the side). The unit
+  is priced TURNED (`turnedTrade`: a 'prefire' row with facing and heading +-1, as `onDamagedSystem` writes it, popped after) against as it
+  stands: "a damaged side to the guns" and "a locked enemy's guns away" (plan row W10) both fall out of it - the profiles too.
+- **The plan**: for each unit a shifter can hit (at >= SHIFTER_MIN_CHANCE, and not under FIRE_MIN_CHANCE_EDGE from a section edge), both
+  turns priced once; greedy - the shifter, unit and turn that add most (gain x chance), each shifter once, each UNIT once (a second shifter
+  misses by itself), while that adds >= SHIFTER_MIN_GAIN. Units nearest the shifters first, under `SHIFTER_DECISION_SECONDS` 1.0 CPU
+  (`GraviticShifterDecider::$budget`; 0 in the harnesses).
+- **Pre-Firing in TacticalAI**: NEW `TacticalAI::preFiring` - ONE mask and view (prepareForPlayer must not run twice), the nets' plan and
+  the shifters' plan, their system rows merged on the bot's entries, one log line ("Gravity Nets: ...; Gravitic Shifters: <ship> shifter
+  #id at <unit> clockwise (chance%, trade +g) (N units, T turns priced, s.ss s)"). `GravityNetDecider::orders` is no longer called (kept).
+- **AIConfig**: skills `graviticShifters` (Easy / Normal / Hard; legacy off) and `shiftAllies` (Hard); `SHIFTER_MIN_GAIN` 15,
+  `SHIFTER_MIN_CHANCE` 15, `SHIFTER_DECISION_SECONDS` 1.0.
+
+**Tests:**
+- **NEW `tests/ai/shifterHarness.php`** (205 checks): A a damaged side (an HCV's aft shot away: turned so the Tashkat's shots go through it
+  - gain 136 against 26 with the aft whole; Normal and Hard - Easy has no 'sectionHealth', as for the nets), B a locked Omega's guns away
+  (its fire at the Tashkat 52.9 -> 13.7, the better turn; every level), C the floor (nothing loaded; 40 hexes off), D one shifter a unit
+  (two bear, one fires), E Hard turns a friend - the bot's own and a teammate's - so its lost bow leaves the Omega's guns (health from the
+  Omega 50 -> 92; Normal / Easy never; Hard with 'shiftAllies' off never), F never at an Enormous unit (an Ishtaka) or a mine, legacy none,
+  G the registry (the bot leaves it as it was and is not fooled by a mark; after a whole plan the ENGINE prices the first real shot at the
+  bot's chance, the second needs 0, a new turn / another game starts clean), H the orders (one order, the turn's mode; ShipPayload +
+  validateFireOrders keep it; `TacticalAI::preFiring` entries and log line), I the budget, J the planned turn is the better one, K / L / M
+  sweeps of the gain floor (14 boards under it, none fired), the chance floor and the edge floor (boards where only a shot under the floor
+  would pay: not taken).
+- **Fire pair `fireHarness.php --phase=5`** - NEW shifter boards (each Brakiri hull with shifters at the origin, the TARGETS, a gravitic
+  Rogata and an Ishtaka within 1-12 hexes, a bot's and a teammate's friend within 1-6, shifters reloading / off / shot away at random, random
+  EW incl. the hull's OEW on a friend, a rock one board in three; every shifter x unit x MODE asked) + `fireOracle.js replayShifts` (NEW):
+  40 rounds a hull (Ishtaka, Shakara, Tashkat, Tashkava - 160 boards, 8,960 pairings): **Normal 0 differences** (1,356 shots built exactly as
+  the bot has them, 570 at friends; 48 priced differently on a section edge, counted; 7,436 both refuse; 116 aimed at the Ishtaka only by the
+  page - the bot is the stricter; 85 planned orders clicked in identical), **Hard 0 differences** (1,392 shots, 540 at friends; 147 planned,
+  55 at friends, all identical). Every board also checks the bot's pricing leaves the registry empty.
+- **Mutants 19 / 19 caught** (shifterHarness and the fire pair, run on a snapshot): the registry not emptied / no guard at all, the engine
+  keyed by target only (the old bug), two shifters at a unit, the turn priced the wrong way round, no danger term, friends at every level,
+  no gain floor, no chance floor, no edge floor, Enormous units allowed, preFiring dropping the shifters' orders, no skill gate,
+  shiftShot refusing every friend / skipping the arc / skipping the line of fire / skipping the class's -15, the damage class, the mode not
+  posted. (The skill-gate and edge-floor mutants survived the first pass - their boards could not tell; F's legacy board and the M sweep
+  were added.)
+
+**Gates (2026-11-28):**
+- shifterHarness 205; fire pair `--phase=5` over brakiri 0 differences at Normal and Hard (above); the nets unchanged - gravityNetHarness
+  1,163 (the M6 count), fire pair `--phase=5` over minbari + minbari_protectorate, Normal and Hard, 0 differences (964 shots, 74,424 hexes,
+  223 / 295 planned nets identical); levels 467 (the W2 count).
+- **Replay corpus: 242 passed, 1 failed - game 3676** (a real Brakiri game), every differing line a Gravitic Shifter to-hit recompute: the
+  baseline was RECORDED WITH THE LEAK (the harness recomputes every turn in one process, so all 10 shifter orders read `recomputed=0`
+  against recorded 115-175). Now 6 of the 10 recompute exactly the recorded live chance; 4 are 10 off (the replay recomputes with the
+  turn's end state - the target already turned). The intended effect of the engine fix: a re-record of 3676 alone (manifest merge) awaits
+  the user's OK.
+- **Self-play** (`--budget=0`, 24x16, Tashkat x2 + Shakara v EA Omega / Hyperion / Tethys / Starfury flight): Brakiri Normal x2, Hard x2 -
+  **4 PASS, 0 AI defects** (18, 43 - the turn cap -, 35 and 18 turns; slowest decision 4.46 s, budget off). 27 shifter orders, 16 hits: the
+  server's `needed` equal to the bot's logged chance on every one, no "already affected" miss, and EVERY hit made the server's 'prefire'
+  row turned one side the planned way (mode 1 +1, mode 2 -1, facing and heading). The same Omega was hit on consecutive turns in one
+  process four times (6420 t9 / t10, 6421 t19-t20, 6423 t5 / t6 and t11 / t12) - priced and resolved normally: before the engine fix each
+  second shot would have needed 0. A Starfury flight was turned once. No friend was shifted in these games (Hard planned 55 friend shifts
+  in the fire pair). Games 6420-6423 deleted afterwards (local DB hygiene).
+
+**Implementer's calls - to confirm:**
+- SHIFTER_MIN_GAIN 15 (the bottom of the ruled 15-20).
+- Greedy assignment (as the nets): a shifter goes to the best unit for IT first; with several shifters a different pairing could add a
+  little more.
+- An Enormous unit or a mine is never aimed at (the page would make the order; it does nothing).
+- The heading the turn leaves (next turn's course) is not priced ("This turn only"); nor are a Gravity Net or another player's shifter at
+  the same unit, or the bot's own missiles in flight at it. Initial Orders puts no OEW on a unit to make shifting it likelier ('alliedEW'
+  locks on friends are never planned).
+
+**Observations (not changed):**
+- The faction survey still counts the shifters as idle mounts (it reads the Fire phase's `weaponBlock` - 'pre-firing weapon'), as the nets.
+- `GravityNetDecider::orders` / `$lastSummary` are no longer called by TacticalAI (gravityNetHarness J still uses `entries`).
+- The Ishtaka (the base with a shifter in each of six sections) is never flown by the bot yet (G3 - bases are refused for a CPU slot).
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 

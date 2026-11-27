@@ -184,8 +184,8 @@ class GravityNetDecider
     }
 
     /* The friendly units on the board, as AIView::enemies() takes the hostile ones: the bot's own (myUnits) and its teammates' - units a
-       player may click (no Huge terrain, isTargetableBy). */
-    private static function friends(AIView $view)
+       player may click (no Huge terrain, isTargetableBy). (W10: GraviticShifterDecider's friendly targets too.) */
+    public static function friends(AIView $view)
     {
         $units = $view->myUnits();
         foreach ($view->gamedata->ships as $unit) {
@@ -224,8 +224,8 @@ class GravityNetDecider
        enemy that has moved: from its arcs), and every friendly gun at every enemy where all stand now ('damage': own index => gun index =>
        enemy index => expected damage; a line of fire blocked = 0). With $allies also every enemy gun at every friendly unit ('incoming':
        enemy index => gun index => own index) and each friendly unit's health from each enemy's side ('health': enemy index => own index) -
-       what netting a friend changes. */
-    private static function board(AIView $view, $allies = false)
+       what netting a friend changes. (W10: GraviticShifterDecider prices on the same board.) */
+    public static function board(AIView $view, $allies = false)
     {
         $own = array();
         foreach ($allies ? self::friends($view) : $view->myUnits() as $unit) {
@@ -301,8 +301,9 @@ class GravityNetDecider
     /* The part of this Fire phase's trade that $target's place changes, as it stands: every one of the bot's units' fire - its guns
        shared out over the enemies, none counted past what finishes a unit (ShipDecider::removed), each enemy's health and worth from the
        unit's side (targetsFrom) - less the level's shipDanger times $target's own fire at the bot's units, shared out the same way, each
-       unit's health and worth from $target's side. The other enemies' fire at the bot does not change with it, and is left out. */
-    private static function trade(AIView $view, array $board, $target)
+       unit's health and worth from $target's side. The other enemies' fire at the bot does not change with it, and is left out.
+       (W10: the measure GraviticShifterDecider prices a TURNED unit by - its facing, not its hex, changed - a friend too: friendTrade.) */
+    public static function trade(AIView $view, array $board, $target)
     {
         $id = (int)$target->id;
         $at = null;
@@ -415,7 +416,7 @@ class GravityNetDecider
         return $out;
     }
 
-    private static function describe(array $plan)
+    public static function describe(array $plan)
     {
         $parts = array();
         foreach ($plan as $row) {

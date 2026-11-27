@@ -1477,6 +1477,7 @@ spl_autoload_register(
                 'graviticminehandler' => '/server/model/weapons/gravitic.php',
                 'graviticshield' => '/server/model/systems/baseSystems.php',
                 'graviticshifter' => '/server/model/weapons/gravitic.php',
+                'graviticshifterdecider' => '/server/ai/deciders/GraviticShifterDecider.php',
                 'graviticthruster' => '/server/model/systems/baseSystems.php',
                 'gravitonbeam' => '/server/model/weapons/gravitic.php',
                 'gravitonpulsar' => '/server/model/weapons/gravitic.php',

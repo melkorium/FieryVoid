@@ -534,7 +534,13 @@ class AIConfig
          netAllies      Gravity Nets at FRIENDLY units too - the bot's own and its teammates' (the user, 2026-11-24: "a HARD CPU player will
                         consider whether moving allies is advantageous and attempt to do so. Easy and Normal can skip this"): a friend put
                         where its fire is more, or the enemy's fire at the side less, by the same trade (GravityNetDecider). Hard only
-         powerReach     a ship in a power deficit switches off first the loaded guns that can reach NO enemy this turn (the user's tester,
+         graviticShifters  Gravitic Shifters (the Brakiri) fired in Pre-Firing to TURN an enemy 60 degrees (W10 - plan 10.10): a damaged side
+                        to the fleet's guns, a locked enemy's guns out of arc - the Gravity Nets' trade with the unit turned, this Fire phase
+                        only (the user, 2026-11-28: "This turn only" - the heading it is turned to next turn is not priced):
+                        GraviticShifterDecider. "Same as nets": on at every level; legacy off
+         shiftAllies    Gravitic Shifters at FRIENDLY units too - the bot's own and its teammates' (the user, 2026-11-28: "Same as nets" -
+                        netAllies' ruling): a friend turned so its guns bear, or a fresh side faces the enemy. Hard only
+         powerReach    a ship in a power deficit switches off first the loaded guns that can reach NO enemy this turn (the user's tester,
                         2026-11-26, local game 6197: a White Star Command "at range start with Molecular Pulsars deactivated; closer,
                         deactivate the Improved Neutron Laser to power the Molecular Pulsars" - the second half is the least fire for its
                         power going first, as at every level): PowerDecider::replan, on the masked view. Normal and Hard
@@ -564,22 +570,22 @@ class AIConfig
             'pulsePremium' => false, 'shortening' => false, 'unmovedDanger' => 0.5, 'overspeed' => 0.5, 'ballisticFloor' => false,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'none', 'noise' => 10.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
         'normal' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 1.5, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 4,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'turn',
-            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
+            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
         'hard' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 3.0, 'jink' => 'any', 'manoeuvres' => 'all', 'noise' => 0.0, 'coverageGoals' => 12,
             'pileOn' => 1.0, 'support' => 2.0, 'fleetFocus' => 0.5, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => true, 'extendedTurns' => true, 'forecast' => 'full',
-            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full', 'elint' => true, 'elintDisrupt' => true, 'elintJam' => true, 'elintStealth' => true),
+            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'graviticShifters' => true, 'shiftAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full', 'elint' => true, 'elintDisrupt' => true, 'elintJam' => true, 'elintStealth' => true),
         'legacy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => false, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none', 'elint' => false, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false)
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'graviticShifters' => false, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none', 'elint' => false, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false)
     );
 
     /* POWER MANAGEMENT (skill 'powerBoost', stage T5f-4). A gun "reaches" an enemy when, with the units as close as both could
@@ -665,6 +671,15 @@ class AIConfig
     //...and never at a chance under this (the user, 2026-11-24: "The minimum hit chance I think should be 15%") - a net spent on a long shot is not there next turn
     const GRAVNET_MIN_CHANCE = 15;
     const GRAVNET_DECISION_SECONDS = 2.0;
+
+    /* W10 - GRAVITIC SHIFTERS (GraviticShifterDecider, the skill 'graviticShifters'). A shifter is fired only where the turn it buys -
+       the Gravity Nets' trade with the unit turned 60 degrees, against as it stands, times the shifter's chance - is worth at least
+       SHIFTER_MIN_GAIN of fleet value. The user, 2026-11-28 ("Higher gain floor": 15-20, as a shifter reloads in THREE turns - a net in
+       two); 15 is the implementer's pick within that range (the nets' 10, scaled by the reload). The chance floor stays the nets' 15%. */
+    const SHIFTER_MIN_GAIN = 15.0;
+    const SHIFTER_MIN_CHANCE = 15;
+    //the CPU time the pricing may take (GraviticShifterDecider::$budget; 0 = none, the harnesses) - the units nearest the shifters first
+    const SHIFTER_DECISION_SECONDS = 1.0;
 
     /* A SIDE DOWN TO ITS FIGHTERS (stage T6g, the user 2026-11-21: "tone down AI fighters that stay too far away when they are the
        only unit left for the AI player, as this will frustrate players. E.g. can't go three turns without firing a shot, and maybe

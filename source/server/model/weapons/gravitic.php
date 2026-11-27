@@ -903,6 +903,10 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 	public $repairPriority = 6;//priority at which system is repaired (by self repair system); higher = sooner, default 4; 0 indicates that system cannot be repaired
 	    
     protected $possibleCriticals = array(14 => "ReducedRange");
+	/* "gameid:turn" => target id => true: the units a Shifter has been tried at this turn (only the first counts). Keyed by game
+	   and turn, and only the current one kept, because one PHP process may resolve several turns - the CPU opponent's driver
+	   plays a game on (AIDriver, several turns a request when no human is owed a phase), and self-play - and a target id alone
+	   made every later turn's shift at a unit shifted once auto-miss (TACTICAL_AI_PLAN.md 10.10, W10). */
 	private static $alreadyShifted = array();	
 
     function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc){
@@ -935,7 +939,9 @@ class GraviticShifter extends Weapon implements SpecialAbility{
 
 	public function calculateHitBase($gamedata, $fireOrder)
 	{       
-		if (isset(GraviticShifter::$alreadyShifted[$fireOrder->targetid])){
+		$turnKey = $gamedata->id . ':' . $gamedata->turn;
+		if (!isset(GraviticShifter::$alreadyShifted[$turnKey])) GraviticShifter::$alreadyShifted = array($turnKey => array()); //a new turn (or game): start clean
+		if (isset(GraviticShifter::$alreadyShifted[$turnKey][$fireOrder->targetid])){
             $fireOrder->needed = 0;
             $fireOrder->updated = true; 
             $fireOrder->pubnotes = "<br>Ship has already been affected by a Gravitic Shifter.";                         
@@ -944,7 +950,7 @@ class GraviticShifter extends Weapon implements SpecialAbility{
             
         parent::calculateHitBase($gamedata, $fireOrder);
         
-        GraviticShifter::$alreadyShifted[$fireOrder->targetid] = true; //Mark that a shot has been attempted against ship.
+        GraviticShifter::$alreadyShifted[$turnKey][$fireOrder->targetid] = true; //Mark that a shot has been attempted against ship.
 
 		$target = $gamedata->getShipById($fireOrder->targetid);
         //$shooter = $this->getUnit();
