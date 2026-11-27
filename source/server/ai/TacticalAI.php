@@ -252,6 +252,7 @@ class TacticalAI
         $p = PowerDecider::$last;
         $b = BallisticDecider::$last;
         self::$lastSummary = 'EW: ' . $e['offensive'] . ' of ' . $e['points'] . ' points offensive, on ' . $e['targets'] . ' enemies (' . $e['ships'] . ' ships)'
+            . (!empty($e['elint']) ? '; ELINT: ' . implode('; ', $e['elint']) : '') //plan 10.10 G2
             . ($p['off'] > 0 ? '; power: ' . $p['off'] . ' systems switched off' : '')
             . ($p['short'] > 0 ? ', ' . $p['short'] . ' ships still short' : '')
             . ($p['scanner'] + $p['engine'] + $p['generator'] > 0 ? '; boosts: scanner +' . $p['scanner'] . ', engine +' . $p['engine']

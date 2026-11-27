@@ -51,13 +51,24 @@
  * 5826 its offensive half is the CCEW deterrent and OEW on the nearest SHIP, as Normal would lock fighters and ships; the CCEW
  * deterrent is a skill of its own ('ccewDeterrent').
  *
- * NOT YET: ELINT functions (stage T7 - an ELINT ship just runs OEW / DEW), Detect Stealth / Detect
- * Mines, EW for flights.
+ * ELINT FUNCTIONS (plan 10.10 G2, the user's notes of 2026-11-27 - "how players typically use ELINT functions"). The ELINT ships
+ * decide LAST, after every other ship (exactly as before), most points first, each seeing the fleet's rows stood on the ships and
+ * the earlier ELINTs' rows. An ELINT runs the same search twice - BLANKET (OEW / CCEW + BDEW) and SUPPORT (OEW / CCEW + SDEW on one
+ * friend + SOEW + at Hard DIST and JAM) - the page refuses BDEW beside SDEW / SOEW / DIST / Detect Stealth - and posts the one that
+ * scores more. The score is the same hit formula with the ELINT's rows standing, plus the FLEET's terms: the enemy's fire at every
+ * other bot unit (BDEW and SDEW there; DIST cuts the enemy's locks - the engine takes the best ELINT's blanket, so a second one over
+ * the same ships is worth nothing) and each SOEW friend's fire with the shared lock. SOEW goes up as a PACKAGE: the ELINT's lock on an
+ * enemy ship raised to EW_SOEW_LOCK and shared with 1-2 bot ships that lock it too (the user: "hard-locking an opponent with at least 6
+ * OEW and then sharing this lock using SOEW with around 1-2 allies"). JAM (Hard) is priced by HkJamming's table; Detect Stealth (Hard,
+ * a stealth unit unseen) takes only the DEW points that buy nothing. Easy runs the same search on an ELINT (the user: "fine if there's
+ * not that much variation between the CPU player levels on ELINT use"). Kirishiac ELINT modules keep all their points on DEW.
+ *
+ * NOT YET: Detect Mines (the user, 2026-11-27: for every ship, with a mine-sweeping behaviour), EW for flights.
  */
 class EWDecider
 {
     //What the last plan did, for tac_ai_log.
-    public static $last = array('ships' => 0, 'points' => 0, 'offensive' => 0, 'targets' => 0);
+    public static $last = array('ships' => 0, 'points' => 0, 'offensive' => 0, 'targets' => 0, 'elint' => array());
 
     /* The enemy's EW rows of LAST turn: unit id => list of array(type, amount, targetid). Ask it
        BEFORE the load is masked. Only the turn before this one is read - rows that were on every
@@ -113,7 +124,7 @@ class EWDecider
         $gamedata = $view->gamedata;
         $turn = $view->turn;
         $plan = array();
-        self::$last = array('ships' => 0, 'points' => 0, 'offensive' => 0, 'targets' => 0);
+        self::$last = array('ships' => 0, 'points' => 0, 'offensive' => 0, 'targets' => 0, 'elint' => array());
 
         //"No ships can use EW of any kind": the page writes no row at all in a nebula
         if (TacGamedata::$nebulaPresent) return $plan;
@@ -155,11 +166,35 @@ class EWDecider
         $kept = array();
         foreach ($ships as $ship) $kept[(int)$ship->id] = $ship->EW;
 
+        /* G2: the ELINT ships decide LAST - their support needs the fleet's rows - most points first (ties by id); every other ship
+           first, exactly as before (no ship's rows stand while they decide). */
+        $elints = array();
+        $plain = array();
+        foreach ($ships as $ship) {
+            if ($view->skill('elint') && self::elintShip($view, $ship)) $elints[] = $ship;
+            else $plain[] = $ship;
+        }
+        usort($elints, function ($a, $b) use ($turn) {
+            $pa = self::points($a, $turn);
+            $pb = self::points($b, $turn);
+            return ($pa == $pb) ? $a->id - $b->id : (($pa > $pb) ? -1 : 1);
+        });
+
         try {
             $locked = array();
-            foreach ($ships as $ship) {
+            $first = true;
+            foreach (array_merge($plain, $elints) as $ship) {
+                $elint = null;
+                if (in_array($ship, $elints, true)) {
+                    //the fleet's rows stand on its ships before the first ELINT decides (and each ELINT's after it has)
+                    if ($first) {
+                        foreach ($plain as $other) self::stand($other, $kept[(int)$other->id], $plan[(int)$other->id] ?? array());
+                        $first = false;
+                    }
+                    $elint = self::elintContext($view, $ship, $enemies, $mine, $now, $ships);
+                }
                 $here = isset($now[(int)$ship->id]) ? $now[(int)$ship->id] : $ship->getHexPos();
-                $alloc = self::allocate($view, $ship, $enemies, $mine, $here, $fighterHeavy);
+                $alloc = self::allocate($view, $ship, $enemies, $mine, $here, $fighterHeavy, $elint);
                 $rows = array();
                 foreach ($alloc['OEW'] as $targetId => $amount) {
                     if ($amount <= 0) continue;
@@ -167,6 +202,8 @@ class EWDecider
                     $locked[$targetId] = true;
                     self::$last['offensive'] += $amount;
                 }
+                //G2: the ELINT functions, in an order the page's menu takes them (the modes never mix BDEW with the others)
+                foreach (self::elintRows($alloc) as $row) $rows[] = AIOrderBuilder::ew($ship->id, $turn, $row[0], $row[1], $row[2]);
                 if ($alloc['CCEW'] > 0) {
                     $rows[] = AIOrderBuilder::ew($ship->id, $turn, 'CCEW', $alloc['CCEW']);
                     self::$last['offensive'] += $alloc['CCEW'];
@@ -175,6 +212,11 @@ class EWDecider
                 $plan[(int)$ship->id] = $rows;
                 self::$last['ships']++;
                 self::$last['points'] += $alloc['points'];
+                if ($elint !== null) {
+                    self::stand($ship, $kept[(int)$ship->id], $rows);
+                    $text = self::elintText($view, $ship, $alloc);
+                    if ($text !== '') self::$last['elint'][] = $text;
+                }
             }
             self::$last['targets'] = count($locked);
         } finally {
@@ -185,13 +227,15 @@ class EWDecider
         return $plan;
     }
 
-    /* One ship's split: array('points', 'DEW', 'CCEW', 'OEW' => target id => amount). $units: the bot's units on the
-       board (where flying straight on takes them); $here: where this ship stands now; $fighterHeavy: see plan(). */
-    private static function allocate(AIView $view, $ship, array $enemies, array $units, OffsetCoordinate $here, $fighterHeavy)
+    /* One ship's split: array('points', 'DEW', 'CCEW', 'OEW' => target id => amount) - and for an ELINT (G2) 'BDEW', 'SDEW' / 'SOEW' /
+       'DIST' / 'JAM' => unit id => amount, 'DS' (Detect Stealth). $units: the bot's units on the board (where flying straight on takes
+       them); $here: where this ship stands now; $fighterHeavy: see plan(); $elint: elintContext() for an ELINT ship, else null. */
+    private static function allocate(AIView $view, $ship, array $enemies, array $units, OffsetCoordinate $here, $fighterHeavy, $elint = null)
     {
         $turn = $view->turn;
         $points = self::points($ship, $turn);
         $alloc = array('points' => $points, 'DEW' => $points, 'CCEW' => 0, 'OEW' => array());
+        if ($elint !== null) $alloc += array('BDEW' => 0, 'SDEW' => array(), 'SOEW' => array(), 'DIST' => array(), 'JAM' => array(), 'DS' => 0);
         if ($points <= 0 || count($enemies) == 0) return $alloc;
 
         //Units that keep everything on defence: the page gives them no offensive EW, or the bot has no handler for their state (P4).
@@ -201,6 +245,7 @@ class EWDecider
         //ew.checkRestrictedEW: with that critical on the C&C, at least half the output stays defensive.
         $cnc = self::firstNamed($ship, 'cnC');
         $minDew = ($cnc && empty($ship->osat) && PowerDecider::crits($cnc, 'RestrictedEW', $turn) > 0) ? (int)ceil($points / 2) : 0;
+        $pageMinDew = $minDew; //G2: the page's own floor - the only one a blanket (BDEW) point must keep; the close-range floor below binds the rest
         //ew.checkLCVSensors: all but 2 points go to OEW - CCEW does not count as OEW.
         $lcv = $ship->hasSpecialAbility('LCVSensors') && $points > 2;
 
@@ -342,6 +387,9 @@ class EWDecider
            a ship, as for Normal (noFlightOEW); with nothing to lock (only fighters left, within CCEW's reach) the rest goes to CCEW
            as well, no further than Normal's cap. Until then it put its whole half on the nearest enemy, a flight included, and
            never put up CCEW. The page's own limits still hold: a Restricted EW critical's half stays DEW; an LCV keeps its rule below. */
+        /* G2: an Easy ELINT runs the search below as well (the user: "fine if there's not that much variation between the CPU player
+           levels on ELINT use") - but keeps this split whenever the search finds no ELINT function worth a point ($easySplit). */
+        $easySplit = null;
         if ($view->skill('simpleEW') && !$lcv) {
             $half = max(0, min(intdiv($points, 2), $points - $minDew));
             $easy = array('points' => $points, 'DEW' => $points, 'CCEW' => 0, 'OEW' => array());
@@ -351,7 +399,8 @@ class EWDecider
             if ($rest > 0 && count($lockable) > 0) $easy['OEW'][(int)$lockable[0]->id] = $rest;
             else if ($rest > 0 && $ccewOk) $easy['CCEW'] += min($rest, $ccewCap - $easy['CCEW']);
             $easy['DEW'] = $points - $easy['CCEW'] - array_sum($easy['OEW']);
-            return $easy;
+            if ($elint === null) return $easy;
+            $easySplit = $easy + array('BDEW' => 0, 'SDEW' => array(), 'SOEW' => array(), 'DIST' => array(), 'JAM' => array(), 'DS' => 0);
         }
 
         //(game 5826) how many points one step of the search may move onto an enemy: 1 unless an enemy ELINT disrupts this ship
@@ -363,7 +412,7 @@ class EWDecider
         }
         $state = array('view' => $view, 'ship' => $ship, 'base' => $base, 'guns' => $guns, 'enemies' => $enemies,
             'units' => $units, 'threats' => null, 'offence' => array(), 'defence' => array(), 'soft' => $soft, 'disrupted' => ($step > 1),
-            'launchers' => $launchers);
+            'launchers' => $launchers, 'elint' => $elint);
 
         //the CCEW deterrent first: a point of DEW the greedy below does not have to find a gain for (a level's skill, stage T5f)
         if ($deterrent && $canShootFighters && !$lcv && $alloc['DEW'] > $minDew && $view->skill('ccewDeterrent')) {
@@ -446,26 +495,38 @@ class EWDecider
             $ccewCap = min($ccewCap, 1);
         }
 
-        while ($alloc['DEW'] > $minDew) {
-            $best = null;
-            $bestTotal = null;
-            $bestScore = $current + AIConfig::EW_MIN_GAIN; //what a 1-point step must beat - exactly the rule before game 5826
-            $bestRate = AIConfig::EW_MIN_GAIN;            //...and a step of more points, a point at a time
-            $ccewRoom = ($flights && !$lcv) ? $ccewCap - $alloc['CCEW'] : 0;
-            foreach (self::moves($alloc, $lockable, $ccewRoom, $caps, min($step, $alloc['DEW'] - $minDew)) as $try) {
-                $score = self::score($state, $try);
-                $spent = $alloc['DEW'] - $try['DEW'];
-                $rate = ($score - $current) / $spent;
-                if ($spent == 1 ? $score > $bestScore : $rate > $bestRate) {
-                    $best = $try;
-                    $bestTotal = $score;
-                    $bestRate = $rate;
-                    $bestScore = ($spent == 1) ? $score : $current + $rate;
+        $ccewLimit = ($flights && !$lcv) ? $ccewCap : null;
+        if ($elint === null) {
+            list($alloc, $current) = self::climb($state, $alloc, $current, $lockable, $caps, $step, $minDew, $ccewLimit);
+        } else {
+            /* G2 - an ELINT: the search twice, BLANKET and SUPPORT (the page never lets BDEW stand beside SDEW, SOEW, DIST or Detect
+               Stealth), the better kept - a tie to SUPPORT, where an idle point may still go to Detect Stealth. The SOEW package needs
+               the friends that lock each enemy ship the ELINT may lock (not at close range, where a lock stays soft; not a missile ship
+               turtling). */
+            $state['elint']['packages'] = self::packages($state, $lockable, $close, $view->skill('missileTurtle') && self::missileShip($view, $ship));
+            $blanket = self::climb($state, $alloc, $current, $lockable, $caps, $step, $minDew, $ccewLimit, 'blanket', $pageMinDew);
+            $support = self::climb($state, $alloc, $current, $lockable, $caps, $step, $minDew, $ccewLimit, 'support', $pageMinDew);
+            if ($blanket[1] > $support[1]) {
+                list($alloc, $current) = $blanket;
+            } else {
+                list($alloc, $current) = $support;
+                /* DETECT STEALTH (Hard - the user: "only allow Hard to consider if it's worth it to detect across more of the map"): with a
+                   stealth unit in the game the bot cannot see now, the DEW points that buy less than EW_MIN_GAIN of defence each extend
+                   the ELINT's detection 2 hexes, up to EW_DETECT_STEALTH_MAX. */
+                if ($view->skill('elintStealth') && !empty($view->gamedata->isStealthPresent) && self::unseenStealth($view)) {
+                    while ($alloc['DS'] < AIConfig::EW_DETECT_STEALTH_MAX && $alloc['DEW'] > $minDew) {
+                        $try = $alloc;
+                        $try['DEW']--;
+                        $try['DS']++;
+                        $score = self::score($state, $try);
+                        if ($current - $score >= AIConfig::EW_MIN_GAIN) break;
+                        $alloc = $try;
+                        $current = $score;
+                    }
                 }
             }
-            if ($best === null) break;
-            $alloc = $best;
-            $current = $bestTotal;
+            //Easy: the search's split only for its ELINT functions - with none of them worth a point, Easy's own half-and-half split
+            if ($easySplit !== null && count(self::elintRows($alloc)) == 0) return $easySplit;
         }
 
         /* An LCV has no choice: what is left above 2 goes to OEW, wherever it does most (the nearest, when nothing does anything) -
@@ -623,6 +684,14 @@ class EWDecider
             $rows[] = new EWentry(-1, $ship->id, $turn, 'CCEW', $alloc['CCEW'], -1);
             $locks++;
         }
+        //G2: an ELINT's functions stand too - a JAM row is a lock row for the engine's disruption share (BaseShip::getOEWTargetNum)
+        $elint = isset($state['elint']) && $state['elint'] !== null;
+        if ($elint) {
+            foreach (self::elintRows($alloc) as $row) {
+                $rows[] = new EWentry(-1, $ship->id, $turn, $row[0], $row[1], $row[2]);
+                if ($row[0] === 'JAM') $locks++;
+            }
+        }
         $standing = false;
         $offence = 0;
         foreach ($state['guns'] as $weapon) {
@@ -685,16 +754,473 @@ class EWDecider
             }
         }
         $dew = $alloc['DEW'];
-        if (!isset($state['defence'][$dew])) {
+        //G2: an ELINT's own defence also hangs on its blanket (it covers the ELINT) and its DIST (the enemy's locks on it cut)
+        $defenceKey = $elint ? $dew . ':' . $alloc['BDEW'] . ':' . self::distKey($alloc) : $dew;
+        if (!isset($state['defence'][$defenceKey])) {
             $rows = $state['base'];
             $rows[] = new EWentry(-1, $ship->id, $turn, 'DEW', $dew, -1);
+            if ($elint) {
+                if ($alloc['BDEW'] > 0) $rows[] = new EWentry(-1, $ship->id, $turn, 'BDEW', $alloc['BDEW'], -1);
+                foreach ($alloc['DIST'] as $id => $amount) if ($amount > 0) $rows[] = new EWentry(-1, $ship->id, $turn, 'DIST', $amount, $id);
+            }
             $ship->EW = $rows;
             $taken = 0;
             foreach ($state['threats'] as $threat) $taken += $view->estimate($threat[0], $threat[1], $ship, false) * $threat[2];
-            $state['defence'][$dew] = $taken;
+            $state['defence'][$defenceKey] = $taken;
         }
 
-        return AIConfig::EW_OFFENCE * $offence - AIConfig::EW_DEFENCE * $state['defence'][$dew];
+        $total = AIConfig::EW_OFFENCE * $offence - AIConfig::EW_DEFENCE * $state['defence'][$defenceKey];
+        if (!$elint) return $total;
+
+        /* G2 - THE FLEET'S TERMS, with every row of the split standing on the ELINT: the enemy's fire at the bot's other units (the
+           blanket, SDEW and DIST in it), the SOEW friends' fire with the shared lock, and what JAM should take off an HK flight. */
+        $all = array();
+        foreach ($state['base'] as $entry) $all[] = $entry;
+        foreach (self::elintRows($alloc) as $row) $all[] = new EWentry(-1, $ship->id, $turn, $row[0], $row[1], $row[2]);
+        foreach ($alloc['OEW'] as $targetId => $amount) if ($amount > 0) $all[] = new EWentry(-1, $ship->id, $turn, 'OEW', $amount, $targetId);
+        if ($alloc['CCEW'] > 0) $all[] = new EWentry(-1, $ship->id, $turn, 'CCEW', $alloc['CCEW'], -1);
+        $all[] = new EWentry(-1, $ship->id, $turn, 'DEW', $dew, -1);
+        $ship->EW = $all;
+        return $total + AIConfig::EW_OFFENCE * self::fleetOffence($state, $alloc, $locks, $all)
+            - AIConfig::EW_DEFENCE * self::fleetDefence($state, $alloc) + AIConfig::EW_DEFENCE * self::jamWorth($state, $alloc);
+    }
+
+    // ------------------------------------------------------------------ G2: ELINT functions
+
+    /* Is $ship an ELINT this decider plans as one: the page's isElint (a system with the ability, neither destroyed nor switched off -
+       ships.js getSpecialAbilitySystem; a Jealous ELINT array only when designated) and the engine's (BaseShip::isElint, which its ELINT
+       sums ask); points to spend; not a docking rider, an LCV (the page's own rule for it) or a unit refused by unitBlock; and no Kirishiac
+       ELINT modules (their two pools stay on DEW, as before). */
+    private static function elintShip(AIView $view, $ship)
+    {
+        if (!$ship->isElint() || !empty($ship->getElintModules()) || $ship->hasSpecialAbility('LCVSensors')) return false;
+        if ($view->unitBlock($ship) !== null || HangarOps::bayCarrierAttachedTo($ship, $view->gamedata) !== null) return false;
+        if (self::points($ship, $view->turn) <= 0) return false;
+        foreach ($ship->systems as $system) {
+            if (!isset($system->specialAbilities) || !is_array($system->specialAbilities) || !in_array('ELINT', $system->specialAbilities, true)) continue;
+            if ($system->isDestroyed() || $system->isOfflineOnTurn($view->turn)) continue;
+            if (method_exists($system, 'isJealousElint') && $system->isJealousElint() && !$system->isElintOnTurn($view->turn)) continue;
+            return true;
+        }
+        return false;
+    }
+
+    /* What an ELINT may do this turn, by the page's menu (shipTooltipInitialOrdersMenu.js), every range from where the units stand NOW
+       (the page's test) and an Expert ELINT Officer's longer ones (Officers::elintRange):
+         'friends'  the bot's other units on the board, mines aside - priced for the enemy's fire at them (flights too: a blanket covers them)
+         'near'     unit id => whether it is within the blanket's reach (20) where the units are priced - a cache key's part only
+         'soew'     the bot's other SHIPS (not flights or mines, targetable, not docking riders) within 30 - SOEW's targets
+         'sdew'     the same within 50 - SDEW's
+         'dist'     (Hard) enemy SHIPS within 30, not mines, by the Advanced Sensors rule (the ELINT has them, or the target has not)
+         'jam'      (Hard) enemy remoteControl flights within 30, by the same rule
+       $ships: the bot's ships planned this turn; $now: unit id => where the bot's units stand now. */
+    private static function elintContext(AIView $view, $ship, array $enemies, array $mine, array $now, array $ships)
+    {
+        $from = isset($now[(int)$ship->id]) ? $now[(int)$ship->id] : $ship->getHexPos();
+        $at = function ($unit) use ($now) {
+            return isset($now[(int)$unit->id]) ? $now[(int)$unit->id] : $unit->getHexPos();
+        };
+        $range30 = Officers::elintRange($ship, 30);
+        $range50 = Officers::elintRange($ship, 50);
+        $blanket = Officers::elintRange($ship, 20);
+        $advanced = $ship->hasSpecialAbility('AdvancedSensors');
+
+        $context = array('friends' => array(), 'near' => array(), 'soew' => array(), 'sdew' => array(), 'dist' => array(), 'jam' => array(),
+            'byId' => array(), 'distStep' => 3 + ($ship->hasSpecialAbility('ConstrainedEW') ? 1 : 0), 'packages' => array(),
+            'threats' => null, 'taken' => array(), 'fire' => array(), 'fireBase' => array(), 'guns' => array(), 'jamThreat' => array(),
+            'enemyElint' => false);
+        foreach ($mine as $unit) {
+            if ((int)$unit->id === (int)$ship->id || !empty($unit->mine) || $unit->isDestroyed() || $unit->isTerrain()) continue;
+            $context['friends'][] = $unit;
+            $context['byId'][(int)$unit->id] = $unit;
+            $context['near'][(int)$unit->id] = Mathlib::getDistanceHex($unit, $ship) <= $blanket;
+        }
+        foreach ($ships as $unit) {
+            if ((int)$unit->id === (int)$ship->id || $unit instanceof FighterFlight || !empty($unit->mine) || !$unit->isTargetableBy()) continue;
+            if (HangarOps::bayCarrierAttachedTo($unit, $view->gamedata) !== null) continue;
+            $d = $from->distanceTo($at($unit));
+            if ($d <= $range30) $context['soew'][] = $unit;
+            if ($d <= $range50) $context['sdew'][] = $unit;
+        }
+        foreach ($enemies as $enemy) {
+            if ($enemy->isElint()) $context['enemyElint'] = true;
+            if (!empty($enemy->mine) || $from->distanceTo($enemy->getHexPos()) > $range30) continue;
+            if (!$advanced && $enemy->hasSpecialAbility('AdvancedSensors')) continue;
+            if ($enemy instanceof FighterFlight) {
+                if (!empty($enemy->remoteControl) && $view->skill('elintJam')) $context['jam'][] = $enemy;
+                continue;
+            }
+            if ($view->skill('elintDisrupt')) $context['dist'][] = $enemy;
+        }
+        return $context;
+    }
+
+    /* The SOEW packages (the user: "hard-locking an opponent with at least 6 OEW and then sharing this lock using SOEW with around 1-2
+       allies who also plan to target that specific enemy"): array(enemy id, list of friend ids) - each enemy SHIP the ELINT may lock
+       (not within close range, where its lock stays soft; none at all for a turtling missile ship) with one or two of the SOEW friends
+       that hold OEW on it in their own rows (stood on them). */
+    private static function packages(array $state, array $lockable, array $close, $turtle)
+    {
+        $out = array();
+        if ($turtle) return $out;
+        $turn = $state['view']->turn;
+        foreach ($lockable as $enemy) {
+            if ($enemy instanceof FighterFlight || !empty($enemy->mine) || isset($close[(int)$enemy->id])) continue;
+            $lockers = array();
+            foreach ($state['elint']['soew'] as $friend) {
+                foreach ($friend->EW as $entry) {
+                    if ((int)$entry->turn === (int)$turn && $entry->type === 'OEW' && (int)$entry->targetid === (int)$enemy->id && (int)$entry->amount > 0) {
+                        $lockers[] = (int)$friend->id;
+                        break;
+                    }
+                }
+            }
+            foreach ($lockers as $i => $a) {
+                if (AIConfig::EW_SOEW_FRIENDS >= 1) $out[] = array((int)$enemy->id, array($a));
+                if (AIConfig::EW_SOEW_FRIENDS < 2) continue;
+                for ($j = $i + 1; $j < count($lockers); $j++) $out[] = array((int)$enemy->id, array($a, $lockers[$j]));
+            }
+        }
+        return $out;
+    }
+
+    /* The search (allocate()'s): a step at a time, the one that gains most for each point it moves, while that is at least EW_MIN_GAIN a
+       point. Every step is one point unless an enemy ELINT disrupts the ship (lockStep) - then a step may also move up to $step points
+       onto one enemy at once, its gain counted per point, so it is taken only when it pays better than the single points beside it.
+       $ccewLimit: the most CCEW (null: none). G2 - $mode 'blanket' / 'support' adds an ELINT's moves (elintMoves); a blanket point keeps
+       only the page's floor ($pageMinDew). Returns array(split, score). */
+    private static function climb(array &$state, array $alloc, $current, array $lockable, array $caps, $step, $minDew, $ccewLimit, $mode = null, $pageMinDew = 0)
+    {
+        $floor = ($mode === 'blanket') ? min($minDew, $pageMinDew) : $minDew;
+        while ($alloc['DEW'] > $floor) {
+            $best = null;
+            $bestTotal = null;
+            $bestScore = $current + AIConfig::EW_MIN_GAIN; //what a 1-point step must beat - exactly the rule before game 5826
+            $bestRate = AIConfig::EW_MIN_GAIN;            //...and a step of more points, a point at a time
+            $list = array();
+            if ($alloc['DEW'] > $minDew) {
+                $ccewRoom = ($ccewLimit !== null) ? $ccewLimit - $alloc['CCEW'] : 0;
+                $list = self::moves($alloc, $lockable, $ccewRoom, $caps, min($step, $alloc['DEW'] - $minDew));
+            }
+            if ($mode !== null) $list = array_merge($list, self::elintMoves($state, $alloc, $mode, $minDew, $pageMinDew));
+            foreach ($list as $try) {
+                $score = self::score($state, $try);
+                $spent = $alloc['DEW'] - $try['DEW'];
+                $rate = ($score - $current) / $spent;
+                if ($spent == 1 ? $score > $bestScore : $rate > $bestRate) {
+                    $best = $try;
+                    $bestTotal = $score;
+                    $bestRate = $rate;
+                    $bestScore = ($spent == 1) ? $score : $current + $rate;
+                }
+            }
+            if ($best === null) break;
+            //an SOEW package's lock is a hard one (the user's "at least 6"): the soft and medium-range caps on it are lifted from here on
+            if (isset($best['lift'])) {
+                unset($caps[$best['lift']]);
+                unset($best['lift']);
+            }
+            $alloc = $best;
+            $current = $bestTotal;
+        }
+        return array($alloc, $current);
+    }
+
+    /* An ELINT's moves from $alloc (G2), each one point of DEW (an SOEW package or a DIST step: several) into an ELINT function:
+         blanket  BDEW +1, down to the page's own floor
+         support  SDEW +1 on ONE friend (the user: "more efficient on a single valuable target"); the SOEW package while no SOEW stands,
+                  then SOEW on one more friend up to EW_SOEW_FRIENDS; at Hard DIST + a step on an enemy ship and JAM +1 on an HK flight */
+    private static function elintMoves(array $state, array $alloc, $mode, $minDew, $pageMinDew)
+    {
+        $e = $state['elint'];
+        $list = array();
+        if ($mode === 'blanket') {
+            if ($alloc['DEW'] > $pageMinDew) {
+                $try = $alloc;
+                $try['DEW']--;
+                $try['BDEW']++;
+                $list[] = $try;
+            }
+            return $list;
+        }
+        $room = $alloc['DEW'] - $minDew;
+        if ($room < 1) return $list;
+
+        $sdewOn = null;
+        foreach ($alloc['SDEW'] as $id => $amount) if ($amount > 0) $sdewOn = $id;
+        foreach ($e['sdew'] as $friend) {
+            if ($sdewOn !== null && (int)$friend->id !== $sdewOn) continue;
+            if (isset($alloc['SDEW'][(int)$friend->id]) && $alloc['SDEW'][(int)$friend->id] >= AIConfig::EW_SDEW_MAX) continue; //"typically 5-6 EW"
+            $try = $alloc;
+            $try['DEW']--;
+            $try['SDEW'][(int)$friend->id] = (isset($alloc['SDEW'][(int)$friend->id]) ? $alloc['SDEW'][(int)$friend->id] : 0) + 1;
+            $list[] = $try;
+        }
+
+        if (count($alloc['SOEW']) == 0) {
+            foreach ($e['packages'] as $package) {
+                list($enemyId, $friends) = $package;
+                $has = isset($alloc['OEW'][$enemyId]) ? $alloc['OEW'][$enemyId] : 0;
+                $need = max(0, AIConfig::EW_SOEW_LOCK - $has) + count($friends);
+                if ($need > $room) continue;
+                $try = $alloc;
+                $try['DEW'] -= $need;
+                $try['OEW'][$enemyId] = max($has, AIConfig::EW_SOEW_LOCK);
+                foreach ($friends as $id) $try['SOEW'][$id] = 1;
+                $try['lift'] = $enemyId;
+                $list[] = $try;
+            }
+        } else if (count($alloc['SOEW']) < AIConfig::EW_SOEW_FRIENDS) {
+            foreach ($e['soew'] as $friend) {
+                if (isset($alloc['SOEW'][(int)$friend->id])) continue;
+                $try = $alloc;
+                $try['DEW']--;
+                $try['SOEW'][(int)$friend->id] = 1;
+                $list[] = $try;
+            }
+        }
+
+        if ($e['distStep'] <= $room) {
+            foreach ($e['dist'] as $enemy) {
+                $try = $alloc;
+                $try['DEW'] -= $e['distStep'];
+                $try['DIST'][(int)$enemy->id] = (isset($alloc['DIST'][(int)$enemy->id]) ? $alloc['DIST'][(int)$enemy->id] : 0) + $e['distStep'];
+                $list[] = $try;
+            }
+        }
+        foreach ($e['jam'] as $flight) {
+            $try = $alloc;
+            $try['DEW']--;
+            $try['JAM'][(int)$flight->id] = (isset($alloc['JAM'][(int)$flight->id]) ? $alloc['JAM'][(int)$flight->id] : 0) + 1;
+            $list[] = $try;
+        }
+        return $list;
+    }
+
+    //G2: a split's ELINT rows as array(type, amount, target id) - BDEW, SOEW, SDEW, DIST, JAM, Detect Stealth; none on a plain split
+    private static function elintRows(array $alloc)
+    {
+        $rows = array();
+        if (!isset($alloc['BDEW'])) return $rows;
+        if ($alloc['BDEW'] > 0) $rows[] = array('BDEW', $alloc['BDEW'], -1);
+        foreach (array('SOEW', 'SDEW', 'DIST', 'JAM') as $type) {
+            foreach ($alloc[$type] as $id => $amount) if ($amount > 0) $rows[] = array($type, $amount, $id);
+        }
+        if ($alloc['DS'] > 0) $rows[] = array('Detect Stealth', $alloc['DS'], -1);
+        return $rows;
+    }
+
+    //G2: the DIST part of a split as a cache key
+    private static function distKey(array $alloc)
+    {
+        if (empty($alloc['DIST'])) return '';
+        $dist = $alloc['DIST'];
+        ksort($dist);
+        $parts = array();
+        foreach ($dist as $id => $amount) if ($amount > 0) $parts[] = $id . '=' . $amount;
+        return implode(',', $parts);
+    }
+
+    //G2: $unit's rows of earlier turns ($kept) and the rows just decided for it (AIOrderBuilder::ew shape), stood on it
+    private static function stand($unit, array $kept, array $rows)
+    {
+        $unit->EW = $kept;
+        foreach ($rows as $row) $unit->EW[] = new EWentry(-1, $unit->id, $row['turn'], $row['type'], $row['amount'], $row['targetid']);
+    }
+
+    /* G2: what the enemy's guns should do to the bot's other units at the split tried - each gun by the share of its fire that unit would
+       draw among the bot's units, as the ELINT's own threats are counted; the units at their decided DEW (stood on them). One answer per
+       unit and gun is kept, keyed by what of the split can change it: the blanket (within its reach), SDEW on that unit, and DIST on the
+       gun's ship - on every enemy when the enemy has an ELINT of its own (DIST on it cuts the SOEW it gives). */
+    private static function fleetDefence(array &$state, array $alloc)
+    {
+        $view = $state['view'];
+        $e = &$state['elint'];
+        if ($e['threats'] === null) {
+            $e['threats'] = array();
+            $ship = $state['ship'];
+            $standing = $ship->EW;
+            $ship->EW = $state['base'];
+            foreach ($e['friends'] as $friend) {
+                $list = array();
+                foreach ($state['enemies'] as $enemy) {
+                    if (!empty($enemy->mine)) continue;
+                    foreach ($view->mounts($enemy) as $mount) {
+                        if (!$view->plainGun($mount['weapon'], $mount['fighter']) || !$view->loaded($mount['weapon'])) continue;
+                        $here = $view->estimate($enemy, $mount['weapon'], $friend, false);
+                        if ($here <= 0) continue;
+                        $all = 0;
+                        foreach ($state['units'] as $unit) $all += ((int)$unit->id === (int)$friend->id) ? $here : $view->estimate($enemy, $mount['weapon'], $unit, false);
+                        $list[] = array($enemy, $mount['weapon'], $all > 0 ? $here / $all : 1);
+                    }
+                }
+                $e['threats'][(int)$friend->id] = $list;
+            }
+            $ship->EW = $standing;
+        }
+
+        $fullDist = $e['enemyElint'] ? self::distKey($alloc) : null;
+        $taken = 0;
+        foreach ($e['friends'] as $friend) {
+            $id = (int)$friend->id;
+            $bdew = $e['near'][$id] ? $alloc['BDEW'] : 0;
+            $sdew = isset($alloc['SDEW'][$id]) ? $alloc['SDEW'][$id] : 0;
+            foreach ($e['threats'][$id] as $k => $threat) {
+                $dist = ($fullDist !== null) ? $fullDist : (isset($alloc['DIST'][(int)$threat[0]->id]) ? $alloc['DIST'][(int)$threat[0]->id] : 0);
+                $key = $id . ':' . $k . ':' . $bdew . ':' . $sdew . ':' . $dist;
+                if (!isset($e['taken'][$key])) $e['taken'][$key] = $view->estimate($threat[0], $threat[1], $friend, false) * $threat[2];
+                $taken += $e['taken'][$key];
+            }
+        }
+        return $taken;
+    }
+
+    /* G2: what SOEW adds to the friends it supports - each one's loaded guns, each at the enemy it does most to (an enemy that moves after
+       the friend counting EW_MOVES_AFTER_WEIGHT, as the ship's own), with the support standing less without it (this ELINT's rows off).
+       The engine gives SOEW only to a friend holding its own lock, so a friend's OEW is what it decided. $rows: the split standing. */
+    private static function fleetOffence(array &$state, array $alloc, $locks, array $rows)
+    {
+        if (empty($alloc['SOEW'])) return 0;
+        $view = $state['view'];
+        $ship = $state['ship'];
+        $e = &$state['elint'];
+        $oew = $alloc['OEW'];
+        ksort($oew);
+        $oewKey = json_encode($oew) . ':' . $locks . ':' . self::distKey($alloc);
+        $gain = 0;
+        foreach ($alloc['SOEW'] as $id => $one) {
+            if ($one <= 0 || !isset($e['byId'][$id])) continue;
+            $friend = $e['byId'][$id];
+            if (!isset($e['fireBase'][$id])) {
+                $ship->EW = $state['base'];
+                $e['fireBase'][$id] = self::friendFire($state, $friend);
+                $ship->EW = $rows;
+            }
+            $key = $id . ':' . $oewKey;
+            if (!isset($e['fire'][$key])) $e['fire'][$key] = self::friendFire($state, $friend);
+            $gain += $e['fire'][$key] - $e['fireBase'][$id];
+        }
+        return $gain;
+    }
+
+    //G2: a friend's loaded guns, each at the enemy it does most to, arcs not asked (as score() counts the ship's own)
+    private static function friendFire(array &$state, $friend)
+    {
+        $view = $state['view'];
+        $e = &$state['elint'];
+        $id = (int)$friend->id;
+        if (!isset($e['guns'][$id])) {
+            $e['guns'][$id] = array();
+            foreach ($view->mounts($friend) as $mount) {
+                $weapon = $mount['weapon'];
+                if ($mount['fighter'] !== null || !$view->plainGun($weapon) || $weapon->isOfflineOnTurn($view->turn) || !$view->loaded($weapon)) continue;
+                $e['guns'][$id][] = $weapon;
+            }
+        }
+        $fire = 0;
+        foreach ($e['guns'][$id] as $weapon) {
+            $best = 0;
+            foreach ($state['enemies'] as $enemy) {
+                $soft = empty($enemy->base) && empty($enemy->smallBase) && empty($enemy->osat) && empty($enemy->mine) && $enemy->iniative >= $friend->iniative;
+                $best = max($best, $view->estimate($friend, $weapon, $enemy, false) * ($soft ? AIConfig::EW_MOVES_AFTER_WEIGHT : 1));
+            }
+            $fire += $best;
+        }
+        return $fire;
+    }
+
+    /* G2 (Hard): what JAM should take off the enemy's Hunter-Killers (HkJamming: d20 + 1 for each point past the first, in the Critical
+       phase after this turn's fire - 19+ Control Lost next turn, 21 one craft drops out, 22+ two): for each jammed flight, the chance of
+       Control Lost x its ram threat next turn, plus the craft expected to drop out x one craft's threat. */
+    private static function jamWorth(array &$state, array $alloc)
+    {
+        if (empty($alloc['JAM'])) return 0;
+        $worth = 0;
+        foreach ($alloc['JAM'] as $id => $points) {
+            if ($points <= 0) continue;
+            $flight = null;
+            foreach ($state['elint']['jam'] as $unit) if ((int)$unit->id === (int)$id) $flight = $unit;
+            if ($flight === null) continue;
+            list($craft, $each) = self::jamThreat($state, $flight);
+            $lost = min(1, ($points + 1) / 20);
+            $dropped = min(1, max(0, $points - 1) / 20) + min(1, max(0, $points - 2) / 20);
+            $worth += $lost * $craft * $each + min($craft, $dropped) * $each;
+        }
+        return $worth;
+    }
+
+    /* G2: an HK flight's ram threat, array(live craft, one craft's expected ram damage): the best of its ram (loaded, its RammingAttack
+       priced by the engine's own formula from the bot ship's hex) at a bot ship it could reach by the end of next turn - twice its
+       greatest move and POWER_REACH_SLACK - but not THIS turn: jamming lands in the Critical phase, after this turn's rams, and a
+       Hunter-Killer is spent by its ram - so one already within reach of a bot ship is taken to ram now, and JAM buys nothing on it.
+       0 when it has no ram ready. */
+    private static function jamThreat(array &$state, $flight)
+    {
+        $e = &$state['elint'];
+        $id = (int)$flight->id;
+        if (isset($e['jamThreat'][$id])) return $e['jamThreat'][$id];
+        $view = $state['view'];
+        $turn = $view->turn;
+        $ram = null;
+        foreach ($flight->systems as $fighter) {
+            if (!($fighter instanceof Fighter) || $fighter->isDestroyed()) continue;
+            foreach ($fighter->systems as $system) {
+                if ($system instanceof RammingAttack && $system->designedToRam && !$system->isDestroyed() && $view->loaded($system)) $ram = $system;
+            }
+            if ($ram !== null) break;
+        }
+        $craft = (int)$flight->countActiveCraft($turn);
+        $each = 0;
+        $last = $flight->getLastMovement();
+        if ($ram !== null && $craft > 0 && $last) {
+            $now = PowerDecider::maxMove($flight) + AIConfig::POWER_REACH_SLACK;
+            $reach = 2 * PowerDecider::maxMove($flight) + AIConfig::POWER_REACH_SLACK;
+            $targets = array();
+            foreach ($state['units'] as $unit) {
+                if ($unit instanceof FighterFlight || !empty($unit->mine) || $unit->isDestroyed()) continue;
+                $d = $flight->getHexPos()->distanceTo($unit->getHexPos());
+                if ($d <= $now) return $e['jamThreat'][$id] = array($craft, 0); //it rams this turn, before the jamming roll
+                if ($d <= $reach) $targets[] = $unit;
+            }
+            foreach ($targets as $unit) {
+                $flight->movement[] = new MovementOrder(-1, 'move', new OffsetCoordinate($unit->getHexPos()), 0, 0, $last->speed, $last->heading, $last->facing, false, $turn, 0, 0);
+                try {
+                    $each = max($each, $view->estimate($flight, $ram, $unit, false));
+                } finally {
+                    array_pop($flight->movement);
+                }
+            }
+        }
+        return $e['jamThreat'][$id] = array($craft, $each);
+    }
+
+    //G2: is there an enemy stealth unit the bot cannot see now (hideStealthShipMovement stands an undetected one off the map, at -10000)?
+    private static function unseenStealth(AIView $view)
+    {
+        foreach ($view->gamedata->ships as $unit) {
+            if ($unit->team == $view->team || empty($unit->trueStealth) || !empty($unit->mine) || $unit->isDestroyed()) continue;
+            $last = $unit->getLastMovement();
+            if ($last && (int)$last->position->q <= -9999) return true;
+        }
+        return false;
+    }
+
+    //G2: an ELINT's functions, for the Initial Orders log line ('' when it used none)
+    private static function elintText(AIView $view, $ship, array $alloc)
+    {
+        $parts = array();
+        $name = function ($id) use ($view) {
+            $unit = $view->gamedata->getShipById((int)$id);
+            return $unit ? $unit->name : (string)$id;
+        };
+        foreach (self::elintRows($alloc) as $row) {
+            $parts[] = $row[0] . ' ' . $row[1] . ($row[2] > 0 ? ' ' . $name($row[2]) : '');
+        }
+        if (count($parts) == 0) return '';
+        if (count($alloc['SOEW']) > 0) {
+            foreach ($alloc['OEW'] as $id => $amount) if ($amount >= AIConfig::EW_SOEW_LOCK) $parts[] = 'shared lock OEW ' . $amount . ' ' . $name($id);
+        }
+        return $ship->name . ': ' . implode(', ', $parts);
     }
 
     /* The EW points the page gives this ship (ew.getScannerOutput): 0 for a ship adrift, else

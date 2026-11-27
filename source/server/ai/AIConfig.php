@@ -317,6 +317,15 @@ class AIConfig
     const EW_CCEW_REACH = 10;
     const EW_CCEW_CAP = 2;
     const EW_FIGHTER_HEAVY = 0.33;
+    /* ELINT FUNCTIONS (plan 10.10 G2, the user's notes of 2026-11-27; EWDecider). SOEW: "hard-locking an opponent with at least 6 OEW and then
+       sharing this lock using SOEW with around 1-2 allies who also plan to target that specific enemy" - the ELINT's lock raised to
+       EW_SOEW_LOCK with SOEW on at most EW_SOEW_FRIENDS bot ships. Detect Stealth (Hard, a stealth unit unseen): at most this many of the
+       DEW points that buy nothing (each +2 hexes of the ELINT's detection). */
+    const EW_SOEW_LOCK = 6;
+    const EW_SOEW_FRIENDS = 2;
+    //SDEW: "more efficient on a single valuable target ... Typically 5-6 EW used in this fashion" - on one friend, at most this many points
+    const EW_SDEW_MAX = 6;
+    const EW_DETECT_STEALTH_MAX = 4;
 
     //What a seat may be set to. Levels and personalities do nothing before stage T5 / T8; the
     //seat stores them from the start so that games created now keep their setting.
@@ -538,28 +547,35 @@ class AIConfig
                         range. Every level but 'none' fires a charging accelerator anyway at its cycling charge, to finish a target or a
                         section off (FIRE_FINISH_CHANCE), as a LAST SHOT (its ship or its section expected lost this turn - JumpDecider's
                         "so damaged" share - or the ship leaving through its jump point), and when the target leaves its reach next turn;
-                        and holds a charged one to the floors of the turns its charge took (minimumChance) */
+                        and holds a charged one to the floors of the turns its charge took (minimumChance)
+         elint          an ELINT ship uses its ELINT functions (plan 10.10 G2 - EWDecider): BDEW, or SDEW and SOEW, priced with the fleet's
+                        rows; Easy too (the user, 2026-11-27: "fine if there's not that much variation between the CPU player levels on
+                        ELINT use"); legacy off (an ELINT runs plain OEW / DEW, as before)
+         elintDisrupt   DIST on enemy ships within 30 hexes, priced like the other functions (the user: "a and b" - Hard only)
+         elintJam       JAM on enemy remoteControl flights - Orieni Hunter-Killers (the user: "Can limit to Hard CPU")
+         elintStealth   Detect Stealth with a stealth unit unseen, from DEW points that buy nothing (the user: "only allow Hard to consider
+                        if it's worth it to detect across more of the map") */
     const SKILLS = array(
         'easy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => true, 'simpleEW' => true, 'focus' => 0.0, 'heavyFocus' => false,
             'pulsePremium' => false, 'shortening' => false, 'unmovedDanger' => 0.5, 'overspeed' => 0.5, 'ballisticFloor' => false,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'none', 'noise' => 10.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none'),
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
         'normal' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 1.5, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 4,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'turn',
-            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step'),
+            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
         'hard' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 3.0, 'jink' => 'any', 'manoeuvres' => 'all', 'noise' => 0.0, 'coverageGoals' => 12,
             'pileOn' => 1.0, 'support' => 2.0, 'fleetFocus' => 0.5, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => true, 'extendedTurns' => true, 'forecast' => 'full',
-            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full'),
+            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full', 'elint' => true, 'elintDisrupt' => true, 'elintJam' => true, 'elintStealth' => true),
         'legacy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => false, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none')
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none', 'elint' => false, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false)
     );
 
     /* POWER MANAGEMENT (skill 'powerBoost', stage T5f-4). A gun "reaches" an enemy when, with the units as close as both could

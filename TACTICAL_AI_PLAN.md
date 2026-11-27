@@ -3056,7 +3056,7 @@ if wanted sooner.
 | # | Item | Who gains | What is needed | Approach | Size |
 |---|---|---|---|---|---|
 | G1 | ✅ **Accelerator weapon strategy** (charge timing) - BUILT 2026-11-27, uncommitted ("G1 as built" below; with it the engine's pulse count, every pulse weapon - ruled "Fix everywhere") | Torata 110 mounts (Particle, Plasma, Pulse, Laser Accelerators), Minbari Molecular Pulsar 20, Centauri Plasma Accelerator 12, Corillani 10, Raiders 9 (+ EA custom phased beams) - every weapon whose `normalload` > its loading time | TODAY: the AI fires a weapon as soon as it is loaded. A load-1 accelerator is treated as a 1-turn gun (floor FIRE_MIN_CHANCE 5, never in `holdSlow`), so it fires EVERY turn at its weakest charge (Plasma Accelerator 1d10+4, not 4d10+12 - and armour comes off every small hit); the Laser Accelerator (load 2, full 4) goes through `holdSlow`, but `AIView::ahead` moves the units and leaves `turnsloaded` alone, so waiting is never seen to grow the shot. Legal either way - no pair or self-play game can flag it | (1) Price each charge level: on a CLONE, `turnsloaded` = 1 .. normalload, refresh min/max damage, the usual estimate (armour per hit included). (2) Fire now when now >= next charge level x FIRE_HOLD_CONFIDENCE (0.8 a turn), else hold - re-decided every turn, so a gun charges a step at a time. (3) Fire regardless of charge (the user's cases): FINISH OFF (this charge likely kills the target or a section - `healthLeft`), LAST SHOT (the shooter or the weapon's section expected lost this turn - JumpDecider's "expected kill" measure - or jumping out / surrendering), TARGET LEAVING (holdSlow's parting test: out of arc or range next turn). (4) Levels: Easy fires on load (today's behaviour, a weakness); Normal one-step; Hard adds the forecast and looks to full charge. Proof: fireRules boards (charge ladder, finish-off, doomed shooter, parting), the fire pair (choices only - 0 differences must hold), Torata self-play | 1 session |
-| G2 | **ELINT functions** - BDEW, DIST, SOEW, SDEW, JAM, MDEW (Detect Mines) and Detect Stealth | ELINT hulls in nearly every faction (EA, Narn, Orieni, Centauri, Minbari, Dilgar, Torata, Drazi (WotCR), Cascor, Corillani, Descari, Markab, Belt, Balosian, the Protectorate ... ~80 hull files) | TODAY: an ELINT ship runs plain OEW / DEW / CCEW (EWDecider "NOT YET"); the AI prices an ENEMY's DIST against itself (5826 - `lockStep`), never uses one. The page's rules are in ew.js: module-only types (`ELINT_MODULE_ONLY`), area types BDEW / Detect Stealth with per-module reach (`getElintAreaPointsReaching`), DIST in steps of 3 (+mod), arc per module | Extend EWDecider's priced search with the ELINT moves, each valued by the same hit-formula pricing it already uses: BDEW = DEW for every friendly in reach (fighter-heavy or massed enemy fire); SDEW / SOEW = support the most valuable / most locked friendly; DIST = strip an enemy's locks (worth = the bot fire it stops: the enemies with the most OEW on the bot's ships); JAM = against enemy ELINT / HK control (Orieni HKs go Uncontrolled); Detect Stealth only when an enemy stealth unit is known; MDEW on enemy mines (mine-sweep plan). Needs RULINGS first: an ELINT's priority order, and how much it may leave its own defence. Proof: the orders pair (ordersOracle clicks every ELINT row through ew.js), levelsHarness boards per function, self-play with ELINT on both sides | 2 sessions |
+| G2 | ✅ **ELINT functions** - BDEW, DIST, SOEW, SDEW, JAM, MDEW (Detect Mines) and Detect Stealth - BUILT 2026-11-27, uncommitted ("G2 as built" below - the user's notes are the rulings: DIST, JAM and Detect Stealth Hard only; JAM is against remoteControl craft only, NOT enemy ELINTs as this row said; MDEW left for a mine-sweeping behaviour) | ELINT hulls in nearly every faction (EA, Narn, Orieni, Centauri, Minbari, Dilgar, Torata, Drazi (WotCR), Cascor, Corillani, Descari, Markab, Belt, Balosian, the Protectorate ... ~80 hull files) | TODAY: an ELINT ship runs plain OEW / DEW / CCEW (EWDecider "NOT YET"); the AI prices an ENEMY's DIST against itself (5826 - `lockStep`), never uses one. The page's rules are in ew.js: module-only types (`ELINT_MODULE_ONLY`), area types BDEW / Detect Stealth with per-module reach (`getElintAreaPointsReaching`), DIST in steps of 3 (+mod), arc per module | Extend EWDecider's priced search with the ELINT moves, each valued by the same hit-formula pricing it already uses: BDEW = DEW for every friendly in reach (fighter-heavy or massed enemy fire); SDEW / SOEW = support the most valuable / most locked friendly; DIST = strip an enemy's locks (worth = the bot fire it stops: the enemies with the most OEW on the bot's ships); JAM = against enemy ELINT / HK control (Orieni HKs go Uncontrolled); Detect Stealth only when an enemy stealth unit is known; MDEW on enemy mines (mine-sweep plan). Needs RULINGS first: an ELINT's priority order, and how much it may leave its own defence. Proof: the orders pair (ordersOracle clicks every ELINT row through ew.js), levelsHarness boards per function, self-play with ELINT on both sides | 2 sessions |
 | G3 | **Bases and OSATs** | 51 bases + 172 OSATs in the ready factions (105 / 377 in all) - today refused for a CPU slot (`ShipMover::unsupportedHullReason`: 'a base', 'an OSAT'; ⚠️ MIRROR gamelobby.js `cpuHullBlock`) | Bases: no movement but rotation (`canRotate` - deploymove on turn 1 unless `nonRotating`), PowerDecider refuses them (`understands`), several reactors / sub-reactors, the page's own disabled rule (AIView::pageDisabled exception), no jump-out or surrender path (Posture / JumpDecider must count them as unable to leave). OSATs: no thrust movement, free facing turns while their thruster lives (movement.js: OSAT `requiredThrust` 0, `OSatThrusterCrit` limits), no rolls / pivots. Deployment: placed in the zone like any unit (FleetDeployer), facing toward the expected enemy approach. Auto-compose: the checker's static-unit rule (`staticPresent`) - buy them only for scenarios / campaign, never in a plain skirmish | ShipMover: a "static" mode - OSATs choose a facing (turn rows only), bases only their deploy rotation; ShipDecider / FireDecider unchanged (they price from where the unit is). PowerDecider: port the base power balance. Posture: a static unit never jumps or flees; surrender counts its guns. Then take 'a base' / 'an OSAT' out of the refusals (both lists). Proof: ShipMover pair OSAT / base boards (the page's turn rules), orders pair with bases, deployerHarness, self-play with a base defending against EA | 1-2 sessions |
 
 **Observations, not changed:**
@@ -3369,6 +3369,117 @@ Forced-off rows are still not posted (the server reads the critical; the row is 
 - The Abbai Shield Projector (Pirocia, Alanti - a base and an OSAT, refused for CPU) is counted and ranked like a shield; the AI does not
   fire it at allies.
 - The FAQ still names both Drazi, which `READY_FACTIONS` comments out until W2 (noted at G1).
+
+#### G2 as built (2026-11-27) - ELINT functions - uncommitted
+
+**The user's notes (2026-11-27, "here's my own notes on how players typically use ELINT functions, along with some corrections to the
+plan" - rulings):** "it's generally fine if there's not that much variation between the CPU player levels on ELINT use, since the value
+of the ship is strongly tied to getting some use from it."
+- **BDEW** - "A classic ELINT ability and the one most frequently used. Throughout most games it's typical for players to put up to
+  50-100% of an ELINT's DEW into BDEW. Only the highest BDEW affecting a ship counts however so it's important to not have several ELINTs
+  using it at same time as that would waste previous EW points."
+- **SOEW** - "Typically used by the ELINT by hard-locking an opponent with at least 6 OEW and then sharing this lock using SOEW with
+  around 1-2 allies who also plan to target that specific enemy."
+- **SDEW** - "Used much less than BDEW, it's more efficient on a single valuable target like an important ship that enemy is likely to
+  target, or one of your own ships that plans to use its own EW for OEW (so the SDEW limits how exposed they are). Typically 5-6 EW used
+  in this fashion."
+- **DIST** - (asked; the notes had left it out) priced like the other functions, **Hard only** ("I agree with points a and b").
+- **JAM** - "Only jams remoteControl craft, not other ELINTS as the plan suggests. Very situational, most games won't have any
+  remoteControl craft so we can gate and skip most of the time. Can limit to Hard CPU." (The G2 row above was wrong about enemy ELINTs.)
+- **Detect Stealth** - "ELINT detection ranges are already very large, so I think most players never use this. Gate it to
+  gamedata.isStealthPresent and only allow Hard to consider if it's worth it to detect across more of the map."
+- **MDEW** - "Actually not a purely ELINT function ... let's leave this for now and save it for all ships if and when we add Mine
+  Sweeping behaviour to AI." Not built.
+
+**The rules as the page and the engine hold them** (ew.js, shipTooltipInitialOrdersMenu.js, EW.php, Weapon::calculateHitBase, HkJamming):
+| Function | Cost | Effect | Page legality (Initial Orders menu) |
+|---|---|---|---|
+| BDEW | 1 a point | every friendly (TEAM) unit within 20 hexes of the ELINT, the ELINT included: +1/4 DEW a point (1/5 ConstrainedEW); the BEST ELINT's only | self; not with SDEW, DIST, SOEW, Detect Stealth |
+| SDEW | 1 a point | one friendly SHIP within 50: +1/2 DEW a point (best ELINT's only) | friendly, not a flight, not self, within 50, no BDEW |
+| SOEW | 1 a friend (no increments) | the friend gets half the ELINT's OEW on whatever it fires at - ELINT within 30 of both, line of sight, the friend's OWN lock needed (OEW >= 1 after disruption), less the ELINT's own disruption; a flight half again; best ELINT's only | friendly, not a flight or mine, not self, within 30, no BDEW |
+| DIST | 3 a step (4 ConstrainedEW) | an enemy within 30 (line of sight): its OEW on every target - 1 a step, shared over its lock rows (OEW, JAM, CCEW), summed over ELINTs | enemy, not a flight or mine, within 30, no BDEW, Advanced Sensors check |
+| JAM | 1 a point | a remoteControl flight (Orieni HK) within 30: d20 + (points - 1) in the Critical phase - 15-18 initiative, 19-20 Control Lost next turn, 21 + 1 craft drops out, 22+ + 2 | enemy remoteControl flight, within 30, no BDEW, Advanced Sensors check |
+| Detect Stealth | 1 a point | the ELINT detects stealth units 2 hexes further a point (base: scanner x 3) | self; `isStealthPresent`; no BDEW |
+Every range is `Officers::elintRange` (an Expert ELINT Officer's 25% more). The page's Restricted EW half counts every ELINT point as spent.
+
+**The design (agreed 2026-11-27):**
+1. **Who:** a ship whose ELINT ability is live (a system with it, neither destroyed nor switched off - the page's `isElint`), with EW
+   points, not a docking rider, no Kirishiac ELINT modules (those keep today's all-DEW rule - not released) and not refused by `unitBlock`.
+2. **Order:** every other ship decides its EW exactly as today; then the ELINTs, most points first, each seeing the fleet's rows (stood on
+   the ships) and the earlier ELINTs' rows - so a second ELINT finds a second blanket worth nothing where the first covers (the engine's
+   max) and turns to support instead. The other ships are NOT re-planned after the support (later, if wanted).
+3. **Two modes, the better kept:** an ELINT runs EWDecider's own search (its pre-steps, caps and floors) twice - BLANKET (OEW / CCEW +
+   BDEW) and SUPPORT (OEW / CCEW + SDEW + SOEW, and at Hard DIST and JAM) - and posts the one that scores more (a tie: support).
+4. **Priced by the real hit formula**, the ELINT's rows standing, in score(): its own terms as today plus the FLEET's - the enemy's fire
+   at each other bot ship at its decided DEW (BDEW and SDEW there; DIST cuts the enemy's locks), and each SOEW friend's loaded guns
+   with its own OEW plus the support. JAM by the HkJamming table (below).
+5. **The moves:** BDEW +1; SDEW +1 on ONE friend (a single valuable target); SOEW as a PACKAGE - the ELINT's OEW on an enemy ship raised
+   to `EW_SOEW_LOCK` (6) with SOEW on 1 or 2 bot ships that already lock it (within 30), priced per point - after which +1 OEW there
+   carries the friends' share too, at most `EW_SOEW_FRIENDS` (2) SOEW rows; Hard: DIST +3 on an enemy ship within 30, JAM +1 on an enemy
+   remoteControl flight within 30. The package's lock is exempt from the soft (moves-after) and medium-range caps - the user's "hard-lock
+   with at least 6"; the close-range cap and every floor still hold.
+6. **Floors:** the page's Restricted EW half holds for everything. The close-range DEW floor (`EW_CLOSE_MIN_DEW`) does not bind BDEW
+   (the user: "50-100% of an ELINT's DEW into BDEW"; the blanket covers the ELINT too), only the other uses.
+7. **JAM (Hard):** worth = P(Control Lost) x the flight's ram threat next turn + expected craft dropped x a craft's threat; the threat =
+   live craft x the best expected ram (its RammingAttack priced from the bot ship's hex) at a bot ship it could reach by the end of next turn.
+8. **Detect Stealth (Hard):** only with `isStealthPresent` and an enemy stealth unit the bot cannot see now; support mode only (the page);
+   after the search, DEW points that buy less than `EW_MIN_GAIN` of defence go to it, up to `EW_DETECT_STEALTH_MAX`.
+9. **Levels:** Easy, Normal and Hard all run the ELINT search (Easy's half-and-half split is not used on an ELINT - the user's "not
+   that much variation"); DIST, JAM and Detect Stealth are Hard's (skills `elintDisrupt`, `elintJam`, `elintStealth`); `legacy` has the
+   skill `elint` off (today's behaviour).
+10. **Friends priced:** the bot's own ships (a teammate's EW this turn is masked); the engine still gives a teammate the blanket.
+11. **Proof:** ordersHarness ELINT boards (bot friends beside an ELINT hull; at Hard an HK flight and a stealth ship on some rounds) +
+   ordersOracle clicking every ELINT row through the menu's conditions and ew.js; levelsHarness section R, a board per function and the
+   exclusivity / stacking / level rules; self-play with ELINTs on both sides.
+
+**As built** - `EWDecider` (plan() order, `elintShip`, `elintContext`, `packages`, `climb` - the old search loop, unchanged for a plain
+ship - `elintMoves`, `elintRows`, `fleetDefence` / `fleetOffence` / `friendFire`, `jamWorth` / `jamThreat`, `unseenStealth`, `elintText`;
+score() stands the ELINT's rows and adds the fleet terms only for an ELINT), `AIConfig` (EW_SOEW_LOCK 6, EW_SOEW_FRIENDS 2, EW_SDEW_MAX 6,
+EW_DETECT_STEALTH_MAX 4; skills `elint`, `elintDisrupt`, `elintJam`, `elintStealth`), `TacticalAI` (the Initial Orders log line gains
+"; ELINT: Vakar 10: BDEW 7"). tests/ai: ordersHarness `--elint=1`, ordersOracle (ELINT rows through the REAL menu - the file's
+`ShipTooltipInitialOrdersMenu.ewButtons`, each add button's own conditions before every click, its own action as the click), levelsHarness R.
+
+**Implementer's calls, beyond the design (to confirm):**
+- **SDEW at most `EW_SDEW_MAX` (6)** on its one friend - the user's "typically 5-6 EW". Uncapped, a Va'Kar put all 10 points into SDEW on the
+  one G'Quan an Omega had locked (the pricing's honest answer when the enemy's fire is all on that ship).
+- **JAM only on an HK that cannot ram THIS turn** (beyond its greatest move + POWER_REACH_SLACK of every bot ship) but can by the end of
+  next turn: jamming rolls in the Critical phase, after this turn's rams, and a Hunter-Killer is spent by its ram. Before this rule a Hard
+  Va'Kar put 9 points on an HK 14 hexes off. The threat = live craft x the best expected ram (its RammingAttack priced from the bot ship's
+  hex); Control Lost is counted as stopping next turn's ram.
+- **Easy keeps its half-and-half split** unless the ELINT search picks an ELINT function (then the search's whole split) - a lone Easy
+  ELINT is byte-identical to before (73 Easy ELINT situations had changed when the search's plain split was posted too).
+- Friends priced = every other bot unit on the board, flights included (a blanket covers them); SOEW / SDEW targets = the bot's ships only.
+
+**What it does** (scratch boards, a Va'Kar 10 points): beside three G'Quans and two Frazi flights, three EA ships 18 hexes off - BDEW 7
+(BDEW 5 when the enemy locked the Va'Kar last turn; BDEW 10 at 30 hexes; Easy BDEW 10); beside only two G'Quans the blanket does not pay
+(1/4 point to three units for a point of its own DEW) and the Va'Kar keeps its DEW or SDEWs the locked G'Quan (6); two G'Quans locking a
+disarmed Omega - OEW 8 on it + SOEW to both; a 1-point enemy lock - Hard DIST 3 breaks it (a 2-4 point lock: SDEW instead); an HK flight
+27 hexes off - Hard JAM 10 (at 22, in reach now: none).
+
+**Gates (2026-11-27):**
+- **Non-ELINT decisions unchanged:** ordersHarness on a HEAD snapshot vs the new code, EA / Narn / Centauri / Minbari / Dilgar, 1,890
+  situations a level: Easy and Normal 0 differences; Hard 1 (a lone ShoKar now DISTs an enemy with a lock on it - G2 working). Decision time
+  15.8 / 19.0 ms (HEAD 15.7 / 18.9). The League / Minor group (brakiri, abbai x2, drazi, cascor, hurr, corillani, descari, markab,
+  beltalliance, balosian, minbari_protectorate, deneth, llort, rogolon, yolu, usuuth, raiders, torata, orieni), 3,546 situations: Normal 0
+  differences, Hard 1 (a lone Athasa's DIST 3).
+- **The page agrees:** `ordersHarness --elint=1` + ordersOracle over every released faction with ELINT hulls (EA, EA_old, narn, centauri,
+  centauri_old, minbari, dilgar, orieni, torata; brakiri, abbai x2, drazi x2, cascor x2, hurr, corillani, descari, markab, beltalliance,
+  balosian, minbari_protectorate, deneth, llort, rogolon, yolu, usuuth, raiders, alacan, smallraces, streib), Easy / Normal / Hard:
+  **0 differences** on all six runs; server checks 3,770-5,049 a run, 0 failed. Hard clicked in every function through the menu (group b:
+  SDEW 37, Detect Stealth 62, JAM 32, SOEW 7, BDEW 8, DIST 3 points). An ELINT board's whole Initial Orders: 117-148 ms (Normal / Hard).
+- **Self-play, an ELINT on both sides** (Va'Kar, 2 G'Quan, 2 Frazi v Delphi, Omega, Hyperion, 2 Aurora; Hard v Normal, seats swapped;
+  `--budget=0`, kept: **6370, 6371**): both PASS (18 and 32 turns, every submission accepted). Stored ELINT rows: the Delphi BDEW on 13
+  turns, SOEW 20 rows (shared locks of 9-10 on a G'Quan), SDEW 8, DIST 12 (Hard only); the Va'Kar BDEW 11 turns, SDEW 14, DIST 6 (Hard
+  only). Log line e.g. "ELINT: Delphi 1: SOEW 1 Omega 2, SOEW 1 Hyperion 3, shared lock OEW 10 Gquan 3".
+- **levelsHarness 467 PASS** (R: 43 new). **Mutants 7/7 caught** (no fleet rows stood, no SDEW cap, JAM on an HK in reach now, DIST at
+  every level, Detect Stealth ungated, an ELINT's rows not stood for the next ELINT, blanket mode always).
+
+**Observations (not changed):**
+- A blanket pays only beside four or more units (the ELINT counted): a 1-3 ship fleet's ELINT keeps its DEW or SDEWs - the pricing, not a
+  rule. If the user wants ELINTs to blanket small fleets too, a weight on the fleet terms is the knob.
+- The fleet's other ships are not re-planned after the support (SDEW on a ship could let it move DEW to OEW - the user's "one of your own
+  ships that plans to use its own EW for OEW").
+- A teammate's units are not priced (their EW this turn is masked); the engine still gives them the blanket.
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 
