@@ -2387,7 +2387,7 @@ with a flight in their arc, best first" - an Interceptor with none is never boos
 * How the bot sees an enemy player's boosted Interceptors depends on what the mask shows of enemy power this turn - not examined.
 * The handler registry and further factions: moved to stage T9 (section 10.10).
 
-### 10.10 Stage T9 - more factions (PLANNED 2026-11-22; the Major factions RELEASED 2026-11-23 - "T9 release" below)
+### 10.10 Stage T9 - more factions (PLANNED 2026-11-22; the Major factions RELEASED 2026-11-23 - "T9 release" below; 18 League / Minor / Other factions RELEASED 2026-11-26 and the work list for the rest - "THE OTHER GROUPS" at the end of this section)
 
 **The user (2026-11-21):** "now that we have a method of restricting CPU factions, how do we go about expanding this to factions beyond
 EA and Raiders? Campaign work is paused at the moment, so can you make a realistic plan to add more factions as a new Stage T9 (push
@@ -2412,6 +2412,8 @@ factions T9 has added by then.
 4. **The user's play-test** - one game - then the one-line change to `READY_FACTIONS`, and the lobby offers it.
 
 **Where every faction stands (survey of 2026-11-22 - scratch `faction_survey.php`, to become `tests/ai/factionSurvey.php` in T9a).**
+(Historical: for the League, Minor, Ancient and Other groups it is superseded by the 2026-11-26 survey in "THE OTHER GROUPS" at the end of
+this section - E1, E2, E9 and the antimatter half of E4 had landed by then.)
 Every class the lobby offers (not `variantOf` NONE), of all 92 factions, on a small board (the hull at the origin, an enemy Omega 8
 hexes off), asked through AIView's own gates. "Left alone" = weapon mounts the bot never gives an order today, by AIView's reason:
 split = split-shot weapons (`canSplitShots`: the Twin Array family), ammo = an ammunition count without a magazine, rounds = a magazine
@@ -2503,7 +2505,7 @@ before. Ordered by what they unlock in the user's order:
 | E3 | **Magazine rounds outside `BALLISTIC_ROUNDS`** | Kor-Lyan 102 (D-racks 62, mine launchers 10); fighter racks elsewhere (mostly the survey's empty magazines - first CHECK with missiles bought) | Model each round's rules (interceptor, multiwarhead, mines...) or rule it left alone |
 | E4 | **Special hit chance** (`specialHitChanceCalculation`) | Vree 104 (antimatter - their arsenal), Gaim 60 (Packet Torpedo), Raiders 18 (Antiproton Defender), Minbari 11, Minbari Protectorate 4 | Port each family's page formula into AIView - the server's own `calculateHitBase`, as always - and an oracle board per family. **The ANTIMATTER family and the Point Pulsar are done (M3-M5, 2026-11-23: `AIView::PORTED_SPECIAL`)** - the Vree's antimatter guns now pass the fire pair; their turret links (E10) are what is left. Gaim's Packet Torpedo and the rest still to do |
 | E5 | **Hex-targeted weapons** | Pak'ma'ra 43 (Plasma Web), Ipsha 16 (Spark Field), Kor-Lyan 16 (Proximity Laser), Narn 12 (Energy Mine), Brakiri 7 (Gravitic Mine), Hyach 6, Vree 5, Cascor 4 | A hex-choice per family; fire-pair hex boards on T6c's vortex pattern (every hex clicked through the page) |
-| E6 | **A Pre-Firing decider** (phase 5 - "nothing in v1", 5.5) | Minbari 10 (Gravity Net), Brakiri 8 (Gravitic Shifter), Minbari Protectorate 8, Narn 2 (Pulsar Mine) | A new decider and a phase-5 oracle - or rule them left alone for v1 (D4) |
+| E6 | **A Pre-Firing decider** (phase 5 - "nothing in v1", 5.5) | Minbari 10 (Gravity Net), Brakiri 8 (Gravitic Shifter), Minbari Protectorate 8, Narn 2 (Pulsar Mine) | A new decider and a phase-5 oracle - or rule them left alone for v1 (D4). 2026-11-24: the Gravity Net BUILT (M6 - GravityNetDecider, fireOracle replayNets); the Pulsar Mine needed none (it fires by itself - M7 is a movement term); the Brakiri Gravitic Shifter not yet |
 | E7 | **Power models** PowerDecider leaves alone | Pak'ma'ra 14 hulls (Plasma Battery), Ipsha 13 (Mag-Grav), Vorlons 12 (Power Capacitor) | Port each balance into PowerDecider; the orders oracle |
 | E8 | **System handlers** - the section 6 registry, built with the first | shield generators and gravitic shields (Abbai 45 hulls, Brakiri 16) - **BLOCKING: the orders pair over abbai, abbai_old and brakiri (2026-11-22) fails ~400 of 756 situations at every level, every one listed on the page's commit gate "too many active shields" - a CPU fleet would commit a state no player can; a handler must choose the active shields** -, Hyach Computer and Specialists (12), tractor beams (Minbari 11, Streib 5), adaptive armour (Minbari 2, Vorlons 14), self-repair (Ancients), stealth units (Hyach 2, Torvalus 6), HK control nodes (Orieni 16), diffusers (EA 2, Shadows) | For each: a RULING "the default is fine" (most passive ones) or a small handler. Stealth needs a real decision (firing reveals the unit) |
 | E9 | **Exclusive fighter weapons** | Centauri 12, Raiders / Brakiri / Cascor / Centauri (WotCR) / Yolu 6 | Choose one of a craft's exclusive weapons (weaponManager.checkConflictingFireOrder) |
@@ -2568,7 +2570,7 @@ Dilgar Delegor): they "can and should always Ram, and can ignore the normal cond
 gains for free: Abbai 57% -> 96%, Corillani 58% -> 96%, Deneth 40% -> 100%, Llort 86% -> 91%, Drazi 78% -> 82%, Gaim 49% -> 75%.
 Dilgar stays 95% (its 4 Point Pulsars are E4 - a special hit formula - not E1).
 
-#### ⭐ MAJOR FACTIONS - AI STATUS AT A GLANCE (kept current; last updated 2026-11-24, after M2 Hunter-Killers)
+#### ⭐ MAJOR FACTIONS - AI STATUS AT A GLANCE (kept current; last updated 2026-11-24, after M9-M13)
 
 **All nine are on `READY_FACTIONS`** - a CPU player can field them, the lobby offers them, and auto-compose builds their fleets.
 
@@ -2580,19 +2582,20 @@ Torpedoes (volleys priced as the server resolves them, backed by OEW - M8); anti
 Pulsars (M5); fighter flights (strike / intercept / escort, jinking, coverage search); split-shot weapons (plain mode; Hard splits where it pays); limited-ammo
 weapons (fire until empty); exclusive fighter guns (big gun at ships, paired guns at fighters); ramming (designed rammers always, the
 Desperate rule otherwise); Hunter-Killers (deployed docked and spread over the carriers, launched from turn 1, hunting and ramming the largest
-ships first - M2); surrender and jump-out; Easy / Normal / Hard; auto-composed fleets (official and semi-custom units, never custom; HK space
-filled at least half where the points allow).
+ships first - M2); Gravity Nets in Pre-Firing (each net at the unit and hex that best improve the trade - locks, arcs, range and damaged
+sections all in it - M6); Pulsar Mines (a G'Karith moving first ends with enemy flights in their reach - M7); split-arc Twin Arrays (M10); Adaptive Armour (M13); dry flights home to reload and out again when full (M11); surrender and jump-out; Easy / Normal / Hard; auto-composed fleets (official and semi-custom units, never custom; HK space
+filled at least half where the points allow; missile flights with a half load of Basic missiles - M12).
 
 | Faction | Weapon mounts the AI fires | Special kit the AI uses | Units HIDDEN from CPU fleets | Idle (left alone) - still to build | Proof |
 |---|---|---|---|---|---|
-| Earth Alliance | 95% | Interceptors (Hard turns them offensive vs fighter-heavy fleets), magazine missile racks, Thunderbolt linked racks | Lamprey breaching pod (M1) | Molecular Slicer, 2 mounts (M9) | T2-T8 gates; released T7 |
-| Earth Alliance (Early) | 92% | Raptor gatlings (E2); auto-compose fixed for its semi-custom jump-engine hulls | - | (fighter racks carry missiles only when bought - M12) | 20/20 + 4/4 self-play |
-| Centauri Republic | 97% | Twin Arrays (E1), Sitara / Rutarian Ion Bolts (E9), Razarik torpedo racks when bought, Ballistic Torpedoes (M8: 1-3 a turn at one target, Hard two; 1-2 OEW behind them) | Scion breaching pod (M1) | split-arc Twin Array, 2 (M10); Unreliable Twin Array fires whole only (a page gap); Dargan Chameleon (ruled: ignore) | 20/20 + 4/4 + 2 targeted; M8 gates + 6 torpedo self-play games |
+| Earth Alliance | 95% | Interceptors (Hard turns them offensive vs fighter-heavy fleets), magazine missile racks, Thunderbolt linked racks; auto-composed Gamma Starfuries carry a half load (M12) | Lamprey breaching pod (M1); Omega Epsilon (Molecular Slicer - M9, hidden by ruling) | - | T2-T8 gates; released T7 |
+| Earth Alliance (Early) | 92% | Raptor gatlings (E2); auto-compose fixed for its semi-custom jump-engine hulls; auto-composed Atlas Starfuries carry a half load (M12) | - | - | 20/20 + 4/4 self-play |
+| Centauri Republic | 97% | Twin Arrays (E1), Sitara / Rutarian Ion Bolts (E9), Razarik torpedo racks when bought, Ballistic Torpedoes (M8: 1-3 a turn at one target, Hard two; 1-2 OEW behind them) | Scion breaching pod (M1) Unreliable Twin Array fires whole only (a page gap); Dargan Chameleon (ruled: ignore). Split-arc Twin Arrays fired since M10 | 20/20 + 4/4 + 2 targeted; M8 gates + 6 torpedo self-play games |
 | Centauri Republic (WotCR) | 99% | Phalan Plasma Guns (E9), fighter missile racks when bought | - | - | 20/20 + 4/4 + 1 targeted |
-| Dilgar Imperium | 97% | Delegor designed-to-ram, Bomb Racks (E2), fighter missile racks when bought, Point Pulsars (M5) | Jortavo breaching pod (M1) | (fighter racks carry missiles only when bought - M12) | 20/20 + 4/4; M5 gates + 1 Ochlavita game |
-| Minbari Federation | 98% | gravitic hulls, Jammer-aware EW, EM Shield counted in damage estimates, Antimatter Converters (M4: damage by the roll, the pulse premium on its floors) | breaching pod (M1) | Gravity Net, 10 (M6 - ruled, not built); Adaptive Armour at defaults (M13); Tractor Beam (ruled: ignore) | 20/20 + 4/4; M4 gates + 1 Sharaal/Tigara game |
-| Narn Regime | 96% | Twin Arrays (E1), Energy Mines (aimed with spacing), Tarza torpedo racks when bought | Tra'Kha breaching pods, armed and not (M1) | Pulsar Mine, 2 (M7) | 20/20 + 4/4 + 2 mine games |
-| Orieni Imperium | 98% | gatlings on Templar / High Templar / Uplift (E2), Class-S / SO ship racks (E2), Hunter-Killers (M2: docked at deployment and spread over the carriers, launched from turn 1, rams at the largest ships; Uncontrolled ones left to the server; auto-compose buys them) | - | (fighter racks only when bought - M12) | 20/20 + 2 targeted; ShipMover pair 56 hulls + the HK hulls; M2 gates + 13 HK self-play games |
+| Dilgar Imperium | 97% | Delegor designed-to-ram, Bomb Racks (E2), fighter missile racks when bought, Point Pulsars (M5) | Jortavo breaching pod (M1) | (its missile flight, the Thorun AM, is rare - never auto-composed) | 20/20 + 4/4; M5 gates + 1 Ochlavita game |
+| Minbari Federation | 98% (+ the 10 Gravity Nets, which the survey still counts idle) | gravitic hulls, Jammer-aware EW, EM Shield counted in damage estimates, Antimatter Converters (M4: damage by the roll, the pulse premium on its floors), Gravity Nets (M6: Rogata, Shargoti, Troligan - Pre-Firing, by the trade) | breaching pod (M1) | Tractor Beam (ruled: ignore). Adaptive Armour set since M13 (White Star: points as it is hit - it has no pre-allocated ones) | 20/20 + 4/4; M4 gates + 1 Sharaal/Tigara game; M6 gates + self-play |
+| Narn Regime | 96% (+ the 2 Pulsar Mines, which fire by themselves) | Twin Arrays (E1), Energy Mines (aimed with spacing), Tarza torpedo racks when bought, Pulsar Mines (M7: the G'Karith charges enemy flights that move after it) | Tra'Kha breaching pods, armed and not (M1) | - | 20/20 + 4/4 + 2 mine games; M7 gates + self-play |
+| Orieni Imperium | 98% | gatlings on Templar / High Templar / Uplift (E2), Class-S / SO ship racks (E2), Hunter-Killers (M2: docked at deployment and spread over the carriers, launched from turn 1, rams at the largest ships; Uncontrolled ones left to the server; auto-compose buys them) | - | - (High Templars auto-composed with a half load - M12; spent Templars go home to reload - M11, not yet seen in self-play) | 20/20 + 2 targeted; ShipMover pair 56 hulls + the HK hulls; M2 gates + 13 HK self-play games |
 | Raiders | 99% | Twin Arrays (E1), Privateer Phalan Plasma Guns (E9), Antiproton Defenders (M3 - the Jia is back, Vastar / Vasy fire theirs) | breaching pod (M1) | Grappling Claw, 2 (M14) | T2-T8 gates; released T7; M3 gates + 1 Jia/Vastar/Vasy game |
 
 ("Weapon mounts the AI fires": the survey's share, hidden units left out, fighter racks counted EMPTY - with missiles bought they fire too.)
@@ -2600,13 +2603,13 @@ filled at least half where the points allow).
 **Still to build for the Major factions, in a sensible order** (details and the user's rulings: "Missing systems" below):
 1. ~~**M8 Ballistic Torpedo split**~~ - BUILT 2026-11-23 ("M8 and M3-M5 as built" below).
 2. ~~**M4 / M5 / M3 special hit formulas**~~ - BUILT 2026-11-23, the Jia unhidden (same section).
-3. **M6 Gravity Net + M7 Pulsar Mine** - a Pre-Firing decider (E6); both ruled (OEW-judged pull/push; Pulsar Mine against fighters).
+3. ~~**M6 Gravity Net + M7 Pulsar Mine**~~ - BUILT 2026-11-24 ("M6 Gravity Net and M7 Pulsar Mine as built" below): a Pre-Firing decider for the nets; the Pulsar Mine fires by itself, so M7 is a movement term.
 4. ~~**M2 Hunter-Killers** (Orieni)~~ - BUILT 2026-11-24 ("M2 Hunter-Killers as built" below), the HK flights unhidden; with it a JumpDecider fix (turn-1 jump-outs).
 5. **M1 Marines** - boarding; unhides 45 boarding craft across all factions.
-6. **M13 Adaptive Armour** (Minbari), **M12 missiles for auto-composed fighters**, **M11 reloading at a carrier**, **M9 Molecular Slicer**, **M10 split-arc Twin Array**, **M14 Grappling Claw** - smaller items.
+6. ~~**M13 Adaptive Armour**, **M12 missiles for auto-composed fighters**, **M11 reloading at a carrier**, **M10 split-arc Twin Array**~~ - BUILT 2026-11-24 ("M9-M13 as built" below; M11 still owes a self-play game). **M9 Molecular Slicer** - HIDDEN by ruling (the Omega Epsilon). **M14 Grappling Claw** - with M1 (ruled: "the same attack").
 7. **The user's play-test** of the seven factions released in T9.
 
-✅ Found at M8 and FIXED the same day: a **Hard extended-turn loop** on a ship that has lost or crippled side thrusters (begin, cancel for 'thrusters', begin again, every turn) - "M8 follow-ups" below; it was also manoeuvreHarness's two "known pre-existing" D failures.
+✅ Found at M8 and FIXED the same day: a **Hard extended-turn loop** on a ship that has lost or crippled side thrusters (begin, cancel for 'thrusters', begin again, every turn) - "M8 follow-ups" below; it was also manoeuvreHarness's two "known pre-existing" D failures. ✅ A SECOND cause (ROLLED or pivoting ships - the prediction never saw next turn's start rows) found and fixed 2026-11-26 - "The Hard extended-turn loop, second cause" in "THE OTHER GROUPS" below.
 
 #### T9 release (2026-11-23, second session) - the user's answers, what was built, and the Major factions released
 
@@ -2693,15 +2696,15 @@ mirror): taking the line out of both unhides the units.
 | M3 | **Antiproton Defender** (special hit formula, E4) | ✅ BUILT 2026-11-23 - fired; the line OUT of both lists (the Jia is back) | Raiders' Jia (6 mounts) and Vastar / Vasy (12) | (no input needed) | done - "M8 and M3-M5 as built" |
 | M4 | **Antimatter Converter** (special hit, E4) | ✅ BUILT 2026-11-23 - fired, damage priced by the roll, the pulse premium on its floors | Minbari 11 | the user, 2026-11-23: it "doesn't actually use the specialHitChanceCalculation ... in practice"; its damage "does benefit from better hit chances though, so just add a hit chance premium like we do with Pulse weapons" | done |
 | M5 | **Point Pulsar** (special hit, E4) | ✅ BUILT 2026-11-23 - fired in its plain mode (three orders, one a gun) | Dilgar 4 | (no input needed) | done |
-| M6 | **Gravity Net** (Pre-Firing, E6) | idle | Minbari 10 | both: judged by OEW - pull an enemy ship into the heavy-weapon arcs of the bot's ships that hold a lock on it, or push an enemy ship out of the heavy-weapon arcs it has on the bot's ships it holds a lock on (the user, 2026-11-23). S (largest move wins) / P (this net wins) not ruled separately | a Pre-Firing decider (E6): the net's move hexes priced by the bot's locked heavy guns gained / the enemy's locked heavy guns lost |
-| M7 | **Pulsar Mine** (Pre-Firing, E6) | idle | Narn 2 (G'Karith) | scare fighters off; charge into enemy fighters when the G'Karith moves first - it triggers as they move, starting in its range | E6 |
+| M6 | **Gravity Net** (Pre-Firing, E6) | ✅ BUILT 2026-11-24 - GravityNetDecider (Pre-Firing): each net at the unit and hex that best improve the trade | Minbari 10 | both: judged by OEW - pull an enemy ship into the heavy-weapon arcs of the bot's ships that hold a lock on it, or push an enemy ship out of the heavy-weapon arcs it has on the bot's ships it holds a lock on (the user, 2026-11-23). S (largest move wins) / P (this net wins) not ruled separately | done - "M6 Gravity Net and M7 Pulsar Mine as built" (2026-11-24: also a damaged side to the guns, and range against light guns; S mode always) |
+| M7 | **Pulsar Mine** (Pre-Firing, E6) | ✅ BUILT 2026-11-24 - a movement term (the mine fires by itself): ShipDecider::pulsarFire | Narn 2 (G'Karith) | scare fighters off; charge into enemy fighters when the G'Karith moves first - it triggers as they move, starting in its range | done - "M6 Gravity Net and M7 Pulsar Mine as built" (the JaStat base: no movement; its mines stay on) |
 | M8 | **Ballistic Torpedo** (splits by default) | ✅ BUILT 2026-11-23 | Centauri 3 | 2-3 at one or two ships, or 3-6 at a flight (separate fighters), backed by 1-2 OEW; Easy/Normal 1-3 a turn at one target, Hard splits more | done - "M8 and M3-M5 as built" |
-| M9 | **Molecular Slicer** (splits by default) | idle | EA 2 | - | with M8 |
-| M10 | **Twin Array with split arcs** | idle ('special arcs') | Centauri 2 | - | E11 |
-| M11 | **Reloading at a carrier** (Hangar Ops) | gatlings and fighter racks run dry and stay dry | every gatling flight, every fighter rack | "if possible ... order fighters with empty gatling guns to go and reload in carriers but this is very rare"; ships with an ordnance supply could reload fighters' missiles and torpedoes | a FlightDecider "home to reload" + docking |
-| M12 | **Fighter missiles in an auto-composed fleet** | `FleetComposer` buys plain units - a fighter rack carries nothing (a creator's fleet carries what was bought) | every rack-armed flight FleetComposer buys | - | buy missiles in FleetComposer (they are bought as enhancements / ammo) |
-| M13 | **Adaptive Armour** | defaults (nothing allocated) | Minbari 2 hulls | points to the most numerous enemy weapon class (rams ignored), the rest as the ship is hit, up to the maximum | an Initial Orders handler |
-| M14 | **Grappling Claw** (boarding) | idle | Raiders 2 | - | with M1 |
+| M9 | **Molecular Slicer** (splits by default) | HIDDEN 2026-11-24 (ruled: "a very complex Ancient weapon") - `'unit'` entries in both lists | EA Omega Epsilon (+ Shadows, customs) | - | its own handler, later (Ancients) |
+| M10 | **Twin Array with split arcs** | ✅ BUILT 2026-11-24 - AIView asks every arc | Centauri 2 (Primus MD) | - | done - "M9-M13 as built" |
+| M11 | **Reloading at a carrier** (Hangar Ops) | ✅ BUILT 2026-11-24 (harness-proven; self-play OWED) - home when dry, dock, relaunch when full | every gatling flight, every fighter rack (missiles only with a bought Ordnance Reserve) | ruled 2026-11-24: home when DRY, out when FULL, no Ordnance Reserve for auto-compose | done - "M9-M13 as built" |
+| M12 | **Fighter missiles in an auto-composed fleet** | ✅ BUILT 2026-11-24 - a HALF load of Basic (Dogfight where none) | every rack-armed flight FleetComposer buys (9 classes) | ruled 2026-11-24: half load, Basic | done - "M9-M13 as built" |
+| M13 | **Adaptive Armour** | ✅ BUILT 2026-11-24 - AdaptiveArmourDecider (Initial Orders) | Minbari 2 hulls (Vorlons too, when released) | points to the most numerous enemy weapon class (rams ignored), the rest as the ship is hit, up to the maximum | done - "M9-M13 as built" |
+| M14 | **Grappling Claw** (boarding) | idle - SKIPPED this release (ruled 2026-11-24: "can be done together with M1 Marines later") | Raiders 2 | - | with M1 |
 | M15 | **Exclusive BALLISTIC weapons** | idle (`weaponBlock`) | none in the released factions | - | a conflict rule in BallisticDecider (as E9's) |
 | M16 | **Magazine-fed direct fire** (`AmmoDirectWeapon`) | idle | none in the released factions | - | E2's magazine half |
 | - | Tractor Beam / Self-Repair / Chameleon Sensors | no code - ruled | Minbari, Raiders, Centauri | "ignore" / "fine at defaults" / "ignore for now" | none |
@@ -2842,6 +2845,288 @@ speed 4-6 and were shot down with no ram) and the HEAD comparison game were dele
 through HangarDecider before calling it; teaching the page's Auto-Deploy to queue the docks is a client change, not built. HK flights do not share
 out targets between them (each prices its own ram, capped at the target's health) - several flights may go for one capital ship.
 
+#### M6 Gravity Net and M7 Pulsar Mine as built (2026-11-24) - uncommitted
+
+**The user's request (2026-11-24):** "M6 Gravity Net + M7 Pulsar Mine - a Pre-Firing decider (E6); both ruled (OEW-judged pull/push; Pulsar Mine against
+fighters). A couple of other uses for Gravity Net is to get an angle on a damage side of an enemy (can still be OEW led decision initially, but if we can
+move to get hits on the damage section all the better). Or, if an enemy has OEW lock and lots of light weapons with high range penalty then I might want
+to just move them as far away as possible to reduce their hit chances. Pulsar mine behaviour is just as noted before, although one thing to bear in mind
+is that the Narn JaStat base uses them as well. It doesn't move though, so when we add bases to AI players use it won't have to think about moving closer
+to enemy fighters etc."
+
+**Two corrections the same day:** the Shargoti (2 nets) and Troligan (6) are CAPITAL ships (FV's `BaseShip` is the ordinary ship class, not a starbase) -
+both fly for the bot already and may net anything up to a capital ship; the Rogata (HCV, 2 nets) only HCVs and smaller, and flights. And a suspected
+engine bug in the Pulsar Mine (fighters judged against the G'Karith's start or end hex by their place in the unit list) is NOT one: `TacGamedata::
+onConstructed` sorts the units into initiative order on every load (`doSortShips`), so the list order IS the movement order - a flight that moved before
+the G'Karith is judged against where it began, one that moves after against where it ends, the tabletop rule. Nothing changed in the engine.
+
+**Found on the way:** the Pulsar Mine is `autoFireOnly` - the SERVER fires it (`PulsarMine::beforePreFiringOrderResolution`), so M7 is a movement
+decision, not a Pre-Firing one. Only the Gravity Net needs the phase-5 decider.
+
+| Item | As built | Proof |
+|---|---|---|
+| Pre-Firing (phase 5) | `TacticalAI::play` phase 5 -> NEW `ai/deciders/GravityNetDecider.php` (autoload +1 line; `fvbuild -Autoload`). A seat is owed the phase only with a pre-firing weapon ready (MovementGamePhase); every other bot still plays it on the fallback. tac_ai_log: "Gravity Nets: <ship> net #id (move d) at <unit> -> q,r (chance%, trade +g) ... (N units, H hexes priced, s.ss s)" | self-play below |
+| The page's two clicks | `AIView::netShot` (weaponManager.targetShip -> GravityNet.doMultipleFireOrders: Pre-Firing, the net whole / on / loaded / no order this turn, the unit able to fire (unitBlock), an ENEMY - the page lets a player net an ally, the bot does not - not a mine nor Enormous, fire control, clear line, arc, range, chance >= 1 at the engine's own formula: `GravityNet::calculateHitBase`'s -15 at a gravitic or Ancient unit), `netHex` (targetHex: the hex in the net's arc FROM THE SHOOTER, the line from the shooter clear - a blocked one ends the page's click - the range; then validateTargetMoveHex: within the Move Distance of the unit, the line from the unit clear, not a blocked hex), `netReach` (the d6 the server rolls each Movement phase, shown from Pre-Firing on - GravityNet::onIndividualNotesLoaded), `netWhy`. The orders (`GravityNetDecider::systems`): both 'prefiring', mode 1 (S): at the unit, one shot, 'gravitic', note 'Split'; at no unit, the hex in x / y, the net's shots, 'gravNetMoveHex', note 'split' | fire pair `fireHarness.php --phase=5` (NEW: net boards - each hull with nets at the origin, the TARGETS + a gravitic Rogata within 1-9 hexes, Move Distances 0-6, nets off / shot away / reloading, random EW, a rock one board in three) + `fireOracle.js replayNets` (NEW): Minbari, 40 rounds a hull, Normal and Hard - 120 boards, 2,000 net/unit pairings: 338 shots built exactly as the bot has them (page minus server 0; 9 more on a section EDGE priced apart, counted), 1,650 both refuse; 27,713 move hexes clicked after the first order, every one as `netHex` says; 93 planned nets clicked in, both orders identical; `Firing::validateFireOrders` keeps both orders of every one |
+| The measure (all four uses at once) | For each enemy a net can hit and MOVE (`GravityNet::beforeDamage`'s size rule: the net's ship Enormous or no smaller), every hex it could be put in - on the map (the page does not ask) and legal for at least one net - is priced as the "best trade" ShipDecider moves by (the T5a ruling): the bot's units' fire this Fire phase (each gun at its best enemy, none counted past what finishes a unit - `ShipDecider::removed`; each enemy's health and worth FROM THE SHOOTER'S SIDE - `targetsFrom`, the section its hits go through) less `shipDanger` x the moved unit's own fire at the bot's units (shared out the same way, each unit's health from the enemy's side); speed, heading and facing kept, as `doGravityNetMove` keeps them. LOCKS are in every estimate (the real hit formula), so "into the arcs of ships with a lock" and "out of the arcs it has on ships it has locked" fall out of it; the RANGE penalty too ("as far away as possible" from light, range-hungry guns); a lost or damaged section turned to the guns raises the worth of every point ("an angle on a damage side") | NEW `tests/ai/gravityNetHarness.php`: A (an HCV abeam an Omega that holds a lock, out of every Heavy Laser's arc: netted into one - Normal, Hard, Easy), B (the bot's guns spent: an HCV locked on a Sharlin is netted to where its fire at the bot is least, below where it stood), C (an HCV's aft shot away: netted so the Rogata's shots go through the lost aft - gain 183, against 73 for the same board with the aft whole), D (a Tethys locked on a Rogata pushed where its fire is less, never nearer), E (an enemy far from everything: no net), F (a Rogata never nets a capital ship; a Troligan may) |
+| Which nets, and two at one unit | Greedy: the net, unit and hex that ADD most - the move's trade times the net's chance; the server moves a unit by ONE net, the HITTING one with the largest Move Distance (`GravityNetHandler`, S mode; the first of equals in the game's unit order), so a second net at the same unit adds only when the first misses (`expected()`) - while that is at least `AIConfig::GRAVNET_MIN_GAIN` (10 points of value: a net reloads in two turns; the implementer's figure). A net shot from exactly between two of the unit's sections under `FIRE_MIN_CHANCE_EDGE` (20) is not planned (the page prices it on one profile - found by the oracle: a 5% edge shot the page would not make). Mode always S (P only matters against another side's net on the same unit) | gravityNetHarness G (the formula; a Troligan's later nets at one Hyperion add no more than its first) and H (every planned row a legal netShot + netHex on the map, worth the floor, a net once) |
+| Levels, time | Skill `gravityNets` - every level (no split was ruled), legacy off. The pricing has its own CPU budget, `AIConfig::GRAVNET_DECISION_SECONDS` 2.0 (`GravityNetDecider::$budget`; 0 in the harnesses): units nearest the nets first, hexes nearest first, the rest left unpriced when it runs out | gravityNetHarness H (legacy nets nothing), I (a budget too small prices nothing and says so), J (the two orders; ShipPayload + validateFireOrders keep both, the hex survives the POST) |
+| M7 - the G'Karith charges | `ShipDecider::context` lists the ship's Pulsar Mines (whole, switched on) and, for each enemy flight YET TO MOVE, what one attack should do to a craft (`AIView::pulsarAttack`: the engine's own order - 'prefiring', called at a craft - priced by the engine's formula; range penalty 0 and jinking ignored, so where either stands does not change it). `fireTerms` adds `pulsarFire`: for each end state, every such flight whose START hex (where it stands now - it starts its move there) is within the mine's 2 hexes, in its arc from the end facing (dead ahead when it shares the hex, as the engine has it) and on a clear line (`ShipDecider::pulsarReaches`) - once a craft, up to the mine's 18 attacks - shared out by `removed()` with the guns. A flight that has already moved was judged from where the ship BEGAN: nothing the ship does changes it. Skill `pulsarCharge` every level, legacy off. The danger of standing next to the fighters is ShipDecider's as ever | gravityNetHarness P1 (a G'Karith moving first, a flight 5 hexes off yet to move: ends 1-2 hexes from the flight's start with it in a mine's arc at Normal, Hard and Easy - 7-8 hexes off without the skill), P2 (the flight has moved: nothing), P3 (mines switched off; legacy: nothing), P4 - THE ENGINE'S OWN ATTACKS on 400 random boards (`PulsarMine::beforePreFiringOrderResolution` with the G'Karith moved first at a random facing, a flight within 5 hexes): a flight that stays put is attacked EXACTLY when the bot counts its hex (200 boards, 49 in the G'Karith's own hex), one that flies is attacked whenever the bot counts it (57 more attacked on their way only - a path the bot cannot know), and every attack priced at the engine's chance |
+| M7 - power | NO CHANGE NEEDED: Hard's boost (`PowerDecider::idle`) switches a one-turn gun off only when it reaches no enemy at the closest the two could come this turn (`reaches`) - a Pulsar Mine with an enemy flight that could come within its 2 hexes stays on; one with none in reach may pay for a boost, and is loaded again next turn (`Weapon::calculateLoading`). The JaStat base: bases get no movement, and its mines stay on by default (bases have no power decision yet - 10.5's gap) | gravityNetHarness P5 (a flight 6 hexes off: no mine off; 40 off: both may go) |
+
+**Gates (2026-11-24):** NEW gravityNetHarness 1,075 checks (A-J, P1-P5); six mutants (prepended) all caught - no size rule (F), no danger term (B/D),
+backup nets counted independently (G), moved flights charged (P2), the same-hex arc rule dropped (P4: 29), no offence term (A/C). Fire pair `--phase=5`
+over Minbari, 40 rounds a hull, Normal and Hard: 0 differences (above). levels 348, manoeuvre 524, ram 121, withdrawal 124, hangar 29 - all PASS, the
+counts of the M2 gates. Time: a Troligan's six nets at one Hyperion, 100 hexes priced, 0.13 CPU s (the harness, under load). Engine code untouched
+(the replay corpus was not re-run).
+
+**Self-play (`--budget=0`, kept):** 6198 / 6200 Narn (G'Karith + G'Quan) v EA (Omega + 2 Starfury flights), 24x16 - PASS, 0 AI defects; the
+G'Karith's mines attacked 30 craft over 7 turns, 27 hits. 6199 / 6201 Minbari (Rogata x2 + Shargoti) v EA (Omega, Hyperion, OlympusBeta, Tethys,
+Starfuries) - PASS (34 and 26 turns; Minbari ahead 79% v 14% and 42% v 0% of fleet value), 0 AI defects, every submission accepted; nets fired on 21
+turns at the OlympusBeta, Tethys, Hyperion and the Starfury flight (5-85% chances), 10 hits, and every hit made the server's 'prefire' movement row at
+exactly the planned hex (9 rows: on 6199's turn 8 two nets hit the Tethys and the server used the larger Move Distance's hex, as `expected()` models it).
+
+**The user's follow-ups (2026-11-24, same day) - BUILT:**
+
+| Ruling | As built | Proof |
+|---|---|---|
+| "a HARD CPU player will consider whether moving allies is advantageous and attempt to do so. Easy and Normal can skip this" | Skill `netAllies` (Hard only). `GravityNetDecider::friends` - the bot's own units and its teammates' (no Huge terrain, isTargetableBy) - join the targets, and the board's friendly side at Hard is all of them (their guns count when an enemy is netted into their arcs, and the enemy's fire at them as danger). `friendTrade`: a friend put in a hex is priced by its own fire there less shipDanger x EVERY enemy's fire at the friendly side with it there (each enemy's guns shared out over the friends, each friend's health from that enemy's side). `AIView::netShot($unit, $net, $target, $allies)`: with $allies a friendly unit may be the target, never the net's own ship - the page's rule (a canTargetAll weapon: a click on a friend targets it - PhaseStrategy / gamedata.canTargetAlly). The chance at a friend is the engine's: no lock on it (Initial Orders puts none), so the range penalty is doubled | gravityNetHarness K: an OlympusBeta - the bot's own, and a teammate's (player 3, team 1) - 5 hexes in front of an Omega's locked Heavy Lasers (the Omega too big to net): Hard nets it to where the Omega's fire at the side is less; Normal and Easy never net a friend; Hard with the skill off nets none. Fire pair `--phase=5` now puts a bot OlympusBeta and a teammate's Tethys on every board: 1,440 net/friend pairings, 342 shots built exactly as `netShot` has them; Hard planned 97 nets at friends, every one clicked through the page identical (Normal: none) |
+| "The minimum hit chance I think should be 15%" | `AIConfig::GRAVNET_MIN_CHANCE` 15: no net at a lower chance, every level (and still none under FIRE_MIN_CHANCE_EDGE 20 from a section edge) | gravityNetHarness L: a long shot (14 hexes, lock 1: 10%) worth a net without the floor (adds 22) is not taken - the floor removed as a mutant fails it 4 times; every planned row of every board checked >= 15 (also in the fire pair) |
+| "Please correct this also" (the ProtectorateRogata) | `minbari_protectorate/ProtectorateRogata.php`: `phpclass` "Rogata" -> "ProtectorateRogata" (it shared the Minbari Rogata's, so a page building it merged the Minbari blueprint, and the server built a bought one AS a Minbari Rogata). Statics regenerated (`fvbuild -Statics`: Minbari Protectorate.json now carries ProtectorateRogata; Minbari Federation.json's Rogata unchanged). ⚠️ Games and saved fleets that already hold one stored "Rogata": they stay Minbari Rogatas, as they always loaded - only new purchases change | ship-data validator PASS (2,740 ships, no new finding); the fire pair over minbari_protectorate now runs clean (it threw on every ProtectorateRogata board) |
+
+Gates after the follow-ups: gravityNetHarness 1,163 (K, L new); eight mutants all caught (the six above, plus no floor - L, Hard's allies off - K,
+allies at every level - K at Normal/Easy, a friend's danger term dropped - K); fire pair `--phase=5` over minbari + minbari_protectorate, 40 rounds a
+hull, Normal and Hard: 200 boards, 5,040 pairings, 1,009 shots identical (page minus server 0; 20 on an edge counted), 76,959 move hexes as `netHex`
+says, 208 / 286 planned nets clicked in identical - 0 differences. Replay corpus (for the ship-data change): 243 passed, 0 failed. levels 348, ship-data validator PASS.
+
+Seen while checking it, NOT changed: three Nexus "Refit" hulls also declare their predecessor's phpclass (NexusBrixadii/breachingPodBrixadiiB ->
+breachingPodBrixadii, NexusMakar/MakarIkrunRefit -> MakarIkrun, QomYominAuxMinesweeperRefit -> QomYominAuxMinesweeper), each beside an `_old` file of
+that class - it looks deliberate (old games keep loading); left alone.
+
+**Not built (noted):** next turn
+(the netted unit keeps its speed and heading from the new hex); the bot's own missiles already in flight at a netted unit; Initial Orders' EW does
+not plan locks for the nets, and Movement does not move a net ship to set up a net shot; the bot's flights price an ENEMY Pulsar Mine at their end
+hex only (as before - an enemy G'Karith's mines are a plain gun to them), not along their path or by who moves first. The faction survey still counts
+Gravity Nets and Pulsar Mines as idle mounts (it reads the Fire-phase `weaponBlock` - 'pre-firing weapon').
+
+**Found (FIXED the same day at the user's request - the follow-ups above):** `minbari_protectorate/ProtectorateRogata.php` declared `phpclass =
+"Rogata"` - the Minbari Rogata's - so a page building it merged the Minbari Rogata's blueprint: its system ids did not line up (fireOracle.js: "Cannot
+set properties of undefined (setting 'Move Distance')" on every board).
+
+#### M9-M13 as built (2026-11-24, second session) - uncommitted
+
+**The user's request (2026-11-24):** "continue working through the Missing Systems ... M13 Adaptive Armour (Minbari), M12 missiles for auto-composed
+fighters, M11 reloading at a carrier, M10 split-arc Twin Array - smaller items. Also, I'm skipping the Grappling Claw and Molecular Slicer in this
+release: M14 Grappling Claw can be done together with M1 Marines later, since they both essentially inflict the same attack as each other. M9 Molecular
+Slicer is actually a very complex Ancient weapon, add it to CPU_MISSING_SYSTEMS to hide the EA ships with it for now."
+
+**Asked and ruled the same day:** M12 - a HALF load of BASIC missiles (not full, not a mix by role); M11 - home when DRY (no usable gun left), out again
+when FULL (or nothing more can reload); no Ordnance Reserve (HANG_ORD) for auto-composed carriers.
+
+| Item | As built | Proof |
+|---|---|---|
+| M9 Molecular Slicer - hidden | The list's second field is now WHAT it hides: `'flight'` (a flight carrying it - Marines, as before) or `'unit'` (NEW: any unit carrying it, whatever else it carries). `MolecularSlicerBeamL/M/H/A` => `('Molecular Slicer', 'unit')` in `AIConfig::CPU_MISSING_SYSTEMS` AND its MIRROR gamelobby.js `CPU_MISSING_SYSTEMS` / `cpuMissingSystemBlock` (legacy lobby bundle rebuilt). Hides the EA Omega Epsilon (the only released unit with one) and, outside READY_FACTIONS, every Shadow slicer hull and 8 customs. Unhide = take the four lines out of BOTH | Lobby/server parity over every blueprint (scratch parity/missingPhp.php + missingJs.js): 2,737, 0 differences; "carries a Molecular Slicer": 28 units |
+| M10 split-arc Twin Array | `AIView::inArcAt` asks EVERY arc of a split mount (`AIView::arcsOf` - `$startArcArray`/`$endArcArray` from 0, as the page's `shipManager.systems.getMultipleArcs` / `weaponManager.isOnWeaponArcMultiple`, each arc mirrored on its own by a roll); `weaponBlock` no longer refuses `splitArcs` ('special arcs' is now the `specialArcs` flag alone). The deciders' "guns alike" caches (ShipDecider x3, FlightDecider, GravityNetDecider, EnemyForecast) key on `AIView::arcKey` - a split mount's every arc - so a split Twin Array is never priced as a plain one with its first arc | Fire pair, PrimusMD alone, 120 boards: HEAD left 109 page-fireable split-arc pairings alone; now legal shots 1,380 -> 1,489, planned 548 -> 626, **0 differences**. Centauri + raider dirs (234 hulls) x3 levels: 0 differences |
+| M13 Adaptive Armour | NEW `ai/deciders/AdaptiveArmourDecider.php` (autoload +1), Initial Orders after the mines (TacticalAI merges a craft's nested rows). The ruling: turn 1 only, each PRE-ALLOCATED point to the class with the most live enemy weapon mounts that can still take one (a mount counts once per class it can fire as - `markWpnDmgClass`'s weaponClassArray + weaponClass; Ramming, Boarding and the jump engine never); every turn, every point the hits have unlocked, most numerous class first, within AApertype / AAtotal. Only classes the controller lists AND a live enemy carries. Posted as the page posts them: one class name per point in the controller's `individualNotesTransfer`. Turn 1 only because the server unlocks a pre-allocated point only on `turn == 1` (the page offers them on a later arrival turn too - the server's clamp would take them away). ⭐ The White Star (the Minbari's 2 hulls) has NO pre-allocated points: only the "as hit" half applies to it | ordersHarness (`--turn=N` NEW; a controller's state built as a game leaves it - classes marked by the controller's own markWpnDmgClass, hits unlocked, some set, Ramming + a gone class unlocked): checks the classes, caps, the ruling's order, the arrival through ShipPayload, and the SERVER's own Initial Orders handler (generateIndividualNotes on a stub notes table) keeping every point. ordersOracle.js clicks each point through the page's controller (initializeSystem, setCurrDmgType, canIncrease, doIncrease) and compares doIndividualNotesTransfer. White Star 60 boards turn 3 + 24 turn 1; Vorlons 168 turn 1 (408 pre-allocated points) + 168 turn 3 (134): **0 differences**. The page's "unassigned AA" reminder still fires where only Ramming, JumpPoint or a gone class could take a point (informational) |
+| M12 missiles for auto-composed flights | `FleetComposer::ordnanceOf`: a missile-armed flight buys a HALF load of its Basic missile - AMMO_FB in a magazine, FB rounds in old racks (FighterMissileRack); a flight offering no Basic buys its Dogfight missile (the Gamma and Atlas Starfuries - their only missile; implementer's reading of "Basic", TO CONFIRM). Half = max(1, floor(limit / 2)) per craft (magazine) or per launcher (rack). Priced as the lobby prices it (magazine: count x price x 6, booked in pointCostEnh as doBuyShip does; rack: amount x cost x launchers x 6, in pointCostEnh2 as ajaxInterface does). Spending uses base + missiles (`price()`), the deployment brackets the base (the checker's catalogue cost). `FleetComposer::entryExtras` = the payload keys Manager::autoComposeCpuSlot adds (the magazine's option row; every craft's racks with `ammo` beside empty `fireOrders` - ShipPayload reads ammo only there, and finds a row's system by its KEY). Missiles are Ammo & Ordnance: the checker never calls them an enhancement. Composed flights today: Gamma AM (FY x2 = 24), Double-V AM (FB x1 = 48), Phalan M (FB x2 = 96), Atlas (FY x2 on 2 = 48), atlas AM (FY x2 = 24), Atlas Refit (FB x2), Atlas Refit AM (FB x2), High Templar (FB x1 = 48), High Templar AM (FB x1 = 48) | fleetComposerHarness: 3,456 fleets (9 factions), every one's spend = units + missiles; all 9 catalogue missile flights' payloads through ShipPayload (rounds per rack per craft / the option row, price in enhvalue). fleetCheckOracle (now with the REAL confirm.js for row sections, and the missiles priced into the row): **the real checker passed all 3,456**, its own total = the composer's spend, 457 flights with missiles. cpuLobbyHarness M12 (NEW): a High Templar + Double-V AM bought through the real Buying phase with the composer's payloads, the game loaded - every craft carries its half load, the price in enhvalue. `committed()` now adds enhvalue |
+| M11 reloading at a carrier | `HangarDecider` (home / homeBays / docks / reloadDue / reloaded) + FlightDecider (context 'home', `dockRows`, judge 'home', AIConfig::FLIGHT_HOME_PLANS 8). A flight of the bot with no usable gun (Posture::usableGuns), not a rammer / HK / mine, goes HOME to the nearest carrier with ONE bay holding it whole (HangarDecider::fit; no catapult; landing rate >= its craft) where the carrier's servicing would reload it (`reloadDue` mirrors the engine's three whileDocked rules: a gatling's free round up to `$reloadable` + EXT_AMMO - the protected property read with a bound closure; an old rack below maxAmount or a magazine below its bought load only while the carrier's Ordnance Reserve pays). Movement: once the carrier has moved this turn (end known, not pivoting/rolling) the plainest plan - searched, or aimed to its hex and heading - ending in its hex, on its heading, speed within the flight's EFFECTIVE thrust of the carrier's, jinking all thrust left; else it closes on where the carrier will be (FLIGHT_CLOSING_PER_HEX a hex) and keeps out of fire. Fire phase: a `docks` order {flightId, count} on the bay (Hangar Stage 5 shape, beside any `launches`), when the server's own `HangarOps::canShipReceive` takes it - the speed checked first (past the thrust only a Redline Pilot's d20 could hold), other docks this turn counted (boxes, rate); launches get the rate the docks leave (docks resolve first). Docked: launched with the others once `reloadDue` is false - full, or the reserve spent. ⚠️ CHANGED: an ordinary docked flight of the bot with nothing to reload is now LAUNCHED (it was left docked; hangarHarness B4) | hangarHarness C (NEW, 50 checks): C1 who goes home (spent Templars yes; rounds left / an Aurora no; reloadDue); C2 at Easy/Normal/Hard through MoveDecider: the spent Templars end in the Prophet's hex, heading, dockable speed; C3 the dock order on the bay, the server's canShipReceive takes it, Hangar::doIndividualNotesTransfer reads it back from the payload; no order on another heading, too fast, or with rounds left; C4 docked at 3 of 6: kept; full: launched whole, the server's findDockedEntry + canLaunchWholeFlight take it. ShipMover untouched (the plans are its own, oracle-proven) |
+
+**Gates (2026-11-24, one snapshot of the final tree):** fire pair over the 13 released directories, phases 3 and 1, Easy / Normal / Hard - **0
+differences** at every level and phase; Gravity Net boards (phase 5) Normal / Hard 0 differences; orders pair, 13 directories, three levels - **0
+differences** (570 hulls, 3,420 situations; White Stars' Adaptive Armour clicked in among them). Harnesses: fireRules 975, levels 348, withdrawal 124, ram
+121, hazards 14,758, manoeuvre 524, deploySpread 66, budget 30, gravityNet 1,163, registry 22, hangar 50 (C new, B4 changed) - all PASS, no warnings;
+cpuLobby all PASS (M12 new); fleetComposer + the real checker 3,456 fleets passed. Legacy lobby bundle rebuilt (`node scripts/bundle-legacy.js`) and
+`fvbuild -Sync` run; autoload regenerated (+1 line).
+
+**NOT done (open for the next session):**
+- **M11 self-play** - no game has yet shown a flight run dry, dock, reload and relaunch end to end (Orieni Templar/High Templar fleets against EA on 24x16,
+  `--budget=0 --keep`; look for "docking to reload" in tac_ai_log and `hangarDockEvent` notes). The dock resolution (end of turn) and the reload ticks
+  are the engine's own; what is unproven is the whole loop over several turns in a real game.
+- **M11 relaunch setting (the user, 2026-11-24: "a full load is about 6 turns and it might be better to relaunch them after a partial reload"):** `AIConfig::RELOAD_LAUNCH_SHARE` (default 1.0 = full) - the share of a full load EVERY weapon still reloading must hold before a docked flight relaunches, rounded up (0.5 = 3 of 6 gatling rounds; 0 = first chance). A weapon that can reload no further never holds it back. `HangarDecider::loadedEnough`; hangarHarness C5 (58 checks).
+- **M11 limits (implementer's calls):** one bay holding the whole flight (no split across bays, no catapults, no partial dock); the flight docks only
+  when its carrier has MOVED this turn (a carrier moving after the flight is approached, not met); the bot's carrier never manoeuvres to meet it.
+- **M12:** the Dogfight fallback for Gamma / Atlas Starfuries - to confirm with the user. Torpedo-rack flights (Razarik, Tarza) are rare, never composed.
+- **Not run this session:** the ShipMover pair (ShipMover untouched), self-play batches, the replay corpus (no engine code touched), the faction survey for
+  the status table (the M10 Primus mounts and the hidden Omega Epsilon change Centauri's / EA's figures slightly).
+- **Noticed, not changed:** FlightDecider's gun groups still count a gatling whose rounds are spent (its offence estimate ignores ammunition) -
+  `home()` asks Posture::usableGuns itself; before M11 a dry flight just escorted the fleet.
+
+#### THE OTHER GROUPS - League, Minor, Ancients, Other: survey, release and work list (2026-11-26)
+
+**The user's request (2026-11-26):** "review the non-Custom factions ... that are not currently available to AI players yet and assess: 1. What
+systems does each faction have that the ai will need further code to properly utilise. Make a work list which sets out what is needed and a
+sensible approach to undertaking this work. 2. Which factions does the AI already have enough instruction to use, based on existing work with
+Major Factions. E.g. Some factions like the Drazi or Rogolon may essentially have nothing that requires unique consideration so can just be
+added to AI-available factions immediately. Make a list for me, and add them to the currently available AI faction in FV."
+
+**How it was judged.** A fresh survey (scratch `hullSurvey.php`: the survey board above, but per CLASS - every purchasable class, hidden units
+(`CPU_MISSING_SYSTEMS`) left out, boarding and auto-firing weapons not counted (D1), fighter racks counted as firing once missiles are bought -
+auto-compose buys a half load, M12), then this section's gate for every candidate: the three oracle pairs over the candidates' directories at
+every level, auto-compose through the real Fleet Checker, and self-play against EA. The 2026-11-22 table above is out of date: E1, E2, E9 and
+the antimatter half of E4 have landed since. And the pairs found weapons no survey can judge - COMBINING weapons, priced the page's own way
+(W3 below): Ipsha looked 93% ready on the survey and fails 567 fire pairings.
+
+**RELEASED 2026-11-26 - 19 factions added to `READY_FACTIONS`** (FAQ "What a CPU player can field" and the Starter Guide updated;
+18 at first - the Usuuth Coalition failed the ShipMover pair and joined later the same day, after W0):
+
+| Faction | Units flown | Weapon mounts the AI fires | Left idle (D4 allows) / notes |
+|---|---|---|---|
+| Torata Regency | 15 | 100% | - |
+| Drazi Freehold (WotCR) | 27 | 100% | - |
+| Drazi Freehold | 29 (breaching pod hidden) | 97% | Particle Cutter x6 (sustained fire - W2); the Claweagle's Grappling Claws (M14); Sky / Fanged Serpent and Armored Shuttle racks fire once missiles are bought |
+| Hurr Republic | 15 | 100% | Koeth racks with missiles |
+| Cascor Commonwealth | 14 | 97% | the Coqari Scout's Ion Field Generator x4 (hex-targeted - W7) |
+| Alacan Republic | 7 | 100% | ⚠️ no hull has a jump engine: the Fleet Checker never passes an Alacan fleet, so auto-compose falls back to another faction (the FAQ says so) - buy by hand |
+| Balosian Underdwellers | 19 (pod hidden) | 100% | - |
+| Belt Alliance | 23 | 100% | fighter rails are hangars to the AI |
+| Corillani Theocracy | 17 (pod hidden) | 100% | - |
+| Deneth Tribes | 10 | 100% | - |
+| Descari Committees | 20 (pod hidden) | 100% | no jump-engine fleet at 1,500 points (auto-compose falls back there; 2,500 and 4,000 compose) |
+| Llort | 18 (pod hidden) | 100% | the Latalla Armed Shuttles are armed only once missiles are bought |
+| Markab Theocracy | 12 (pod hidden) | 100% | - |
+| Minbari Protectorate | 17 (pod hidden) | 100% | Gravity Nets (Rogata Tug, Troligan) flown by GravityNetDecider (M6 - it asks `instanceof GravityNet`); Tractor Beam ignored (ruled); Jammer-aware EW |
+| Rogolon Dynasty | 8 | 100% | Vostor / Chelek racks with missiles |
+| Small Races | 18 | 100% | ⚠️ as Alacan - no jump engine anywhere: auto-compose falls back to another faction |
+| Usuuth Coalition | 10 | 100% | released after W0 (its five `rollcost = 1.5` hulls - Sarlon, Serron, Sethrus, Sinthon, Sinthon LCV) |
+| Yolu Confederation | 14 (pod hidden) | 100% | gravitic (flown since T5d) |
+| Streib | 6 (both pods hidden) | 100% | Tractor Beam: "No in-game effect" (as the Minbari's). Released at the user's request - D5 had held it back with the Civilians |
+
+**Gates (2026-11-26, one snapshot):** fire pair over the 19 candidates' directories (torata, drazi_old, drazi, hurr, cascor, alacan, balosian,
+beltalliance, corillani, deneth, descari, llort, markab, minbari_protectorate, rogolon, smallraces, usuuth, yolu, streib - 457 hulls with their
+bases / OSATs), phases 3 and 1 at Easy / Normal / Hard - **0 differences** (73,508 Fire-phase pairings, 7,443 legal shots, ~3,690 planned a
+level; 27,120 Initial Orders pairings, 2,191 legal launches); Gravity Net boards (phase 5 - the Protectorate) Normal / Hard - **0 differences**
+(224 pairings, 2,899 hexes, 5 / 8 nets planned). Orders pair, the same directories, three levels - **0 differences** (385 hulls, 2,310
+situations). ShipMover pair: 333 hulls, 214,558 plans through movement.js - **1,060 differ, every one on the five Usuuth `rollcost = 1.5` hulls**
+(W0), 0 anywhere else - **after W0: 214,636 plans, 0 differences**; gravitic 42 hulls, 27,921 plans - 0 differences; the PHP halves 4.28
+million checks, 0 failed. Auto-compose + the REAL
+Fleet Checker (fleetComposerHarness + fleetCheckOracle, all ready factions, 384 fleets each): every fleet the composer called clean passed; its
+refusals are the checker's own rules (no jump engine at an early In-Service Date or at 1,000-1,500 points; never one for Alacan or Small Races).
+cpuLobbyHarness all PASS. Self-play (`--budget=0`, FleetComposer fleets at 2,500 points against EA's, Normal and Hard,
+24x16 and 42x30): 72 games - four for each of the first 18 released factions - **72 PASS, 0 AI defects** (+ Usuuth after W0: 4 + 4 kept
+Hard 42x30 reruns, 8 PASS); 15
+reached the turn cap (10 of them on 42x30 - the known stalemate pattern); slowest decision 7.6 s (budget off). Seen, pre-existing: MariaDB
+deadlocks under 8 parallel games (the harness retried - 4 games logged one), and the Hard extended-turn TRIPWIRE below.
+Evidence for the work list (not-ready directories, Normal): fire phase 3 - 1,487 differences (406 on bases / OSATs, the rest the combining
+weapons and Ancients' guns named below); phase 1 - 19 (the known oracle-sandbox throws on Walkers hulls and the Black Dagger); orders - 399 (the
+shields, below).
+
+**Not released, and why** (the work item that releases each):
+
+| Faction | Units | Fires today | What stops it | Work |
+|---|---|---|---|---|
+| Abbai Matriarchate | 19 | 100% | **BLOCKED** - gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 |
+| Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | **BLOCKED** - shields, as above | W1 |
+| Brakiri Syndicracy | 50 | 94% | **BLOCKED** - shields; idle: Gravitic Lance x6 (sustained), Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 allows the last two | W1 (+ W2; W10, W7 polish) |
+| Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 (W11 polish) |
+| Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences; one EW difference on the Shamor (orders pair) | W3 + W4 |
+| Hyach Gerontocracy | 18 | 95% | **BLOCKED** - Specialists must be chosen in the Deployment phase (the page's commit gate); the 2 stealth units (Alichi Kav / Tal) never act; Computer BFCP unused; Proximity Laser x6 | W5 |
+| Grome Autocracy | 11 | 62% | rail guns are magazine-fed direct fire (AmmoDirectWeapon, M16) - 58 mounts | W6 |
+| Pak'ma'ra Confederacy | 17 | 67% | Plasma Web x43 (hex-targeted - their main weapon); the Plasma Battery left at default commits (no refusal in the orders pair) | W7 (W11 polish) |
+| Vree Conglomerate | 21 | 87% | turret links (angular spread) on their heavy guns x16 (E10) - over the D1 bar, but it is the Antiproton Guns / Antimatter Cannons that idle; Antimatter Shredder x5 (hex) | W8 |
+| Kor-Lyan Kingdoms | 23 | 49% (survey) | Proximity Laser x16 (hex + launcher), Limpet Bore x8 (special targeting), mine launchers (D4), Grappling Claws; the D-racks' Interceptor rounds need nothing (the server intercepts with them - `ballisticIntercept`) | W7 + W9 |
+| Civilians | 76 | 98% | nothing blocking for most hulls (one Abbai liner has the shields); D5 - campaign neutrals - and an auto-composed Civilians fleet (liners, freighters) would be a strange skirmish opponent | the user's call |
+| Ancients (7) | - | - | D6: none in v1, one at a time | W12 |
+
+**The work list, in the order to do it** (most factions released per session first; each item in the T9 pattern - harness boards, the page as
+oracle, a mutation pass, then the gate):
+
+| # | Item | Releases | What is needed | Approach | Size |
+|---|---|---|---|---|---|
+| W0 | ✅ **Fractional roll cost** (ShipMover) - BUILT 2026-11-26, uncommitted ("W0 as built" below) | Usuuth - released | `ShipMover::__construct` cast `rollcost` to int; five Usuuth hulls roll for 1.5 (the only fractional manoeuvre cost in the game) | done | - |
+| W1 | **Shield-generator handler** (E8) | Abbai, Abbai (WotCR), Brakiri - 3 factions, 97 units | Initial Orders: active gravitic shields (and Abbai shield projectors) <= the generator's output + boost, as `ship.checkShieldGenerator` asks | In PowerDecider (Initial Orders, after `plan()`): rank each shield by the enemy fire that can reach its arc (bearings from the start-of-turn facing - Movement comes later), switch off the least useful until the count fits; Hard first tries boosting the generator from spare reactor power (as `boost()`). Switching shields off also clears the power shortfalls the pair finds on the same hulls. Proof: the orders pair over abbai, abbai_old, brakiri at every level (2026-11-26, Normal: 286 "too many active shields" on 53 hulls + 41 "still short of power" - the goal is 0), levelsHarness boards for the ranking | 1 session |
+| W2 | **Sustained-fire weapons** (`alwaysoverloading`) | finishes Drazi (6) and Brakiri's Gravitic Lance (6) | `weaponBlock` refuses 'overload / sustained fire', so weapons that are ALWAYS sustained (Particle Cutter, Gravitic Lance) never fire | Read the page's sustained rules (weaponManager: overloadshots, the same-target continuation), fire them as plain guns and keep the target while the sustain runs; fire pair boards | half a session |
+| W3 | **Combining weapons** | Ipsha; Gaim with W4 | Several mounts fire as ONE shot whose mode = how many combine (Surge Cannon - 567 differences; Particle Concentrator - 61); the page prices it its own way | Port the page's combining rule into AIView (mode = mounts combined, one order, the rest marked used) and let FireDecider choose how many to combine; the fire pair. The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams fail the same way - W12 reuses it | 1-2 sessions |
+| W4 | **Packet Torpedo range rule** (the rest of E4) | Gaim (with W3) | The first 10 hexes free, then 1/2 a hex; its server `calculateRangePenalty` already matches the page | `'PacketTorpedo' => 'range'` in `AIView::PORTED_SPECIAL` (+ FlexPacketTorpedo); fire pair phase 1 over gaim; look at the Shamor's EW difference at the same time | quarter session |
+| W5 | **Hyach handler** (E8) | Hyach | (1) Specialists chosen in Deployment (BLOCKING); (2) using them in later turns; (3) Computer BFCP; (4) the 2 stealth units; (5) Proximity Laser (W7) | Needs a RULING first - which Specialists by hull, and when to use them. DeployDecider picks them; Initial Orders uses them by rule; BFCP to the weapon class the ship fires most; the stealth units HIDDEN (a unit rule beside CPU_MISSING_SYSTEMS) until a stealth decision exists. Proof: deployerHarness (the Deployment gate) + the orders pair | 1-2 sessions |
+| W6 | **Magazine-fed direct fire** (M16 - AmmoDirectWeapon) | Grome | Rail-gun shells from a magazine, a mode per shell | E2's magazine half: `modes()` offers only shells the magazine holds and counts them down as the page's checkOutOfAmmo does; check whether auto-compose must buy shells | 1 session |
+| W7 | **Hex-targeted weapons, by family** (E5) | Pak'ma'ra (Plasma Web 43); Kor-Lyan with W9 (Proximity Laser 16); polish for Hyach (Proximity Laser 6), Vree (Shredder 5), Cascor (Ion Field 4), Brakiri (Gravitic Mine 7) | A hex choice per family | AoEDecider (the Narn Energy Mine) is the template: candidate hexes from the enemies' forecast ends, valued by what lands, the page's targetHex as oracle (fireOracle replayMines). The Plasma Web first (it releases a faction); the Proximity Laser needs its launcher pairing (`hasSpecialLaunchHexCalculation`) | 1 session a family |
+| W8 | **Turret links** (E10 - angular spread) | Vree | The page's `getLinkedFiringBlock` for spread-linked turrets | Port the spread rule into AIView / FireDecider (a link's guns at targets within its spread); the fire pair over vree. Release with the Shredder idle | 1 session |
+| W9 | **Kor-Lyan odds and ends** (E11) | Kor-Lyan (with W7) | Limpet Bore Torpedo (special targeting - called shots at systems); mine launchers (D4 lets them idle) | Limpet Bore: a called-shot rule (⚠️ AIView never calls shots - the Expert Gunner trap in `calculateHitBase`); check the D-racks' Antifighter rounds when bought (already in BALLISTIC_ROUNDS) | 1 session |
+| W10 | **Brakiri Gravitic Shifter** (E6) | polish (Brakiri is released by W1) | A Pre-Firing weapon that turns a target | GravityNetDecider's pattern: a phase-5 decider valued by the same trade measure (a damaged side to the guns, a locked enemy's guns away) | 1 session |
+| W11 | **Power models** (E7) - polish, NOT blocking | better Ipsha / Pak'ma'ra play (the Vorlon capacitor for W12) | Mag-Grav (fixed-power) reactor; Plasma Battery; the Spark Field's boost | The orders pair found no commit refusal for either with power at default, so this is about USING the power (a damaged reactor's deficit, boosts, the battery's charge): port each page balance into PowerDecider::balance / understands (orders oracle) | 1 session |
+| W12 | **Ancients, one at a time** (D6) | each its own | Kirishiac (94% - the nearest: orbitals dock/deploy, Gravitic Augmenter Pre-Firing, Hypergraviton Blaster ammunition and order count - 53 differences, self-repair at default); Triad (Photonic Prism Beam 73, Light Prism Beam 12, Hyperplasma Matrix 8 differences; the Hyperplasma Cutter splits in every mode; hex weapons; the Triumvirons have no usable gun; cooperative repair); Vorlons (Lightning Cannon / Lightning Guns - 293 differences; Discharge Guns split in every mode; power capacitor = W11; petals; 3 hulls with no usable gun); Torvalus (6 of 7 are stealth units - a stealth decision; Transverse Drive; Shade Modulator; the oracle page throws on the Black Dagger); Shadows (the Molecular Slicer hides 10 of 14 - M9; phasing, diffusers); Walkers (turret links, energy-draining field / net / mines, lightning arrays, sensor probes); Mindriders (never, unless ShipMover learns the drive) | The user picks the order; Kirishiac first by distance; W3 and W8 do part of the Vorlon / Triad / Walkers work | 2-4 sessions each |
+| - | **M1 Marines / M14 Grappling Claw** (unchanged) | unhides 45 boarding craft (every faction's breaching pods) | as in "Missing systems" | - | - |
+
+**General items - cross-faction** (added by the user, 2026-11-26: "add the following general, multi-faction items to the new worklist in a
+suitable place"). No faction waits on them; each makes every faction with the system play better, released ones included. Where they fit:
+**G1 first** (small, five released factions gain at once - alongside W0); **G2 after W1** (W1 touches the same Initial Orders pass); **G3**
+when the campaign or scenarios need fixed defences (T10 - CAMPAIGN_PLAN.md builds and garrisons bases and OSATs, R1 / R8), or after W1-W4
+if wanted sooner.
+
+| # | Item | Who gains | What is needed | Approach | Size |
+|---|---|---|---|---|---|
+| G1 | **Accelerator weapon strategy** (charge timing) | Torata 110 mounts (Particle, Plasma, Pulse, Laser Accelerators), Minbari Molecular Pulsar 20, Centauri Plasma Accelerator 12, Corillani 10, Raiders 9 (+ EA custom phased beams) - every weapon whose `normalload` > its loading time | TODAY: the AI fires a weapon as soon as it is loaded. A load-1 accelerator is treated as a 1-turn gun (floor FIRE_MIN_CHANCE 5, never in `holdSlow`), so it fires EVERY turn at its weakest charge (Plasma Accelerator 1d10+4, not 4d10+12 - and armour comes off every small hit); the Laser Accelerator (load 2, full 4) goes through `holdSlow`, but `AIView::ahead` moves the units and leaves `turnsloaded` alone, so waiting is never seen to grow the shot. Legal either way - no pair or self-play game can flag it | (1) Price each charge level: on a CLONE, `turnsloaded` = 1 .. normalload, refresh min/max damage, the usual estimate (armour per hit included). (2) Fire now when now >= next charge level x FIRE_HOLD_CONFIDENCE (0.8 a turn), else hold - re-decided every turn, so a gun charges a step at a time. (3) Fire regardless of charge (the user's cases): FINISH OFF (this charge likely kills the target or a section - `healthLeft`), LAST SHOT (the shooter or the weapon's section expected lost this turn - JumpDecider's "expected kill" measure - or jumping out / surrendering), TARGET LEAVING (holdSlow's parting test: out of arc or range next turn). (4) Levels: Easy fires on load (today's behaviour, a weakness); Normal one-step; Hard adds the forecast and looks to full charge. Proof: fireRules boards (charge ladder, finish-off, doomed shooter, parting), the fire pair (choices only - 0 differences must hold), Torata self-play | 1 session |
+| G2 | **ELINT functions** - BDEW, DIST, SOEW, SDEW, JAM, MDEW (Detect Mines) and Detect Stealth | ELINT hulls in nearly every faction (EA, Narn, Orieni, Centauri, Minbari, Dilgar, Torata, Drazi (WotCR), Cascor, Corillani, Descari, Markab, Belt, Balosian, the Protectorate ... ~80 hull files) | TODAY: an ELINT ship runs plain OEW / DEW / CCEW (EWDecider "NOT YET"); the AI prices an ENEMY's DIST against itself (5826 - `lockStep`), never uses one. The page's rules are in ew.js: module-only types (`ELINT_MODULE_ONLY`), area types BDEW / Detect Stealth with per-module reach (`getElintAreaPointsReaching`), DIST in steps of 3 (+mod), arc per module | Extend EWDecider's priced search with the ELINT moves, each valued by the same hit-formula pricing it already uses: BDEW = DEW for every friendly in reach (fighter-heavy or massed enemy fire); SDEW / SOEW = support the most valuable / most locked friendly; DIST = strip an enemy's locks (worth = the bot fire it stops: the enemies with the most OEW on the bot's ships); JAM = against enemy ELINT / HK control (Orieni HKs go Uncontrolled); Detect Stealth only when an enemy stealth unit is known; MDEW on enemy mines (mine-sweep plan). Needs RULINGS first: an ELINT's priority order, and how much it may leave its own defence. Proof: the orders pair (ordersOracle clicks every ELINT row through ew.js), levelsHarness boards per function, self-play with ELINT on both sides | 2 sessions |
+| G3 | **Bases and OSATs** | 51 bases + 172 OSATs in the ready factions (105 / 377 in all) - today refused for a CPU slot (`ShipMover::unsupportedHullReason`: 'a base', 'an OSAT'; ⚠️ MIRROR gamelobby.js `cpuHullBlock`) | Bases: no movement but rotation (`canRotate` - deploymove on turn 1 unless `nonRotating`), PowerDecider refuses them (`understands`), several reactors / sub-reactors, the page's own disabled rule (AIView::pageDisabled exception), no jump-out or surrender path (Posture / JumpDecider must count them as unable to leave). OSATs: no thrust movement, free facing turns while their thruster lives (movement.js: OSAT `requiredThrust` 0, `OSatThrusterCrit` limits), no rolls / pivots. Deployment: placed in the zone like any unit (FleetDeployer), facing toward the expected enemy approach. Auto-compose: the checker's static-unit rule (`staticPresent`) - buy them only for scenarios / campaign, never in a plain skirmish | ShipMover: a "static" mode - OSATs choose a facing (turn rows only), bases only their deploy rotation; ShipDecider / FireDecider unchanged (they price from where the unit is). PowerDecider: port the base power balance. Posture: a static unit never jumps or flees; surrender counts its guns. Then take 'a base' / 'an OSAT' out of the refusals (both lists). Proof: ShipMover pair OSAT / base boards (the page's turn rules), orders pair with bases, deployerHarness, self-play with a base defending against EA | 1-2 sessions |
+
+**Observations, not changed:**
+- An empty CPU slot nobody chose a faction for now draws from 27 factions, not 9 (`FleetComposer::factionFor` - uniform), so about two random
+  picks in three are now League / Minor / Streib. If the random pick should stay on the Major factions, that is a one-line filter - the user's call.
+- A random pick of Alacan or Small Races (no jump engine) falls through to the next faction on the list - Earth Alliance - silently, as any
+  composition the checker refuses does (`Manager::autoComposeCpuSlot`).
+- The survey counts the Ipsha Spark Field as hex-targeted, but it fires by itself (`autoFireOnly` - weaponBlock's hextarget test comes first);
+  its boost is a power choice the AI does not make yet (W11).
+- ✅ **Hard extended turns tripped `validateExtendedTurn[TRIPWIRE]`** ("cancelled an extended turn ('thrusters') with nothing changed since the
+  begin"): 46 lines in 9 of the 36 Hard self-play games, a Hard EA v EA control too, and one ship looping for 28 turns (game 6314) - FIXED the
+  same day: "The Hard extended-turn loop, second cause" below.
+
+#### The Hard extended-turn loop, second cause (2026-11-26) - FIXED, uncommitted
+
+**The user (2026-11-26):** "I thought we'd already fixed this [M8 follow-ups] ... Can you give it another look and try to resolve please."
+
+**Reproduced** with kept self-play (game 6321, Usuuth v EA, Hard 42x30): EA's HyperionPatrol 894891 - ROLLED (an `isRolled` start row every
+turn), its starboard thruster destroyed on turn 5 - began a right extended turn on turns 13-21, 27-34 and 48, owing 2 points of side thrust,
+and the page cancelled it for 'thrusters' first thing each next turn. Not a Usuuth ship and not W0's doing.
+
+**Root cause:** the M8 fix judges a begin with `ShipMover::extendedPayableNextTurn` - the page's cancel test asked of a COPY of the mover moved
+on a turn. The copy had no rows of the new turn, but the real next turn starts with the ones the server writes when the turn advances
+(`Movement::setPreturnMovementStatusForShip`: `isPivotingLeft/Right`, `isRolling` - which flips the rolled state - and `isRolled`), and the
+page's activation plays `doForcedPivot` before the cancel. `ShipMover::isRolled()` (non-agile) asks for an `isRolled` row OF THE TURN, so the
+copy saw the rolled ship as unrolled, put the side role on the port thruster (alive) instead of the starboard (dead), and called the begin
+payable - every turn. The same gap hid a pivoting gravitic hull's forced pivot (the M8 note had listed it as "not played"). M8's own test
+(levelsHarness J2) used an unrolled Omega, and its independent oracle built next turn the same way, so it shared the blind spot.
+
+**Fix** (`ShipMover::extendedPayableNextTurn` only): before the cancel test the copy gets next turn's start rows exactly as the server writes
+them (from this turn's end state: pivoting -> `isPivoting*`; rolling -> `isRolling`, rolled flipped; rolled -> `isRolled`), then
+`forcedPivot()` - the order the real constructor plays (forcedPivot, then forcedExtendedCancel). Nothing else changed.
+
+**Proof:**
+- levelsHarness J3 (NEW) - a rolled Omega with port / starboard / no thrusters lost, a gravitic Sharlin pivoting (nothing lost; starboard
+  lost), every begin the search finds judged by the next-turn mover; the oracle `nextTurnCancels` now appends the SERVER's own start rows
+  (`Movement::setPreturnMovementStatusForShip`), so J2 is checked the stronger way too. RED before the fix: rolled and side lost - 0 of 14
+  begins agree (Hard kept 7 of 7 begins the page cancels, and refused the 7 it would complete); pivoting, starboard lost - 0 of 10.
+  GREEN after: every begin agrees, Hard keeps none the page cancels; 357 checks. Mutants: no start rows - 41 failures; start rows but no
+  forced pivot - 11 failures (the pivot case).
+- The real failure replayed (scratch `loop/replay6321.php`: the HyperionPatrol rebuilt from the DB at turn 13 - its damage, its turn-12 end,
+  the `isRolled` start row - the same plan, which yields the real begin row `[1,null,2,null,2]` paid by thrusters 15 and 16; then turn 14
+  started as the server and page do): the page CANCELS ('thrusters'); the old flag said payable, the new one says not.
+- manoeuvreHarness 490 (as before), ShipMover pair EA + raiders 1/5 - 23,374 plans 0 differences, no warnings (the flag is computed for every
+  plan; only ShipDecider's Hard filter reads it). Self-play Hard, 8 games (Usuuth x3 - seed 705 is 6321's - EA x2, Alacan, Drazi (WotCR),
+  Hurr): 8 PASS, **0 tripwires** (before: 9 of 36 Hard games tripped).
+- Still not foreseeable, as M8 noted: thrusters damaged in this turn's Fire phase after the begin - the server's tripwire does not fire for
+  those (its `hasThrustChangedSince` sees the damage).
+
+#### W0 as built (2026-11-26) - uncommitted
+
+**The user's request (2026-11-26):** "Can we implement W0 - Fractional Roll Cost now please."
+
+**The page's rule** (movement.js): `doRoll` records `requiredThrust = [ship.rollcost, 0, 0, 0, 0]` - 1.5 as it is; `canRoll` refuses when
+`ship.rollcost > getRemainingEngineThrust`; thrust is paid in whole points, and `calculateThrustStillReq` keeps the fraction (`stillReq[i] =
+req - ass`), so one point leaves 0.5 owed and a second point pays it (`autoAssignThrust` loops while `toDo > 0` - it pays 2 as well). The
+remaining engine thrust falls by the points ASSIGNED (2).
+
+**As built** - two casts in `ai/ShipMover.php`, nothing else:
+- `__construct`: `$this->rollCost = is_numeric($ship->rollcost) ? $ship->rollcost + 0 : 0` (was `(int)`) - `+ 0` keeps every integer cost an int.
+- `stillRequired` (the port of calculateThrustStillReq): `$need = ... $required[$d] + 0` (was `(int)`) - the 0.5 stays owed, so `payLastRow`
+  clicks a second point. `canRoll`, `roll()` and the turn check's roll-stop cost then read 1.5 as the page does; extended-turn and turn-delay
+  arithmetic never see a fractional row (rolls are not turns).
+
+**Proof (one snapshot):** ShipMover pair over usuuth - 7,692 plans agreed, 0 differed (was 1,060 differences); 808 roll rows at `[1.5,0,0,0,0]`,
+each paid with two points through the page. The six earlier parts re-run on the fix (333 hulls) - 214,636 plans, 0 differences; every hull that
+runs BEFORE the first 1.5-roll hull in its part is byte-identical to the earlier run (223 of 223) - the hulls after it get different random
+situations from the harness's shared `mt_rand` stream (the Usuuth walks draw differently), all agreeing with the page. manoeuvreHarness 490 and
+levelsHarness 348 - the same counts on the old and the new code. Self-play Usuuth v EA (`--budget=0`): 4 games (Normal/Hard x 24x16/42x30) + 4
+kept Hard 42x30 reruns - 8 PASS (the one tripwire game above). Then `Usuuth Coalition` added to READY_FACTIONS and the FAQ list.
+
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 
 **The user's request (2026-11-22):** "Please begin implementing Stage T8 of the Tactical AI Plan - I'd like to include the following
@@ -2959,7 +3244,8 @@ resolved by the server (needed 65 / 55, rolled 100 / 81).
   points - and are refused (nothing either faction fields is that cheap below ~450 points). Spending: 44
   of the 1,490 under 98% of their points (EA at 750: 86.7%, the catalogue's granularity; one EA 1000 at 95.7%; three Raiders 500).
 * **The server:** `Manager::autoComposeCpuSlot` (the guards of `submitFleetForCpuSlot`; `gamedata.php`'s `autoCompose`) composes for
-  the slot's points (`AIConfig::COMPOSE_UNLIMITED_POINTS` 3500 when unlimited) and the game's In-Service Date, of the Store's open
+  the slot's points (REFUSED when unlimited - the user, 2026-11-24; the lobby's `gamedata.cpuComposeBlock` mirrors it: an
+  Unlimited Points CPU slot is never offered, and the creator's Ready names it and leaves it unreadied) and the game's In-Service Date, of the Store's open
   faction when the creator readies the CPU slot itself and a CPU can field it (from the creator's own Ready the Store shows THEIR
   faction, so none is named), else of one drawn from the game and slot - trying the other ready factions before it refuses, naming
   why (the creator then buys by hand) - and commits it as the bot.
@@ -3069,6 +3355,66 @@ Raiders 0.19 / 0.25 s (HEAD 0.17 / 0.23); Movement (before the rulings, which to
 turns, ended by a CPU surrender; 5876 - 17 turns; ship decisions mean 0.29-0.35 s, slowest 1.27 s) and EA Hard v Narn Normal (5874,
 5875 - 9 turns each, EA keeping 95-96% of its value; Hard decisions mean 0.47-0.48 s, slowest 1.61 s); after the Easy ruling: Easy v
 Normal, seats alternated (5877, 5878 - 15 and 17 turns, Normal ahead in both). The replay corpus was not re-run: no engine code changed.
+
+### 10.13 Play-tests 6197, 7845, 7857 - a tester's notes, forwarded by the user (2026-11-26) - BUILT, uncommitted
+
+Local game 6197 (Normal, a mixed Minbari / Narn / Centauri / Abbai fleet against five parked Bin'Taks) and live games 7845 (Orieni
+against Qom Yomin / Makar) and 7857 (Hard, Omega / Apollo / Auroras against an Octurion and four Sentri flights). The live dumps
+were imported into a SEPARATE scratch database (`fvlive` in the MariaDB container), never B5CGM. Every decision below was replayed
+from the database (scratch `move2.php` / `io3.php` / `fire.php`, the session's scratchpad) before and after the change. The user
+asked for the feedback to be tuned out and to ask when unsure; the session that built it was told to carry on without asking, so the
+judgement calls are listed at the end for a ruling.
+
+| # | The tester's note | Why the bot did it | Built |
+|---|---|---|---|
+| 1 | 6197: every ship stood off the five Bin'Taks all game; it should keep a loose formation and attack a flank | Simultaneous movement (initiativeCategories): the Bin'Taks (bracket -20) move first, at speed 0, so they send NO movement rows - the dummy `end` row is written only when the phase ends (`MovementGamePhase::advance`). Every "has it moved?" test (`getLastTurnMoved() >= turn`) said no: five dreadnoughts weighed as yet to move - every gun at full weight on the ship's worst side (`MOVE_UNMOVED_DANGER`), the bot's fire at them halved, and each forecast to move | `AIView::hasMoved($unit, $mover)`: immobile, or a row this turn, or - in the Movement phase - AHEAD of the bot's active unit in the order the server moves units (a lower bracket, or `TacGamedata::sortShips` one at a time; a unit active now, or in the active bracket, has not). Used by ShipDecider and FlightDecider (`moved`), EnemyForecast and `atFireTime`. Replay turn 4: forecast 1 enemy yet to move (was 5); the Primus finds a firing place (fire 43, was 0), the Troligan closes to 9 hexes (fire 57, was 5) |
+| 2 | 7857 turn 4: the Blue Aurora jumped the Sentri that jumped the Red Aurora, then did NOT fire | Two units in one hex take their bearing from the hex the later mover came from (`BaseShip::getPreviousCoPos`, via `mathlib::getCompassHeadingOfShip`). The deciders stand a plan in as ONE `move` row, so that hex read as the turn's start: judged fire 41, real fire none (all `arc`) | `AIView::enteredFrom($plan, $enemies)`: when an enemy stands in the plan's end hex, a `move` row at the path's last-but-one hex goes in first (FlightDecider::judge, ShipDecider::judgeNow - its fire cache keyed by that hex too). Replay: ends in the Sentri hex at (-7,-9) facing 4, judged fire 60; the Fire phase's own test gives 60% / 50% at Delta / Alpha |
+| 3 | 7845: the Benevolent moved off the map after turn 6 and came back; the Crusader too. The bot should never leave a bounded map unless engine or thruster damage forces it; a unit that ends off it is destroyed by the scenario and should overload its reactor | (a) `Hazards::hexesOffMap` allowed \|q\| <= W/2, \|r\| <= H/2 - a hex more each way than the page draws (`drawGameSpace`: W hex widths wide, shifted half a hex left when W is even; a hex's centre is q - 0.5 on an odd row): the Benevolent ended turn 6 at 21,-8, which the page draws past the right edge. (b) The Crusader had lost both retro thrusters and both side thrusters by turn 4 (it could only accelerate or fly straight): forced off on turn 7 - the case the tester exempts. Nothing ever destroyed it | (a) `hexesOffMap` is the drawn box: on the map when the hex's centre is strictly inside (42x30: even rows q -21..20, odd rows -20..20, rows -14..14); `$clearly` counts only a centre PAST the edge. (b) `Hazards::mapRule` reads the scenario's `MAP BORDERS:` line from the game description ('end' / 'leave'); with 'leave' a move that passes off the board costs as ending off it. (c) `PowerDecider::overloadOffMap`: a ship whose last move ended CLEARLY off the map (its hex's centre past the edge - a hex cut in half by the edge is not "lost") where the scenario has a map-border rule overloads every reactor (the page's Reactor boost, type 2 - the server blows it up at the start of the Fire phase). Replay 7845 turn 8: the Crusader (-16,25) overloads; 6197's White Star at -17,15 (an edge hex) does not |
+| 4 | Units, fighters especially, should not drop below speed 5 unless forced (initiative penalty) | `BaseShip::getCommonIniModifiers`: -10 initiative a point below 5. The bot's floor was 3 at 1 hex a point (next to nothing), flights had none | `MOVE_MIN_SPEED` 5, `MOVE_COST_SLOW` 5 hexes a point (2.5% of the ship's value); a flight pays `FLIGHT_COST_SLOW` 3 a point (its general score - not when ramming or docking) |
+| 5 | 6197: the White Star Command's natural deficit (reactor -7): keep the Jammer on; at range the Molecular Pulsars off; closer, the Improved Neutron Laser off to power them | `PowerDecider::sheddable` switched off the jump engine first, then "other systems" - the Jammer - before any gun; and "weapons still loading" first: the Neutron Laser fired on turn 1, was loading on turn 2, so went off - and a gun switched off never loads: off for the rest of the game (DB: turns 2-11) | New order: a jump engine too damaged to jump with; [Normal/Hard] the plain guns that can do nothing this turn; weapons still loading; other systems; loaded weapons; the Jammer; the scanner; LAST a jump engine with half its boxes or more (the user's ruling, same day - an Engine draws no power, so it is never on the list). Normal and Hard (skill `powerReach`) pay the deficit again once the masked view exists (`PowerDecider::replan`, before Posture / JumpDecider / boost / EW): every plain gun ranked by its likely damage this turn per point of power per turn of loading (`reaches(..., $likely)`: both closing at their CURRENT speeds, no slack, no EW lock - the best case gave the pulsars 14 damage each at 19 hexes with all 10 EW points on one Bin'Tak, 0.4 without). Replay 6197: turns 1-2 the four pulsars off, Laser and Jammer on; from turn 4 (close) the Laser off, pulsars on; the jump engine never |
+| 6 | Mass Drivers: unless the enemy has a stationary base, a Hard opponent should switch them off for spare power | A Mass Driver hits only a speed-0 Enormous unit from a speed-0 shooter (`MassDriver::calculateHitBase`); `boost()`'s idle guns were one-turn guns only | `PowerDecider::idle` (Hard's boosts): a `$targetsImmobile` gun pays first while no enemy is an Enormous base or Enormous at speed 0 (`immobileTarget`). In a deficit at Normal/Hard it can do nothing, so it goes first there too |
+| 7 | 7857: the Jump Drive went off at the first reactor critical - a last resort for an undamaged drive | Rank 0 in `sheddable` | Item 5's order. Replay turn 4: the Apollo pays its 8-point reactor critical with four Interceptors; the drive stays on |
+| 8 | 7845 turn 4: the Hunter-Killers rammed a unit that had not moved yet. All rams (not only HKs) should go only at ships that have already moved; with none, move within ramming range for next turn, or stay near own ships for covering fire | The turn-4 ram was the SERVER's: the Shining Light was Uncontrolled from turn 1 - the auto-composed fleet carried an HK flight (the Benevolent's 6 HK boxes) but no ship with an HK Control Node (`AutomatedMovement` flies an uncontrolled HK and rams for it). And the bot's own designed rammers (ShipDecider) went for an unmoved enemy at its forecast hex | `FleetComposer`: never more HK flights than the fleet's HK Control Nodes' output (`hkNodes` from the catalogue's `hkControlNode` systems; the fill, the top-up and the trades) - 252 of 384 Orieni fleets carry HKs, none over. ShipDecider's `ramTargets` and FlightDecider's ram value: only an enemy that has moved (`hasMoved`). An HK flight with no ram this turn scores the hexes it ends beyond its ramming reach NEXT turn (`beyondRam`: `PowerDecider::maxMove` from the end state) at `RAM_PURSUIT`, plus `FLIGHT_TETHER_PER_HEX` beyond the fleet - not the quarry's own hex. ramHarness D / E3 updated to the rule |
+| 9 | 7857: fixated on fighters - full CCEW once they closed (Omega and Apollo; Hard should use 1-2) | The fighter-heavy rule (2026-11-19) lifts `EW_CCEW_CAP` on any ship; four Sentri flights against one Octurion is fighter-heavy, so the search put up 8 CCEW | The lift needs an anti-fighter gun on the ship (fire control better against fighters than capital ships) - or an enemy with no ship left; the Apollo and the Omega have none (Standard Particle Beams are 4/4/4). Replay turns 2-8: CCEW 1-2 (was 8) |
+| 10 | Missile ships should "turtle" with high DEW at Normal and Hard - missiles don't benefit from OEW | Missiles have `useOEW = false` (missile.php: "missiles are NOT using OEW in any form") | `EWDecider::missileShip`: `EW_MISSILE_SHARE` (0.5) or more of the ship's fire (average damage x shots x guns / loading, weapons with offensive fire control and switched on) in weapons without OEW. Such a ship locks no enemy past `EW_TURTLE_LOCK` (1) and keeps CCEW at its deterrent point (skill `missileTurtle`, Normal and Hard). Replay 7857: the Apollo CCEW 1 / DEW 7 every turn (was CCEW 8 / DEW 0) |
+| 11 | 7857: full Apollo salvoes at the weakest fighter flight, a more valuable ship in reach | A launch at a flight was priced as if the flight would not jink; it moves after the launch, sees it, and a ballistic hit loses its jinking (`Weapon::calculateHitBase`) | `BallisticDecider::plan` stands a `jink` row on each enemy flight - `BALLISTIC_FLIGHT_JINK` (0.5) of what it can (its limit within its free thrust) - for the whole plan; `AIView::shot` / `torpedoShot` keys carry a flight's jinking. Replay turns 3-7: the launches go at the Octurion |
+
+**The user's rulings on the first report (same day) - BUILT:**
+- "A Jump Engine with 50% or more health should be the last thing to deactivate. Scanners go before it, and Engines don't use power so
+  you can't turn them off anyway": `sheddable` puts a sound jump engine (`driveDamage` 0.5 or less) LAST, after the Scanner (item 5).
+- "In general AI ships are a bit too avoidant: where they have an EW lock on a ship and can get a decent shot with heavy weapons they
+  should favour that over running away"; and the 7845 mediums: "the mediums moving after the enemy, e.g. able to move after the enemy and
+  line up a good shot". COMMITTED (`ShipDecider::fireTerms` / `score`, the skill `committed` - Easy, Normal, Hard; legacy off): a place
+  where a loaded heavy gun (`FireDecider::isHeavy`) has `MOVE_COMMITTED_CHANCE` (50) or better at an enemy SHIP the ship holds an OEW
+  lock on (its own OEW rows of the turn, `locked()`), or where at least half of its loaded guns have it at an enemy ship that has MOVED
+  (`hasMoved`: the ship moves after it - an attack run), weighs its danger, now and a turn on, `MOVE_COMMITTED_DANGER` (0.6) as much.
+  Chances are the real hit formula, arcs left out and cached per hex like `$arcFree` (`$arcFreeChance`); the arc is the loop's own test.
+  The trace marks such a plan COMMITTED. Replays: 7845 turn 4, the Benevolent takes its shot (fire 56, was 0 - it ran with danger 440);
+  7845 turn 5, the Vengeful closes a hex (fire 56). 7857 turn 8 has no decent shot to commit to - the Octurion 20 hexes off, the Heavy
+  Lasers 7% even with the 2-point lock (the waste was the OEW at that range); turn 7 with a 2-point lock gives 84%, but from the
+  Omega's heading (away) only pivot variants bring the front arc round, and those still lose. The mediums on turns 4-6 were 15+ hexes
+  from every ship that had moved: nothing within the 50% to commit to.
+
+**Not changed - for a ruling:**
+- 7857: EW is decided in Initial Orders before Movement, so a lock can still be set where the move then cannot use it (turn 8's OEW at
+  20 hexes). The medium-range cap (`EW_MEDIUM_LOCK_SHARE`) allowed it; a fix would be EW asking whether the ship can face the target.
+- 6197: the Faithful Search Explorer contributed nothing (an ELINT ship: `EWDecider::allocate` keeps a ship with ELINT modules on
+  DEW - no support EW is modelled), and the loose-formation flank attack beyond item 1.
+- 7857: Apollo turns with no launch - not reproduced (the replay launches 3).
+- hangarHarness C4 ("docked, half reloaded: not launched") fails before this work too (checked with the pre-session AI files preloaded).
+- With the speed floor, 6197's Primus (at speed 3) no longer brakes to 1 for a 43-fire shot on turn 4 - the floor working as asked.
+
+**Judgement calls:** the speed-floor costs (5 hexes / 3 a point); `BALLISTIC_FLIGHT_JINK` 0.5; the Jammer after the guns; "lost off the
+map" only for a centre past the edge, and only when the description states a map-border rule; the CCEW lift needing an anti-fighter gun
+or an enemy with no ship left (narrows the 2026-11-19 ruling); `missileTurtle` and `powerReach` on Normal and Hard; `committed` 50% /
+0.6, at every level but legacy.
+
+**Gates (2026-11-26, the stack up; the pre-session AI = the DouglasChanges copy of the 11 files, preloaded with
+`php -d auto_prepend_file=` as the baseline):** orders harness 10,783 checks (after the rulings) + ordersOracle 0 differences; fire harness 16,244 + fireOracle 0
+differences; levels 348/348; manoeuvre 490/490 (the baseline judges 524: fewer pivot / roll variants, 70 / 67 against 94 / 73, now that
+the top plans differ; section I's off-map case starts a hex further in - see its comment); hazards 14,758; gravity nets 1,163; ram 127
+(D and E3 rewritten to the rule); fleetComposer + fleetCheckOracle 384/384 Orieni fleets clean, none with more HK flights than nodes;
+hangar 57/58 - C4 fails on the baseline too. ShipMover untouched (no pair run). The replay corpus was not re-run: no engine code changed.
 
 ---
 
