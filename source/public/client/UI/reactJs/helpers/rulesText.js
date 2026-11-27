@@ -60,10 +60,20 @@ export function parseRulesText(text) {
     return items;
 }
 
+/* Systems whose Special text the card never shortens, by the client `name` (the PHP $name, not the class):
+   the Ammunition Magazine's text IS its list of ammo types, and hiding it behind Shift hid what the ship
+   carries (user request 2026-11-27). Add a name here to exempt another system. */
+export const FULL_RULES_SYSTEMS = new Set(['ammoMagazine']);
+
+export function showsAllRules(system) {
+    return !!(system && FULL_RULES_SYSTEMS.has(system.name));
+}
+
 /* How many lines the brief card shows. A text only one line over is shown whole (a "+1 more" row costs as
-   much as the line), and the brief never ends on a heading whose sub-items it hides. */
-export function briefCount(items) {
-    if (items.length <= BRIEF_LINES + 1) return items.length;
+   much as the line), and the brief never ends on a heading whose sub-items it hides. A system listed in
+   FULL_RULES_SYSTEMS always shows every line. */
+export function briefCount(items, system) {
+    if (items.length <= BRIEF_LINES + 1 || showsAllRules(system)) return items.length;
     let shown = BRIEF_LINES;
     while (shown > 1 && items[shown - 1].kind === 'head') shown--;
     return shown;

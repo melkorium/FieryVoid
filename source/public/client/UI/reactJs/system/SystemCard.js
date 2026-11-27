@@ -881,10 +881,10 @@ class SystemCard extends React.Component {
     }
 
     render() {
-        const { name, id, chips, children, rules, footer } = this.props;
+        const { name, id, chips, children, rules, footer, subject } = this.props;
         const touch = this.isTouch();
         const items = parseRulesText(rules);
-        const shown = (touch || this.state.shift) ? items.length : briefCount(items);
+        const shown = (touch || this.state.shift) ? items.length : briefCount(items, subject);
         const hidden = items.length - shown;
 
         return (
