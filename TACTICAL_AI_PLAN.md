@@ -2570,7 +2570,7 @@ Dilgar Delegor): they "can and should always Ram, and can ignore the normal cond
 gains for free: Abbai 57% -> 96%, Corillani 58% -> 96%, Deneth 40% -> 100%, Llort 86% -> 91%, Drazi 78% -> 82%, Gaim 49% -> 75%.
 Dilgar stays 95% (its 4 Point Pulsars are E4 - a special hit formula - not E1).
 
-#### ⭐ MAJOR FACTIONS - AI STATUS AT A GLANCE (kept current; last updated 2026-11-24, after M9-M13)
+#### ⭐ MAJOR FACTIONS - AI STATUS AT A GLANCE (kept current; last updated 2026-11-27, after G1)
 
 **All nine are on `READY_FACTIONS`** - a CPU player can field them, the lobby offers them, and auto-compose builds their fleets.
 
@@ -2579,7 +2579,8 @@ movement (ordinary and gravitic drives, overthrust, turn shortening, extended tu
 mine avoidance, enemy-move forecasting at Normal/Hard); power (deficits, Hard boosts); EW (OEW/DEW/CCEW, lock rules, jammer-aware); direct
 fire with focus and interception modelled; ballistic launches (magazine racks, old-style racks, fighter racks with missiles aboard); Ballistic
 Torpedoes (volleys priced as the server resolves them, backed by OEW - M8); antimatter weapons (damage priced by the roll - M3/M4) and Point
-Pulsars (M5); fighter flights (strike / intercept / escort, jinking, coverage search); split-shot weapons (plain mode; Hard splits where it pays); limited-ammo
+Pulsars (M5); pulse weapons priced at the engine's own pulse count (G1); accelerators charged as players charge them - or fired on the move
+where that does more a turn (G1); fighter flights (strike / intercept / escort, jinking, coverage search); split-shot weapons (plain mode; Hard splits where it pays); limited-ammo
 weapons (fire until empty); exclusive fighter guns (big gun at ships, paired guns at fighters); ramming (designed rammers always, the
 Desperate rule otherwise); Hunter-Killers (deployed docked and spread over the carriers, launched from turn 1, hunting and ramming the largest
 ships first - M2); Gravity Nets in Pre-Firing (each net at the unit and hex that best improve the trade - locks, arcs, range and damaged
@@ -2970,7 +2971,7 @@ the antimatter half of E4 have landed since. And the pairs found weapons no surv
 
 | Faction | Units flown | Weapon mounts the AI fires | Left idle (D4 allows) / notes |
 |---|---|---|---|
-| Torata Regency | 15 | 100% | - |
+| Torata Regency | 15 | 100% | taken off by the user with the Drazi (accelerators, sustained fire); back 2026-11-27 with G1 ("G1 as built" below) |
 | Drazi Freehold (WotCR) | 27 | 100% | - |
 | Drazi Freehold | 29 (breaching pod hidden) | 97% | Particle Cutter x6 (sustained fire - W2); the Claweagle's Grappling Claws (M14); Sky / Fanged Serpent and Armored Shuttle racks fire once missiles are bought |
 | Hurr Republic | 15 | 100% | Koeth racks with missiles |
@@ -3054,7 +3055,7 @@ if wanted sooner.
 
 | # | Item | Who gains | What is needed | Approach | Size |
 |---|---|---|---|---|---|
-| G1 | **Accelerator weapon strategy** (charge timing) | Torata 110 mounts (Particle, Plasma, Pulse, Laser Accelerators), Minbari Molecular Pulsar 20, Centauri Plasma Accelerator 12, Corillani 10, Raiders 9 (+ EA custom phased beams) - every weapon whose `normalload` > its loading time | TODAY: the AI fires a weapon as soon as it is loaded. A load-1 accelerator is treated as a 1-turn gun (floor FIRE_MIN_CHANCE 5, never in `holdSlow`), so it fires EVERY turn at its weakest charge (Plasma Accelerator 1d10+4, not 4d10+12 - and armour comes off every small hit); the Laser Accelerator (load 2, full 4) goes through `holdSlow`, but `AIView::ahead` moves the units and leaves `turnsloaded` alone, so waiting is never seen to grow the shot. Legal either way - no pair or self-play game can flag it | (1) Price each charge level: on a CLONE, `turnsloaded` = 1 .. normalload, refresh min/max damage, the usual estimate (armour per hit included). (2) Fire now when now >= next charge level x FIRE_HOLD_CONFIDENCE (0.8 a turn), else hold - re-decided every turn, so a gun charges a step at a time. (3) Fire regardless of charge (the user's cases): FINISH OFF (this charge likely kills the target or a section - `healthLeft`), LAST SHOT (the shooter or the weapon's section expected lost this turn - JumpDecider's "expected kill" measure - or jumping out / surrendering), TARGET LEAVING (holdSlow's parting test: out of arc or range next turn). (4) Levels: Easy fires on load (today's behaviour, a weakness); Normal one-step; Hard adds the forecast and looks to full charge. Proof: fireRules boards (charge ladder, finish-off, doomed shooter, parting), the fire pair (choices only - 0 differences must hold), Torata self-play | 1 session |
+| G1 | ✅ **Accelerator weapon strategy** (charge timing) - BUILT 2026-11-27, uncommitted ("G1 as built" below; with it the engine's pulse count, every pulse weapon - ruled "Fix everywhere") | Torata 110 mounts (Particle, Plasma, Pulse, Laser Accelerators), Minbari Molecular Pulsar 20, Centauri Plasma Accelerator 12, Corillani 10, Raiders 9 (+ EA custom phased beams) - every weapon whose `normalload` > its loading time | TODAY: the AI fires a weapon as soon as it is loaded. A load-1 accelerator is treated as a 1-turn gun (floor FIRE_MIN_CHANCE 5, never in `holdSlow`), so it fires EVERY turn at its weakest charge (Plasma Accelerator 1d10+4, not 4d10+12 - and armour comes off every small hit); the Laser Accelerator (load 2, full 4) goes through `holdSlow`, but `AIView::ahead` moves the units and leaves `turnsloaded` alone, so waiting is never seen to grow the shot. Legal either way - no pair or self-play game can flag it | (1) Price each charge level: on a CLONE, `turnsloaded` = 1 .. normalload, refresh min/max damage, the usual estimate (armour per hit included). (2) Fire now when now >= next charge level x FIRE_HOLD_CONFIDENCE (0.8 a turn), else hold - re-decided every turn, so a gun charges a step at a time. (3) Fire regardless of charge (the user's cases): FINISH OFF (this charge likely kills the target or a section - `healthLeft`), LAST SHOT (the shooter or the weapon's section expected lost this turn - JumpDecider's "expected kill" measure - or jumping out / surrendering), TARGET LEAVING (holdSlow's parting test: out of arc or range next turn). (4) Levels: Easy fires on load (today's behaviour, a weakness); Normal one-step; Hard adds the forecast and looks to full charge. Proof: fireRules boards (charge ladder, finish-off, doomed shooter, parting), the fire pair (choices only - 0 differences must hold), Torata self-play | 1 session |
 | G2 | **ELINT functions** - BDEW, DIST, SOEW, SDEW, JAM, MDEW (Detect Mines) and Detect Stealth | ELINT hulls in nearly every faction (EA, Narn, Orieni, Centauri, Minbari, Dilgar, Torata, Drazi (WotCR), Cascor, Corillani, Descari, Markab, Belt, Balosian, the Protectorate ... ~80 hull files) | TODAY: an ELINT ship runs plain OEW / DEW / CCEW (EWDecider "NOT YET"); the AI prices an ENEMY's DIST against itself (5826 - `lockStep`), never uses one. The page's rules are in ew.js: module-only types (`ELINT_MODULE_ONLY`), area types BDEW / Detect Stealth with per-module reach (`getElintAreaPointsReaching`), DIST in steps of 3 (+mod), arc per module | Extend EWDecider's priced search with the ELINT moves, each valued by the same hit-formula pricing it already uses: BDEW = DEW for every friendly in reach (fighter-heavy or massed enemy fire); SDEW / SOEW = support the most valuable / most locked friendly; DIST = strip an enemy's locks (worth = the bot fire it stops: the enemies with the most OEW on the bot's ships); JAM = against enemy ELINT / HK control (Orieni HKs go Uncontrolled); Detect Stealth only when an enemy stealth unit is known; MDEW on enemy mines (mine-sweep plan). Needs RULINGS first: an ELINT's priority order, and how much it may leave its own defence. Proof: the orders pair (ordersOracle clicks every ELINT row through ew.js), levelsHarness boards per function, self-play with ELINT on both sides | 2 sessions |
 | G3 | **Bases and OSATs** | 51 bases + 172 OSATs in the ready factions (105 / 377 in all) - today refused for a CPU slot (`ShipMover::unsupportedHullReason`: 'a base', 'an OSAT'; ⚠️ MIRROR gamelobby.js `cpuHullBlock`) | Bases: no movement but rotation (`canRotate` - deploymove on turn 1 unless `nonRotating`), PowerDecider refuses them (`understands`), several reactors / sub-reactors, the page's own disabled rule (AIView::pageDisabled exception), no jump-out or surrender path (Posture / JumpDecider must count them as unable to leave). OSATs: no thrust movement, free facing turns while their thruster lives (movement.js: OSAT `requiredThrust` 0, `OSatThrusterCrit` limits), no rolls / pivots. Deployment: placed in the zone like any unit (FleetDeployer), facing toward the expected enemy approach. Auto-compose: the checker's static-unit rule (`staticPresent`) - buy them only for scenarios / campaign, never in a plain skirmish | ShipMover: a "static" mode - OSATs choose a facing (turn rows only), bases only their deploy rotation; ShipDecider / FireDecider unchanged (they price from where the unit is). PowerDecider: port the base power balance. Posture: a static unit never jumps or flees; surrender counts its guns. Then take 'a base' / 'an OSAT' out of the refusals (both lists). Proof: ShipMover pair OSAT / base boards (the page's turn rules), orders pair with bases, deployerHarness, self-play with a base defending against EA | 1-2 sessions |
 
@@ -3126,6 +3127,122 @@ runs BEFORE the first 1.5-roll hull in its part is byte-identical to the earlier
 situations from the harness's shared `mt_rand` stream (the Usuuth walks draw differently), all agreeing with the page. manoeuvreHarness 490 and
 levelsHarness 348 - the same counts on the old and the new code. Self-play Usuuth v EA (`--budget=0`): 4 games (Normal/Hard x 24x16/42x30) + 4
 kept Hard 42x30 reruns - 8 PASS (the one tripwire game above). Then `Usuuth Coalition` added to READY_FACTIONS and the FAQ list.
+
+#### G1 as built (2026-11-27) - accelerator charge timing, and the engine's pulse count - uncommitted
+
+**The user's request (2026-11-27):** "Can you implement the G1 Accelerator weapon strategy please from the General Item list ... If anything is
+unclear please ask."
+
+**Asked first, answered (rulings, 2026-11-27):**
+1. *The hold rule* (the plan's "fire now when now >= next charge x 0.8, else hold" ignores that firing now also brings a fresh 1-turn shot next
+   turn, so nearly everything would charge to full): **"Plan Rule, but can we build in some flexibility as some Accelerator weapons CAN be worth
+   firing every [turn] for sustained damage (mainly the Molecular Pulsar and Pulse Accelerator)"**.
+2. *A pricing gap found while reading the code* - `AIView::expectedPulses` counted ONE base pulse and the extras; the engine rolls a base die
+   (d5, d3, d2 ...) and adds the extras (`Pulse::rollPulses`), so every pulse weapon was priced at about half of what it does and an
+   accelerator's pulse levels (Molecular Pulsar d3 -> d5; Pulse Accelerator 1 -> d2 -> d3) looked far closer than they are: **"Fix everywhere"**.
+3. *Hard's "adds the forecast"* (in the Fire phase everybody has moved, so a forecast must be of NEXT turn - nothing did that): **"Plus escape
+   forecast"** - Hard predicts each held target's next move (Normal's one-turn forecast, run for next turn) and fires now if that move takes the
+   target out of arc or range.
+4. *Torata* (commented out of `READY_FACTIONS` "until Accelerator and Sustained Weapons strategies are finished"; it has no sustained-fire weapon):
+   **"Yes, after gates"**.
+
+**As built** (`AIView`, `FireDecider`, `EnemyForecast`, `ShipMover`, `AIConfig`; no new class, autoload unchanged):
+
+- **The engine's pulse count, everywhere** (`AIView::expectedPulses` / `pulseModel`): the mean of the weapon's own `rollPulses` over every d100
+  roll that hits, its base die enumerated face by face - `getPulses` asked with every die forced to its top face, then one lower at a time
+  (`Dice::$perDieBonus` / `$perDiePenalty`, the Elite Crew / nebula statics, set and restored around each call). A class that keeps the
+  engine's composition (`Pulse::rollPulses`) is counted from its faces and its own `getExtraPulses` (the Molecular Pulsar's 1-turn shot adds
+  none); one with its own `rollPulses` is asked it, die forced, face by face. A need over 100 now adds pulses too. A Ballistic Torpedo volley
+  keeps its own count (its `getPulses` is 1). Cached per weapon state and need. Every level, legacy included - a pricing fix, not a skill.
+- **Accelerators** (`AIView::accelerator`: `getNormalLoad()` above the least loading time of any mode): `AIView::charged` = a COPY of the
+  weapon at a charge, put in as the loader puts a saved loading in (`setSystemData`, then `setSystemDataWindow`), starting from the class's own
+  `maxpulses` / `rof` where its `setSystemData` sets them by charge (the Pulse Accelerator's `maxpulses == 3` typo leaves the class's 4 at
+  charge 2 - the copy follows the engine); `chargeValue` = the usual estimate of it (best mode loaded at that charge); `chargeShot` = shot()'s
+  answer for it.
+- **`FireDecider::holdCharge`** (skill `chargeTiming`: Easy / legacy `'none'` = fire on load, as before; Normal `'step'`; Hard `'full'`), per
+  accelerator shot, before `holdSlow`:
+  1. **the cycling charge** (`cycleFor` / `cycleCharge` - the user's "flexibility"): of the charges priced as the target's interceptors would
+     leave each one were it the only shot (`afterInterception`, InterceptModel), the lowest whose damage per turn of charging is at least
+     `FIRE_SUSTAINED_SHARE` (1.0) of the best charge's. Charged that far, it fires as any gun. Interception takes a pulse weapon's EXTRA pulses
+     first, so against an EA ship's Interceptors the Molecular Pulsar cycles at 1 (4 hexes from an Omega: 2.40 a turn kept on the 1-turn shot,
+     2.10 on the charged one) and against a G'Quan it charges; the Pulse Accelerator cycles at 1 everywhere seen; the Plasma, Particle and Laser
+     Accelerators charge to full.
+  2. **fired anyway below that** (the user's cases): **LAST SHOT** (`lastShots`, JumpDecider's "expected kill" measure as the units now stand -
+     every enemy loaded plain gun with a shot at the ship, shared over the sections its hits land on (`AIView::sectionEstimate`): primary down to
+     `JUMP_DAMAGED_SHARE` and that fire at least what is left of it; or the accelerator's own section down to that share with at least its
+     structure coming; or a jump point of its own on the board (`JumpDecider::pending`) - flights never); **FINISH OFF** (`finishes`: at least
+     `FIRE_FINISH_CHANCE` 50%, and a hit's damage at least what is left of the target (healthLeft), of the section the shot hits, or of a flight's
+     weakest craft); **TARGET LEAVING** - found by the comparison below (no shot worth waiting for next turn).
+  3. **the plan's rule**: Normal waits while next turn's next charge, everybody a turn straight on (`ahead()`, arcs not asked - holdSlow's
+     convention), is worth more than `FIRE_HOLD_CONFIDENCE` x this turn's shot. Hard looks at every charge up to full (`FIRE_HOLD_CONFIDENCE` a turn)
+     with each held target SHIP stood where its own next move should take it (`EnemyForecast::nextTurn`) and the arc asked - its own ship a turn
+     straight on, facing as now or turned one hex side (`turnedValue` - implementer's call: straight on alone called 52 of 72 random boards an
+     escape, one turn's allowance 48 of 144). Budget `FIRE_FORECAST_SECONDS` (1.0; harness `FireDecider::$forecastBudget`).
+  Each option is marked with the charge it spends (`load` = min(charge, cycling charge)); `holdSlow` and `minimumChance($load)` hold a charged
+  shot to the floors of the turns it took - a FULL Plasma Accelerator to a 3-turn gun's 34% - and leave a last shot alone. A last-stand flight
+  fires every gun as before. The decision line adds "N accelerators charging".
+- **`EnemyForecast::nextTurn`** (predict()'s pricing split out as `choose()`, unchanged) from **`ShipMover::forNextTurn`** = a mover of the
+  loaded game moved on a turn (`nextTurnMover`, split out of `extendedPayableNextTurn` unchanged - the server's start rows, the forced pivot)
+  plus the page's extended-turn cancel.
+- `AIConfig`: `FIRE_SUSTAINED_SHARE`, `FIRE_FINISH_CHANCE`, `FIRE_FORECAST_SECONDS`, skill `chargeTiming`; the pulse-premium comment's figures are
+  now the engine's (a Heavy Pulse 1.16 pulses at 34%, 2.07 at 54% - the ruling was made on the old 0.5 / 1.0; NOT re-asked).
+
+**Proof** (DB-free, one snapshot; baseline = a HEAD snapshot the same morning):
+- **fireRulesHarness K** (NEW): K1 the charge ladder - every accelerator kind (Plasma, Particle, Pulse, Laser Accelerator, Molecular Pulsar,
+  Light Particle / Light Plasma Accelerator), at an Omega and at a flight, every charge priced from every charge equals a weapon LOADED at
+  that charge (setSystemData + prepareForPlayer, an independent board each), the live weapon untouched; K2 Easy fires on load; K3 Normal (and
+  Hard, on a board nothing can leave) charges a Plasma Accelerator 1 -> 2 -> 3 and fires it full; K4 the Pulse Accelerator fires at a 1-turn
+  charge, the Molecular Pulsar fires on the move against an Omega's Interceptors and charges against a G'Quan; K5 finish off (a section left
+  with 2 boxes); K6 last shot (primary down to a tenth; the accelerator's own section down to a tenth) - and a whole ship charges; K7 target
+  leaving (Normal's comparison over 144 boards, the 0.8 band found 4 times); K8 Hard's escape forecast over 144 random boards (forecast out of
+  reach 48 - Hard fires on every one, 7 of them in reach straight on; in reach 96 - Hard charges whenever the rule says so); K9 a full
+  charge never fired under 34%. **L** (NEW): the engine's pulse count - 18 pulse weapon kinds of the ready factions + Torata, every
+  accelerator charge, needs 15 / 45 / 75 / 105, against the engine's own `rollPulses` sampled (worst gap 0.08 pulses); a Heavy Pulse at
+  34% = 1.16. **1,833 checks at --rounds=24 (1,551 at the default)**, the only failures the 6 pre-existing I5 / I7. **Mutants 13 / 13
+  caught** (faces with the 0, extras without the class's own, no default reset, no setSystemData, cycle without interception, no finish
+  off, no last shot, Hard without the forecast, floors by loading time, no turn allowance, the old pulse count, never sustained, no 0.8).
+- **Fire pair** (fireHarness + fireOracle.js) over the ready directories + torata (30, 1,025 hulls): Fire phase Easy / Normal / Hard - **0
+  differences** (19,304 legal shots a level; planned 8,687 -> 8,674 Easy, 8,654 -> 8,544 Normal and Hard - the charging and the pulse
+  count); Initial Orders - 0 differences (planned 1,554 / 1,364 -> 1,554 / 1,363); Gravity Nets (phase 5) - 0 differences (nets 27 / 31 ->
+  28 / 34). **Orders pair** x3 - **0 differences** (EW offence points: Easy unchanged; Normal 5,647 -> 5,575; Hard 5,857 -> 5,820).
+- levels 357, hazards 14,758, withdrawal 123 (+ D8), ram 127, gravityNet 1,163, hangar 57 (+ C4), budget 30, registry 22, deploySpread 66 -
+  as on HEAD. **manoeuvreHarness E** (Hard's pivot to hide a destroyed side) FAILED once: the Omega's two Heavy Pulses at the engine's count
+  make the roll's next turn worth more (accel, move x5, roll - danger 324 now / 340 next, against the pivot's 81 / 1,019). E is now E1 (the
+  traced board with those Heavy Pulses shot away - pivots and stops, identical before and after G1) and E2 (the whole Omega - Hard turns the
+  side away by a pivot or a roll): 493 checks, PASS on HEAD and on G1.
+- **Decision time** (decisionBench, `--budget=0`, mirror fleets of 10, Normal + Hard, every phase): EA and Brakiri (Graviton Pulsars - the
+  pulse count's heaviest user) **unchanged against HEAD** (Movement 8.03 / 10.85 s against 8.09 / 10.82 s for EA; Brakiri 18.02 / 25.91
+  against 17.98 / 25.91; Fire phase 0.05-0.08 s both).
+- **Self-play** (`--budget=0`, a snapshot with Torata on the list; FleetComposer fleets at 2,500 points against EA's, 24x16 / 42x30): Torata
+  x6 (Normal and Hard, both maps), Minbari x2, Centauri x2, EA x2, and two targeted White Star games (4 White Stars against an Omega, a
+  Hyperion and Auroras, Normal / Hard) - **14 PASS, 0 AI defects, none to the turn cap**; Torata won 3 of its 6. Kept: games 6335-6348.
+  Charge at firing (`scratch accel.php` - turns since the weapon's last shot, full at the start): Particle Accelerator 33 of 36 at its full
+  2; Plasma Accelerator 6 of 9 at its full 3; Laser Accelerator 22 of 28 at its full 4; Pulse Accelerator 120 at 1 (sustained), 15 at 2, 59
+  at 3 (opening shots and after idle turns); Light Particle Accelerator 132 charged shots, 45 at 1; Molecular Pulsar 88 at 1 and 60 at 2 -
+  the flexibility the user asked for (before G1: every one at its lowest charge but the opening shot).
+- **Auto-compose + the real Fleet Checker** (fleetComposerHarness + fleetCheckOracle, every ready faction): Torata 384 fleets, 384 clean,
+  384 passed; PASS overall.
+
+**Torata Regency back on `READY_FACTIONS`** (26 factions; the user had taken it off with the Drazi "until Accelerator and Sustained Weapons
+strategies are finished"; both Drazi stay off until W2). The FAQ already named it.
+
+**Implementer's calls - to confirm:**
+- The flexibility is a RATE rule on top of the plan's: the cycling charge (above), `FIRE_SUSTAINED_SHARE` 1.0 (lower = fire on the move more).
+- Interception in the cycle is the LONE shot's worst case (all the target's interceptors on it) - in a real volley they spread.
+- Floors by charge: a fully charged accelerator holds out for its charge's floor after interception (the 2026-11-15 ruling, "1-33% for a 3 or 4
+  turn recharge would be unwise"). Alone against an Omega's six Interceptors a full Plasma Accelerator therefore waits for a close shot (a
+  Vorchan / Agnar fires at 1-2 hexes, not at 3-6: 75% at 3 hexes falls under 34% once all six are on it) - as any 3-turn interceptable gun
+  does; before G1 it fired 0.35-damage shots at it every turn. In a fleet volley the interceptors spread.
+- Hard's arc test lets its own ship turn one hex side.
+- LAST SHOT uses `JUMP_DAMAGED_SHARE` (the user's 0.15) for the section as well as the primary; flights never take one.
+
+**Observations (not changed):**
+- `PulseAccelerator::setSystemData` - `$this->maxpulses == 3;` (a comparison): at 2 turns it keeps the class's 4, not the 3 its description
+  gives. The AI follows the engine.
+- `BoltAccelerator::setMaxDamage` sets `minDamage` (a custom Gaim-campaign weapon, not on a ready faction).
+- The FAQ's "What a CPU player can field" names Drazi Freehold and Drazi Freehold (WotCR), which `READY_FACTIONS` comments out until W2.
+- Pre-existing on HEAD (baseline): fireRules I5 / I7 (6 - torpedoes at flights since the 2026-11-26 flight-jink change), fire pair phase 1 Easy
+  "Demos #2: a torpedo volley is one the view prices" (php half, 2), withdrawal D8, hangar C4.
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 

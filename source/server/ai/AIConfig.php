@@ -211,7 +211,8 @@ class AIConfig
        normally fire" - against the ruling of 2026-11-15 ("1-33% for a 3 or 4 turn recharge would be unwise"). */
     const FIRE_MIN_CHANCE_PARTING = array(2 => 20, 3 => 34);
     /* PULSE weapons (user ruling 2026-11-19): one roll, one more pulse for every `grouping` it beats the need by, so their
-       damage grows much faster than the hit chance (a Heavy Pulse expects ~0.5 pulses at 34%, ~1.0 at 54%). A SLOW pulse
+       damage grows faster than the hit chance (a Heavy Pulse expects ~1.16 pulses at 34%, ~2.07 at 54% - the engine's count, base die
+       included, since G1, 2026-11-27; the ruling was made on the old count's ~0.5 and ~1.0, which left the d5 base out). A SLOW pulse
        weapon's floors are this many points higher: Medium Pulse (2 turns) 35%, Heavy Pulse (3 turns) 44%. A pulse gun that
        loads in one turn loses nothing by firing and keeps FIRE_MIN_CHANCE. */
     const FIRE_PULSE_PREMIUM = 10;
@@ -220,6 +221,20 @@ class AIConfig
        now < next x FIRE_HOLD_CONFIDENCE x (1 - 1 / loading time) - a turn of waiting costs a
        1-turn gun everything and a 4-turn gun a quarter of a shot. */
     const FIRE_HOLD_CONFIDENCE = 0.8;       //what next turn's shot is taken to be worth against this turn's certain one (the target may turn away, the gun may be lost)
+    /* ACCELERATORS (plan 10.10 G1 - the user's general item, 2026-11-26: until then a load-1 accelerator fired EVERY turn at its weakest
+       charge, a Plasma Accelerator 1d10+4 rather than 4d10+12, armour off every small hit). FireDecider::holdCharge: a charging accelerator
+       waits while next turn's charge, a turn on, is worth more than FIRE_HOLD_CONFIDENCE x this turn's shot (Hard: any charge up to full,
+       FIRE_HOLD_CONFIDENCE a turn) - the plan's rule, ruled 2026-11-27 "but can we build in some flexibility as some Accelerator weapons
+       CAN be worth firing every [turn] for sustained damage (mainly the Molecular Pulsar and Pulse Accelerator)". So, first, the charge
+       it CYCLES at against this target where both stand: the lowest whose damage per turn of charging (the shot / its charge) is at least
+       FIRE_SUSTAINED_SHARE of the best charge's - an accelerator charged that far fires as any gun (a Pulse Accelerator's every-turn shot
+       does more per turn than its charged ones; a Molecular Pulsar's at a poor chance; a Plasma Accelerator charges to full). Lower =
+       more willing to fire on the move. */
+    const FIRE_SUSTAINED_SHARE = 1.0;
+    //...and it fires at any charge when the shot is at least this likely (percent) to do what finishes the target or the section it hits (a craft of a flight)
+    const FIRE_FINISH_CHANCE = 50;
+    //Hard's escape forecast in the Fire phase (EnemyForecast::nextTurn): CPU seconds a decision may spend on it before the rest stay straight on (0 = no limit)
+    const FIRE_FORECAST_SECONDS = 1.0;
     const FIRE_MIN_CHANCE_EDGE = 20;        //...for a shot from exactly between two of the target's sections, which the page may price up to 15 lower (AIView::onEdge)
     const FIRE_FOCUS = 0.5;                 //how much a target already being shot at draws the next gun (0 = spread freely)
     /* CONCENTRATION (user, 2026-11-19: "it is more effective to concentrate a fleet's heavy firepower to try and take down an
@@ -328,7 +343,8 @@ class AIConfig
     const READY_FACTIONS = array('Earth Alliance', 'Raiders', 'Dilgar Imperium', 'Minbari Federation', 'Narn Regime', 'Centauri Republic',
         'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium',
         //League of Non-Aligned Worlds
-        //'Torata Regency', 'Drazi Freehold', 'Drazi Freehold (WotCR)', //Commmentedd out until Accelerator and Sustained Weapons stragies are finished.
+        'Torata Regency', //back 2026-11-27 with G1 (accelerator charge timing) - the user: "Yes, after gates"
+        //'Drazi Freehold', 'Drazi Freehold (WotCR)', //Commmentedd out until Accelerator and Sustained Weapons stragies are finished. (G1 done; W2 - sustained fire - still to do)
         'Hurr Republic', 'Cascor Commonwealth',
         //Minor Factions
         'Alacan Republic', 'Balosian Underdwellers', 'Belt Alliance', 'Corillani Theocracy', 'Deneth Tribes', 'Descari Committees', 'Llort',
@@ -507,28 +523,37 @@ class AIConfig
                         (the user's tester, 2026-11-26: "missile ships should 'turtle' with high DEW at Normal and Hard"). Normal and Hard
          committed      a place with a decent locked heavy shot, or an attack run on a ship that has moved, weighs its danger
                         MOVE_COMMITTED_DANGER as much (the user, 2026-11-26: "AI ships are a bit too avoidant"): ShipDecider::fireTerms.
-                        Easy, Normal and Hard; legacy off */
+                        Easy, Normal and Hard; legacy off
+         chargeTiming   ACCELERATOR charge timing (plan 10.10 G1 - see FIRE_SUSTAINED_SHARE; FireDecider::holdCharge). 'none': fires on
+                        load, as before (Easy - "today's behaviour, a weakness"; legacy). 'step' (Normal): charges while the NEXT charge,
+                        everybody a turn straight on, beats this one by FIRE_HOLD_CONFIDENCE. 'full' (Hard): looks to every charge up to
+                        full (FIRE_HOLD_CONFIDENCE a turn), and forecasts each held target's next move (Normal's one-turn forecast, run
+                        for next turn - the user, 2026-11-27: "Plus escape forecast"), firing now when it takes the target out of arc or
+                        range. Every level but 'none' fires a charging accelerator anyway at its cycling charge, to finish a target or a
+                        section off (FIRE_FINISH_CHANCE), as a LAST SHOT (its ship or its section expected lost this turn - JumpDecider's
+                        "so damaged" share - or the ship leaving through its jump point), and when the target leaves its reach next turn;
+                        and holds a charged one to the floors of the turns its charge took (minimumChance) */
     const SKILLS = array(
         'easy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => true, 'simpleEW' => true, 'focus' => 0.0, 'heavyFocus' => false,
             'pulsePremium' => false, 'shortening' => false, 'unmovedDanger' => 0.5, 'overspeed' => 0.5, 'ballisticFloor' => false,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'none', 'noise' => 10.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true),
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none'),
         'normal' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 1.5, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 4,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'turn',
-            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true),
+            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step'),
         'hard' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 3.0, 'jink' => 'any', 'manoeuvres' => 'all', 'noise' => 0.0, 'coverageGoals' => 12,
             'pileOn' => 1.0, 'support' => 2.0, 'fleetFocus' => 0.5, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => true, 'extendedTurns' => true, 'forecast' => 'full',
-            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true),
+            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full'),
         'legacy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => false, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false)
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none')
     );
 
     /* POWER MANAGEMENT (skill 'powerBoost', stage T5f-4). A gun "reaches" an enemy when, with the units as close as both could

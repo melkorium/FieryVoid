@@ -46,6 +46,9 @@ class AIView
     private $worst = array();     //cache: unit id => worstExposure()
     private $overlaps = array();  //cache (stage T8): unit id => whole bearing => do 2+ entries of its hit table hold it ('locations': the table)
     private $rolledDamage = array(); //cache (stage T9, M3-M5): "weapon object:mode:needed" => rollDamage()
+    private $pulseModels = array();  //cache (G1): a pulse weapon's state => pulseModel()
+    private $pulseMeans = array();   //cache (G1): pulseModel key|need => expectedPulses()
+    private $charged = array();      //cache (G1): "weapon object:charge" => the weapon's copy at that charge (charged()); kept, so no object id is reused
 
     //Where TacGamedata::hideStealthShipMovement puts a unit this viewer may not see.
     const HIDDEN_Q = -10000;
@@ -1226,20 +1229,22 @@ class AIView
     }
 
     /* What a volley at $chance percent should do: every gun, every shot (or pulse) of it, after armour and range. $needed: the need
-       before it was clipped to 0..100, for a rollScaled weapon's hit (stage T9); $pulses: atChance's. */
+       before it was clipped to 0..100, for a rollScaled weapon's hit (stage T9) and a pulse weapon's count (G1: a need over 100 still
+       adds pulses); $pulses: atChance's. */
     private function expected(Weapon $weapon, $unit, $target, $chance, $hitLoc, $distance, $needed = null, $pulses = null)
     {
-        return $this->atChance($weapon, $this->damagePerHit($weapon, $unit, $target, $hitLoc, $distance, $needed), $chance, $pulses);
+        return $this->atChance($weapon, $this->damagePerHit($weapon, $unit, $target, $hitLoc, $distance, $needed), $chance, $pulses, $needed);
     }
 
     /* The same, given what one hit does: every gun, every shot (or pulse) at $chance percent. The weapon's mode is the shot's.
-       $pulses: the most pulses one roll lands, when that is not the weapon's own maxpulses (stage T9, M8 - a torpedo volley). */
-    private function atChance(Weapon $weapon, $perShot, $chance, $pulses = null)
+       $pulses: the most pulses one roll lands, when that is not the weapon's own maxpulses (stage T9, M8 - a torpedo volley).
+       $needed: the need unclipped (expected()), else $chance is taken as the need. */
+    private function atChance(Weapon $weapon, $perShot, $chance, $pulses = null, $needed = null)
     {
         $expected = 0;
         if ($weapon->damageType === 'Pulse') {
-            //one roll; each further pulse needs the roll to be `grouping` lower
-            $expected = $perShot * $this->expectedPulses($weapon, $chance, $pulses);
+            //one roll; the engine's count of pulses for it (expectedPulses)
+            $expected = $perShot * $this->expectedPulses($weapon, ($needed !== null && $chance > 0) ? max($chance, $needed) : $chance, $pulses);
         } else {
             $shots = max(1, (int)$weapon->defaultShots);
             for ($i = 0; $i < $shots; $i++) {
@@ -1321,11 +1326,41 @@ class AIView
         return $this->shieldedUnits[$key];
     }
 
-    //Pulses expected from one pulse shot: 1 on a hit, +1 for each `grouping` the roll beats the need by - $pulses at most (the weapon's maxpulses when null).
+    /* Pulses expected from one pulse shot that needs $chance percent (interception already off; over 100 it hits on any roll and still
+       adds pulses) - the ENGINE's own count, averaged over every d100 roll that hits (Weapon::fire: rolled <= needed, then
+       Pulse::rollPulses - a base die (getPulses: d5, or d3, d2, a fixed 1... by class and charge), plus one for each `grouping` the roll
+       beats the need by (getExtraPulses), at most maxpulses). Plan 10.10 G1 (the user, 2026-11-27: "Fix everywhere"): until then this
+       counted ONE base pulse and the extras - every pulse weapon priced at about half of what it does (a Heavy Pulse at 34%: 0.5 pulses
+       against the engine's 1.16), and an accelerator's charge levels (the Molecular Pulsar's d3 then d5) much closer than they are.
+       $pulses (stage T9, M8 - a Ballistic Torpedo volley): its own count, 1 a hit and one more a `grouping`, $pulses at most (the
+       torpedo's getPulses is 1). Remembered per weapon state and need (pulseModel). */
     private function expectedPulses(Weapon $weapon, $chance, $pulses = null)
     {
+        if ($pulses !== null) return self::plainPulses($weapon, $chance, max(1, (int)$pulses));
+
+        $need = max(0, (float)$chance);
+        $hits = (int)min(100, floor($need));
+        if ($hits < 1) return 0;
+        $model = $this->pulseModel($weapon);
+        if ($model === null) return self::plainPulses($weapon, min(100, $need), max(1, (int)$weapon->maxpulses)); //no count of its own to ask
+
+        $key = $model['key'] . '|' . $need;
+        if (!isset($this->pulseMeans[$key])) {
+            $sum = 0;
+            try {
+                for ($rolled = 1; $rolled <= $hits; $rolled++) $sum += $model['count']($need, $rolled);
+                $this->pulseMeans[$key] = $sum / 100;
+            } catch (Throwable $e) {
+                $this->pulseMeans[$key] = self::plainPulses($weapon, min(100, $need), max(1, (int)$weapon->maxpulses));
+            }
+        }
+        return $this->pulseMeans[$key];
+    }
+
+    //1 pulse a hit, +1 for each `grouping` the roll beats the need by, $max at most - the count before G1, kept for a torpedo volley.
+    private static function plainPulses(Weapon $weapon, $chance, $max)
+    {
         $chance = max(0, min(100, $chance));
-        $max = max(1, (int)($pulses !== null ? $pulses : $weapon->maxpulses));
         $grouping = (float)$weapon->grouping;
         if ($grouping <= 0) return $chance / 100 * max(1, min($max, (int)$weapon->defaultShots));
 
@@ -1336,6 +1371,89 @@ class AIView
             $expected += $needed / 100;
         }
         return $expected;
+    }
+
+    /* How $weapon counts its pulses in its present state (G1): array('key' => the state, 'count' => function (need, rolled) giving the
+       mean count over its base die's faces), or null when it has no count to ask. The faces are the ENGINE's: getPulses asked with every
+       die forced to its top face, then one lower at a time (Dice's $perDieBonus / $perDiePenalty - Weapon::getFinalDamage's Elite Crew and
+       nebula, set and restored around one call, as here) until the die reads 0 - each equally likely; a sum of dice keeps its mean.
+       A class that keeps the engine's composition (Pulse::rollPulses: base + getExtraPulses, at most maxpulses) is counted from its faces
+       and its own getExtraPulses (the Molecular Pulsar's 1-turn shot adds none); one with a rollPulses of its own is asked it, die forced,
+       face by face. A count drawn some other way (not on Dice) would not repeat: such a weapon keeps the plain count. */
+    private function pulseModel(Weapon $weapon)
+    {
+        $key = get_class($weapon) . ':' . spl_object_id($weapon) . ':' . (int)$weapon->firingMode . ':' . (int)$weapon->turnsloaded . ':'
+            . (int)$weapon->maxpulses . ':' . $weapon->grouping . ':' . count($weapon->power);
+        if (array_key_exists($key, $this->pulseModels)) return $this->pulseModels[$key];
+        $this->pulseModels[$key] = null;
+        if (!method_exists($weapon, 'rollPulses') || !method_exists($weapon, 'getPulses')) return null;
+
+        $turn = $this->turn;
+        $scope = get_class($weapon);
+        $base = Closure::bind(function ($turn) { return $this->getPulses($turn); }, $weapon, $scope);
+        $faces = self::forcedFaces(function () use ($base, $turn) { return $base($turn); });
+        if ($faces === null || self::forcedFaces(function () use ($base, $turn) { return $base($turn); }) !== $faces) return null;
+
+        $composed = (new ReflectionMethod($weapon, 'rollPulses'))->getDeclaringClass()->getName() === 'Pulse';
+        if ($composed) {
+            $extra = Closure::bind(function ($needed, $rolled) { return $this->getExtraPulses($needed, $rolled); }, $weapon, $scope);
+            $max = (int)$weapon->maxpulses;
+            $count = function ($needed, $rolled) use ($faces, $extra, $max) {
+                $more = $extra($needed, $rolled);
+                $sum = 0;
+                foreach ($faces as $face) $sum += min($face + $more, $max);
+                return $sum / count($faces);
+            };
+        } else {
+            $count = function ($needed, $rolled) use ($weapon, $turn, $faces) {
+                $sum = 0;
+                for ($penalty = 0; $penalty < count($faces); $penalty++) {
+                    $sum += self::withForcedDice($penalty, function () use ($weapon, $turn, $needed, $rolled) { return $weapon->rollPulses($turn, $needed, $rolled); });
+                }
+                return $sum / count($faces);
+            };
+        }
+        return $this->pulseModels[$key] = array('key' => $key, 'count' => $count);
+    }
+
+    /* The values $roll gives with every die forced to its top face less 0, 1, 2... until a die reads 0 (the repeat after it): the faces
+       of the die, top first (a roll with no die: its one value). Null when it throws or never settles. */
+    private static function forcedFaces(callable $roll)
+    {
+        $values = array();
+        try {
+            for ($penalty = 0; $penalty <= 40; $penalty++) {
+                $value = self::withForcedDice($penalty, $roll);
+                if ($penalty > 0 && $value == $values[$penalty - 1]) {
+                    if (count($values) > 1) array_pop($values); //the value with the die at 0 is no face of it
+                    return $values;
+                }
+                $values[] = $value;
+            }
+        } catch (Throwable $e) {
+            return null;
+        }
+        return null;
+    }
+
+    //$roll() with every Dice::d die at its top face less $penalty (never under 0) - the statics restored, whatever happens.
+    private static function withForcedDice($penalty, callable $roll)
+    {
+        $kept = array(Dice::$perDieBonus, Dice::$perDiePenalty, Dice::$extraDie);
+        Dice::$perDieBonus = 1000;
+        Dice::$perDiePenalty = (int)$penalty;
+        Dice::$extraDie = 0;
+        try {
+            return $roll();
+        } finally {
+            list(Dice::$perDieBonus, Dice::$perDiePenalty, Dice::$extraDie) = $kept;
+        }
+    }
+
+    //For the harnesses (G1): the pulses one shot of $weapon in its present state should land at $chance percent (expectedPulses).
+    public function pulsesAt(Weapon $weapon, $chance)
+    {
+        return $this->expectedPulses($weapon, $chance);
     }
 
     // ------------------------------------------------------------------ worth and danger
@@ -1627,6 +1745,115 @@ class AIView
         return ($weights > 0) ? $chance / $weights : 0;
     }
 
+    /* estimate(), shared out over the sections of $target its hits should land on (the hit table's entries, weighted as estimate()
+       weighs them): section location => expected damage. Empty where estimate() finds no shot. G1: what a doomed section has coming
+       (FireDecider::lastShots). */
+    public function sectionEstimate($shooter, Weapon $weapon, $target, $needArc = true)
+    {
+        $found = $this->hitAnswers($shooter, $weapon, $target, $needArc);
+        if ($found === null) return array();
+        list($answers, $distance) = $found;
+
+        $byLocation = array();
+        foreach ($answers as $answer) {
+            $chance = max(0, min(100, $answer['needed']));
+            if ($chance <= 0) continue;
+            $loc = (int)$answer['loc'];
+            $byLocation[$loc] = (isset($byLocation[$loc]) ? $byLocation[$loc] : 0)
+                + $answer['weight'] * $this->expected($weapon, $shooter, $target, $chance, $answer['loc'], $distance, $answer['needed']);
+        }
+        return $byLocation;
+    }
+
+    // ------------------------------------------------------------------ G1: accelerators
+
+    /* Plan 10.10 G1 (the user's general item, 2026-11-26; built 2026-11-27) - an ACCELERATOR: a direct-fire weapon that goes on
+       CHARGING after it can first fire - its normal load (getNormalLoad: the most turnsloaded climbs to, Weapon::calculateLoading)
+       above the least loading time of its modes - and whose shot grows with the charge: the Plasma, Particle, Pulse and Laser
+       Accelerators, the Molecular Pulsar, the Light Particle Accelerator (a charged MODE), the EA custom phased beams. One whose shot
+       does not grow (the Matter Bolt's normal load is a defensive-fire switch) is found by its flat charge ladder (chargeValue) and
+       fires as before. */
+    public static function accelerator(Weapon $weapon)
+    {
+        if ($weapon->ballistic) return false;
+        return (int)$weapon->getNormalLoad() > self::leastLoad($weapon);
+    }
+
+    //The fewest turns any of $weapon's modes needs to fire (its loading time; a mode's own in loadingtimeArray), at least 1.
+    public static function leastLoad(Weapon $weapon)
+    {
+        $least = (int)$weapon->getLoadingTime();
+        foreach ($weapon->loadingtimeArray as $mode => $time) {
+            if (isset($weapon->firingModes[$mode])) $least = min($least, (int)$time);
+        }
+        return max(1, $least);
+    }
+
+    /* $weapon as it would stand at $charge (turnsloaded) - on a COPY: the charge put in as the loader puts a saved loading in
+       (setSystemData: setLoading, then whatever the class reads from it - the Molecular Pulsar's and the Pulse Accelerator's
+       maxpulses), then setSystemDataWindow, as prepareForPlayer's beforeTurn sweep runs it (the damage arrays by charge, a
+       Reduced Damage critical's cut, a pulse weapon's defaultShots), and the live weapon's mode. The live weapon is never touched
+       (PowerDecider::boostedState's lesson: setSystemDataWindow rebuilds the damage arrays and resets the mode). Remembered for the
+       view's life. A class that reads its charge in setSystemData starts from its own defaults for what it sets there (maxpulses, rof),
+       as the loader's fresh object does: the Pulse Accelerator's sets nothing at charge 2 (`maxpulses == 3`, a comparison), so the
+       engine fires it with the class's 4 - not with whatever a copy of a weapon at another charge held. */
+    public function charged(Weapon $weapon, $charge)
+    {
+        $key = spl_object_id($weapon) . ':' . (int)$charge;
+        if (!isset($this->charged[$key])) {
+            $copy = clone $weapon;
+            if ((new ReflectionMethod($copy, 'setSystemData'))->getDeclaringClass()->getName() !== 'Weapon') {
+                $defaults = (new ReflectionClass($copy))->getDefaultProperties();
+                foreach (array('maxpulses', 'rof') as $name) {
+                    if (isset($defaults[$name])) $copy->$name = $defaults[$name];
+                }
+            }
+            $loading = new WeaponLoading((int)$charge, (int)$weapon->overloadshots, 0, (int)$weapon->overloadturns, (int)$weapon->loadingtime, (int)$weapon->firingMode);
+            $copy->setSystemData('{' . $loading->toJSON() . '}', null);
+            $copy->setSystemDataWindow($this->turn);
+            if ((int)$copy->firingMode !== (int)$weapon->firingMode) $copy->changeFiringMode((int)$weapon->firingMode);
+            $this->charged[$key] = $copy;
+        }
+        return $this->charged[$key];
+    }
+
+    /* What $weapon of $unit should do to $target fired at $charge, where both stand now (estimate() - armour off every hit, a
+       plasma's range damage, the engine's pulse count): the best of the modes the bot fires (modes()) that are loaded at that charge
+       (the Light Particle Accelerator's Charged mode needs two turns). 0 when none has a shot. Inside ahead() / atFireTime() it
+       prices that board. */
+    public function chargeValue($unit, Weapon $weapon, $target, $charge, $needArc = false)
+    {
+        $copy = $this->charged($weapon, $charge);
+        $kept = (int)$copy->firingMode;
+        $best = 0;
+        try {
+            foreach ($this->modes($weapon) as $mode) {
+                if ((int)$copy->firingMode !== (int)$mode) $copy->changeFiringMode((int)$mode);
+                if (!$this->loaded($copy)) continue;
+                $best = max($best, $this->estimate($unit, $copy, $target, $needArc));
+            }
+        } finally {
+            if ((int)$copy->firingMode !== $kept) $copy->changeFiringMode($kept);
+        }
+        return $best;
+    }
+
+    /* The shot $weapon of $unit would have at $target fired at $charge, where both stand now - shot()'s answer for the copy at that
+       charge (charged()), in the mode of the bot's that does most (the page's tests, the real formula), or null. Not remembered with
+       shot()'s: the copy carries the live weapon's id. The copy is left in the shot's mode. G1: what the target's interceptors would
+       leave of each charge (FireDecider::holdCharge, InterceptModel - interception takes a pulse weapon's extra pulses first). */
+    public function chargeShot($unit, Weapon $weapon, $target, $charge)
+    {
+        $copy = $this->charged($weapon, $charge);
+        $best = null;
+        foreach ($this->modes($weapon) as $mode) {
+            $shot = $this->work($unit, $copy, $target, (int)$mode);
+            if ($shot !== null && ($best === null || $shot['damage'] > $best['damage'])) $best = $shot;
+        }
+        if ($best !== null && (int)$copy->firingMode !== (int)$best['mode']) $copy->changeFiringMode((int)$best['mode']);
+        return $best;
+    }
+
     //estimate()'s and chanceOf()'s tests and the server's hit table for the pairing: array(answers, distance), or null for no shot.
     private function hitAnswers($shooter, Weapon $weapon, $target, $needArc)
     {
@@ -1749,12 +1976,13 @@ class AIView
 
     /* Run $work with every unit on the board (the bot's and the enemy's) a turn straight on, and
        give back what it returns. The board is put back as it was, whatever happens. Nothing the
-       view remembers (shot()) may be asked inside: only estimate(). */
-    public function ahead(callable $work)
+       view remembers (shot()) may be asked inside: only estimate(). $rows (G1 - Hard's escape forecast): unit id => the row to stand
+       that unit on instead (EnemyForecast::nextTurn). */
+    public function ahead(callable $work, array $rows = array())
     {
         $moved = array();
         foreach (array_merge($this->myUnits(), $this->enemies()) as $unit) {
-            $row = self::straightOn($unit, $this->turn);
+            $row = isset($rows[(int)$unit->id]) ? $rows[(int)$unit->id] : self::straightOn($unit, $this->turn);
             if ($row === null) continue;
             $unit->movement[] = $row;
             $moved[] = $unit;

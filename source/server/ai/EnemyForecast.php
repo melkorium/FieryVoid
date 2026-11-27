@@ -122,6 +122,42 @@ class EnemyForecast
         }
         if (count($plans) == 0) return null;
 
+        list($best, $bestValue, $weighed) = self::choose($view, $enemy, $plans, $hazards);
+        if ($best === null) return null;
+
+        self::$last[(int)$enemy->id] = array('actions' => $best['actions'], 'candidates' => $weighed, 'value' => $bestValue, 'mode' => $mode);
+        return new MovementOrder(-1, 'move', $best['position'], 0, 0, (int)$best['speed'], (int)$best['heading'], (int)$best['facing'], false, $view->turn, 0, 0);
+    }
+
+    /* G1 (the user, 2026-11-27 - Hard's accelerator timing: "Hard predicts each held target's next move (Normal's one-turn forecast, run
+       for next turn) and fires now if that move takes the target out of arc or range"). Where enemy SHIP $enemy should end NEXT turn,
+       asked in the Fire phase once it has moved: Normal's one-turn plans ('turn' - straight on, or one turn either way), from its mover
+       moved on to next turn (ShipMover::forNextTurn - the server's start rows, the page's forced pivot and extended-turn cancel), by
+       the same measure as predict() - its loaded guns' fire on the bot's units, which stand a turn straight on (AIView::ahead). A row
+       dated this turn, as ahead()'s are (AIView::ahead($work, $rows) stands the enemy on it). Null for a flight, a mine, a hull
+       ShipMover does not plot, and any it throws on - straight on, for the caller. */
+    public static function nextTurn(AIView $view, $enemy, Hazards $hazards)
+    {
+        if ($enemy instanceof FighterFlight || !empty($enemy->mine)) return null;
+        try {
+            $mover = ShipMover::forNextTurn($enemy, $view->gamedata);
+            if ($mover === null) return null;
+            $plans = self::oneTurnPlans($mover);
+            if (count($plans) == 0) return null;
+            $best = $view->ahead(function () use ($view, $enemy, $plans, $hazards) {
+                return self::choose($view, $enemy, $plans, $hazards)[0];
+            });
+        } catch (Throwable $e) {
+            return null;
+        }
+        if ($best === null) return null;
+        return new MovementOrder(-1, 'move', $best['position'], 0, 0, (int)$best['speed'], (int)$best['heading'], (int)$best['facing'], false, $view->turn, 0, 0);
+    }
+
+    /* The plan of $plans that brings most of $enemy's fire on the bot's units where they stand (straight on first on a tie; hazards
+       taken off): array(plan or null, its value, how many were weighed). predict()'s measure, shared with nextTurn(). */
+    private static function choose(AIView $view, $enemy, array $plans, Hazards $hazards)
+    {
         $targets = $view->myUnits();
         $theirGuns = self::guns($view, $enemy);
 
@@ -153,10 +189,7 @@ class EnemyForecast
                 $bestValue = $value;
             }
         }
-        if ($best === null) return null;
-
-        self::$last[(int)$enemy->id] = array('actions' => $best['actions'], 'candidates' => $weighed, 'value' => $bestValue, 'mode' => $mode);
-        return new MovementOrder(-1, 'move', $best['position'], 0, 0, (int)$best['speed'], (int)$best['heading'], (int)$best['facing'], false, $view->turn, 0, 0);
+        return array($best, $bestValue, $weighed);
     }
 
     //A unit's direct-fire guns loaded this turn, by kind (class, mode, arc): array('weapon', 'count').

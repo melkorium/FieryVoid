@@ -24,6 +24,10 @@
  * to FIRE_MIN_CHANCE_PARTING - by loading time too since stage T6a (game 4774: never under 34% for a
  * 3- or 4-turn gun).
  *
+ * ACCELERATORS (plan 10.10 G1, 2026-11-27 - holdCharge): a weapon that goes on charging after it can fire waits for the charge that
+ * pays, as players fire them - unless it does more a turn firing on the move (the Pulse Accelerator), it is its last shot, it finishes
+ * its target off or the target is leaving. A charged one spends its charge: its floors are those of the turns it took.
+ *
  * THE ENEMY'S INTERCEPTION (InterceptModel). A shot is worth what it adds to its target's volley
  * once the target's interceptors have been given out as the server gives them - so the bot neither
  * pretends there is none nor assumes every shot is intercepted, and a slow gun's floor holds on the
@@ -165,6 +169,7 @@ class FireDecider
             }
         }
 
+        $charging = self::holdCharge($view, $guns, $lastStand); //G1: accelerators that keep charging (before holdSlow, which reads their marks)
         $kept = self::holdSlow($view, $guns);
         //stage T9 (E1): Hard offers each gun of a split-shot weapon to the greedy pick on its own (the skill 'splitShots')
         $splitWeapons = ($view->skill('splitShots') && !self::$wholeOnly) ? self::splitGuns($view, $guns) : 0;
@@ -341,6 +346,7 @@ class FireDecider
             if (isset($guns[$index])) $intercepted++;
         }
         self::$lastSummary = count($plan) . ' weapons at ' . count($targets) . ' of ' . count($enemies) . ' enemies; ' . $held . ' held to intercept'
+            . ($charging > 0 ? '; ' . $charging . ' accelerators charging' : '')
             . ($kept > 0 ? '; ' . $kept . ' slow weapons kept for a better shot' : '')
             . ($intercepted > 0 ? '; ' . $intercepted . ' slow weapons not fired into the interceptors' : '')
             . ($forced > 0 ? '; ' . $forced . ' fired by flights that must fire (the side down to its fighters)' : '')
@@ -544,10 +550,11 @@ class FireDecider
     /* The least hit chance (percent) a weapon is fired at. A shot costs the weapon its reload, so
        a slow weapon asks for more (AIConfig::FIRE_MIN_CHANCE_BY_LOAD). $parting: the floor for a
        slow weapon whose target is drawing away - nothing better is coming. $pulsePremium: the level's skill (stage T5f - Easy
-       fires slow pulse weapons at the plain floors). */
-    public static function minimumChance(Weapon $weapon, $parting = false, $pulsePremium = true)
+       fires slow pulse weapons at the plain floors). $load (G1): the turns of loading the shot spends, when that is not the weapon's
+       loading time - an accelerator's charge (holdCharge marks it): a Plasma Accelerator charged three turns spends three. */
+    public static function minimumChance(Weapon $weapon, $parting = false, $pulsePremium = true, $load = null)
     {
-        $load = (int)$weapon->getLoadingTime();
+        $load = ($load !== null) ? (int)$load : (int)$weapon->getLoadingTime();
         if ($load <= 1) return AIConfig::FIRE_MIN_CHANCE;
         /* a slow PULSE weapon's damage grows much faster than its chance: both its floors are higher (user ruling, 2026-11-19) - and so
            does a slow weapon whose every hit grows with the roll (stage T9, M4 - the user, 2026-11-23, on the Antimatter Converter: "Its
@@ -583,12 +590,21 @@ class FireDecider
            target is drawing away, when the parting floor is all that is asked.
 
        Only the SAME target a turn on is looked at, so a gun never waits for an enemy it cannot
-       bear on. Empties the options of the guns that wait (by reference); returns how many. */
+       bear on. Empties the options of the guns that wait (by reference); returns how many.
+
+       G1 (2026-11-27): "slow" is per SHOT - the turns of loading it spends (spends()): an accelerator's charge, as holdCharge marked
+       it, so a Plasma Accelerator fired at its full three turns waits for a 34% shot like any 3-turn gun, while one cycling at a
+       one-turn charge fires as a one-turn gun. A last shot (holdCharge) is never held: there is no next turn for it. */
     private static function holdSlow(AIView $view, array &$guns)
     {
         $slow = array();
         foreach ($guns as $index => $gun) {
-            if ((int)$gun['weapon']->getLoadingTime() > 1) $slow[] = $index;
+            foreach ($gun['options'] as $shot) {
+                if (self::spends($gun['weapon'], $shot) > 1 && empty($shot['lastShot'])) {
+                    $slow[] = $index;
+                    break;
+                }
+            }
         }
         if (count($slow) == 0) return 0;
 
@@ -610,10 +626,12 @@ class FireDecider
         $kept = 0;
         foreach ($slow as $index) {
             $weapon = $guns[$index]['weapon'];
-            $wait = AIConfig::FIRE_HOLD_CONFIDENCE * (1 - 1 / max(1, (int)$weapon->getLoadingTime()));
-            $floor = self::minimumChance($weapon, false, $view->skill('pulsePremium'));
 
             foreach ($guns[$index]['options'] as $targetId => $shot) {
+                $load = self::spends($weapon, $shot);
+                if ($load <= 1 || !empty($shot['lastShot'])) continue; //a one-turn shot, or a last one: fired as any gun's
+                $wait = AIConfig::FIRE_HOLD_CONFIDENCE * (1 - 1 / $load);
+                $floor = self::minimumChance($weapon, false, $view->skill('pulsePremium'), $load);
                 $a = $now[$index][$targetId];
                 $b = $next[$index][$targetId];
                 if ($a <= 0 && $b <= 0) $hold = ($shot['chance'] < $floor);     //nothing to compare (a shot the estimate will not price): the floor alone
@@ -621,7 +639,7 @@ class FireDecider
                 else $hold = ($shot['chance'] < $floor && $b >= $a);            //a poor shot that is not getting worse
                 if ($hold) unset($guns[$index]['options'][$targetId]);
                 //the floor the shot was let through on, which plan() holds a slow gun to again once interception is counted
-                else $guns[$index]['options'][$targetId]['floor'] = ($shot['chance'] < $floor) ? self::minimumChance($weapon, true, $view->skill('pulsePremium')) : $floor;
+                else $guns[$index]['options'][$targetId]['floor'] = ($shot['chance'] < $floor) ? self::minimumChance($weapon, true, $view->skill('pulsePremium'), $load) : $floor;
             }
 
             if (count($guns[$index]['options']) == 0) {
@@ -631,6 +649,250 @@ class FireDecider
         }
 
         return $kept;
+    }
+
+    //The turns of loading a shot spends (holdSlow, minimumChance): its weapon's loading time - an accelerator's charge where holdCharge marked it (G1).
+    private static function spends(Weapon $weapon, array $shot)
+    {
+        return isset($shot['load']) ? max(1, (int)$shot['load']) : (int)$weapon->getLoadingTime();
+    }
+
+    //A harness override of AIConfig::FIRE_FORECAST_SECONDS (G1): null = AIConfig's, 0 = no limit (levels / fire-rules harnesses).
+    public static $forecastBudget = null;
+
+    /* PLAN 10.10 G1 - ACCELERATOR CHARGE TIMING (the user's general item, 2026-11-26; rulings 2026-11-27). An accelerator (AIView::
+       accelerator - the Plasma, Particle, Pulse and Laser Accelerators, the Molecular Pulsar...) can fire once it has loaded and goes on
+       charging while it does not: its shot grows with the charge (turnsloaded, up to its normal load). Until G1 the bot fired one the
+       moment it could - a Plasma Accelerator every turn at 1d10+4, armour off every small hit, never 4d10+12. Now, per shot, at the
+       level's skill 'chargeTiming' ('none' - Easy: on load, as before):
+         1. The charge ladder where both stand (AIView::chargeValue - a copy of the weapon at each charge, the usual estimate, armour off
+            every hit): it fires as any gun once it holds the charge it CYCLES at against this target (cycleCharge, on what the target's
+            interceptors would leave of each charge - afterInterception - the lowest whose
+            damage per turn of charging is at least AIConfig::FIRE_SUSTAINED_SHARE of the best charge's: the user, 2026-11-27, "some
+            Accelerator weapons CAN be worth firing every [turn] for sustained damage (mainly the Molecular Pulsar and Pulse
+            Accelerator)" - a Pulse Accelerator does more a turn on its 1-turn shot; a Molecular Pulsar at a poor chance too).
+         2. Below that charge it fires anyway (the user's cases): a LAST SHOT (lastShot - its ship expected destroyed this turn, or the
+            section it sits on, or the ship leaving through its jump point), FINISHING OFF its target or the section it hits
+            (finishes), or a target LEAVING its reach - which the comparison below finds: no shot next turn, nothing to wait for.
+         3. Otherwise the plan's rule: it waits while what a charge more does NEXT turn, everybody a turn straight on (AIView::ahead,
+            arcs not asked - holdSlow's convention), is worth more than FIRE_HOLD_CONFIDENCE x this turn's shot ('step' - Normal). 'full'
+            (Hard) looks to every charge up to full, FIRE_HOLD_CONFIDENCE a turn, and stands a target SHIP where its own next move
+            should take it (EnemyForecast::nextTurn - the user, 2026-11-27: "Plus escape forecast") with the gun's arc asked, its own ship
+            a turn straight on and turned up to one hex side (turnedValue): a target whose likely move takes it out of arc or range is
+            fired at now.
+       Re-decided every turn, so a gun charges a step at a time. Each option is marked with the charge it spends ('load' -
+       min(charge, cycling charge): holdSlow and the floors hold a Plasma Accelerator fired at full to a 3-turn gun's 34%) and a last
+       shot 'lastShot' (holdSlow leaves it alone). Units of a last stand (Posture::$mustShoot) fire every gun, as before. Empties the
+       options of the accelerators that charge (by reference); returns how many charge. */
+    private static function holdCharge(AIView $view, array &$guns, $lastStand)
+    {
+        $timing = $view->skill('chargeTiming');
+        if ($timing === 'none') return 0;
+        $hard = ($timing === 'full');
+        $gamedata = $view->gamedata;
+        $lastShots = array();
+        $escapes = array();   //Hard: target id => its forecast row next turn, or null (straight on)
+        $hazards = null;
+        $started = AIConfig::cpuSeconds();
+        $budget = (self::$forecastBudget === null) ? AIConfig::FIRE_FORECAST_SECONDS : max(0, (float)self::$forecastBudget);
+        $model = null;        //the targets' interceptors (InterceptModel), once an accelerator is found
+        $charging = 0;
+
+        foreach (array_keys($guns) as $index) {
+            $weapon = $guns[$index]['weapon'];
+            $unit = $guns[$index]['unit'];
+            if (!AIView::accelerator($weapon)) continue;
+            if ($lastStand && isset(Posture::$mustShoot[(int)$unit->id])) continue;
+            $least = AIView::leastLoad($weapon);
+            $full = max($least, (int)$weapon->getNormalLoad());
+            $charge = max($least, min($full, (int)$weapon->turnsloaded));
+
+            foreach ($guns[$index]['options'] as $targetId => $shot) {
+                $target = $gamedata->getShipById($targetId);
+                $ladder = array();  //charge => what the shot should do (for the comparison below, as holdSlow prices: no interception)
+                for ($level = $least; $level <= $full; $level++) $ladder[$level] = $view->chargeValue($unit, $weapon, $target, $level);
+                if ($model === null) $model = new InterceptModel($view);
+                $cycle = self::cycleFor($view, $model, $unit, $weapon, $target);
+                $guns[$index]['options'][$targetId]['load'] = min($charge, $cycle);
+                if ($charge >= $cycle) continue; //charged as far as pays against this target: it fires as any gun
+
+                if (self::lastShot($view, $unit, $weapon, $lastShots)) {
+                    $guns[$index]['options'][$targetId]['lastShot'] = true;
+                    continue;
+                }
+                if (self::finishes($view, $unit, $target, $shot, $ladder[$charge])) continue;
+
+                $rows = array();
+                $needArc = false;
+                if ($hard) {
+                    if (!array_key_exists($targetId, $escapes)) {
+                        if ($budget > 0 && AIConfig::cpuSeconds() - $started > $budget) $escapes[$targetId] = null;
+                        else {
+                            if ($hazards === null) $hazards = new Hazards($view);
+                            $escapes[$targetId] = EnemyForecast::nextTurn($view, $target, $hazards);
+                        }
+                    }
+                    if ($escapes[$targetId] !== null) {
+                        $rows[$targetId] = $escapes[$targetId];
+                        $needArc = true;
+                    }
+                }
+                $levels = $hard ? range($charge + 1, $full) : array($charge + 1);
+                $next = $view->ahead(function () use ($view, $unit, $weapon, $target, $levels, $needArc) {
+                    $values = array();
+                    foreach ($levels as $level) $values[$level] = $needArc ? self::turnedValue($view, $unit, $weapon, $target, $level) : $view->chargeValue($unit, $weapon, $target, $level);
+                    return $values;
+                }, $rows);
+
+                //(a target leaving its reach - out of range, or out of arc where it is forecast - is worth 0 next turn: it is fired at now)
+                $worthWaiting = 0;
+                foreach ($next as $level => $value) $worthWaiting = max($worthWaiting, pow(AIConfig::FIRE_HOLD_CONFIDENCE, $level - $charge) * $value);
+                if ($ladder[$charge] < $worthWaiting) unset($guns[$index]['options'][$targetId]);
+            }
+
+            if (count($guns[$index]['options']) == 0) {
+                unset($guns[$index]);
+                $charging++;
+            }
+        }
+        return $charging;
+    }
+
+    /* Hard's escape test (holdCharge, inside ahead()): what $weapon fired at $charge does to $target with the gun's ARC asked, $unit where
+       ahead() stood it (a turn straight on) facing as it does or turned one hex side either way - the best of the three. A player keeps his
+       guns on the target he closes with (holdSlow's convention); one turn's worth of it is all the bot claims. */
+    private static function turnedValue(AIView $view, $unit, Weapon $weapon, $target, $charge)
+    {
+        $last = $unit->getLastMovement();
+        if (!$last || !$last->position) return $view->chargeValue($unit, $weapon, $target, $charge, true);
+        $best = 0;
+        foreach (array(0, -1, 1) as $side) {
+            $facing = Mathlib::addToHexFacing((int)$last->facing, $side);
+            $heading = Mathlib::addToHexFacing((int)$last->heading, $side);
+            $unit->movement[] = new MovementOrder(-1, 'move', new OffsetCoordinate($last->position), 0, 0, (int)$last->speed, $heading, $facing, false, $view->turn, 0, 0);
+            try {
+                $best = max($best, $view->chargeValue($unit, $weapon, $target, $charge, true));
+            } finally {
+                array_pop($unit->movement);
+            }
+        }
+        return $best;
+    }
+
+    /* What $weapon of $unit fired at $charge should do to $target once the target's interceptors have had it, were it the only shot at
+       the target (G1 - InterceptModel, every interceptor of the target that could stop it on it: the lone shot's worst case). A pulse
+       weapon loses its EXTRA pulses to interception first, so against an interceptor-armed ship (an EA one) a Molecular Pulsar's
+       charged shot keeps less than its 1-turn one a turn, and it fires on the move (game test, 2026-11-27: at 4 hexes from an Omega
+       2.4 a turn kept against 2.1). 0 where it has no shot at that charge. */
+    private static function afterInterception(AIView $view, InterceptModel $model, $unit, Weapon $weapon, $target, $charge)
+    {
+        $shot = $view->chargeShot($unit, $weapon, $target, $charge);
+        if ($shot === null) return 0;
+        return $model->value($target, array(array('unit' => $unit, 'weapon' => $view->charged($weapon, $charge), 'shot' => $shot, 'ballistic' => false)));
+    }
+
+    /* The charge accelerator $weapon of $unit CYCLES at against $target where both stand (holdCharge, G1): cycleCharge over what the
+       target's interceptors would leave of each charge, from the least loading time to the normal load (afterInterception). */
+    public static function cycleFor(AIView $view, InterceptModel $model, $unit, Weapon $weapon, $target)
+    {
+        $least = AIView::leastLoad($weapon);
+        $full = max($least, (int)$weapon->getNormalLoad());
+        $kept = array();
+        for ($level = $least; $level <= $full; $level++) $kept[$level] = self::afterInterception($view, $model, $unit, $weapon, $target, $level);
+        return self::cycleCharge($kept);
+    }
+
+    /* The charge an accelerator CYCLES at against a target (holdCharge, G1): of its $ladder (charge => what the shot should do, the
+       target's interceptors counted), the lowest whose damage per turn of charging (the shot / the charge) is at least
+       AIConfig::FIRE_SUSTAINED_SHARE of the best charge's - the lowest when none has a shot. */
+    public static function cycleCharge(array $ladder)
+    {
+        $best = 0;
+        foreach ($ladder as $charge => $value) $best = max($best, $value / max(1, $charge));
+        if ($best > 0) {
+            foreach ($ladder as $charge => $value) {
+                if ($value / max(1, $charge) >= AIConfig::FIRE_SUSTAINED_SHARE * $best - 1e-9) return (int)$charge;
+            }
+        }
+        return (int)min(array_keys($ladder));
+    }
+
+    /* Is this $weapon's shot its LAST (G1 - "the shooter or the weapon's section expected lost this turn - JumpDecider's 'expected kill'
+       measure - or jumping out / surrendering")? Per ship, remembered in $cache (lastShots). A flight's craft never: JumpDecider asks
+       no flight, and every gun of a flight could be the target of every enemy gun at once. (A surrendering side is one that can damage
+       nobody - Posture: it has no shot to take.) */
+    private static function lastShot(AIView $view, $unit, Weapon $weapon, array &$cache)
+    {
+        if ($unit instanceof FighterFlight) return false;
+        $id = (int)$unit->id;
+        if (!isset($cache[$id])) $cache[$id] = self::lastShots($view, $unit);
+        $state = $cache[$id];
+        return $state['leaving'] || $state['doomed'] || !empty($state['sections'][(int)$weapon->location]);
+    }
+
+    /* What $ship has coming this Fire phase, as JumpDecider::reason measures an "expected kill" - but as the units now stand, their EW
+       set (everybody has moved): every loaded plain gun of every enemy that has a shot at it (fire is simultaneous - whom each will
+       choose is not known), shared out over the sections its hits land on (AIView::sectionEstimate). array('leaving' => the ship has a
+       jump point of its own on the board (JumpDecider::pending - it is going), 'doomed' => its primary structure down to
+       AIConfig::JUMP_DAMAGED_SHARE and the fire at least what is left of it from any side (healthLeft), 'sections' => location => a
+       section down to that share with at least its structure coming at it - whatever it carries goes with it). */
+    public static function lastShots(AIView $view, $ship)
+    {
+        $state = array('leaving' => JumpDecider::pending($view, $ship) !== null, 'doomed' => false, 'sections' => array());
+        $incoming = array();
+        $total = 0;
+        $left = null;
+        foreach ($view->enemies() as $enemy) {
+            $fire = 0;
+            foreach ($view->mounts($enemy) as $mount) {
+                $gun = $mount['weapon'];
+                if (!$view->plainGun($gun, $mount['fighter']) || !$view->loaded($gun)) continue;
+                foreach ($view->sectionEstimate($enemy, $gun, $ship, true) as $loc => $damage) {
+                    $incoming[$loc] = (isset($incoming[$loc]) ? $incoming[$loc] : 0) + $damage;
+                    $fire += $damage;
+                }
+            }
+            if ($fire <= 0) continue;
+            $total += $fire;
+            $health = $view->healthLeft($ship, $enemy);
+            $left = ($left === null) ? $health : min($left, $health);
+        }
+
+        $share = AIConfig::JUMP_DAMAGED_SHARE;
+        $primary = $ship->getStructureSystem(0);
+        if ($primary && $left !== null && $primary->getRemainingHealth() <= $share * (int)$primary->maxhealth && $total >= $left) $state['doomed'] = true;
+        foreach ($incoming as $loc => $damage) {
+            if ((int)$loc === 0) continue;
+            $structure = $ship->getStructureSystem((int)$loc);
+            if (!$structure || $structure->isDestroyed()) continue;
+            $remaining = $structure->getRemainingHealth();
+            if ($remaining <= $share * (int)$structure->maxhealth && $damage >= $remaining) $state['sections'][(int)$loc] = true;
+        }
+        return $state;
+    }
+
+    /* Does a shot at its present charge FINISH OFF its target (G1 - "this charge likely kills the target or a section")? At least
+       AIConfig::FIRE_FINISH_CHANCE to hit, and what a hit should do ($value - what the shot should do - over its chance) at least what is
+       left of the target from the shooter's side (healthLeft) or of the section it hits; at a flight, one hit (the shot's 'perHit') at
+       least the weakest craft has left - a hit takes one craft. */
+    private static function finishes(AIView $view, $unit, $target, array $shot, $value)
+    {
+        $chance = (int)$shot['chance'];
+        if ($chance < AIConfig::FIRE_FINISH_CHANCE || $value <= 0) return false;
+        if ($target instanceof FighterFlight) {
+            $weakest = null;
+            foreach ($target->systems as $fighter) {
+                if (!($fighter instanceof Fighter) || $fighter->isDestroyed()) continue;
+                $weakest = ($weakest === null) ? $fighter->getRemainingHealth() : min($weakest, $fighter->getRemainingHealth());
+            }
+            return $weakest !== null && $shot['perHit'] >= $weakest;
+        }
+        $onHit = $value * 100 / $chance;
+        if ($onHit >= $view->healthLeft($target, $unit)) return true;
+        $loc = isset($shot['hitLoc']) ? (int)$shot['hitLoc'] : 0;
+        if ($loc === 0) return false;
+        $structure = $target->getStructureSystem($loc);
+        return $structure && !$structure->isDestroyed() && $onHit >= $structure->getRemainingHealth();
     }
 
     /* What a shot is worth, given what is already booked on its target. Damage beyond

@@ -890,7 +890,7 @@ class PulseAccelerator extends Pulse{
 		if ($this->turnsloaded == 1){
 			$this->maxpulses = 2;
 		}else if ($this->turnsloaded == 2){
-			$this->maxpulses == 3;
+			$this->maxpulses = 3;
 		}else{		
 			$this->maxpulses = 4;
 		}

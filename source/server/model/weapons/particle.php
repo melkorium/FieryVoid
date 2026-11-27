@@ -2325,13 +2325,13 @@ class BoltAccelerator extends Raking{
         public function setMaxDamage(){
             switch($this->turnsloaded){
                 case 1:
-                    $this->minDamage = 11 ;
+                    $this->maxDamage = 11 ;
                     break;
                 case 2:
-                    $this->minDamage = 17 ;
+                    $this->maxDamage = 17 ;
                     break;                    
                 default:
-                    $this->minDamage = 24 ;  
+                    $this->maxDamage = 24 ;  
                     break;
             }
 		}

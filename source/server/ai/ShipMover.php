@@ -1044,6 +1044,16 @@ class ShipMover
     public function extendedPayableNextTurn()
     {
         if ($this->flight || $this->extendedStart() === null) return true;
+        return $this->nextTurnMover()->extendedCancelReason() === null;
+    }
+
+    /* A copy of this mover moved on to NEXT turn, as the ship will start it once these orders are its turn: no thrust spent yet, the
+       engine without this turn's boost (thrustNextTurn), the thrusters as they stand; the start rows the server writes when the turn
+       advances (Movement::setPreturnMovementStatusForShip: isPivoting*, isRolling - which flips rolled - and isRolled, from this turn's
+       end), then the page's forced pivot. Split out of extendedPayableNextTurn (its cancel test asks it) for G1 (2026-11-27): Hard's
+       accelerator timing forecasts an enemy's NEXT move from it (forNextTurn). */
+    public function nextTurnMover()
+    {
         $pivoting = $this->isPivoting();
         $rolling = $this->isRolling();
         $rolled = $this->isRolled();
@@ -1068,7 +1078,21 @@ class ShipMover
             $next->rows[] = $row;
         }
         $next->forcedPivot();
-        return $next->extendedCancelReason() === null;
+        return $next;
+    }
+
+    /* G1 (2026-11-27): the mover for $ship's NEXT turn, from the game as loaded after it has moved this turn (the Fire phase) - the
+       page's activation played on it (the forced pivot, then an owed extended turn it can no longer complete cancelled). Null for a
+       unit ShipMover never plots (unsupportedHullReason), or one riding or carrying another, destroyed or off the board. A forecast's
+       tool, never a plan to submit: no row of it is ever posted. */
+    public static function forNextTurn($ship, TacGamedata $gamedata)
+    {
+        if (self::unsupportedHullReason($ship) !== null || !empty($ship->attached) || !empty($ship->hasAttached)) return null;
+        if ($ship->isDestroyed() || !$ship->getLastMovement()) return null;
+        $mover = new ShipMover($ship, $gamedata->turn, AIOrderBuilder::initiativeOrder($ship, $gamedata));
+        $next = $mover->nextTurnMover();
+        $next->forcedExtendedCancel();
+        return $next;
     }
 
     /* Could the ship pay for a turn to that side NEXT turn, at $speed, from the attitude the plotted orders leave it in -
