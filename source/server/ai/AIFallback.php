@@ -7,7 +7,8 @@
  * with a bot in it can therefore always move on.
  *
  *   Deployment (-1)     first free legal hex of the slot's deployment zone, as the unit stands
- *   Initial Orders (1)  all EW to defence; no ballistics; a power deficit cleared by switching systems off in system id
+ *   Initial Orders (1)  all EW to defence (the DEW row 0 included; none in a nebula) - an LCV's all-but-2 as OEW on the
+ *                       nearest enemy ship, the page's LCV rule; no ballistics; a power deficit cleared by switching systems off in system id
  *                       order, primary-section systems last; shields over a shield generator's capacity switched off highest system id first (W1)
  *   Movement (2)        straight on at the current speed
  *   Pre-Firing (5)      nothing
@@ -180,6 +181,7 @@ class AIFallback
     private static function initialOrders(TacGamedata $gamedata, $botId)
     {
         $entries = array();
+        $view = null; //built only for an LCV's lock
 
         foreach (self::ownUnits($gamedata, $botId) as $ship) {
             $entry = AIOrderBuilder::entry($ship);
@@ -193,8 +195,20 @@ class AIFallback
                     if (!isset($entry['systems'][$row['systemid']])) $entry['systems'][$row['systemid']] = array('id' => $row['systemid'], 'power' => array());
                     $entry['systems'][$row['systemid']]['power'][] = $row;
                 }
-                $output = (int)EW::getScannerOutput($ship, $gamedata->turn);
-                if ($output > 0) $entry['EW'][] = AIOrderBuilder::ew($ship->id, $gamedata->turn, 'DEW', $output);
+                /* EW (the user, 2026-11-27): the DEW row as the page writes it at commit, 0 included - and no EW row at all in a
+                   nebula, where the page writes none (EWDecider::plan's rule). An LCV the page holds to "all but 2 points in OEW"
+                   (ew.checkLCVSensors) puts them on the nearest enemy ship it may lock on to (lcvTarget). */
+                if (!TacGamedata::$nebulaPresent) {
+                    //the page's figure (EWDecider::points - EW::getScannerOutput calls a base with a disabled C&C sensorless; the page does not)
+                    $output = EWDecider::points($ship, $gamedata->turn);
+                    $target = null;
+                    if ($output > 2 && $ship->hasSpecialAbility('LCVSensors')) {
+                        if ($view === null) $view = new AIView($gamedata, $botId);
+                        $target = self::lcvTarget($view, $ship);
+                    }
+                    if ($target !== null) $entry['EW'][] = AIOrderBuilder::ew($ship->id, $gamedata->turn, 'OEW', $output - 2, $target->id);
+                    $entry['EW'][] = AIOrderBuilder::ew($ship->id, $gamedata->turn, 'DEW', $target !== null ? 2 : $output);
+                }
             }
 
             $entries[] = $entry;
@@ -240,6 +254,31 @@ class AIFallback
             $balance += $system->powerReq;
         }
         return $rows;
+    }
+
+    /* The LCV's OEW target (the user, 2026-11-27: "put the required amount of OEW on the nearest enemy ship"), or null: none (a
+       docking rider, whose EW the page suspends, or no enemy to lock on to). Among the units the page lets a ship lock on to
+       (EWDecider::lockable - on the board, targetable, not riding a docking bay), never a mine or terrain, and NEVER a true-stealth
+       unit, detected or not: the fallback may be reading an UNMASKED load (a retry runs before any mask), where an undetected one
+       still stands at its real hex - and masking here a second time is not safe (the Chameleon disguise is applied per mask).
+       The nearest ship, ties by id; a flight only when no ship may take it (EWDecider's LCV rule). */
+    private static function lcvTarget(AIView $view, $ship)
+    {
+        if (HangarOps::bayCarrierAttachedTo($ship, $view->gamedata) !== null) return null;
+        $from = $ship->getHexPos();
+        $bestShip = null;
+        $bestFlight = null;
+        foreach (EWDecider::lockable($view) as $enemy) {
+            if (!empty($enemy->trueStealth) || !empty($enemy->mine) || $enemy->isTerrain() || $enemy->isDestroyed()) continue;
+            $key = array($from->distanceTo($enemy->getHexPos()), (int)$enemy->id);
+            if ($enemy instanceof FighterFlight) {
+                if ($bestFlight === null || $key < $bestFlight[0]) $bestFlight = array($key, $enemy);
+            } else if ($bestShip === null || $key < $bestShip[0]) {
+                $bestShip = array($key, $enemy);
+            }
+        }
+        if ($bestShip !== null) return $bestShip[1];
+        return $bestFlight !== null ? $bestFlight[1] : null;
     }
 
     /* deficitRows' order (the user, 2026-11-27): PRIMARY systems (location 0 - the scanner and the other core systems, which have

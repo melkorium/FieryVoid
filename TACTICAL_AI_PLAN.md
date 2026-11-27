@@ -3352,8 +3352,16 @@ Forced-off rows are still not posted (the server reads the critical; the row is 
   systems off (261 scanners - only where the outer sections could not pay), 186 still short with nothing left. Page oracle on the fallback:
   **0 power differences** (no "will not commit", no "one system more"); the decider's pair still 0 differences. Mutant (primary not last):
   183 FAIL.
-- **Left (fallback EW, pre-existing, not changed):** 660 situations where the scanner gives 0 - the page writes a `DEW 0` row, the fallback
-  none (`if ($output > 0)`; agreement only); 6 LCVs the page will not commit with all EW in DEW (`checkLCVSensors`) - a real refusal.
+- **Fallback EW (the user's answers, 2026-11-27, built the same day):** "DEW 0 row ... Yes please"; LCVs: "the fallback position would be to
+  put the required amount of OEW on the nearest enemy ship". `initialOrders` now: the DEW row always (0 included) and LAST; no EW row in a
+  nebula (EWDecider's rule - the page writes none); the points are the PAGE's figure (`EWDecider::points` - `EW::getScannerOutput` calls a
+  base with a disabled C&C sensorless, which showed as 10 bases DEW 0 against the page's 10-20 once the 0 row was posted). An LCV over 2
+  points (ew.checkLCVSensors): `points - 2` as OEW on `lcvTarget` - the nearest unit of `EWDecider::lockable` (on the board, targetable,
+  not docked) that is a ship, ties by id; a flight only when no ship may take it (EWDecider's LCV rule); none for a docking rider. ⚠️ Never a
+  TRUE-STEALTH unit, detected or not: a retry's load is UNMASKED (the decider masks; a retry plays the fallback first), and masking again
+  is not safe (the Chameleon disguise is applied per mask). ordersHarness: every point in a row, DEW last, the LCV split, the target the
+  nearest enemy ship (checked independently). EA, raiders, abbai, abbai_old, brakiri: **31,246 checks PASS** (6 LCVs with OEW);
+  **page oracle on the fallback: 0 differences** (was 998), decider pair 0; mutant (farthest ship) 6 FAIL. Replay 243 / 0.
 
 **Observations (not changed):**
 - (Superseded for shields - see "Fallback shields" above.) The FALLBACK's Initial Orders (`AIFallback`, played after a refusal) post no
