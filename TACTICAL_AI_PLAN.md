@@ -2387,7 +2387,7 @@ with a flight in their arc, best first" - an Interceptor with none is never boos
 * How the bot sees an enemy player's boosted Interceptors depends on what the mask shows of enemy power this turn - not examined.
 * The handler registry and further factions: moved to stage T9 (section 10.10).
 
-### 10.10 Stage T9 - more factions (PLANNED 2026-11-22; the Major factions RELEASED 2026-11-23 - "T9 release" below; 18 League / Minor / Other factions RELEASED 2026-11-26 and the work list for the rest - "THE OTHER GROUPS" at the end of this section)
+### 10.10 Stage T9 - more factions (PLANNED 2026-11-22; the Major factions RELEASED 2026-11-23 - "T9 release" below; 18 League / Minor / Other factions RELEASED 2026-11-26 and the work list for the rest - "THE OTHER GROUPS" at the end of this section; Abbai, Abbai (WotCR) and Brakiri RELEASED 2026-11-27 after W1 - "W1 as built")
 
 **The user (2026-11-21):** "now that we have a method of restricting CPU factions, how do we go about expanding this to factions beyond
 EA and Raiders? Campaign work is paused at the moment, so can you make a realistic plan to add more factions as a new Stage T9 (push
@@ -3014,9 +3014,9 @@ shields, below).
 
 | Faction | Units | Fires today | What stops it | Work |
 |---|---|---|---|---|
-| Abbai Matriarchate | 19 | 100% | **BLOCKED** - gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 |
-| Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | **BLOCKED** - shields, as above | W1 |
-| Brakiri Syndicracy | 50 | 94% | **BLOCKED** - shields; idle: Gravitic Lance x6 (sustained), Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 allows the last two | W1 (+ W2; W10, W7 polish) |
+| Abbai Matriarchate | 19 | 100% | ✅ RELEASED 2026-11-27 - was BLOCKED: gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 ✅ |
+| Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | ✅ RELEASED 2026-11-27 - was BLOCKED by the shields, as above | W1 ✅ |
+| Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling); idle: Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 | W1 ✅ (W2 unhides the lance hulls; W10, W7 polish) |
 | Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 (W11 polish) |
 | Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences; one EW difference on the Shamor (orders pair) | W3 + W4 |
 | Hyach Gerontocracy | 18 | 95% | **BLOCKED** - Specialists must be chosen in the Deployment phase (the page's commit gate); the 2 stealth units (Alichi Kav / Tal) never act; Computer BFCP unused; Proximity Laser x6 | W5 |
@@ -3033,7 +3033,7 @@ oracle, a mutation pass, then the gate):
 | # | Item | Releases | What is needed | Approach | Size |
 |---|---|---|---|---|---|
 | W0 | ✅ **Fractional roll cost** (ShipMover) - BUILT 2026-11-26, uncommitted ("W0 as built" below) | Usuuth - released | `ShipMover::__construct` cast `rollcost` to int; five Usuuth hulls roll for 1.5 (the only fractional manoeuvre cost in the game) | done | - |
-| W1 | **Shield-generator handler** (E8) | Abbai, Abbai (WotCR), Brakiri - 3 factions, 97 units | Initial Orders: active gravitic shields (and Abbai shield projectors) <= the generator's output + boost, as `ship.checkShieldGenerator` asks | In PowerDecider (Initial Orders, after `plan()`): rank each shield by the enemy fire that can reach its arc (bearings from the start-of-turn facing - Movement comes later), switch off the least useful until the count fits; Hard first tries boosting the generator from spare reactor power (as `boost()`). Switching shields off also clears the power shortfalls the pair finds on the same hulls. Proof: the orders pair over abbai, abbai_old, brakiri at every level (2026-11-26, Normal: 286 "too many active shields" on 53 hulls + 41 "still short of power" - the goal is 0), levelsHarness boards for the ranking | 1 session |
+| W1 | ✅ **Shield-generator handler** (E8) - BUILT 2026-11-27, uncommitted ("W1 as built" below) | Abbai, Abbai (WotCR), Brakiri - 3 factions, 97 units - released | Initial Orders: active gravitic shields (and Abbai shield projectors) <= the generator's output + boost, as `ship.checkShieldGenerator` asks | In PowerDecider (Initial Orders, after `plan()`): rank each shield by the enemy fire that can reach its arc (bearings from the start-of-turn facing - Movement comes later), switch off the least useful until the count fits; Hard first tries boosting the generator from spare reactor power (as `boost()`). Switching shields off also clears the power shortfalls the pair finds on the same hulls. Proof: the orders pair over abbai, abbai_old, brakiri at every level (2026-11-26, Normal: 286 "too many active shields" on 53 hulls + 41 "still short of power" - the goal is 0), levelsHarness boards for the ranking | 1 session |
 | W2 | **Sustained-fire weapons** (`alwaysoverloading`) | finishes Drazi (6) and Brakiri's Gravitic Lance (6) | `weaponBlock` refuses 'overload / sustained fire', so weapons that are ALWAYS sustained (Particle Cutter, Gravitic Lance) never fire | Read the page's sustained rules (weaponManager: overloadshots, the same-target continuation), fire them as plain guns and keep the target while the sustain runs; fire pair boards | half a session |
 | W3 | **Combining weapons** | Ipsha; Gaim with W4 | Several mounts fire as ONE shot whose mode = how many combine (Surge Cannon - 567 differences; Particle Concentrator - 61); the page prices it its own way | Port the page's combining rule into AIView (mode = mounts combined, one order, the rest marked used) and let FireDecider choose how many to combine; the fire pair. The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams fail the same way - W12 reuses it | 1-2 sessions |
 | W4 | **Packet Torpedo range rule** (the rest of E4) | Gaim (with W3) | The first 10 hexes free, then 1/2 a hex; its server `calculateRangePenalty` already matches the page | `'PacketTorpedo' => 'range'` in `AIView::PORTED_SPECIAL` (+ FlexPacketTorpedo); fire pair phase 1 over gaim; look at the Shamor's EW difference at the same time | quarter session |
@@ -3243,6 +3243,124 @@ strategies are finished"; both Drazi stay off until W2). The FAQ already named i
 - The FAQ's "What a CPU player can field" names Drazi Freehold and Drazi Freehold (WotCR), which `READY_FACTIONS` comments out until W2.
 - Pre-existing on HEAD (baseline): fireRules I5 / I7 (6 - torpedoes at flights since the 2026-11-26 flight-jink change), fire pair phase 1 Easy
   "Demos #2: a torpedo volley is one the view prices" (php half, 2), withdrawal D8, hangar C4.
+
+#### W1 as built (2026-11-27) - the shield generator handler; Abbai, Abbai (WotCR) and Brakiri released - uncommitted
+
+**The user's request (2026-11-27):** "Can you now implemented W1 of the TACTICAL AI PLAN, the Shield-generator handler. If anything is unclear
+please ask. When complete, add the factions that are now playable to READY_FACTIONS and update TACTIAL AI PLAN".
+
+**The page's rule** (ship.js `checkShieldGenerator`, gamedata.js "too many active shields"): the active `graviticShield`s and
+`abbaiShieldProjector`s (by name - not destroyed, not off) may not outnumber the capacity = the shield generator's `output` (raw, as sent -
+a critical's outputMod is not in it) + its boost; 0 when the generator is destroyed or off (the LAST generator found wins, the page's loop).
+Its boost costs its power need a level (`boostEfficiency = powerReq`), no level cap. Switching the generator off (`onTurnOff`) puts every
+gravitic shield off too; a forced-off generator does not (the player must switch them off). Most Abbai / Brakiri hulls carry more shields than
+capacity (an Aldrith: 6 shields, 3), so EVERY turn a player switches some off or boosts.
+
+**What the baseline pair found** (orders pair over abbai, abbai_old, brakiri, Normal, before W1): 398 differences on 126 hulls - "too many
+active shields" on nearly every situation, and a SECOND cause the plan had misread: "the page will not commit: still -16 power". Shields draw
+no power, so switching them off frees none; the page blocks a ship in deficit while anything with an Off button still draws power
+(`getShipsNegativePower` / `getRemainingFreeablePower`), and the shield GENERATOR draws 2-10 and has one - but PowerDecider kept it on
+(`KEEP_ON`).
+
+**Asked first, answered (rulings, 2026-11-27):**
+1. *Where the generator goes in the deficit order* (switching it off loses every shield): **"Before the Scanner"** - after the loaded guns and
+   the Jammer, before the scanner and a healthy jump engine.
+2. *How Hard pays for generator levels*: **"Spare + idle guns"** - as `boost()` pays for scanner / engine levels.
+3. *Brakiri's Gravitic Lance* (sustained fire - W2; on the Kaliva, Tashkava and Tashkavaton, beside Graviton Pulsars / Beam; the user had held
+   both Drazi for the same kind of gap): **"Release, hide lance hulls"**.
+
+**As built** (`PowerDecider`, `TacticalAI`, `AIConfig`, `gamelobby.js`; no new class, autoload unchanged):
+- **`PowerDecider::shields()`** - every level (legality, not skill), after `boost()` and every deficit decision (plan, replan, JumpDecider's
+  keepOn): per ship on the board, the shields over `shieldCapacity()` are switched off, **least useful first** (`rankShields`): a shield's
+  worth = its rating (output + outputMod) x the enemy fire that can reach the ship from inside its arc this turn (`shieldThreats`: per visible
+  enemy, its bearing as the units stand - `getBearingOnUnit`, the arc test of `checkIsValidAffectingSystem` - and replan()'s LIKELY fire: both
+  closing at their present speeds, no EW lock, every loaded plain gun's estimate without arcs, plus each loaded launcher's launch estimate);
+  ties broken by each enemy's worth over its distance (a far enemy still decides which side keeps its shields), then the later system first.
+- **The generator in a deficit**: out of `KEEP_ON`; `sheddable()` rank 4.5 (after the Engine's 4 and the Jammer's 3.5, before the Scanner's 5
+  and a healthy jump engine's 6). shields() then finds capacity 0 and switches every shield off - as the page's onTurnOff does.
+- **Hard (`boost()`, skill `powerBoost`)**: a GENERATOR level first, one for each shield over capacity, most useful first, that faces enemy
+  fire this turn (`generatorLevelsWanted` - worth above 0), paid as the scanner and engine levels are (spare power, then idle one-turn guns);
+  then the scanner / engine as before. `$last['generator']`, `$last['shields']`; the tac_ai_log line names both.
+- **Release**: `READY_FACTIONS` + 'Abbai Matriarchate', 'Abbai Matriarchate (WotCR)', 'Brakiri Syndicracy' (29 factions);
+  `CPU_MISSING_SYSTEMS` + `'GraviticLance' => array('Gravitic Lance', 'unit')` and its gamelobby.js MIRROR (the Ishtaka is a base -
+  refused anyway); the FAQ's "What a CPU player can field".
+
+**Tests:**
+- **ordersOracle.js**: a shield's off row is judged as a shield, not as power (it frees none - it was upsetting the "one system more than the
+  deficit needed" check); after the bot's rows, counted the page's way: never one shield more switched off than the fit needs, never a
+  generator level no shield uses (the commit gate already says they fit). **ordersHarness.php**: the hull as decided on fits its generator;
+  stats for both.
+- **levelsHarness Q** (NEW, 67 checks): an Aldrith (6 shields, capacity 3) at every level - an Omega ahead keeps both front shields, to port
+  the port one, astern both aft ones, ahead + a Hyperion to starboard exactly front pair + starboard, 150 hexes ahead / astern (no fire - the
+  tie-break) the shields facing it (Q1-Q5); spare power (reactor +8 for the board) with enemies on four sides - Hard 2 levels, the boosted
+  capacity holding exactly the shields kept on, Easy / Normal none; fire ahead and astern only - 1 level though 2 are affordable; far off -
+  none (Q6); a deficit of every gun + 2 - every gun, then the generator, every shield off, the scanner kept; of the guns + generator + 2 - the
+  scanner too (Q7); generator destroyed / forced off - every shield off (Q8); three shields shot away - no row (Q9).
+  **levelsHarness 424 PASS** (357 before).
+- **Mutants 10 / 10 caught** (no shields(), most useful first, arcs ignored, generator kept on, generator after the scanner, no generator
+  boost, levels unlimited, levels for shields facing no fire, capacity without the boost, no tie-break - the last needed Q5's astern board).
+
+**Gates (one snapshot of the final tree):**
+- **Orders pair** over abbai, abbai_old, brakiri (126 hulls, 756 situations) - **0 differences at Easy, Normal and Hard** (was 398 at Normal):
+  919 / 919 / 926 shields switched off to fit, 5 generator levels clicked in at Hard; "still short" deficits are now the page-allowed kind.
+  Over every ready directory (34 - the three new ones included; 1,040 hulls, 6,240 situations) Easy / Normal / Hard - **0 differences**
+  (Hard: 1,041 ships boosted, 1,556 levels clicked in - 91 scanner, 179 Interceptor, 5 generator).
+- **Fire pair** over abbai, abbai_old, brakiri (137 hulls with bases / OSATs): Fire phase Easy / Normal / Hard - **0 differences** (21,780
+  pairings, 2,546 legal shots, 1,027 / 1,035 / 1,035 planned); Initial Orders - 0 differences (5,520 pairings; 0 legal launches - the WotCR
+  mine launchers, D4).
+- **ShipMover pair** over abbai, abbai_old, brakiri (3 parts; 105 hulls, 53 with a gravitic drive): 78,320 plans, 593,256 steps replayed through
+  movement.js - **0 differences**; the PHP halves 1,439,523 checks, 0 failed. (W1 does not touch ShipMover - this is the release gate.)
+- **Auto-compose + the real Fleet Checker** (fleetComposerHarness + fleetCheckOracle, all 29 ready factions): Abbai 384 fleets, 384 clean,
+  384 passed; Abbai (WotCR) 384 / 384 / 384; Brakiri 384 / 384 / 384 (no lance hull - FleetComposer asks cpuUnitBlock); PASS overall.
+- **Self-play** (`--budget=0`, a snapshot of the final tree; FleetComposer fleets at 2,500 points against EA's, Normal and Hard, 24x16 and
+  42x30): Abbai x4, Abbai (WotCR) x4, Brakiri x4 - **12 PASS, 0 AI defects**; one reached the turn cap (Abbai Hard 42x30); slowest decision
+  6.07 s (budget off). Abbai won 4 of 4, Abbai (WotCR) and Brakiri lost 4 of 4 each to EA. Kept: games 6358-6369 (deleted 2026-11-27 in the DB trim). tac_ai_log of 6361 (Abbai,
+  Hard): every one of its 26 Initial Orders switched shields off over capacity (8 on turn 1, fewer as shields were shot away).
+  Seen, not W1's: one `validateExtendedTurn[TRIPWIRE]` line ("nothing changed since the begin") - an Abbai Aldrithupgr, Hard, turn 26 of game
+  6359; once in 45 turns, not a loop. Left for the user (ShipMover's extended-turn forecast, not shields).
+
+**Implementer's calls - to confirm:**
+- Every level ranks the shields the same way (it is legality; a dumber Easy choice would only be a different arbitrary order).
+- The fire measure is replan()'s LIKELY case (present speeds, no EW lock) - the best case (`reaches`) made far guns look close.
+- Bearings as the units stand at the start of the turn; ShipMover does not yet steer to keep the kept shields toward the enemy.
+- A ship not on the board yet (a reinforcement waiting) gets no shield rows - as plan() gives it no deficit rows. The page's gate checks a
+  waiting reinforcement too (`canManagePowerFromHyperspace`); none of the bot's fleets has one today.
+
+**The user's answers (2026-11-27):** all four calls above confirmed ("Shields are a core mechanic for these factions"; the fire measure is
+what a player would do; a reinforcement needs shield rows only from the turn it arrives, which it gets - `getTurnDeployed <= turn`). The one
+tripwire is acceptable (earlier tripwire loops closed). The FAQ's Drazi stay listed - W2 builds them next.
+
+**Fallback shields (the user's request, 2026-11-27, built the same day):** "For shield ships can we submit a basic power row in this case, by
+looking at the number of shields allowed by shield generator and then having that number active ordered by system id, and the others
+deactivated." `AIFallback::initialOrders` → `shieldRows()`: per ship on the board, `PowerDecider::activeShields` sorted by system id, the first
+`PowerDecider::shieldCapacity` kept on, an off row (type 1) for each of the rest; nothing when they fit. No ranking - it is the retry.
+ordersHarness checks it on every shield board (rebuilt fresh, `AIFallback::orders`): the off rows are exactly the ids past the capacity.
+abbai, abbai_old, brakiri at Normal: **9,755 checks PASS** (726 shields off on 462 shield boards); mutant (highest ids kept) **120 FAIL**.
+
+**Fallback deficit (the user's request, 2026-11-27, built the same day):** "For the fallback only, can we just deactivate systems in systemid
+order until the power deficit is resolved?" - then, after the first run switched scanners off first: "systems on Primary sections, like
+Scanners will usually have the lowest ids. Instead we should check location 0 systems (primary last), but otherwise work through the systems
+by id." `AIFallback::deficitRows`: on a ship PowerDecider answers for (`understands()`, never a mine - as `plan()`), with `balance() < 0`,
+`PowerDecider::sheddable`'s list (what the page's Off button allows; never the reactor or C&C) re-ordered by `deficitOrder` (outer
+sections by id, then location 0 by id), switched off until the balance is 0 or more. Order in `initialOrders`: deficit, then shields (a
+generator switched off holds none), then the DEW figure (a scanner switched off gives none); every row is written onto its system.
+Forced-off rows are still not posted (the server reads the critical; the row is agreement only).
+- **ordersHarness `--fallback=F`** (NEW): the fallback's orders on every situation, for ordersOracle.js (`fallback: true` - a forced-off
+  system without a row is counted, not a difference). PHP checks: the deficit rows are exactly the outer-then-primary prefix that clears it,
+  the balance is >= 0 or nothing is left, the shields fit with the lowest ids on, the DEW is the scanner output as switched.
+- EA, raiders, abbai, abbai_old, brakiri (282 hulls, 1,692 situations), Normal: **27,862 checks PASS**; fallback deficits 713 ships, 2,901
+  systems off (261 scanners - only where the outer sections could not pay), 186 still short with nothing left. Page oracle on the fallback:
+  **0 power differences** (no "will not commit", no "one system more"); the decider's pair still 0 differences. Mutant (primary not last):
+  183 FAIL.
+- **Left (fallback EW, pre-existing, not changed):** 660 situations where the scanner gives 0 - the page writes a `DEW 0` row, the fallback
+  none (`if ($output > 0)`; agreement only); 6 LCVs the page will not commit with all EW in DEW (`checkLCVSensors`) - a real refusal.
+
+**Observations (not changed):**
+- (Superseded for shields - see "Fallback shields" above.) The FALLBACK's Initial Orders (`AIFallback`, played after a refusal) post no
+  deficit rows: a ship in deficit committed by the fallback is a state the page refuses.
+- The Abbai Shield Projector (Pirocia, Alanti - a base and an OSAT, refused for CPU) is counted and ranked like a shield; the AI does not
+  fire it at allies.
+- The FAQ still names both Drazi, which `READY_FACTIONS` comments out until W2 (noted at G1).
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 

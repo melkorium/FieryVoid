@@ -183,6 +183,9 @@ class TacticalAI
         $jumps = JumpDecider::plan($view, new Hazards($view), $power);
         //Hard's boosts (stage T5f-4): on the masked view, as they depend on where the enemy is - and before EW, which spends a boosted scanner
         $power = PowerDecider::boost($view, $power);
+        /* W1 (every level - the page's commit gate): shields over the shield generator's capacity switched off, least useful first.
+           After boost() (Hard's generator levels) and after every deficit decision (one may have switched the generator off). */
+        $power = PowerDecider::shields($view, $power);
         /* Hard's Interceptors turned to offence against a fighter-heavy enemy (stage T7): after boost() - a boost row would make its
            understands() refuse the ship - and before EW, which then sees them as the anti-fighter guns they will be this turn. */
         $power = PowerDecider::interceptors($view, $power);
@@ -251,7 +254,9 @@ class TacticalAI
         self::$lastSummary = 'EW: ' . $e['offensive'] . ' of ' . $e['points'] . ' points offensive, on ' . $e['targets'] . ' enemies (' . $e['ships'] . ' ships)'
             . ($p['off'] > 0 ? '; power: ' . $p['off'] . ' systems switched off' : '')
             . ($p['short'] > 0 ? ', ' . $p['short'] . ' ships still short' : '')
-            . ($p['scanner'] + $p['engine'] > 0 ? '; boosts: scanner +' . $p['scanner'] . ', engine +' . $p['engine'] . ' (' . $p['idle'] . ' idle guns switched off)' : '')
+            . ($p['scanner'] + $p['engine'] + $p['generator'] > 0 ? '; boosts: scanner +' . $p['scanner'] . ', engine +' . $p['engine']
+                . ($p['generator'] > 0 ? ', shield generator +' . $p['generator'] : '') . ' (' . $p['idle'] . ' idle guns switched off)' : '')
+            . ($p['shields'] > 0 ? '; ' . $p['shields'] . ' shields switched off over the generators\' capacity' : '')
             . ($p['interceptors'] > 0 ? '; ' . $p['interceptors'] . ' Interceptors boosted to fire at fighters' : '')
             . (count($p['overload']) > 0 ? '; off the map, reactor overloaded: ' . implode(', ', $p['overload']) : '')
             . ($b['launches'] > 0 ? '; ballistics: ' . $b['launches'] . ' launchers at ' . $b['targets'] . ' enemies' : '')

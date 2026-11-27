@@ -320,7 +320,7 @@ What it verifies, per game:
 
    docker exec fieryvoid-php-1 php /usr/src/current/tests/replay/replayHarness.php record
 
-   This replays every local game with recorded play (turn >= 1, not in lobby) and writes the results to `tests/replay/baseline/` (git-ignored). Takes ~33 seconds for ~160 games.
+   This replays every local game with recorded play (turn >= 1, not in lobby) and writes the results to `tests/replay/baseline/` (git-ignored). Takes ~3.5 minutes for ~240 games. (From 27.11.2026) a full `record` does not adopt NEW `AI self-play` games (they are many times the size of an ordinary game); the self-play games already in the baseline stay, and `--games=ID` still records one on purpose.
 
 3. Develop as normal.
 

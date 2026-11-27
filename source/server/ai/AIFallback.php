@@ -7,7 +7,8 @@
  * with a bot in it can therefore always move on.
  *
  *   Deployment (-1)     first free legal hex of the slot's deployment zone, as the unit stands
- *   Initial Orders (1)  all EW to defence; no power changes, no ballistics
+ *   Initial Orders (1)  all EW to defence; no ballistics; a power deficit cleared by switching systems off in system id
+ *                       order, primary-section systems last; shields over a shield generator's capacity switched off highest system id first (W1)
  *   Movement (2)        straight on at the current speed
  *   Pre-Firing (5)      nothing
  *   Firing (3)          nothing (the server still intercepts by itself)
@@ -15,9 +16,10 @@
  * Until the deciders exist (stages T1-T5) these ARE the bot's play.
  *
  * NOT YET, and each waits for the stage that owns it:
- *   - Initial Orders here does not clear negative power: that is PowerDecider's job (stage T3).
- *     The server does not refuse a commit for it - the client does - so this stays the plain
- *     retry for when the deciders' orders are refused.
+ *   - Initial Orders here clears negative power only the plain way (system id order, 2026-11-27);
+ *     choosing WHAT to switch off is PowerDecider's job (stage T3). The server does not refuse a
+ *     commit for it - the client does - so this stays the plain retry for when the deciders'
+ *     orders are refused.
  *   - Movement here never turns: a unit flying straight into terrain collides, as a human's
  *     would. Steering clear is MoveDecider's job (stage T1b, on ShipMover); this stays the plain
  *     retry for when its orders are refused.
@@ -184,6 +186,13 @@ class AIFallback
 
             if (!($ship instanceof FighterFlight) && !$ship->isDestroyed() && !$ship->isTerrain()
                 && $ship->getTurnDeployed($gamedata) <= $gamedata->turn) {
+                /* Power before EW: a scanner switched off for the deficit gives no DEW. The deficit before the shields: a generator
+                   switched off holds none. Each row is also written onto its system, so what follows reads the ship as it will be. */
+                $rows = array_merge(self::deficitRows($ship, $gamedata->turn), self::shieldRows($ship, $gamedata->turn));
+                foreach ($rows as $row) {
+                    if (!isset($entry['systems'][$row['systemid']])) $entry['systems'][$row['systemid']] = array('id' => $row['systemid'], 'power' => array());
+                    $entry['systems'][$row['systemid']]['power'][] = $row;
+                }
                 $output = (int)EW::getScannerOutput($ship, $gamedata->turn);
                 if ($output > 0) $entry['EW'][] = AIOrderBuilder::ew($ship->id, $gamedata->turn, 'DEW', $output);
             }
@@ -192,6 +201,62 @@ class AIFallback
         }
 
         return $entries;
+    }
+
+    /* W1 (the user, 2026-11-27): the page will not commit a ship with more active shields than its shield generator holds
+       (ship.js checkShieldGenerator - PowerDecider::shields' rule). The plain answer: the lowest system ids keep their shields
+       up to the generator's capacity, every other one is switched off. No ranking - this is the retry, not a decision. */
+    private static function shieldRows($ship, $turn)
+    {
+        $active = PowerDecider::activeShields($ship, $turn);
+        $capacity = PowerDecider::shieldCapacity($ship, $turn);
+        if (count($active) <= $capacity) return array();
+
+        usort($active, function ($a, $b) { return (int)$a->id - (int)$b->id; });
+        $rows = array();
+        foreach (array_slice($active, max(0, $capacity)) as $shield) {
+            $rows[] = self::switchOff($ship, $shield, $turn);
+        }
+        return $rows;
+    }
+
+    /* The user, 2026-11-27: the page will not commit a ship in a power deficit while anything it can switch off still draws power
+       (getShipsNegativePower). The plain answer: what the page's Off button allows (PowerDecider::sheddable's list - never the
+       reactor or the C&C), switched off until the balance is 0 or more - outer sections' systems first in SYSTEM ID order, then
+       the PRIMARY section's (deficitOrder). Only on a ship whose balance
+       PowerDecider answers for (understands(): no base, capacitor or boost) and never on a mine - as PowerDecider::plan(). */
+    private static function deficitRows($ship, $turn)
+    {
+        if (!empty($ship->mine) || !PowerDecider::understands($ship, $turn)) return array();
+        $balance = PowerDecider::balance($ship, $turn);
+        if ($balance >= 0) return array();
+
+        $list = PowerDecider::sheddable($ship, $turn);
+        usort($list, array('AIFallback', 'deficitOrder'));
+        $rows = array();
+        foreach ($list as $system) {
+            if ($balance >= 0) break;
+            $rows[] = self::switchOff($ship, $system, $turn);
+            $balance += $system->powerReq;
+        }
+        return $rows;
+    }
+
+    /* deficitRows' order (the user, 2026-11-27): PRIMARY systems (location 0 - the scanner and the other core systems, which have
+       the lowest ids) last; otherwise by system id. Public for ordersHarness, which checks the order. */
+    public static function deficitOrder($a, $b)
+    {
+        $primaryA = ((int)$a->location === 0) ? 1 : 0;
+        $primaryB = ((int)$b->location === 0) ? 1 : 0;
+        if ($primaryA !== $primaryB) return $primaryA - $primaryB;
+        return (int)$a->id - (int)$b->id;
+    }
+
+    //An "off" row for this turn, also written onto the loaded system (PowerDecider's way) so that what is read next sees it off.
+    private static function switchOff($ship, $system, $turn)
+    {
+        $system->power[] = new PowerManagementEntry(-1, $ship->id, $system->id, 1, $turn, 0);
+        return AIOrderBuilder::power($ship->id, $system->id, $turn, 1);
     }
 
     /* MOVEMENT. Each of the bot's ACTIVE units flies straight on: one 'move' row per hex of its

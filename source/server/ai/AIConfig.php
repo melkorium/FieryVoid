@@ -339,13 +339,16 @@ class AIConfig
        2026-11-26 (the user: factions that "essentially have nothing that requires unique consideration ... can just be added"): the
        League, Minor and Other factions with nothing the AI lacks but what D4 lets it leave idle - plan 10.10 "THE OTHER GROUPS", with
        the work list for the rest (Abbai, Brakiri and Hyach are BLOCKED by commit gates; Civilians stay out by ruling D5). The Usuuth
-       Coalition joined the same day after W0 (ShipMover's roll cost kept fractional - its rollcost 1.5 hulls). */
+       Coalition joined the same day after W0 (ShipMover's roll cost kept fractional - its rollcost 1.5 hulls). The Abbai (both) and the
+       Brakiri joined 2026-11-27 after W1 (PowerDecider::shields - the shield generator's commit gate), the Brakiri's Gravitic Lance hulls
+       hidden until W2 (CPU_MISSING_SYSTEMS). */
     const READY_FACTIONS = array('Earth Alliance', 'Raiders', 'Dilgar Imperium', 'Minbari Federation', 'Narn Regime', 'Centauri Republic',
         'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium',
         //League of Non-Aligned Worlds
         'Torata Regency', //back 2026-11-27 with G1 (accelerator charge timing) - the user: "Yes, after gates"
         //'Drazi Freehold', 'Drazi Freehold (WotCR)', //Commmentedd out until Accelerator and Sustained Weapons stragies are finished. (G1 done; W2 - sustained fire - still to do)
         'Hurr Republic', 'Cascor Commonwealth',
+        'Abbai Matriarchate', 'Abbai Matriarchate (WotCR)', 'Brakiri Syndicracy', //2026-11-27 with W1 (the shield generator handler)
         //Minor Factions
         'Alacan Republic', 'Balosian Underdwellers', 'Belt Alliance', 'Corillani Theocracy', 'Deneth Tribes', 'Descari Committees', 'Llort',
         'Markab Theocracy', 'Minbari Protectorate', 'Rogolon Dynasty', 'Small Races', 'Usuuth Coalition', 'Yolu Confederation',
@@ -384,6 +387,9 @@ class AIConfig
         'MolecularSlicerBeamM' => array('Molecular Slicer', 'unit'),
         'MolecularSlicerBeamH' => array('Molecular Slicer', 'unit'),
         'MolecularSlicerBeamA' => array('Molecular Slicer', 'unit'),
+        //W1 (the user, 2026-11-27: "Release, hide lance hulls") - a sustained-fire gun the AI cannot fire until W2 (Brakiri Kaliva, Tashkava,
+        //Tashkavaton; the Ishtaka is a base, refused anyway)
+        'GraviticLance' => array('Gravitic Lance', 'unit'),
     );
 
     //Why a CPU player cannot field $unit for a system the AI does not use yet (CPU_MISSING_SYSTEMS), or null.

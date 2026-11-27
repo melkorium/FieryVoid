@@ -15,7 +15,9 @@
  *     the critical by itself (ShipSystem::isOfflineOnTurn), so this is for agreement, not for rule;
  *   - a ship in deficit switches systems off, least useful first, until it is not:
  *       the jump engine (the bot does not jump before stage T6), weapons still loading, other
- *       systems, loaded weapons, and only then the engine and the scanner.
+ *       systems, loaded weapons, and only then the engine, a shield generator (W1) and the scanner;
+ *   - (W1) a ship whose active gravitic shields / Abbai shield projectors outnumber its shield generator's capacity switches the
+ *     least useful off until they fit (shields()) - the page's commit gate, ship.js checkShieldGenerator.
  * It overloads no weapon, and a reactor only on a ship lost off the map (overloadOffMap, 2026-11-26).
  * A bot posts only this turn's rows, and carries nothing over: the same deficit
  * switches the same systems off again next turn, and a ship that has its power back gets everything back.
@@ -33,16 +35,22 @@
 class PowerDecider
 {
     /* What the last plan did, for tac_ai_log: 'off' systems switched off for a deficit, 'short' ships still in deficit; what
-       boost() did: 'idle' guns switched off to pay for boosts, 'scanner' / 'engine' boost levels bought; and what interceptors()
+       boost() did: 'idle' guns switched off to pay for boosts, 'scanner' / 'engine' / 'generator' (W1 - a shield generator) boost
+       levels bought; what shields() did: 'shields' shields switched off over the generator's capacity (W1); and what interceptors()
        did: 'interceptors' Interceptors boosted to fire at fighters (stage T7). */
-    public static $last = array('off' => 0, 'short' => 0, 'idle' => 0, 'scanner' => 0, 'engine' => 0, 'interceptors' => 0, 'overload' => array());
+    public static $last = array('off' => 0, 'short' => 0, 'idle' => 0, 'scanner' => 0, 'engine' => 0, 'generator' => 0, 'shields' => 0, 'interceptors' => 0, 'overload' => array());
 
     /* (2026-11-26) ship id => the systems plan() switched off for a deficit this turn, in order - replan() picks them again once the
        enemy can be seen. */
     public static $shed = array();
 
-    //Systems the bot never switches off: the page ties other rules to them.
-    const KEEP_ON = array('reactor', 'cnC', 'shieldGenerator');
+    /* Systems the bot never switches off: the page ties other rules to them. (W1, 2026-11-27: the shield generator is no longer one of
+       them - the page will not commit a ship in deficit while it is on, as it draws power and has an Off button; sheddable() puts it
+       before the scanner, the user's ruling, and shields() then switches every shield off with it.) */
+    const KEEP_ON = array('reactor', 'cnC');
+
+    //W1: the systems the page counts against a shield generator's capacity (ship.js checkShieldGenerator - by name)
+    const GENERATOR_SHIELDS = array('graviticShield', 'abbaiShieldProjector');
 
     /* The bot's power rows for this turn: ship id => list of AIOrderBuilder::power rows. Every row
        is also written onto the loaded system, so that what is decided next (the scanner's output,
@@ -51,7 +59,7 @@ class PowerDecider
     {
         $turn = (int)$gamedata->turn;
         $plan = array();
-        self::$last = array('off' => 0, 'short' => 0, 'idle' => 0, 'scanner' => 0, 'engine' => 0, 'interceptors' => 0, 'overload' => array());
+        self::$last = array('off' => 0, 'short' => 0, 'idle' => 0, 'scanner' => 0, 'engine' => 0, 'generator' => 0, 'shields' => 0, 'interceptors' => 0, 'overload' => array());
         self::$shed = array();
 
         foreach (AIFallback::ownUnits($gamedata, $botId) as $ship) {
@@ -150,6 +158,8 @@ class PowerDecider
            interceptors stay on, the best rating first;
          - every other one-turn gun the page's Off button allows is IDLE: it pays for boosts, least useful first, and only
            as many as a level needs (a gun is never switched off for nothing);
+         - (W1) a level of a SHIELD GENERATOR before anything else, for each shield over its capacity that faces enemy fire this
+           turn (generatorLevelsWanted);
          - a level of the SCANNER first while there is a fight this turn (a loaded gun of either side reaches), else the
            ENGINE; whichever cannot be bought, the other. "Back on as the enemy nears" needs nothing more: a one-turn gun
            switched off is loaded again the turn it is switched back on (Weapon::calculateLoading), and the bot carries no
@@ -179,8 +189,14 @@ class PowerDecider
             $scanner = self::boostable($ship, $turn, 'scanner');
             $engine = self::boostable($ship, $turn, 'engine');
             $order = $reach['fight'] ? array('scanner', 'engine') : array('engine');
-            $levels = array('scanner' => 0, 'engine' => 0);
-            $systems = array('scanner' => $scanner, 'engine' => $engine);
+            /* W1 (2026-11-27): a shield GENERATOR first - a level for each shield over its capacity that faces enemy fire able to reach
+               the ship this turn (generatorLevelsWanted), paid as the others are: spare power, then idle guns (the user's ruling,
+               "Spare + idle guns"). shields() later switches off whatever the capacity, boosted, still cannot hold. */
+            $generator = self::generatorBoostable($ship, $turn);
+            $wanted = ($generator !== null) ? self::generatorLevelsWanted($view, $ship, $turn) : 0;
+            if ($wanted > 0) array_unshift($order, 'generator');
+            $levels = array('generator' => 0, 'scanner' => 0, 'engine' => 0);
+            $systems = array('generator' => $generator, 'scanner' => $scanner, 'engine' => $engine);
             $rows = array();
 
             while (true) {
@@ -188,6 +204,7 @@ class PowerDecider
                 foreach ($order as $kind) {
                     $system = $systems[$kind];
                     if ($system === null || $levels[$kind] >= self::boostLimit($system)) continue;
+                    if ($kind === 'generator' && $levels[$kind] >= $wanted) continue;
                     $price = self::boostPrice($system, $levels[$kind]);
                     if ($price === null) continue;
                     //the idle guns this level needs, least useful first - none unless the budget falls short
@@ -335,6 +352,153 @@ class PowerDecider
             self::$last['overload'][] = $ship->name;
         }
         return $plan;
+    }
+
+    /* W1 - THE SHIELD GENERATOR (TACTICAL_AI_PLAN.md 10.10, "W1 as built"). The page will not commit a ship whose active gravitic
+       shields and Abbai shield projectors outnumber its shield generator's capacity (ship.js checkShieldGenerator: the generator's
+       output plus its boost, 0 when it is destroyed or switched off; gamedata.js "too many active shields"). Every level - this is
+       legality, not skill: per ship, the shields over that capacity are switched off, LEAST USEFUL FIRST (rankShields: each shield's
+       rating times the enemy fire that can reach it from inside its arc this turn). Run after boost(), which may have bought Hard
+       generator levels first, and after every deficit decision (plan, replan, JumpDecider::keepOn), which may have switched the
+       generator itself off. Ships not on the board yet are left, as plan() leaves them. */
+    public static function shields(AIView $view, array $plan)
+    {
+        self::$last['shields'] = 0;
+        $turn = $view->turn;
+        foreach (AIFallback::ownUnits($view->gamedata, $view->botId) as $ship) {
+            if ($ship instanceof FighterFlight || $ship->isTerrain() || $ship->isDestroyed() || !empty($ship->mine)) continue;
+            if ($ship->getTurnDeployed($view->gamedata) > $turn) continue;
+            $active = self::activeShields($ship, $turn);
+            $excess = count($active) - self::shieldCapacity($ship, $turn);
+            if ($excess <= 0) continue;
+            $rows = array();
+            foreach (array_slice(self::rankShields($view, $ship, $active), 0, $excess) as $row) {
+                $rows[] = self::switchOff($ship, $row['shield'], $turn);
+                self::$last['shields']++;
+            }
+            $plan[(int)$ship->id] = array_merge(isset($plan[(int)$ship->id]) ? $plan[(int)$ship->id] : array(), $rows);
+        }
+        return $plan;
+    }
+
+    //The shields the page counts against the generator (by name), neither destroyed nor switched off this turn.
+    public static function activeShields($ship, $turn)
+    {
+        $list = array();
+        foreach ($ship->systems as $system) {
+            if (!in_array($system->name, self::GENERATOR_SHIELDS, true) || $system->isDestroyed() || self::isOff($system, $turn)) continue;
+            $list[] = $system;
+        }
+        return $list;
+    }
+
+    /* ship.js checkShieldGenerator's capacity: output + boost of the shield generator - the LAST one that is neither destroyed nor
+       off (the page's loop overwrites); 0 without one. The page reads the raw output, as sent (a critical's outputMod is not in it). */
+    public static function shieldCapacity($ship, $turn)
+    {
+        $capacity = 0;
+        foreach ($ship->systems as $system) {
+            if ($system->name !== 'shieldGenerator' || $system->isDestroyed() || self::isOff($system, $turn)) continue;
+            $capacity = (int)$system->output + self::boostLevels($system, $turn);
+        }
+        return $capacity;
+    }
+
+    /* $shields ranked LEAST USEFUL FIRST, each as array('shield', 'worth', 'tie'): worth = the shield's rating (output + outputMod)
+       times the enemy fire that can reach the ship from inside its arc this turn (shieldThreats - the bearing as the units stand,
+       measured as the engine measures it: BaseShip::getBearingOnUnit, the arc test of checkIsValidAffectingSystem); tie = the same
+       with each enemy's worth over its distance, for when no fire reaches; then the later system first. */
+    private static function rankShields(AIView $view, $ship, array $shields)
+    {
+        $threats = self::shieldThreats($view, $ship);
+        $rows = array();
+        foreach ($shields as $shield) {
+            $rating = max(0, (int)$shield->output + (int)$shield->outputMod);
+            $fire = 0;
+            $tie = 0;
+            foreach ($threats as $threat) {
+                if (!Mathlib::isInArc($threat['bearing'], (int)$shield->startArc, (int)$shield->endArc)) continue;
+                $fire += $threat['fire'];
+                $tie += $threat['tie'];
+            }
+            $rows[] = array('shield' => $shield, 'worth' => $rating * $fire, 'tie' => $rating * $tie);
+        }
+        usort($rows, function ($a, $b) {
+            if ($a['worth'] != $b['worth']) return ($a['worth'] < $b['worth']) ? -1 : 1;
+            if ($a['tie'] != $b['tie']) return ($a['tie'] < $b['tie']) ? -1 : 1;
+            return (int)$b['shield']->id - (int)$a['shield']->id;
+        });
+        return $rows;
+    }
+
+    /* Per visible enemy (mines aside): its bearing from $ship (degrees from the ship's facing, as the units stand - Movement comes
+       later, and a launch is made from where the enemy stands now), the fire it could put on the ship this turn, and its worth over
+       its distance. The fire is replan()'s LIKELY case: the two closing at the speeds they have now, no EW lock, every loaded plain
+       gun's estimate with no arc asked (a facing changes in Movement); plus each loaded launcher's launch estimate from where it stands. */
+    private static function shieldThreats(AIView $view, $ship)
+    {
+        $turn = $view->turn;
+        $threats = array();
+        foreach ($view->enemies() as $enemy) {
+            if (!empty($enemy->mine)) continue;
+            $fire = 0;
+            foreach ($view->mounts($enemy) as $mount) {
+                $gun = $mount['weapon'];
+                if (!$gun->ballistic || $mount['fighter'] !== null || $gun instanceof JumpEngine || $gun->hextarget) continue;
+                if ($gun->isDestroyed() || !$view->loaded($gun)) continue;
+                $fire += $view->launchEstimate($enemy, $gun, $ship);
+            }
+            $fire += self::nearer($ship, $enemy, self::speedNow($ship) + self::speedNow($enemy), $turn, function () use ($view, $ship, $enemy) {
+                $sum = 0;
+                foreach ($view->mounts($enemy) as $mount) {
+                    $gun = $mount['weapon'];
+                    if (!$view->plainGun($gun, $mount['fighter']) || !$view->loaded($gun)) continue;
+                    $sum += $view->estimate($enemy, $gun, $ship, false);
+                }
+                return $sum;
+            });
+            $distance = $ship->getHexPos()->distanceTo($enemy->getHexPos());
+            $threats[] = array('bearing' => $ship->getBearingOnUnit($enemy), 'fire' => $fire, 'tie' => $view->value($enemy) / max(1, $distance));
+        }
+        return $threats;
+    }
+
+    /* HARD (boost()): how many generator levels are worth buying - the shields over the capacity, most useful first, that face some
+       enemy fire this turn (rankShields' worth above 0). A level holds one more shield on. */
+    private static function generatorLevelsWanted(AIView $view, $ship, $turn)
+    {
+        $active = self::activeShields($ship, $turn);
+        $capacity = self::shieldCapacity($ship, $turn);
+        if (count($active) <= $capacity) return 0;
+        $wanted = 0;
+        foreach (array_slice(array_reverse(self::rankShields($view, $ship, $active)), $capacity) as $row) {
+            if ($row['worth'] > 0) $wanted++;
+        }
+        return $wanted;
+    }
+
+    /* The shield generator a boost would go on (the one shieldCapacity() reads), or null: alive, switched on, boostable, not boosted
+       yet this turn, and at a price the port knows (boostPrice - its boostEfficiency is its power need, power.js countBoostPowerUsed).
+       The page's plus button: canBoost (not switched off) and no maxBoostLevel (hasMaxBoost is false). */
+    private static function generatorBoostable($ship, $turn)
+    {
+        $found = null;
+        foreach ($ship->systems as $system) {
+            if ($system->name !== 'shieldGenerator' || $system->isDestroyed() || self::isOff($system, $turn)) continue;
+            $found = $system;
+        }
+        if ($found === null || empty($found->boostable) || self::hasRow($found, $turn, 2) || self::boostPrice($found, 0) === null) return null;
+        return $found;
+    }
+
+    //shipManager.power.getBoost: the boost levels of $system's rows of this turn.
+    private static function boostLevels($system, $turn)
+    {
+        $levels = 0;
+        foreach ($system->power as $power) {
+            if ((int)$power->turn === (int)$turn && (int)$power->type === 2) $levels += (int)$power->amount;
+        }
+        return $levels;
     }
 
     /* $ship's Interceptors that a boost would turn to offence, each as array('gun' => the weapon, 'boosted' => array('fireControl',
@@ -787,6 +951,8 @@ class PowerDecider
             }
             else if ($system instanceof Jammer) $rank = 3.5;
             else if ($system instanceof Engine) $rank = 4;
+            //W1 (the user, 2026-11-27: "Before the Scanner"): every shield goes off with it (shields())
+            else if ($system->name === 'shieldGenerator') $rank = 4.5;
             else if ($system instanceof Scanner) $rank = 5;
             else $rank = 2;
 

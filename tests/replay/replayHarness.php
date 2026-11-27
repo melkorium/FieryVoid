@@ -1486,7 +1486,25 @@ class ReplayHarness {
 
     private function selectGames($gameFilter) {
         $games = $this->discoverGames();
-        if ($gameFilter === null) return $games;
+        if ($gameFilter === null) {
+            // A FULL record does not adopt NEW 'AI self-play' games (2026-11-27): a kept
+            // self-play game is ~8x an ordinary game's rows and they piled up in the corpus.
+            // The ones already in the manifest stay; an explicit --games=ID still records one.
+            $manifest = $this->readManifest();
+            $baselined = ($manifest !== null) ? $manifest['games'] : array();
+            $skipped = array();
+            foreach ($games as $id => $row) {
+                if (strpos((string)$row->name, 'AI self-play ') === 0 && !isset($baselined[$id])) {
+                    $skipped[] = $id;
+                    unset($games[$id]);
+                }
+            }
+            if (count($skipped) > 0) {
+                printf("Not adopted: %d AI self-play game(s) not in the baseline (%s) - record one with --games=ID and merge the manifest.\n",
+                    count($skipped), implode(', ', $skipped));
+            }
+            return $games;
+        }
         $selected = array();
         foreach ($gameFilter as $id) {
             if (isset($games[$id])) {
