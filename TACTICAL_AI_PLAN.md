@@ -2510,7 +2510,7 @@ before. Ordered by what they unlock in the user's order:
 | E8 | **System handlers** - the section 6 registry, built with the first | shield generators and gravitic shields (Abbai 45 hulls, Brakiri 16) - **BLOCKING: the orders pair over abbai, abbai_old and brakiri (2026-11-22) fails ~400 of 756 situations at every level, every one listed on the page's commit gate "too many active shields" - a CPU fleet would commit a state no player can; a handler must choose the active shields** -, Hyach Computer and Specialists (12), tractor beams (Minbari 11, Streib 5), adaptive armour (Minbari 2, Vorlons 14), self-repair (Ancients), stealth units (Hyach 2, Torvalus 6), HK control nodes (Orieni 16), diffusers (EA 2, Shadows) | For each: a RULING "the default is fine" (most passive ones) or a small handler. Stealth needs a real decision (firing reveals the unit) |
 | E9 | **Exclusive fighter weapons** | Centauri 12, Raiders / Brakiri / Cascor / Centauri (WotCR) / Yolu 6 | Choose one of a craft's exclusive weapons (weaponManager.checkConflictingFireOrder) |
 | E10 | **Angular-spread turret links** | Vree 16, Walkers 12 | The page's linked-turret rule (getLinkedFiringBlock) - with E4, the Vree project |
-| E11 | Odds and ends | Drazi Particle Cutter (sustained) 6, Kor-Lyan Limpet Bore (special targeting) 8, Gaim 1 special arc | One by one, when a faction needs them |
+| E11 | Odds and ends | Drazi Particle Cutter (sustained) 6 (✅ W2, 2026-11-27), Kor-Lyan Limpet Bore (special targeting) 8, Gaim 1 special arc | One by one, when a faction needs them |
 
 Not needed: boarding (Marines, grappling claws), weapons that fire by themselves (Hyach Interdictors: the server fires them), jammers and
 other passive defences (the hit formula the bot asks already counts them), bases and OSATs (not offered for a CPU slot).
@@ -2973,7 +2973,7 @@ the antimatter half of E4 have landed since. And the pairs found weapons no surv
 |---|---|---|---|
 | Torata Regency | 15 | 100% | taken off by the user with the Drazi (accelerators, sustained fire); back 2026-11-27 with G1 ("G1 as built" below) |
 | Drazi Freehold (WotCR) | 27 | 100% | - |
-| Drazi Freehold | 29 (breaching pod hidden) | 97% | Particle Cutter x6 (sustained fire - W2); the Claweagle's Grappling Claws (M14); Sky / Fanged Serpent and Armored Shuttle racks fire once missiles are bought |
+| Drazi Freehold | 29 (breaching pod hidden) | 97% → 100% with W2 | Particle Cutter x6 fired since W2 (2026-11-27 - the user had taken both Drazi off until G1 + W2; back with W2); the Claweagle's Grappling Claws (M14); Sky / Fanged Serpent and Armored Shuttle racks fire once missiles are bought |
 | Hurr Republic | 15 | 100% | Koeth racks with missiles |
 | Cascor Commonwealth | 14 | 97% | the Coqari Scout's Ion Field Generator x4 (hex-targeted - W7) |
 | Alacan Republic | 7 | 100% | ⚠️ no hull has a jump engine: the Fleet Checker never passes an Alacan fleet, so auto-compose falls back to another faction (the FAQ says so) - buy by hand |
@@ -3016,7 +3016,7 @@ shields, below).
 |---|---|---|---|---|
 | Abbai Matriarchate | 19 | 100% | ✅ RELEASED 2026-11-27 - was BLOCKED: gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 ✅ |
 | Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | ✅ RELEASED 2026-11-27 - was BLOCKED by the shields, as above | W1 ✅ |
-| Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling); idle: Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 | W1 ✅ (W2 unhides the lance hulls; W10, W7 polish) |
+| Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling) - ✅ unhidden with W2 the same day (all three are "rare": auto-compose never buys them, a player may); idle: Gravitic Shifter x8 (Pre-Firing), Gravitic Mine x7 (hex) - D4 | W1 ✅ (W2 unhides the lance hulls; W10, W7 polish) |
 | Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 (W11 polish) |
 | Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences; one EW difference on the Shamor (orders pair) | W3 + W4 |
 | Hyach Gerontocracy | 18 | 95% | **BLOCKED** - Specialists must be chosen in the Deployment phase (the page's commit gate); the 2 stealth units (Alichi Kav / Tal) never act; Computer BFCP unused; Proximity Laser x6 | W5 |
@@ -3034,7 +3034,7 @@ oracle, a mutation pass, then the gate):
 |---|---|---|---|---|---|
 | W0 | ✅ **Fractional roll cost** (ShipMover) - BUILT 2026-11-26, uncommitted ("W0 as built" below) | Usuuth - released | `ShipMover::__construct` cast `rollcost` to int; five Usuuth hulls roll for 1.5 (the only fractional manoeuvre cost in the game) | done | - |
 | W1 | ✅ **Shield-generator handler** (E8) - BUILT 2026-11-27, uncommitted ("W1 as built" below) | Abbai, Abbai (WotCR), Brakiri - 3 factions, 97 units - released | Initial Orders: active gravitic shields (and Abbai shield projectors) <= the generator's output + boost, as `ship.checkShieldGenerator` asks | In PowerDecider (Initial Orders, after `plan()`): rank each shield by the enemy fire that can reach its arc (bearings from the start-of-turn facing - Movement comes later), switch off the least useful until the count fits; Hard first tries boosting the generator from spare reactor power (as `boost()`). Switching shields off also clears the power shortfalls the pair finds on the same hulls. Proof: the orders pair over abbai, abbai_old, brakiri at every level (2026-11-26, Normal: 286 "too many active shields" on 53 hulls + 41 "still short of power" - the goal is 0), levelsHarness boards for the ranking | 1 session |
-| W2 | **Sustained-fire weapons** (`alwaysoverloading`) | finishes Drazi (6) and Brakiri's Gravitic Lance (6) | `weaponBlock` refuses 'overload / sustained fire', so weapons that are ALWAYS sustained (Particle Cutter, Gravitic Lance) never fire | Read the page's sustained rules (weaponManager: overloadshots, the same-target continuation), fire them as plain guns and keep the target while the sustain runs; fire pair boards | half a session |
+| W2 | ✅ **Sustained-fire weapons** (`alwaysoverloading`) - BUILT 2026-11-27, uncommitted ("W2 as built" below) | finishes Drazi (6) and Brakiri's Gravitic Lance (6) - both Drazi back on `READY_FACTIONS`, the lance hulls unhidden | `weaponBlock` refuses 'overload / sustained fire', so weapons that are ALWAYS sustained (Particle Cutter, Gravitic Lance) never fire | Read the page's sustained rules (weaponManager: overloadshots, the same-target continuation), fire them as plain guns and keep the target while the sustain runs; fire pair boards | half a session |
 | W3 | **Combining weapons** | Ipsha; Gaim with W4 | Several mounts fire as ONE shot whose mode = how many combine (Surge Cannon - 567 differences; Particle Concentrator - 61); the page prices it its own way | Port the page's combining rule into AIView (mode = mounts combined, one order, the rest marked used) and let FireDecider choose how many to combine; the fire pair. The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams fail the same way - W12 reuses it | 1-2 sessions |
 | W4 | **Packet Torpedo range rule** (the rest of E4) | Gaim (with W3) | The first 10 hexes free, then 1/2 a hex; its server `calculateRangePenalty` already matches the page | `'PacketTorpedo' => 'range'` in `AIView::PORTED_SPECIAL` (+ FlexPacketTorpedo); fire pair phase 1 over gaim; look at the Shamor's EW difference at the same time | quarter session |
 | W5 | **Hyach handler** (E8) | Hyach | (1) Specialists chosen in Deployment (BLOCKING); (2) using them in later turns; (3) Computer BFCP; (4) the 2 stealth units; (5) Proximity Laser (W7) | Needs a RULING first - which Specialists by hull, and when to use them. DeployDecider picks them; Initial Orders uses them by rule; BFCP to the weapon class the ship fires most; the stealth units HIDDEN (a unit rule beside CPU_MISSING_SYSTEMS) until a stealth decision exists. Proof: deployerHarness (the Deployment gate) + the orders pair | 1-2 sessions |
@@ -3480,6 +3480,122 @@ disarmed Omega - OEW 8 on it + SOEW to both; a 1-point enemy lock - Hard DIST 3 
 - The fleet's other ships are not re-planned after the support (SDEW on a ship could let it move DEW to OEW - the user's "one of your own
   ships that plans to use its own EW for OEW").
 - A teammate's units are not priced (their EW this turn is masked); the engine still gives them the blanket.
+
+#### W2 as built (2026-11-27) - sustained fire; both Drazi released, the Brakiri Lance hulls unhidden - uncommitted
+
+**The user's request (2026-11-27):** "Can we implement W2, Sustained-fire weapons, now and then activate Drazi and Brakiri factions once
+complete."
+
+**The rules as the engine and the page hold them** (Weapon::calculateLoadingFromLastTurn / calculateLoading, ParticleCutter and
+GraviticLance in particle.php / gravitic.php, ShipSystem::assignDamageReturnOverkill, weaponManager.calculateHitChange):
+- A weapon ALWAYS sustained (`alwaysoverloading`; its `isOverloadingOnTurn` is always true) fires a SEQUENCE: a first shot, then the next
+  turn a second (`overloadshots` 2, then 1); only a mode-1 shot sustains (`firedUsingMode == 1`). After the second the weapon reloads from
+  0 (Cutter: shots on turns 1, 2, 4, 5 ...; Lance: 1, 2, 6, 7 - two shots in five turns, its Beams one volley in four). A second shot NOT
+  taken frees it a turn sooner (it is loaded again by `overloadturns`).
+- The first shot's Post-Firing note (`targetinfo`, "id;hit" - written only while `overloadshots - 1 > 0`) becomes next turn's
+  `sustainedTarget`. A second shot at that unit after a HIT needs 100 and cannot be intercepted (the class's `calculateHitBase` sets
+  `uninterceptable` / `doNotIntercept` on the weapon - and picks no section: the damage step takes `getHitSection`'s); after a miss it is
+  an ordinary shot. It goes through the armour the first pierced (one `systeminfo` note a point, per system - hardened advanced armour keeps
+  half) and meets no shield (`shieldInteractionDamage` 0 at the sequence's target).
+- **The page** (calculateHitChange): while an overloading weapon holds a `sustainedTarget`, any other unit, and any mode but 1, is 0% - no
+  order is made ("Sustained: wrong target / wrong firing mode"). The server would resolve such an order at the plain chance: the bot must
+  not give one.
+
+**Asked first, answered (rulings, 2026-11-27):**
+1. *Valuing a first shot* (priced one shot at a time the Lance's Beams - two 5d10+12 - beat its Lance - one 6d10+24 - nearly always,
+   though the sequence does about 16 a turn against the Beams' 12 at 60%): **"Count follow-up"** - a first shot's worth includes the
+   follow-up it should bring.
+2. *A second shot after a MISS* (normal odds, that target only; skipping reloads a turn sooner): **"Usual floor"** - fired by the weapon's
+   usual floor.
+
+**As built** (`AIView`, `FireDecider`, `ShipDecider`, `PowerDecider`, `AIConfig`, `gamelobby.js`; no new class, autoload unchanged):
+- **AIView "W2: sustained fire"**: `SUSTAINED` = ParticleCutter, GraviticLance (by class - every other always-sustained weapon, all on
+  custom factions, stays refused: `weaponBlock` 'overload / sustained fire'; a player's overload stays refused as before). `sustainedTargets`
+  (the payload's `sustainedTarget` - private on the classes - for any overloading weapon, anybody's: the page shows it), `sustainRefuses`
+  (the page's 0) asked in `work()` (refusal 'chance', after the geometry) and in `hitAnswers()` (so `estimate()`, `chanceOf()`, every
+  decider's pricing - ShipDecider's movement, EW locks, PowerDecider's reach, an ENEMY's sustained weapon - see the weapon held to its
+  target), `sustainedHit` (the auto-hit), `startsSequence` (mode 1, no sequence now, `overloadshots >= 2`, loaded by `overloadturns`),
+  `followUp`, `piercedBefore`.
+- **The auto-hit's price** (`hitBase`): the class's own `calculateHitBase` asked once for the flags it leaves (InterceptModel, the server's
+  interception and FireDecider's then leave the shot alone), the sections asked of the routine it overrides (`engineHitBase` - the parent's,
+  by reflection) at a need of 100: the hit table and its weights exactly as any shot of the weapon finds them.
+- **`damagePerHit`**: the structure's armour less `piercedBefore` (the notes the weapon carries, counted when the engine counts them); with
+  `$follow` (pricing a follow-up a turn ahead) no shield and no structure armour (half for hardened advanced armour).
+- **A first shot** carries `followUp` = `FIRE_SUSTAIN_CONFIDENCE` (0.8, new - the target may leave, the gun be lost) x guns x shots x (p x
+  the hit through no armour + (1 - p) x p x the hit). FireDecider: the mode is chosen by **`modeRank`** - (damage + followUp) x L / (L + 1)
+  for a sequence's start, damage otherwise (no other weapon's choice changes); the greedy **score** adds the follow-up times the share the
+  interceptors leave of the shot; only this turn's damage is booked.
+- **A second shot** is marked `sustaining`; **`holdSlow`** holds it only under its floor (`minimumChance` for its loading time) - never for
+  a closer turn ("Usual floor").
+- **`FireDecider::interceptableIncoming`** and **`PowerDecider::shipShots`** count no enemy follow-up that hits by itself as an order an
+  interceptor could cover.
+- **`ShipDecider::context`**: the Cutters and Lances are now among the ship's guns (weaponBlock let them through); a sustained weapon's
+  sequence target is part of its group key (two alike mounts in different sequences are not merged). Movement then values keeping the
+  sequence's target in arc by itself: `estimate()` prices the weapon at nothing else.
+- **Release**: `READY_FACTIONS` + 'Drazi Freehold', 'Drazi Freehold (WotCR)' (31 factions); `CPU_MISSING_SYSTEMS` - 'GraviticLance' out,
+  and its gamelobby.js MIRROR (⚠️ the legacy watcher missed the edit again - `node scripts/bundle-legacy.js` rebuilt the bundle; the Lance
+  entry is gone from it). The FAQ already named both Drazi.
+
+**Tests:**
+- **fireHarness.php**: on every other Fire-phase board a hull's SUSTAINED weapons are half-way through a sequence (overloadshots 1, last
+  turn's note read in by the class's own `onIndividualNotesLoaded` - the TARGETS unit by round, hit or missed by round, a hit's
+  `systeminfo` notes on every structure); no die thrown (every other hull's boards unchanged - checked: 4,921 of 4,960 boards
+  byte-identical to HEAD at each level, the 39 others on the ten hulls that carry the two weapons). PHP checks: a second shot keeps its
+  target and mode 1, at 100 after a hit; a mode-1 first shot starts a sequence. The summary counts first shots by weapon and mode, second
+  shots and auto-hits.
+- **fireRulesHarness M** (NEW, 1,694 checks with it): M1 the page's rule on the server's side (Sunhawk, two Omegas; the Kaliva's Beams
+  refused half-way through); M2 interception (InterceptModel and Firing::isLegalIntercept leave the follow-up alone, a fresh shot is
+  intercepted; an enemy Cutter's follow-up is no order to cover, after a miss or fresh it is one; an enemy Cutter held to another unit does
+  nothing to this one); M3 the armour pierced (0 / 2 / all of a G'Quan section's 5 - one hit 8 / 14 / 23, the section the first's); M4 the
+  follow-up's sum, none with no second shot to come; M5 the Lance's mode at every level (Lance with a second shot to come, Beams with none);
+  M6 "Usual floor" on 96 random boards (fired 85, held under the floor 11; a fresh Cutter held for a closer turn on 4 of them - the second
+  shot fired); M7 every level fires the second shot at 100; M8 the score counts the follow-up, the booking does not. The only failures
+  are the 6 pre-existing I5 / I7 (HEAD has them).
+- **Mutants 14 / 14 caught** (modeRank without the follow-up, work() / estimate() without the page's 0, holdSlow holding a second shot,
+  the auto-hit priced by the class's own routine, no armour pierced, the follow-up without its miss term / with the armour / without its
+  confidence, interceptors covering an auto-hit, sustained weapons blocked again, a sequence with no second shot to come, the score without
+  the follow-up, Beams allowed half-way through).
+- **cpuLobbyHarness**: its "faction no CPU can field" stand-in was a Brakiri ship (Avioki) - stale since W1 released the Brakiri (3 checks
+  failed, and a fourth after them: the refused fleet was bought). Now a Hyach Senchlat (W5 still blocks it): **all PASS**.
+
+**Gates (2026-11-27; baseline = a HEAD snapshot the same evening, 35 ready directories, 1,240 hulls):**
+- **Fire pair** phase 3, Easy / Normal / Hard - **0 differences** each (23,694 legal shots against HEAD's 23,622; planned 10,374 / 10,302 /
+  10,306 against 10,360 / 10,288 / 10,292 - the sustained weapons' 14; first shots planned: Gravitic Lance in Lance mode 4, Particle Cutter
+  4; 9 second shots, 6 auto-hits; 'overload / sustained fire' gone from the weapons left alone). Drazi + Brakiri at 16 boards a hull,
+  Normal: 0 differences (Lance mode 19, Cutter 21 first shots; 28 second shots, 21 auto-hits). Phase 1 (Normal) and phase 5 (Normal,
+  Hard) - 0 differences, identical to HEAD.
+- **Orders pair** x3 - **0 differences**, check counts identical to HEAD (115,152 / 117,351 / 110,060).
+- levels 467, hazards 14,758, manoeuvre (identical counts run side by side - it carries ShipDecider's CPU budget, so a loaded machine moves
+  its count), ram 127, gravityNet 1,163, budget 30, registry 22, deploySpread 66 - as HEAD; withdrawal D8 and hangar C4 fail on HEAD too.
+- **Auto-compose + the real Fleet Checker** (all 31): Drazi Freehold 384 fleets, 324 clean, 324 passed (327 carry a Cutter hull); Drazi
+  (WotCR) 384 / 384 / 384; Brakiri 384 / 384 / 384 - none with a Lance hull (rare: FleetComposer buys common and uncommon only). PASS.
+- **cpuLobbyHarness** - all PASS (its stand-in fixed, above).
+- **Self-play** (`--budget=0`, a snapshot of the final tree, against FleetComposer EA fleets at 2,500 points, Normal and Hard, 24x16 and
+  42x30): Drazi Freehold x4 (two composed fleets; two of Nightfalcon, Stormfalcon, Sunhawk, War Eagle - five Cutters), Drazi (WotCR) x3,
+  Brakiri x5 (two composed; three of Kaliva, Tashkava, Avioki - four Lances) - **12 PASS, 0 AI defects**; one to the turn cap (Brakiri
+  lances, Normal 24x16, 58 turns), two by a CPU surrender; slowest decision 7.59 s (budget off). In the games (DB, before they were
+  deleted): 30 sequences started (16 first shots hit); 16 second shots, EVERY one at its sequence's target in mode 1 - 10 after a hit,
+  all at 100 and all hits ("Sustained shot automatically hits"), 6 after a miss; of the 6 second shots after a hit not taken, 4 had lost
+  their arc in the bot's own Movement and 2 targets were destroyed - none the page would have allowed was left; the Lances fired 27 orders,
+  all in Lance mode. Games 6408-6419 deleted afterwards (local DB hygiene).
+
+**Implementer's calls - to confirm:**
+- The follow-up's confidence is a constant (0.8, FIRE_HOLD_CONFIDENCE's figure), not a forecast of whether the target stays in arc: with
+  the follow-up counted the Lance takes its Lance mode on every board seen (its auto-hit through no armour beats the Beams nearly
+  everywhere); Beams only when no second shot is to come. A target-leaving test (holdSlow's `ahead()`, or Hard's forecast) is the knob if
+  the user wants Beams at short-lived targets.
+- The follow-up is priced on the first shot's chance before interception (the score scales it by what the interceptors leave; the mode
+  choice does not).
+- A sustained weapon is fired by the bot at every level the same way (no level split was ruled).
+- An ENEMY's sustained weapon is priced by the page's rule too (held to its target, an auto-hit there): public information - the page
+  shows "Current Target".
+
+**Observations (not changed):**
+- ShipMover was not touched: the W1 ShipMover pair over brakiri (Lance hulls included) and the 2026-11-26 pair over drazi / drazi_old stand.
+- PowerDecider may switch a Lance or Cutter off in a deficit mid-sequence (its usual ranks); the sequence is then lost, as for a player.
+- Movement keeps a sequence's target in arc only through the weapon's own estimate (ShipDecider's trade): in self-play 4 of 16 auto-hit
+  follow-ups were lost to the bot's own turn (a Tashkava's 60-degree Lance arc, three Cutters). A weight on "keep the sequence's target
+  in arc" is the knob if the user wants more of them taken.
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 

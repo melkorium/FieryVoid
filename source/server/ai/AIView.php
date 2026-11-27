@@ -49,6 +49,7 @@ class AIView
     private $pulseModels = array();  //cache (G1): a pulse weapon's state => pulseModel()
     private $pulseMeans = array();   //cache (G1): pulseModel key|need => expectedPulses()
     private $charged = array();      //cache (G1): "weapon object:charge" => the weapon's copy at that charge (charged()); kept, so no object id is reused
+    private $sustains = array();     //cache (W2): "weapon object:id" => sustainedTargets()
 
     //Where TacGamedata::hideStealthShipMovement puts a unit this viewer may not see.
     const HIDDEN_Q = -10000;
@@ -249,9 +250,10 @@ class AIView
            weaponManager.checkConflictingFireOrder). A ballistic one stays left alone: BallisticDecider has no such rule. */
         if ($weapon->exclusive && $weapon->ballistic) return 'exclusive weapon';
         if ($weapon->weaponClass === 'Support' || $this->flag($weapon, 'canTargetAllies') || $this->flag($weapon, 'canTargetAlliesArray')) return 'support weapon';
-        //Sustained fire is something a player switches on (an overload, in Initial Orders); the bot never does,
-        //and a Heavy Laser that is not overloading is a plain gun.
-        if ($weapon->alwaysoverloading || $weapon->isOverloadingOnTurn($this->turn)) return 'overload / sustained fire';
+        /* Sustained fire a player switches on (an overload, in Initial Orders) the bot never does, and a Heavy Laser that is not
+           overloading is a plain gun. W2: a weapon ALWAYS sustained of a class whose rule is ported (SUSTAINED - the Particle Cutter,
+           the Gravitic Lance) is offered as a gun - see "W2: sustained fire"; any other always-sustained one stays left alone. */
+        if ($weapon->alwaysoverloading ? !self::sustained($weapon) : $weapon->isOverloadingOnTurn($this->turn)) return 'overload / sustained fire';
         /* Stage T9 (E2 - the user, 2026-11-23: limited-ammo weapons "Just fire freely until empty for now"), as the page's
            checkOutOfAmmo asks: a weapon with an `ammunition` count (the gatlings) fires while it is above 0; an old missile rack
            (MissileLauncher, its rounds in `missileArray`) fires in a mode with a round left (modes() offers only those) on a flight,
@@ -860,6 +862,8 @@ class AIView
         if (!$this->inRange($unit, $weapon, $target, $distance)) return $this->refuse('range');
         //checkIsInRange: a young race's ballistic cannot be launched at a stealth flight more than 5 hexes off (here: nobody's)
         if ($this->ballistics && $flightTarget && $distance > 5 && $target->getSystemByName('Stealth')) return $this->refuse('range');
+        //W2: a sustained weapon in the middle of its sequence - the page prices any other unit, and any mode but its first, at 0
+        if ($this->sustainRefuses($weapon, $target, $mode)) return $this->refuse('chance');
 
         $shot = $this->price($unit, $weapon, $target, $mode, $distance, $this->ballistics, $pulses);
         if ($shot === null) return $this->refuse('edge'); //a launch the engine would price on a die (hitBase)
@@ -908,6 +912,9 @@ class AIView
             'edge' => $this->onEdge($unit, $target)
         );
         if ($pulses !== null) $shot['pulses'] = (int)$pulses;
+        //W2: a sustained sequence's second shot ('sustaining' - FireDecider::holdSlow), or a first shot and the follow-up it should bring
+        if (count($this->sustainedTargets($weapon)) > 0) $shot['sustaining'] = true;
+        else if ($this->startsSequence($weapon, $mode)) $shot['followUp'] = $this->followUp($weapon, $unit, $target, $shot, $distance);
         return $shot;
     }
 
@@ -989,6 +996,13 @@ class AIView
        none when it cannot be priced without a die. */
     private function hitBase(Weapon $weapon, $shooter, $target, FireOrder $order)
     {
+        /* W2: the second shot of a sustained sequence whose first HIT hits by itself - the class's own calculateHitBase, asked once here
+           for what it leaves on the weapon (uninterceptable: InterceptModel and the server's interception then leave the shot alone).
+           It picks no section (chosenLocation stays null; the engine's damage step takes getHitSection's), so the entries below are
+           asked of the routine it overrides, at a need of 100 (engineHitBase). */
+        $auto = $this->sustainedHit($weapon, $target);
+        if ($auto) $weapon->calculateHitBase($this->gamedata, clone $order);
+
         $saved = self::bookkeeping($target, $shooter->id);
         $clean = array(false, null, $saved[2]);
         $profiles = array($target->forwardDefense, $target->sideDefense);
@@ -996,7 +1010,7 @@ class AIView
             self::bookkeeping($target, $shooter->id, $clean);
             $candidates = $this->rolledSections($weapon, $shooter, $target, $order, $saved[2]);
             if (count($candidates) < 2) {
-                $weapon->calculateHitBase($this->gamedata, $order);
+                $this->engineHitBase($weapon, $order, $auto);
                 return array(array('weight' => 1.0, 'needed' => (int)$order->needed, 'loc' => $order->chosenLocation));
             }
 
@@ -1011,7 +1025,7 @@ class AIView
                     self::bookkeeping($target, $shooter->id, array(true, $candidate, $saved[2]));
                 }
                 $try = clone $order;
-                $weapon->calculateHitBase($this->gamedata, $try);
+                $this->engineHitBase($weapon, $try, $auto);
                 $target->forwardDefense = $profiles[0];
                 $target->sideDefense = $profiles[1];
                 $weight = ($total > 0) ? max(0, (float)$candidate['profile']) / $total : 1 / count($candidates);
@@ -1023,6 +1037,20 @@ class AIView
             $target->sideDefense = $profiles[1];
             self::bookkeeping($target, $shooter->id, $saved);
         }
+    }
+
+    /* Weapon::calculateHitBase for hitBase. $auto (W2 - a sustained follow-up that hits by itself): the routine the weapon's class
+       overrides (its parent's - for the Particle Cutter and the Gravitic Lance, Weapon's own), for the section and its profile exactly
+       as any shot of the weapon finds them, then the need the class gives it: 100. */
+    private function engineHitBase(Weapon $weapon, FireOrder $order, $auto)
+    {
+        if (!$auto) {
+            $weapon->calculateHitBase($this->gamedata, $order);
+            return;
+        }
+        $declaring = (new ReflectionMethod($weapon, 'calculateHitBase'))->getDeclaringClass()->getName();
+        (new ReflectionMethod(get_parent_class($declaring), 'calculateHitBase'))->invoke($weapon, $this->gamedata, $order);
+        $order->needed = 100;
     }
 
     /* The entries of the target's section table the engine would ROLL between for this shot: those
@@ -1257,7 +1285,11 @@ class AIView
     /* What one hit is worth: the mode's average damage, less what the range takes off it (a
        plasma weapon's rangeDamagePenalty - Weapon::getDamageMod), less the armour it meets. An
        estimate for ranking, in the spirit of BaseShip::setExpectedDamage - not a simulation. */
-    private function damagePerHit(Weapon $weapon, $unit, $target, $hitLoc, $distance = 0, $needed = null)
+    /* $follow (W2 - followUp): price the hit of a sustained sequence's SECOND shot, a turn ahead, at a target the first hit: no
+       shield takes anything off it (shieldInteractionDamage - 0 at the sequence's target) and the structure's armour is gone (the
+       first shot's damage there, at least its armour, left one note a point; hardened advanced armour keeps half - as the engine's
+       assignDamageReturnOverkill). A shot of THIS turn meets what the notes it carries say (piercedBefore). */
+    private function damagePerHit(Weapon $weapon, $unit, $target, $hitLoc, $distance = 0, $needed = null, $follow = false)
     {
         $average = ($weapon->minDamage + $weapon->maxDamage) / 2;
         if ($weapon->maxDamage <= 0) return 1; //no damage of its own: an effect weapon, counted as a token
@@ -1274,7 +1306,7 @@ class AIView
            the damage they take off each hit does too, as Weapon's damage step takes it (getDamageMod: the strongest defence of each type,
            on arc from where the shooter stands). Asked only of a target carrying a Shield-type defence, so a decision pays nothing for the
            rest (an EA ship's Interceptors are defences too, of another type, and take nothing off). */
-        if ($this->shielded($target)) {
+        if (!$follow && $this->shielded($target)) {
             try {
                 $average = max(0, $average - $target->getDamageMod($unit, null, $this->turn, $weapon));
             } catch (Throwable $e) {
@@ -1289,7 +1321,11 @@ class AIView
                 if ($sample) $armour = $sample->getArmourComplete($target, $unit, $weapon->weaponClass);
             } else {
                 $structure = $target->getStructureSystem((int)$hitLoc);
-                if ($structure) $armour = $structure->getArmourComplete($target, $unit, $weapon->weaponClass);
+                if ($structure) {
+                    $armour = $structure->getArmourComplete($target, $unit, $weapon->weaponClass);
+                    $pierced = $follow ? $armour : $this->piercedBefore($weapon, $structure);
+                    if ($pierced > 0) $armour = $structure->hardAdvancedArmor ? max(floor($structure->armour / 2), $armour - $pierced) : max(0, $armour - $pierced);
+                }
             }
         } catch (Throwable $e) {
             $armour = 0;
@@ -1854,6 +1890,110 @@ class AIView
         return $best;
     }
 
+    // ------------------------------------------------------------------ W2: sustained fire
+
+    /* Plan 10.10 W2 (2026-11-27) - SUSTAINED FIRE. A weapon that is always sustained (alwaysoverloading) fires a SEQUENCE: a first shot,
+       then - the next turn, at the same unit and in its first mode - a second (overloadshots counts them down: 2, then 1). If the first
+       hit, the second hits by itself (the class's calculateHitBase: a need of 100, and it cannot be intercepted) and goes through the
+       armour the first pierced (one 'systeminfo' note a point - ShipSystem::assignDamageReturnOverkill) and the shields it met
+       (shieldInteractionDamage). The weapon reloads after the sequence (Weapon::calculateLoadingFromLastTurn); a second shot not taken
+       frees it a turn sooner. THE PAGE'S RULE (weaponManager.calculateHitChange): while a weapon that is overloading holds last turn's
+       target (sustainedTarget - target id => 1 hit / 0 missed, from the note its first shot left), every other unit and every mode but 1
+       is priced at 0, and no order is made (sustainRefuses). The bot fires the classes of SUSTAINED - the Drazi Particle Cutter, the
+       Brakiri Gravitic Lance (its Lance mode; the Beams do not sustain); any other always-sustained weapon (custom factions) stays left
+       alone (weaponBlock). The user's rulings (2026-11-27): a FIRST shot is valued with the follow-up it should bring ("Count follow-up"
+       - startsSequence, followUp; FireDecider::modeRank) and a follow-up after a MISS is fired by the weapon's usual floor ("Usual floor"
+       - FireDecider::holdSlow). */
+    const SUSTAINED = array('ParticleCutter', 'GraviticLance');
+
+    //Does the bot fire $weapon as a sustained weapon (SUSTAINED, by class)?
+    public static function sustained(Weapon $weapon)
+    {
+        if (!$weapon->alwaysoverloading) return false;
+        foreach (self::SUSTAINED as $class) {
+            if ($weapon instanceof $class) return true;
+        }
+        return false;
+    }
+
+    /* The unit a weapon's sustained sequence holds it to this turn, as the page has it: target id => 1 (last turn's shot hit) or 0 (it
+       missed); empty when the weapon is in no sequence. The page asks it of any weapon that is overloading (shipManager.power.isOverloading:
+       always sustained, or a player's overload - and not switched off). Anybody's weapon: the page shows it ("Current Target").
+       Remembered per weapon for the view. */
+    public function sustainedTargets(Weapon $weapon)
+    {
+        if (!$weapon->alwaysoverloading && !$weapon->overloadable) return array();
+        $key = spl_object_id($weapon) . ':' . $weapon->id;
+        if (!isset($this->sustains[$key])) {
+            $kept = array();
+            if (($weapon->alwaysoverloading || $weapon->isOverloadingOnTurn($this->turn)) && !$weapon->isOfflineOnTurn($this->turn)) {
+                $sent = $this->flag($weapon, 'sustainedTarget'); //private on the classes: their payload carries it (stripForJson)
+                if (is_array($sent) || is_object($sent)) {
+                    foreach ((array)$sent as $id => $hit) $kept[(int)$id] = (int)$hit;
+                }
+            }
+            $this->sustains[$key] = $kept;
+        }
+        return $this->sustains[$key];
+    }
+
+    //Does the page price $weapon at $target in $mode at 0 for its sustained sequence (sustainedTargets): another unit, or another mode?
+    public function sustainRefuses(Weapon $weapon, $target, $mode)
+    {
+        $kept = $this->sustainedTargets($weapon);
+        if (count($kept) == 0) return false;
+        return (int)$mode !== 1 || !array_key_exists((int)$target->id, $kept);
+    }
+
+    /* Does $weapon's shot at $target hit by itself - the second shot of a sequence whose first hit it (the class's calculateHitBase)?
+       Only a SUSTAINED class's: hitBase knows how that one picks its section. Public for FireDecider::interceptableIncoming - such a
+       shot is no order for an interceptor to cover. */
+    public function sustainedHit(Weapon $weapon, $target)
+    {
+        if (!self::sustained($weapon)) return false;
+        $kept = $this->sustainedTargets($weapon);
+        return isset($kept[(int)$target->id]) && $kept[(int)$target->id] >= 1;
+    }
+
+    /* Would a shot of $weapon in $mode START a sequence - one with a follow-up next turn? A SUSTAINED class, in no sequence now, its first
+       mode (only a mode-1 shot sustains: calculateLoadingFromLastTurn) and a second shot to come: overloadshots 2 or more (the first
+       shot's note naming its target is written only then - generateIndividualNotes) with the weapon loaded by its overload (loadingtime
+       <= overloadturns - the engine's own sustained test). */
+    public function startsSequence(Weapon $weapon, $mode)
+    {
+        if (!self::sustained($weapon) || (int)$mode !== 1 || count($this->sustainedTargets($weapon)) > 0) return false;
+        return (int)$weapon->overloadshots >= 2 && $weapon->loadingtime <= $weapon->overloadturns;
+    }
+
+    /* What the follow-up of a FIRST sustained shot should do next turn (the user, 2026-11-27: "Count follow-up"). $shot: price()'s answer
+       for the first, $distance where both stand now. AIConfig::FIRE_SUSTAIN_CONFIDENCE (the target still in arc and range, the weapon
+       still whole) x, for each gun and shot: the first's chance p of a hit, then a second that hits by itself and meets no armour on the
+       structure the first pierced and no shield (damagePerHit's $follow), plus 1 - p of a miss, then the same shot again (its chance,
+       its hit). The first shot's interception is FireDecider's to take off (it scales this as it scales the shot). */
+    private function followUp(Weapon $weapon, $unit, $target, array $shot, $distance)
+    {
+        $p = max(0, min(100, (int)$shot['chance'])) / 100;
+        $auto = $this->damagePerHit($weapon, $unit, $target, $shot['hitLoc'], $distance, null, true);
+        $count = max(1, (int)$weapon->guns) * max(1, (int)$weapon->defaultShots);
+        return AIConfig::FIRE_SUSTAIN_CONFIDENCE * $count * ($p * $auto + (1 - $p) * $p * $shot['perHit']);
+    }
+
+    /* The points of $system's armour a sustained shot of $weapon goes through THIS turn: one 'systeminfo' note a point, from the weapon's
+       shot last turn (getsustainedSystemsHit - system ids, the target's: a sustained shot goes only at that target), counted when the
+       engine counts them - the weapon overloading and loaded by it (assignDamageReturnOverkill). */
+    private function piercedBefore(Weapon $weapon, $system)
+    {
+        if (!$weapon->alwaysoverloading && !$weapon->overloadable) return 0;
+        if (!$weapon->isOverloadingOnTurn($this->turn) || $weapon->loadingtime > $weapon->overloadturns) return 0;
+        $hit = $weapon->getsustainedSystemsHit();
+        if (!is_array($hit)) return 0;
+        $points = 0;
+        foreach ($hit as $id) {
+            if ((int)$id === (int)$system->id) $points++;
+        }
+        return $points;
+    }
+
     //estimate()'s and chanceOf()'s tests and the server's hit table for the pairing: array(answers, distance), or null for no shot.
     private function hitAnswers($shooter, Weapon $weapon, $target, $needArc)
     {
@@ -1867,6 +2007,8 @@ class AIView
         $distance = $shooter->getHexPos()->distanceTo($target->getHexPos());
         if ($weapon->range != 0 && $distance > $weapon->range) return null;
         if ($needArc && !$this->onArc($shooter, $weapon, $target)) return null;
+        //W2: a sustained weapon held to last turn's target (anybody's - the page shows it) does nothing to any other unit, nor in another mode
+        if ($this->sustainRefuses($weapon, $target, $weapon->firingMode)) return null;
 
         $order = new FireOrder(-1, 'normal', $shooter->id, $target->id, $weapon->id, -1, $this->turn, $weapon->firingMode, 0, 0, $weapon->defaultShots, 0, 0, null, null, null);
         try {

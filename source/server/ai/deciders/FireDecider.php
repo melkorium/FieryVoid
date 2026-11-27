@@ -28,6 +28,10 @@
  * pays, as players fire them - unless it does more a turn firing on the move (the Pulse Accelerator), it is its last shot, it finishes
  * its target off or the target is leaving. A charged one spends its charge: its floors are those of the turns it took.
  *
+ * SUSTAINED FIRE (plan 10.10 W2, 2026-11-27 - AIView "W2: sustained fire"): a first shot of a Particle Cutter or a Gravitic Lance is valued
+ * with the follow-up it should bring next turn (modeRank picks the Lance's mode by it; the score adds it; nothing is booked for it), and
+ * the follow-up - at last turn's target alone, an auto-hit after a hit - is held only under its floor, never for a closer turn.
+ *
  * THE ENEMY'S INTERCEPTION (InterceptModel). A shot is worth what it adds to its target's volley
  * once the target's interceptors have been given out as the server gives them - so the bot neither
  * pretends there is none nor assumes every shot is intercepted, and a slow gun's floor holds on the
@@ -149,11 +153,16 @@ class FireDecider
                 foreach ($enemies as $enemy) {
                     if ($shipsOnly && $enemy instanceof FighterFlight) continue;
                     $best = null;
+                    $bestRank = 0;
                     foreach ($modes as $mode) {
                         $shot = $view->shot($unit, $weapon, $enemy, $mode);
                         if ($shot === null || $shot['chance'] < $minimum) continue;
                         if ($shot['edge'] && $shot['chance'] < AIConfig::FIRE_MIN_CHANCE_EDGE) continue;
-                        if ($best === null || $shot['damage'] > $best['damage']) $best = $shot;
+                        $rank = self::modeRank($weapon, $shot); //(the weapon is in $mode: shot() leaves it there)
+                        if ($best === null || $rank > $bestRank) {
+                            $best = $shot;
+                            $bestRank = $rank;
+                        }
                     }
                     if ($best !== null) $options[$enemy->id] = $best;
                 }
@@ -212,7 +221,10 @@ class FireDecider
                         continue;
                     }
 
-                    $score = self::score(array('damage' => $adds) + $shot, $state[$targetId], $maxThreat, $gun['heavy'], (float)$view->skill('focus'));
+                    /* W2 (the user, 2026-11-27: "Count follow-up"): a sustained sequence's first shot is worth its follow-up too - the share
+                       of it the interceptors leave of this shot (AIView::followUp). Booked is this turn's damage alone. */
+                    $follow = isset($shot['followUp']) ? $shot['followUp'] * max(0, min(1, $adds / $shot['damage'])) : 0;
+                    $score = self::score(array('damage' => $adds + $follow) + $shot, $state[$targetId], $maxThreat, $gun['heavy'], (float)$view->skill('focus'));
                     if ($score > $bestScore) {
                         $bestScore = $score;
                         $bestGun = $index;
@@ -634,7 +646,10 @@ class FireDecider
                 $floor = self::minimumChance($weapon, false, $view->skill('pulsePremium'), $load);
                 $a = $now[$index][$targetId];
                 $b = $next[$index][$targetId];
-                if ($a <= 0 && $b <= 0) $hold = ($shot['chance'] < $floor);     //nothing to compare (a shot the estimate will not price): the floor alone
+                //W2 (the user, 2026-11-27: "Usual floor"): a sustained sequence's second shot - nothing like it comes next turn (held, the
+                //weapon reloads a turn sooner): the floor alone, whatever a turn on would price
+                if (!empty($shot['sustaining'])) $hold = ($shot['chance'] < $floor);
+                else if ($a <= 0 && $b <= 0) $hold = ($shot['chance'] < $floor);     //nothing to compare (a shot the estimate will not price): the floor alone
                 else if ($a < $b * $wait) $hold = true;                          //a turn closer is worth the wait
                 else $hold = ($shot['chance'] < $floor && $b >= $a);            //a poor shot that is not getting worse
                 if ($hold) unset($guns[$index]['options'][$targetId]);
@@ -649,6 +664,17 @@ class FireDecider
         }
 
         return $kept;
+    }
+
+    /* What a mode's shot is worth when the bot picks a weapon's mode against a target: its damage - or, for the first shot of a sustained
+       sequence (W2 - AIView::startsSequence; the user, 2026-11-27: "Count follow-up"), its damage and its follow-up's over the turns the
+       sequence holds the weapon, one more than the mode's loading time: a Gravitic Lance's two Lance shots in five turns against its
+       Beams' volley in four. */
+    private static function modeRank(Weapon $weapon, array $shot)
+    {
+        if (!isset($shot['followUp'])) return $shot['damage'];
+        $load = max(1, (int)$weapon->getLoadingTime());
+        return ($shot['damage'] + $shot['followUp']) * $load / ($load + 1);
     }
 
     //The turns of loading a shot spends (holdSlow, minimumChance): its weapon's loading time - an accelerator's charge where holdCharge marked it (G1).
@@ -996,7 +1022,7 @@ class FireDecider
             foreach ($view->mounts($enemy) as $mount) {
                 $weapon = $mount['weapon'];
                 if (!$view->plainGun($weapon, $mount['fighter']) || !$view->loaded($weapon)) continue;
-                if (!self::interceptable($weapon)) continue;
+                if (!self::interceptable($weapon) || $view->sustainedHit($weapon, $unit)) continue; //(W2: a sustained follow-up that hits by itself)
                 if ($view->estimate($enemy, $weapon, $unit, true) <= 0) continue;
                 for ($gun = 0; $gun < max(1, (int)$weapon->guns); $gun++) {
                     $orders[] = new FireOrder(-1, 'normal', $enemy->id, $unit->id, $weapon->id, -1, $view->turn, $weapon->firingMode, 0, 0, $weapon->defaultShots, 0, 0, null, null, null);

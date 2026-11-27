@@ -3953,9 +3953,8 @@ window.gamedata = {
 		MolecularSlicerBeamL: ["Molecular Slicer", "unit"],
 		MolecularSlicerBeamM: ["Molecular Slicer", "unit"],
 		MolecularSlicerBeamH: ["Molecular Slicer", "unit"],
-		MolecularSlicerBeamA: ["Molecular Slicer", "unit"],
-		//W1 (2026-11-27) - sustained fire, until W2 (Brakiri Kaliva, Tashkava, Tashkavaton)
-		GraviticLance: ["Gravitic Lance", "unit"]
+		MolecularSlicerBeamA: ["Molecular Slicer", "unit"]
+		//(the Gravitic Lance's line - W1 - came out with W2, 2026-11-27: the Brakiri Kaliva, Tashkava and Tashkavaton are back)
 	},
 
 	/* Why a CPU player cannot field a unit of this blueprint for a system the AI does not use yet, or null - the page's half of

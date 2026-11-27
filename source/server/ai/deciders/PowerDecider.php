@@ -579,7 +579,7 @@ class PowerDecider
                     $count = 0;
                     foreach ($view->mounts($enemy) as $mount) {
                         $gun = $mount['weapon'];
-                        if ($gun->isDestroyed() || !$view->loaded($gun) || !FireDecider::interceptable($gun)) continue;
+                        if ($gun->isDestroyed() || !$view->loaded($gun) || !FireDecider::interceptable($gun) || $view->sustainedHit($gun, $ship)) continue; //(W2: a sustained follow-up that hits by itself)
                         if ($gun->ballistic) {
                             if ($gun instanceof JumpEngine || ((int)$gun->range > 0 && $distance > (int)$gun->range)) continue;
                         } else if (!$view->plainGun($gun) || $view->estimate($enemy, $gun, $ship, false) <= 0) {

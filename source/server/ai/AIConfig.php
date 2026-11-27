@@ -235,6 +235,12 @@ class AIConfig
     const FIRE_FINISH_CHANCE = 50;
     //Hard's escape forecast in the Fire phase (EnemyForecast::nextTurn): CPU seconds a decision may spend on it before the rest stay straight on (0 = no limit)
     const FIRE_FORECAST_SECONDS = 1.0;
+    /* SUSTAINED FIRE (plan 10.10 W2 - the user, 2026-11-27: "Count follow-up"): a sustained weapon's FIRST shot is valued with the
+       follow-up it should bring next turn (AIView::followUp - an auto-hit through the armour the first pierced when it hits, the same
+       shot again when it misses) times this - the target may leave the arc or range, the weapon may be lost (as FIRE_HOLD_CONFIDENCE).
+       It decides a Gravitic Lance's mode (FireDecider::modeRank: Lance shots per five turns against Beams per four) and adds to the
+       first shot's score; nothing is booked for it this turn. */
+    const FIRE_SUSTAIN_CONFIDENCE = 0.8;
     const FIRE_MIN_CHANCE_EDGE = 20;        //...for a shot from exactly between two of the target's sections, which the page may price up to 15 lower (AIView::onEdge)
     const FIRE_FOCUS = 0.5;                 //how much a target already being shot at draws the next gun (0 = spread freely)
     /* CONCENTRATION (user, 2026-11-19: "it is more effective to concentrate a fleet's heavy firepower to try and take down an
@@ -350,12 +356,12 @@ class AIConfig
        the work list for the rest (Abbai, Brakiri and Hyach are BLOCKED by commit gates; Civilians stay out by ruling D5). The Usuuth
        Coalition joined the same day after W0 (ShipMover's roll cost kept fractional - its rollcost 1.5 hulls). The Abbai (both) and the
        Brakiri joined 2026-11-27 after W1 (PowerDecider::shields - the shield generator's commit gate), the Brakiri's Gravitic Lance hulls
-       hidden until W2 (CPU_MISSING_SYSTEMS). */
+       hidden until W2 (CPU_MISSING_SYSTEMS). W2 (sustained fire, the same day) brought both Drazi back and unhid the Lance hulls. */
     const READY_FACTIONS = array('Earth Alliance', 'Raiders', 'Dilgar Imperium', 'Minbari Federation', 'Narn Regime', 'Centauri Republic',
         'Centauri Republic (WotCR)', 'Earth Alliance (Early)', 'Orieni Imperium',
         //League of Non-Aligned Worlds
         'Torata Regency', //back 2026-11-27 with G1 (accelerator charge timing) - the user: "Yes, after gates"
-        //'Drazi Freehold', 'Drazi Freehold (WotCR)', //Commmentedd out until Accelerator and Sustained Weapons stragies are finished. (G1 done; W2 - sustained fire - still to do)
+        'Drazi Freehold', 'Drazi Freehold (WotCR)', //back 2026-11-27 with W2 (sustained fire - the Particle Cutter); the user had held them for G1 + W2
         'Hurr Republic', 'Cascor Commonwealth',
         'Abbai Matriarchate', 'Abbai Matriarchate (WotCR)', 'Brakiri Syndicracy', //2026-11-27 with W1 (the shield generator handler)
         //Minor Factions
@@ -396,9 +402,7 @@ class AIConfig
         'MolecularSlicerBeamM' => array('Molecular Slicer', 'unit'),
         'MolecularSlicerBeamH' => array('Molecular Slicer', 'unit'),
         'MolecularSlicerBeamA' => array('Molecular Slicer', 'unit'),
-        //W1 (the user, 2026-11-27: "Release, hide lance hulls") - a sustained-fire gun the AI cannot fire until W2 (Brakiri Kaliva, Tashkava,
-        //Tashkavaton; the Ishtaka is a base, refused anyway)
-        'GraviticLance' => array('Gravitic Lance', 'unit'),
+        //(the Gravitic Lance's line - W1, "Release, hide lance hulls" - came out with W2, 2026-11-27: the Kaliva, Tashkava and Tashkavaton are back)
     );
 
     //Why a CPU player cannot field $unit for a system the AI does not use yet (CPU_MISSING_SYSTEMS), or null.

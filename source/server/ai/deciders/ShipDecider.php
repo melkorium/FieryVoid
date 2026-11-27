@@ -522,7 +522,8 @@ class ShipDecider
             $next = $now || ($why === 'not loaded' && (int)$weapon->getLoadingTime() <= (int)$weapon->turnsloaded + 1);
             if (!$now && !$next) continue;
             $slow = (int)$weapon->getLoadingTime() > 1;
-            $key = get_class($weapon) . '|' . $weapon->firingMode . '|' . AIView::arcKey($weapon) . '|' . (int)$now . (int)$next . '|' . count($weapon->criticals);
+            $key = get_class($weapon) . '|' . $weapon->firingMode . '|' . AIView::arcKey($weapon) . '|' . (int)$now . (int)$next . '|' . count($weapon->criticals)
+                . (AIView::sustained($weapon) ? '|' . json_encode($view->sustainedTargets($weapon)) : ''); //W2: a sustained sequence's target is the weapon's own
             if (!isset($guns[$key])) $guns[$key] = array('weapon' => $weapon, 'count' => 0, 'now' => $now, 'next' => $next, 'slow' => $slow,
                 'heavy' => FireDecider::isHeavy($weapon)); //stage T5f-3: Hard's fleet focus draws the heavy guns
             $guns[$key]['count']++;
