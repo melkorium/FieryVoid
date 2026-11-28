@@ -5171,33 +5171,31 @@ class ParticleConcentrator extends Raking{
 		parent::calculateHitBase($gamedata, $fireOrder);
 
 		if ($fireOrder->firingMode > 1 && $target !== null){
-			//Normalize each ship's nominal hit chance to the closest combining ship's range,
-			//then average. If any combining ship lacks lock-on, double the range penalty.
+			/* THE COMBINED SHOT'S NEED - "Combined shot fires from the closest ship's range; doubled range penalty if any ship lacks lock-on",
+			   EW averaged. Each member's nominal need (the base formula's, from where its own ship stands) has its OWN range term taken back
+			   out - its range penalty times its multiplier (rangeMultiplier: x2 without a lock, as the base formula doubles it); the members
+			   are averaged; then ONE range term goes in, from the closest member's range, at the worst member's multiplier.
+			   Fixed 2026-11-28 (TACTICAL_AI_PLAN.md 10.10, after W3): a need is a PERCENT and a range penalty is d20 points (x5 -
+			   goalToPercent), but the old code added the range differences and the no-lock doubling in d20 points straight onto percents -
+			   a fifth of what they meant - and doubled a no-lock ship's penalty again on top of the doubling its own need already held. */
 			$primaryDist = $firingShip->getHexPos()->distanceTo($target->getHexPos());
+			$members = array(array('ship' => $firingShip, 'needed' => $fireOrder->needed, 'dist' => $primaryDist));
+			foreach($subordinateData as $sd){
+				$members[] = array('ship' => $sd['ship'], 'needed' => $sd['nominalNeeded'], 'dist' => $sd['dist']);
+			}
 			$closestDist = $primaryDist;
-			foreach($subordinateData as $sd){
-				if ($sd['dist'] < $closestDist) $closestDist = $sd['dist'];
+			$worst = 1;
+			$rangeFree = 0;
+			foreach($members as $member){
+				$closestDist = min($closestDist, $member['dist']);
+				$multiplier = $this->rangeMultiplier($gamedata, $member['ship'], $target);
+				$worst = max($worst, $multiplier);
+				$rangeFree += $member['needed'] + $this->rangeTermPercent($member['dist'], $multiplier);
 			}
+			$fireOrder->needed = round($rangeFree / count($members) - $this->rangeTermPercent($closestDist, $worst));
 
-			$anyWithoutLockOn = ($firingShip->getOEW($target, $gamedata->turn) <= 0);
-			if (!$anyWithoutLockOn){
-				foreach($subordinateData as $sd){
-					if ($sd['ship']->getOEW($target, $gamedata->turn) <= 0){
-						$anyWithoutLockOn = true;
-						break;
-					}
-				}
-			}
-
-			$combinedChance = $fireOrder->needed + ($primaryDist - $closestDist) * $this->rangePenalty;
-			foreach($subordinateData as $sd){
-				$combinedChance += $sd['nominalNeeded'] + ($sd['dist'] - $closestDist) * $this->rangePenalty;
-			}
-			$fireOrder->needed = round($combinedChance / $fireOrder->firingMode);
-
-			if ($anyWithoutLockOn){
-				$fireOrder->needed -= $closestDist * $this->rangePenalty;
-				$fireOrder->notes .= 'At least one combining ship lacks lock-on; range penalty doubled. ';
+			if ($worst > 1){
+				$fireOrder->notes .= 'At least one combining ship lacks lock-on (or the target jams); range penalty x' . $worst . ' from the closest range. ';
 			}
 			$fireOrder->notes .= 'Combined shot from ' . $fireOrder->firingMode . ' Particle Concentrators (closest-range hit chance, averaged EW). ';
 			$fireOrder->pubnotes .= ' Shots were combined into a stronger attack.';
@@ -5205,6 +5203,28 @@ class ParticleConcentrator extends Raking{
 	}//endof function calculateHitBase
 	
 	
+	/* The multiplier Weapon::calculateHitBase puts on this weapon's range penalty for $ship firing at $target (the combined shot, above):
+	   1, plus the no-lock penalty (1 with under half a point of OEW left after disruption, 0.5 under one) or the target's jammer, whichever
+	   is more; just 1 for a weapon without the no-lock penalty or one that ignores EW.
+	   ⚠️ MIRROR of the base formula's $noLockPenalty / $jammerValue / $rngPenaltyMultiplier lines (a ship shooting - no fighter branch; a
+	   jinking target's jink, which competes with the jammer's share there, is not looked at). */
+	private function rangeMultiplier($gamedata, $ship, $target){
+		if ($this->ignoreAllEW || !$this->noLockPenalty) return 1;
+		$noLock = 1; //no OEW used: the base formula's $oew stays 0
+		if ($this->useOEW){
+			$oew = $ship->getOEW($target, $gamedata->turn) - EW::getDistruptionEW($gamedata, $ship);
+			$noLock = ($oew < 0.5) ? 1 : (($oew < 1) ? 0.5 : 0);
+		}
+		$jammer = $target->getSpecialAbilityValue("Jammer", array("shooter" => $ship, "target" => $target));
+		return 1 + max($noLock, $jammer);
+	}
+
+	//A range term in PERCENT points of need: this weapon's range penalty over $distance hexes (d20 points) times $multiplier, x5 (goalToPercent's scale, unrounded).
+	private function rangeTermPercent($distance, $multiplier){
+		return round($this->calculateRangePenalty($distance) * $multiplier * 5, 6);
+	}
+
+
         function __construct($armour, $maxhealth, $powerReq, $startArc, $endArc)
         {
             //maxhealth and power reqirement are fixed; left option to override with hand-written values
@@ -5216,8 +5236,8 @@ class ParticleConcentrator extends Raking{
             }
             parent::__construct($armour, $maxhealth, $powerReq, $startArc, $endArc);
         }
-	
-	
+
+
     public function getDamage($fireOrder){
 		return Dice::d(10, 1+$this->firingMode)+15; //2d10+15 +1d10 per every additional weapon
 	}

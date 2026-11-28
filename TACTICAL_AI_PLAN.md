@@ -3799,7 +3799,8 @@ GraviticLance in particle.php / gravitic.php, ShipSystem::assignDamageReturnOver
 - Orders pair over ipsha + gaim, three levels: PASS on the server side; the oracle's ONE difference (gaimShamor #2, DEW 9 v 7) is HEAD's too -
   the Shamor EW difference W4 names.
 - ShipMover pair over ipsha: 16 hulls (all gravitic), 10,981 plans, 85,599 steps through movement.js - **0 differences**.
-- fireRulesHarness: section N all pass; I5 / I7 (torpedoes at a flight) fail on HEAD as well - pre-existing, not W3's.
+- fireRulesHarness: section N all pass; I5 / I7 (torpedoes at a flight) failed on HEAD as well - pre-existing, not W3's (FIXED the same day -
+  "W3 follow-ups" below).
 - **Not run: self-play** (the local stack is down - it needs the user's OK to start). Ipsha is NOT yet on READY_FACTIONS: self-play, then the
   user's OK, as for the other releases.
 
@@ -3814,13 +3815,42 @@ GraviticLance in particle.php / gravitic.php, ShipSystem::assignDamageReturnOver
 - A combined shot is valued for this turn's damage; the Surge Cannon's "+2 per rake to critical rolls" is not priced.
 
 **Observations (not changed):**
-- ParticleConcentrator::calculateHitBase adds `(dist - closest) x rangePenalty` and takes `closest x rangePenalty` for a missing lock in d20
-  units off a PERCENT need (a fifth of a range penalty), and the primary's own no-lock doubling is already in the parent's figure - looks like
-  an engine units slip. The bot prices the engine as it is.
+- ~~ParticleConcentrator::calculateHitBase's units slip~~ - FIXED the same day at the user's request ("W3 follow-ups" below).
 - A human teammate's Concentrator orders beside a bot ship can be combined with the bot's by the server - the bot cannot see them.
 - Ipsha: the Mag-Grav reactor and the Spark Field's boost are left at default (W11 polish). Gaim waits on W4 (the Packet Torpedo).
 - The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams combine by other page rules (prongs, doMultipleFireOrders) - W12
   may add rows to AIView::COMBINING where they fit.
+
+#### W3 follow-ups (2026-11-28) - the torpedo checks and the Concentrator's combined need - uncommitted
+
+**The user's request (2026-11-28, after W3):** "Can we fix the torpedo check issue and Particle Concentrators combined shot code. The Gaim Shamor
+issue can wait until we do W4."
+
+**1. fireRulesHarness I5 / I7 (torpedoes at a flight) - the CHECKS were stale, not the decider.** Since the 2026-11-26 fix for the user's tester
+(live game 7857 - "full Apollo salvoes at the weakest fighter flight"), BallisticDecider::plan prices every launch at a flight with it jinking
+BALLISTIC_FLIGHT_JINK (0.5) of what it can. The checks' Aurora flight (jinking limit 6) is priced jinking 3: 60% plain, 45% jinking - under
+BALLISTIC_MIN_CHANCE_FLIGHT (50) at any range, so the plan rightly launched nothing, while I5 / I7 measured the plain 60% and expected full
+volleys. Fixed in the harness: I5 and I7 now aim at a flight that cannot jink (EA Armed Shuttles, jinking limit 0 - the volley caps tested
+as meant: Normal 3, Hard 6 at six craft; each Elutarian launcher no more than the live craft, 6 / 12 in all), with checks that the flight
+cannot jink and its chance clears the floor (so the volley is really tested); NEW I5b pins the jinking rule - the Aurora over the floor plain,
+under it at its planned jinking (`atPlannedJink`, the same 'jink' row plan() stands), and no torpedo at it. No decider change.
+
+**2. ParticleConcentrator::calculateHitBase - the combined need (engine, specialWeapons.php).** A need is a PERCENT; a range penalty is d20
+points (x5 - Weapon::goalToPercent). The combining added `(distance - closest) x rangePenalty` and took `closest x rangePenalty` for a missing
+lock in d20 points straight off percents (a fifth of what they meant), and a no-lock member's need already holds the base formula's doubling,
+which the old step doubled again. Rebuilt to the class's own rule ("Combined shot fires from the closest ship's range; doubled range penalty
+if any ship lacks lock-on", EW averaged): each member's nominal need with its OWN range term taken back out (its range penalty x its
+multiplier - NEW `rangeMultiplier`: 1 + the no-lock penalty (1 / 0.5 by OEW after disruption) or the target's jammer, whichever is more, a
+MIRROR of the base formula's lines; `rangeTermPercent` converts), averaged, then ONE range term from the closest member's range at the worst
+member's multiplier. Effect, NEW fireRulesHarness N11 (an independent sum; the old code fails all three): three Moas side by side all locked
+76% -> 78% (the range correction now full size); with ONE Moas unlocked 52% -> 37% (the whole shot now takes the doubled penalty, as the rule
+says - the old code all but averaged the locks); a lone Mearc without a lock 33% -> 40% = its own plain shot, as the page shows it (the doubling
+counted once). Same-ship shots with a lock are unchanged (every member at one range). The bot prices groups through the engine
+(AIView::simulateGroup), so it follows with no AI change - an unlocked ship now makes a cross-ship group much worse.
+
+**Gates:** fireRulesHarness **1,837 checks, 0 failed** (I5 / I7 / I5b / N11 included); fire pair over ipsha + gaim, Easy / Normal / Hard - 0
+differences, every planned group resolved by the engine at the planned chance. Replay corpus: the only recorded Concentrator shots (game 4080)
+are single (mode 1) - the combining path never ran there, so nothing recorded changes (not run: the local stack is down).
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 
