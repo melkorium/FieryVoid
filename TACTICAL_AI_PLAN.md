@@ -3017,8 +3017,8 @@ shields, below).
 | Abbai Matriarchate | 19 | 100% | ✅ RELEASED 2026-11-27 - was BLOCKED: gravitic shields over the generator's capacity fail the page's Initial Orders commit ("too many active shields") | W1 ✅ |
 | Abbai Matriarchate (WotCR) | 28 | 92% (mine launchers idle - D4) | ✅ RELEASED 2026-11-27 - was BLOCKED by the shields, as above | W1 ✅ |
 | Brakiri Syndicracy | 50 | 94% | ✅ RELEASED 2026-11-27 (was BLOCKED by the shields); the Gravitic Lance hulls (Kaliva, Tashkava, Tashkavaton) HIDDEN until W2 (CPU_MISSING_SYSTEMS - the user's ruling) - ✅ unhidden with W2 the same day (all three are "rare": auto-compose never buys them, a player may); idle: Gravitic Mine x7 (hex) - D4; the Gravitic Shifter x8 (Pre-Firing) fired since W10 (2026-11-28) | W1 ✅ (W2 unhides the lance hulls; W10 ✅; W7 polish) |
-| Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 (W11 polish) |
-| Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences; one EW difference on the Shamor (orders pair) | W3 + W4 |
+| Ipsha Baronies | 15 | (survey 93%) | Surge Cannon: the page COMBINES cannons and prices the shot its own way - 567 fire-pair differences on 13 hulls - ✅ W3 (2026-11-28): fire pair 0 differences, combined shots planned, ShipMover pair 0 differences; release awaits self-play and the user's OK. The Mag-Grav reactor left at default commits (the orders pair found no refusal) and the Spark Field fires by itself (the survey's "hex" is wrong) | W3 ✅ (W11 polish) |
+| Gaim Intelligence | 46 | 79% | Packet Torpedo x60 (special range rule); Particle Concentrator combining modes - 61 differences (✅ W3, 2026-11-28); one EW difference on the Shamor (orders pair) | W3 ✅ + W4 |
 | Hyach Gerontocracy | 18 | 95% | **BLOCKED** - Specialists must be chosen in the Deployment phase (the page's commit gate); the 2 stealth units (Alichi Kav / Tal) never act; Computer BFCP unused; Proximity Laser x6 | W5 |
 | Grome Autocracy | 11 | 62% | rail guns are magazine-fed direct fire (AmmoDirectWeapon, M16) - 58 mounts | W6 |
 | Pak'ma'ra Confederacy | 17 | 67% | Plasma Web x43 (hex-targeted - their main weapon); the Plasma Battery left at default commits (no refusal in the orders pair) | W7 (W11 polish) |
@@ -3035,7 +3035,7 @@ oracle, a mutation pass, then the gate):
 | W0 | ✅ **Fractional roll cost** (ShipMover) - BUILT 2026-11-26, uncommitted ("W0 as built" below) | Usuuth - released | `ShipMover::__construct` cast `rollcost` to int; five Usuuth hulls roll for 1.5 (the only fractional manoeuvre cost in the game) | done | - |
 | W1 | ✅ **Shield-generator handler** (E8) - BUILT 2026-11-27, uncommitted ("W1 as built" below) | Abbai, Abbai (WotCR), Brakiri - 3 factions, 97 units - released | Initial Orders: active gravitic shields (and Abbai shield projectors) <= the generator's output + boost, as `ship.checkShieldGenerator` asks | In PowerDecider (Initial Orders, after `plan()`): rank each shield by the enemy fire that can reach its arc (bearings from the start-of-turn facing - Movement comes later), switch off the least useful until the count fits; Hard first tries boosting the generator from spare reactor power (as `boost()`). Switching shields off also clears the power shortfalls the pair finds on the same hulls. Proof: the orders pair over abbai, abbai_old, brakiri at every level (2026-11-26, Normal: 286 "too many active shields" on 53 hulls + 41 "still short of power" - the goal is 0), levelsHarness boards for the ranking | 1 session |
 | W2 | ✅ **Sustained-fire weapons** (`alwaysoverloading`) - BUILT 2026-11-27, uncommitted ("W2 as built" below) | finishes Drazi (6) and Brakiri's Gravitic Lance (6) - both Drazi back on `READY_FACTIONS`, the lance hulls unhidden | `weaponBlock` refuses 'overload / sustained fire', so weapons that are ALWAYS sustained (Particle Cutter, Gravitic Lance) never fire | Read the page's sustained rules (weaponManager: overloadshots, the same-target continuation), fire them as plain guns and keep the target while the sustain runs; fire pair boards | half a session |
-| W3 | **Combining weapons** | Ipsha; Gaim with W4 | Several mounts fire as ONE shot whose mode = how many combine (Surge Cannon - 567 differences; Particle Concentrator - 61); the page prices it its own way | Port the page's combining rule into AIView (mode = mounts combined, one order, the rest marked used) and let FireDecider choose how many to combine; the fire pair. The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams fail the same way - W12 reuses it | 1-2 sessions |
+| W3 | ✅ **Combining weapons** - BUILT 2026-11-28, uncommitted ("W3 as built" below; Ipsha's release awaits self-play and the user's OK) | Ipsha; Gaim with W4 | Several mounts fire as ONE shot whose mode = how many combine (Surge Cannon - 567 differences; Particle Concentrator - 61); the page prices it its own way | As built: AIView prices each mount's mode-N order as the page does (a plain shot of the mode) and a GROUP through the engine's own combining (an order per member, mode N - not "one order"); FireDecider weighs combined shots "per cannon-turn" against single shots; movement taught the same weight. The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams fail the same way - W12 may reuse AIView::COMBINING | 1-2 sessions |
 | W4 | **Packet Torpedo range rule** (the rest of E4) | Gaim (with W3) | The first 10 hexes free, then 1/2 a hex; its server `calculateRangePenalty` already matches the page | `'PacketTorpedo' => 'range'` in `AIView::PORTED_SPECIAL` (+ FlexPacketTorpedo); fire pair phase 1 over gaim; look at the Shamor's EW difference at the same time | quarter session |
 | W5 | **Hyach handler** (E8) | Hyach | (1) Specialists chosen in Deployment (BLOCKING); (2) using them in later turns; (3) Computer BFCP; (4) the 2 stealth units; (5) Proximity Laser (W7) | Needs a RULING first - which Specialists by hull, and when to use them. DeployDecider picks them; Initial Orders uses them by rule; BFCP to the weapon class the ship fires most; the stealth units HIDDEN (a unit rule beside CPU_MISSING_SYSTEMS) until a stealth decision exists. Proof: deployerHarness (the Deployment gate) + the orders pair | 1-2 sessions |
 | W6 | **Magazine-fed direct fire** (M16 - AmmoDirectWeapon) | Grome | Rail-gun shells from a magazine, a mode per shell | E2's magazine half: `modes()` offers only shells the magazine holds and counts them down as the page's checkOutOfAmmo does; check whether auto-compose must buy shells | 1 session |
@@ -3704,6 +3704,123 @@ GraviticLance in particle.php / gravitic.php, ShipSystem::assignDamageReturnOver
 - The faction survey still counts the shifters as idle mounts (it reads the Fire phase's `weaponBlock` - 'pre-firing weapon'), as the nets.
 - `GravityNetDecider::orders` / `$lastSummary` are no longer called by TacticalAI (gravityNetHarness J still uses `entries`).
 - The Ishtaka (the base with a shifter in each of six sections) is never flown by the bot yet (G3 - bases are refused for a CPU slot).
+
+#### W3 as built (2026-11-28) - combining weapons: the Ipsha Surge Cannon and the Gaim Particle Concentrator - uncommitted
+
+**The user's request (2026-11-28):** "Please implement W3, Combining weapons. If you have any question about the feature, please ask."
+
+**The rules as the engine and the page hold them** (SurgeCannon / ParticleConcentrator in specialWeapons.php; special.js):
+- A player gives EVERY mount its own order - all at one unit, all in mode N (the modes are "Single", "2combined" ... "5combined"; the
+  Concentrator to "6combined"). At resolution (Firing::prepareFiring - calculateHitBase order by order, units as the game lists them, a
+  unit's orders system by system) the first such order is the PRIMARY: it takes the next N-1 matching orders (same target, called id and
+  mode, same class, not yet considered) as TECHNICAL ones (isCombined: need 0, no shot, never intercepted) and fires the combined shot. An
+  order that finds too few partners is DROPPED TO MODE 1 and fired singly.
+- **Surge Cannon:** one ship's mounts only. Per mode: 1d10+1 / 2d10+3 / 3d10+6 / 4d10+10 / 5d10+15 raking, range penalty 2 / 1 / 0.5 / 0.33 /
+  0.25 a hex, fire control 2/2/2, 1/3/3, 0/4/4, -2/4/4, -4/4/4; EVERY mount of a combined shot of N goes offline for the N-1 turns after
+  (ForcedOfflineForTurns in fire()).
+- **Particle Concentrator:** also mounts on units within 1 hex of the primary and of each other (closest to the target first), hitting the
+  SAME side; the closest unit's order is made the primary ("yield to closest" - presetSubordinates) and the need is the members' nominal
+  needs averaged (adjusted to the closest range), less a lock adjustment (below); (1+N)d10+15, fire control +2 a mount, 0.5 a hex. Loading 2.
+- **The page**: both classes are plain Weapons - each order is priced as a plain shot of its mode. AIView priced every combined mode with the
+  class's own calculateHitBase, which found no partner orders and dropped to mode 1 - the fire pair's 567 + 61 differences (807 at Normal
+  over ipsha + gaim, seed 1, 4 rounds, and 1,347 more on section edges, counted). The bot fired every mount singly (legal, never combined).
+
+**Asked first, answered (rulings, 2026-11-28):**
+1. *The Surge Cannon's cooldown*: **"Per cannon-turn"** - "but also note the importance of Range. The more weapons combined typically the longer
+   range for these weapons because of improved rangePenalty and/or improved Fire Control. So what you typically see is 4-5 Surge Cannons
+   combined at long range, then 2-4 at medium, and 1-3 at short range. I think 3 combined is thought to be the most damage efficient mode,
+   but not sure."
+2. *The Concentrator across ships*: **"Easy and Normal can be same ship only, Hard can look for cross-ship."**
+3. *Levels*: **every level** combines (legacy keeps single shots).
+4. *Movement*: **"Teach movement too, see my earlier notes on 'cooldown' for advice."**
+
+**As built** (`AIView` section "W3: combining weapons", `FireDecider`, `EWDecider`, `MoveDecider`, `AIConfig`; no engine change, no new file):
+- **`AIView::COMBINING`** - by class: 'reach' ('ship' Surge Cannon / 'near' Concentrator) and 'cooldown'; `combines`, `combinedIn` (mode =
+  mounts), `turnsTied` (Surge: N turns; Concentrator: its loading time), **`combineCost`** = N mounts x turnsTied, in single shots (Surge
+  N x N, Concentrator N) - the user's "per cannon-turn". AIConfig skill **'combine'**: 'ship' (Easy, Normal), 'near' (Hard), 'none' (legacy).
+- **The page's price** (`engineHitBase`): a combining weapon's single mount is priced by the routine its class OVERRIDES (its parent's - a
+  plain shot of the mode, as the page shows it; `overriddenHitBase`, the W2 auto-hit's routine, now cached per class). The class's own
+  calculateHitBase is asked only by **`groupShot`** -> **`simulateGroup`**: an order for every member put on its weapon, the class's flags
+  cleared (isCombined / alreadyConsidered / presetSubordinates / testRun), every member asked in the server's order (`serverOrder`), the
+  member left uncombined read as the shot (its need and section; 'primary'), then EVERYTHING put back - orders, flags, modes, the target's
+  section bookkeeping for every member's unit. A group that would not fire as one shot in its mode (another side, too far apart, a lone
+  order) has no shot. So a combined shot - the Concentrator's averaging across ships included - is the engine's own figure.
+- **FireDecider**: a combining weapon's own options are mode 1 only (any other mode alone is fired singly by the server). **`combineOptions`**
+  each greedy round, from the usable mounts still free (none held back to intercept - holdBack marks them 'held'): per pool (a unit's mounts
+  of a class; at Hard a 'near' class across the bot's units), target and N = 2..what the pool holds, the group of the FIRST N free mounts
+  with a shot of their own in mode N, in the server's order - so two groups at one target in one mode pair off exactly as the server pairs
+  them. Hard's cross-unit groups (`cliques`): from each unit, the others within 1 hex of it and of each other, closest to the target first,
+  none on a section edge. The 'near' rule (`isolated`): two groups of a 'near' class in one mode at one target never within 1 hex of each
+  other (the server would pair them across). Floors: a slow gun's by the turns tied (Surge 2: 25%, 3: 34%, 4-5: 40%; Concentrator 25%),
+  FIRE_MIN_CHANCE_EDGE on an edge, held again on what interception leaves. **Ranked by score / combineCost** against single shots; one
+  volley entry (the primary's) for interception; a plan row per member (mode N, one order each, 'combined' => key / n / primary / shot).
+- **Movement taught** (`AIView::estimate` -> `combineRate`): a combining mount's estimate is the best of its modes up to what its unit can
+  combine (`combineMax`), each mode's plain estimate over combineCost - for every decider that weighs fire before it is ordered (movement,
+  EW, threat, power). Measured, it reproduces the user's pattern - a Battlehex at a Tethys: singles at 1-2 hexes, 1+3 at 4, 3 at 6-12, 4 at
+  16, 5 at 20+; at an Omega (armour 6, a single 1d10+1 hit barely gets through) 3 at 4, 4+2 at 6, 5 from 9.
+- **Decision time** (the user's "most important part"; an Ipsha mirror, 10 a side): pricing every mode made Initial Orders 0.65 -> 9.7 s and,
+  on the live budgets, Movement cut 21 of 24 ship decisions (HEAD 1). Fixed: (1) `combineRate` asks modes best ceiling first (`combineCeiling`:
+  average damage / cost) and, once one is priced, skips a mode whose best hit THROUGH THE ARMOUR of the sections found cannot beat the best -
+  exact (fireHarness holds it to the full sweep, `combineRateFull`, on every board); (2) EWDecider prices alike combining guns once
+  (`combineKind` - the arc-free question 24 Surge Cannons on a Warsphere all answer alike): score's offence, the threats, fleetDefence,
+  friendFire - exact (the orders harness with it switched off writes byte-identical situations over ipsha + gaim, Normal and Hard); (3) IN
+  MOVEMENT ONLY (`AIView::$combineMemo`, set by MoveDecider): the mode a full sweep found best for a shooter's class at a unit is the only
+  one priced within `AIConfig::COMBINE_MEMO_REACH` (2) hexes of that distance, and when no mode has a chance the mode nearest a hit stands
+  for it (jinking flights far off were 44k of 114k hit-formula calls). After: Initial Orders 1.13 / 1.25 s (Normal / Hard; HEAD 0.70),
+  Movement 5.70 s with 0 of 24 cut / 7.30 s with 6 of 24 cut (HEAD 5.94 s, 1 / 7.49 s, 6), Fire 0.42 s (HEAD 0.31). The memo against the
+  exact sweep (budget 0): 5 of 48 ship decisions differ (one board - one ship a hex over at Normal; four at Hard, where the forecast carries
+  one change into the next ship's choice).
+
+**Tests:**
+- **Fire pair** (`fireHarness` + `fireOracle`) over ipsha + gaim (74 hulls, 296 boards, 22,436 pairings): **0 differences at Easy / Normal /
+  Hard, Fire phase and Initial Orders** (was 807 at Normal; edge-priced differences 1,347 -> 97). NEW server checks: `resolveCombined` - the
+  plan's orders through the engine's own combining pass, each group ONE shot by the member the bot priced at the planned chance (off an
+  edge), the rest technical, lone orders in mode 1; every combining mount's estimate equal to the full sweep (4,520 a run). Plans at Normal:
+  Surge Cannon x2 4, x3 24, x5 2, Concentrator x4 1 (the Gaim Outpost), 166 lone orders.
+- **NEW `fireRulesHarness` section N** (66 checks): N1 the page's price (a plain shot of the mode; the class's own routine drops a lone order
+  to mode 1; flags left alone), N2 the costs, N3 groupShot = the engine's (no flag or order left behind; a cannon out of arc - no group), N4
+  every plan resolved by the engine (13 groups at the planned chance), N5 the range pattern (2 hexes singles, 9 three, 20 five - each the
+  per cannon-turn best by an independent loop), N6 the estimate (best mode per cannon-turn against a legacy view; far off above 0 where a
+  single has nothing; a lone cannon its single shot; the Movement memo), N7 levels (legacy singles only), N8 a Mearc (three combined far off,
+  singles close, nothing under the floor), N9 Hard's three Moas across ships (fired from the closest at the engine's averaged chance; Normal
+  none; three in a line - no group), N10 the 'near' rule (two Geun side by side: one group; apart: one each).
+- **Mutants 13 / 16 caught** (fireRulesHarness + fireHarness over ipsha + gaim, the final code): pricing by the class's own routine (also the
+  fire oracle's 807), no cooldown in the cost, lone orders in any mode, flags not put back, no 'near' rule, the plain estimate, legacy
+  combining, the raw score (no per cannon-turn), no cross-ship at Hard, the engine pass skipping the partners, the estimate past what the
+  unit can combine, a ceiling and an armour ceiling too eager. Three are equivalent: the first member asked as the group's shooter (the
+  engine's pass finds the real primary anyway), the group floor (the greedy pick holds it again) and a failed group ignored (its need is 0 -
+  no shot). The first pass found four gaps (N3's flags, N8's floor board, N9's line, N10's equal ranges) - added.
+- `decisionBench` NEW fleet 'ipsha'.
+
+**Gates (2026-11-28, a snapshot):**
+- **Unchanged for every released faction:** the fire harness's cases over the 35 released directories, Normal and Hard, BYTE-IDENTICAL to
+  HEAD (105,659 / 105,679 checks); the orders harness's situations (1,081 hulls, Normal) byte-identical; decisionBench EA live, Normal +
+  Hard, every phase: 18 of 18 decisions identical, CPU within noise.
+- Orders pair over ipsha + gaim, three levels: PASS on the server side; the oracle's ONE difference (gaimShamor #2, DEW 9 v 7) is HEAD's too -
+  the Shamor EW difference W4 names.
+- ShipMover pair over ipsha: 16 hulls (all gravitic), 10,981 plans, 85,599 steps through movement.js - **0 differences**.
+- fireRulesHarness: section N all pass; I5 / I7 (torpedoes at a flight) fail on HEAD as well - pre-existing, not W3's.
+- **Not run: self-play** (the local stack is down - it needs the user's OK to start). Ipsha is NOT yet on READY_FACTIONS: self-play, then the
+  user's OK, as for the other releases.
+
+**Implementer's calls - to confirm:**
+- A combined shot's FLOOR is a slow gun's by the turns it ties up (Surge 2: 25%, 3: 34%, 4-5: 40%); neither holdSlow's "wait a turn" nor the
+  parting floor is asked of it (the mounts' single shots are the alternative this turn).
+- "Per cannon-turn" weighs the cooldown by the cannons' single shots NOW (combineCost); it does not look ahead to what they could do next
+  turn closer in.
+- The Movement memo (COMBINE_MEMO_REACH 2) - an approximation where the exact sweep would leave most ship decisions cut on the budget.
+- Hard's cross-ship groups: one candidate per first unit (closest-first fill), never with a unit on a section edge; movement does not count
+  cross-ship Concentrator shots (the Fire phase's chance meeting).
+- A combined shot is valued for this turn's damage; the Surge Cannon's "+2 per rake to critical rolls" is not priced.
+
+**Observations (not changed):**
+- ParticleConcentrator::calculateHitBase adds `(dist - closest) x rangePenalty` and takes `closest x rangePenalty` for a missing lock in d20
+  units off a PERCENT need (a fifth of a range penalty), and the primary's own no-lock doubling is already in the parent's figure - looks like
+  an engine units slip. The bot prices the engine as it is.
+- A human teammate's Concentrator orders beside a bot ship can be combined with the bot's by the server - the bot cannot see them.
+- Ipsha: the Mag-Grav reactor and the Spark Field's boost are left at default (W11 polish). Gaim waits on W4 (the Packet Torpedo).
+- The Vorlon Lightning Cannon / Lightning Guns and the Triad prism beams combine by other page rules (prongs, doMultipleFireOrders) - W12
+  may add rows to AIView::COMBINING where they fit.
 
 ### 10.11 Stage T8 - the skirmish release (2026-11-22) - COMPLETE (user, 2026-11-22), uncommitted
 

@@ -265,6 +265,13 @@ class AIConfig
        anyway); every other gun fires (FireDecider::holdBack). */
     const FIRE_INTERCEPTOR_MIN_CHANCE = 5; //an interceptor with a shot at least this good always fires it
 
+    /* W3 - COMBINING WEAPONS IN MOVEMENT (AIView::$combineMemo): the mode a full sweep of a combining weapon's modes found best for a
+       shooter at a unit is priced alone at any distance within this many hexes of where it was found (0 = that distance only). The best
+       mode turns slowly with range (the user's pattern: 1-3 combined close, 2-4 medium, 4-5 far), and where it turns the modes either side
+       are worth about the same. Decision time, 2026-11-28 (Ipsha mirror, 10 a side, Hard): a full sweep at every distance cut 21 of 24
+       ship decisions on the budget (HEAD 6). */
+    const COMBINE_MEMO_REACH = 2;
+
     /* Ballistics, stage T4 (BallisticDecider): launched in Initial Orders, before anybody has
        moved and before the enemy's EW is known. */
     //The rounds a magazine-fed missile rack is given orders with: plain missiles that do damage to the unit they are aimed at.
@@ -564,28 +571,34 @@ class AIConfig
          elintDisrupt   DIST on enemy ships within 30 hexes, priced like the other functions (the user: "a and b" - Hard only)
          elintJam       JAM on enemy remoteControl flights - Orieni Hunter-Killers (the user: "Can limit to Hard CPU")
          elintStealth   Detect Stealth with a stealth unit unseen, from DEW points that buy nothing (the user: "only allow Hard to consider
-                        if it's worth it to detect across more of the map") */
+                        if it's worth it to detect across more of the map")
+         combine        COMBINING WEAPONS (plan 10.10 W3 - AIView::COMBINING: the Ipsha Surge Cannon, the Gaim Particle Concentrator): several
+                        mounts fire as one shot whose mode is how many combine. 'none' (legacy): every mount fires singly, as before. 'ship'
+                        (Easy, Normal): a unit's own mounts combine. 'near' (Hard): a class whose engine combines across units (the
+                        Concentrator - units within 1 hex of each other) also combines across the bot's units (the user, 2026-11-28: "Easy and
+                        Normal can be same ship only, Hard can look for cross-ship"; "Every level" combines). A combined shot is weighed "per
+                        cannon-turn" against single shots (AIView::combineCost - FireDecider, and movement through AIView::estimate) */
     const SKILLS = array(
         'easy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => true, 'simpleEW' => true, 'focus' => 0.0, 'heavyFocus' => false,
             'pulsePremium' => false, 'shortening' => false, 'unmovedDanger' => 0.5, 'overspeed' => 0.5, 'ballisticFloor' => false,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'none', 'noise' => 10.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => true, 'chargeTiming' => 'none', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false, 'combine' => 'ship'),
         'normal' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 1.5, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 4,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'turn',
-            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false),
+            'interceptorBoost' => false, 'ram' => true, 'splitShots' => false, 'aoeSpread' => true, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => false, 'graviticShifters' => true, 'shiftAllies' => false, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'step', 'elint' => true, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false, 'combine' => 'ship'),
         'hard' => array('sectionHealth' => true, 'ccewDeterrent' => true, 'closeLocks' => true, 'mediumLocks' => true, 'noFlightOEW' => true, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 3.0, 'jink' => 'any', 'manoeuvres' => 'all', 'noise' => 0.0, 'coverageGoals' => 12,
             'pileOn' => 1.0, 'support' => 2.0, 'fleetFocus' => 0.5, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => true, 'extendedTurns' => true, 'forecast' => 'full',
-            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'graviticShifters' => true, 'shiftAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full', 'elint' => true, 'elintDisrupt' => true, 'elintJam' => true, 'elintStealth' => true),
+            'interceptorBoost' => true, 'ram' => true, 'splitShots' => true, 'aoeSpread' => true, 'torpedoTargets' => 2, 'torpedoFlightVolley' => 6, 'gravityNets' => true, 'pulsarCharge' => true, 'netAllies' => true, 'graviticShifters' => true, 'shiftAllies' => true, 'powerReach' => true, 'missileTurtle' => true, 'committed' => true, 'chargeTiming' => 'full', 'elint' => true, 'elintDisrupt' => true, 'elintJam' => true, 'elintStealth' => true, 'combine' => 'near'),
         'legacy' => array('sectionHealth' => false, 'ccewDeterrent' => true, 'closeLocks' => false, 'mediumLocks' => false, 'noFlightOEW' => false, 'simpleEW' => false, 'focus' => 1.0, 'heavyFocus' => true,
             'pulsePremium' => true, 'shortening' => true, 'unmovedDanger' => 1.0, 'overspeed' => 1.0, 'ballisticFloor' => true,
             'flightDanger' => 0.75, 'jink' => 'max', 'manoeuvres' => 'swap', 'noise' => 0.0, 'coverageGoals' => 0,
             'pileOn' => 0.0, 'support' => 0.0, 'fleetFocus' => 0.0, 'bestReply' => false, 'shipDanger' => 0.75, 'powerBoost' => false, 'extendedTurns' => false, 'forecast' => 'none',
-            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'graviticShifters' => false, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none', 'elint' => false, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false)
+            'interceptorBoost' => false, 'ram' => false, 'splitShots' => false, 'aoeSpread' => false, 'torpedoTargets' => 1, 'torpedoFlightVolley' => 3, 'gravityNets' => false, 'pulsarCharge' => false, 'netAllies' => false, 'graviticShifters' => false, 'shiftAllies' => false, 'powerReach' => false, 'missileTurtle' => false, 'committed' => false, 'chargeTiming' => 'none', 'elint' => false, 'elintDisrupt' => false, 'elintJam' => false, 'elintStealth' => false, 'combine' => 'none')
     );
 
     /* POWER MANAGEMENT (skill 'powerBoost', stage T5f-4). A gun "reaches" an enemy when, with the units as close as both could

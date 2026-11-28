@@ -699,7 +699,9 @@ class EWDecider
             foreach ($state['enemies'] as $enemy) {
                 $oew = isset($alloc['OEW'][(int)$enemy->id]) ? $alloc['OEW'][(int)$enemy->id] : 0;
                 $ccew = ($enemy instanceof FighterFlight) ? $alloc['CCEW'] : 0;
-                $key = $weapon->id . ':' . $enemy->id . ':' . $oew . ':' . $ccew . ($state['disrupted'] ? ':' . $locks : '');
+                //(W3: the mounts of a combining class answer alike, the arc left out - AIView::combineKind - so they are priced once)
+                $kind = AIView::combineKind($weapon);
+                $key = ($kind !== null ? $kind : $weapon->id) . ':' . $enemy->id . ':' . $oew . ':' . $ccew . ($state['disrupted'] ? ':' . $locks : '');
                 if (!isset($state['offence'][$key])) {
                     if (!$standing) {
                         $ship->EW = $rows;
@@ -740,16 +742,27 @@ class EWDecider
         if ($state['threats'] === null) {
             $state['threats'] = array();
             $ship->EW = $state['base'];
+            $alike = array(); //W3: "enemy:kind" => its place in threats - the mounts of a combining class answer alike (AIView::combineKind)
             foreach ($state['enemies'] as $enemy) {
                 if (!empty($enemy->mine)) continue;
                 foreach ($view->mounts($enemy) as $mount) {
                     //a gun that fires this turn: loaded, as the ship's own are counted (an enemy's loading is on every player's screen)
                     if (!$view->plainGun($mount['weapon'], $mount['fighter']) || !$view->loaded($mount['weapon'])) continue;
+                    $kind = AIView::combineKind($mount['weapon']);
+                    $same = ($kind !== null) ? (int)$enemy->id . ':' . $kind : null;
+                    if ($same !== null && isset($alike[$same])) {
+                        if ($alike[$same] >= 0) $state['threats'][$alike[$same]][3]++;
+                        continue;
+                    }
                     $here = $view->estimate($enemy, $mount['weapon'], $ship, false);
-                    if ($here <= 0) continue;
+                    if ($here <= 0) {
+                        if ($same !== null) $alike[$same] = -1;
+                        continue;
+                    }
                     $all = 0;
                     foreach ($state['units'] as $unit) $all += ((int)$unit->id === (int)$ship->id) ? $here : $view->estimate($enemy, $mount['weapon'], $unit, false);
-                    $state['threats'][] = array($enemy, $mount['weapon'], $all > 0 ? $here / $all : 1);
+                    if ($same !== null) $alike[$same] = count($state['threats']);
+                    $state['threats'][] = array($enemy, $mount['weapon'], $all > 0 ? $here / $all : 1, 1); //(the fourth: how many mounts it stands for)
                 }
             }
         }
@@ -765,7 +778,7 @@ class EWDecider
             }
             $ship->EW = $rows;
             $taken = 0;
-            foreach ($state['threats'] as $threat) $taken += $view->estimate($threat[0], $threat[1], $ship, false) * $threat[2];
+            foreach ($state['threats'] as $threat) $taken += $view->estimate($threat[0], $threat[1], $ship, false) * $threat[2] * $threat[3];
             $state['defence'][$defenceKey] = $taken;
         }
 
@@ -1043,15 +1056,26 @@ class EWDecider
             $ship->EW = $state['base'];
             foreach ($e['friends'] as $friend) {
                 $list = array();
+                $alike = array(); //W3: "enemy:kind" => its place in the list, or -1 - the mounts of a combining class answer alike (AIView::combineKind)
                 foreach ($state['enemies'] as $enemy) {
                     if (!empty($enemy->mine)) continue;
                     foreach ($view->mounts($enemy) as $mount) {
                         if (!$view->plainGun($mount['weapon'], $mount['fighter']) || !$view->loaded($mount['weapon'])) continue;
+                        $kind = AIView::combineKind($mount['weapon']);
+                        $same = ($kind !== null) ? (int)$enemy->id . ':' . $kind : null;
+                        if ($same !== null && isset($alike[$same])) {
+                            if ($alike[$same] >= 0) $list[$alike[$same]][3]++;
+                            continue;
+                        }
                         $here = $view->estimate($enemy, $mount['weapon'], $friend, false);
-                        if ($here <= 0) continue;
+                        if ($here <= 0) {
+                            if ($same !== null) $alike[$same] = -1;
+                            continue;
+                        }
                         $all = 0;
                         foreach ($state['units'] as $unit) $all += ((int)$unit->id === (int)$friend->id) ? $here : $view->estimate($enemy, $mount['weapon'], $unit, false);
-                        $list[] = array($enemy, $mount['weapon'], $all > 0 ? $here / $all : 1);
+                        if ($same !== null) $alike[$same] = count($list);
+                        $list[] = array($enemy, $mount['weapon'], $all > 0 ? $here / $all : 1, 1); //(the fourth: how many mounts it stands for)
                     }
                 }
                 $e['threats'][(int)$friend->id] = $list;
@@ -1068,7 +1092,7 @@ class EWDecider
             foreach ($e['threats'][$id] as $k => $threat) {
                 $dist = ($fullDist !== null) ? $fullDist : (isset($alloc['DIST'][(int)$threat[0]->id]) ? $alloc['DIST'][(int)$threat[0]->id] : 0);
                 $key = $id . ':' . $k . ':' . $bdew . ':' . $sdew . ':' . $dist;
-                if (!isset($e['taken'][$key])) $e['taken'][$key] = $view->estimate($threat[0], $threat[1], $friend, false) * $threat[2];
+                if (!isset($e['taken'][$key])) $e['taken'][$key] = $view->estimate($threat[0], $threat[1], $friend, false) * $threat[2] * $threat[3];
                 $taken += $e['taken'][$key];
             }
         }
@@ -1118,12 +1142,19 @@ class EWDecider
             }
         }
         $fire = 0;
+        $alike = array(); //W3: kind => its best - the mounts of a combining class answer alike (AIView::combineKind)
         foreach ($e['guns'][$id] as $weapon) {
+            $kind = AIView::combineKind($weapon);
+            if ($kind !== null && isset($alike[$kind])) {
+                $fire += $alike[$kind];
+                continue;
+            }
             $best = 0;
             foreach ($state['enemies'] as $enemy) {
                 $soft = empty($enemy->base) && empty($enemy->smallBase) && empty($enemy->osat) && empty($enemy->mine) && $enemy->iniative >= $friend->iniative;
                 $best = max($best, $view->estimate($friend, $weapon, $enemy, false) * ($soft ? AIConfig::EW_MOVES_AFTER_WEIGHT : 1));
             }
+            if ($kind !== null) $alike[$kind] = $best;
             $fire += $best;
         }
         return $fire;

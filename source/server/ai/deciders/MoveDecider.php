@@ -51,6 +51,7 @@ class MoveDecider
         JumpDecider::reset();
         //The seat's level and seed (stage T5f): the view answers what the bot is able to do (AIView::skill) for every decider.
         $view = new AIView($gamedata, $botId, AIConfig::seatLevel($seat), AIConfig::seatSeed($seat));
+        $view->combineMemo = true; //W3: a combining weapon's best mode remembered by distance for this decision (AIView::$combineMemo)
 
         $active = array();
         foreach ($gamedata->getMyActiveShips() as $ship) $active[$ship->id] = true;

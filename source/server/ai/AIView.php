@@ -50,6 +50,21 @@ class AIView
     private $pulseMeans = array();   //cache (G1): pulseModel key|need => expectedPulses()
     private $charged = array();      //cache (G1): "weapon object:charge" => the weapon's copy at that charge (charged()); kept, so no object id is reused
     private $sustains = array();     //cache (W2): "weapon object:id" => sustainedTargets()
+    private $combineCounts = array(); //cache (W3): "unit id:class" => its mounts of a combining class not destroyed (combineMax)
+    private $listedAt = null;        //cache (W3): unit id => its place in the game's list of units (serverOrder)
+    /* W3: the combined shot being priced (groupShot - members in the server's order, mode, the member found to fire, whether the engine
+       combined them), read by engineHitBase; null at any other time. */
+    private $group = null;
+    /* W3 - DECISION TIME IN MOVEMENT (2026-11-28): set by MoveDecider on the view of a Movement decision, where nothing but positions
+       changes (EW stands from Initial Orders). A combining weapon's estimate prices every mode it may need (combineRate) - ~3 calls of the
+       hit formula where any other gun needs one, which on the budget cut 21 of 24 Ipsha ship decisions (Normal; HEAD 1). With it on, the
+       mode found best for a shooter's class at a unit is remembered by DISTANCE and is the only one priced at that distance again: its
+       rate is the engine's, at the state asked; it can fall short of the best only where the best mode turns on the bearing alone (the
+       section a shot meets). Off for every other decision, which keeps the full answer. */
+    public $combineMemo = false;
+    private $bestModes = array(); //"shooter:kind:unit:distance" => the mode combineRate found best there
+    private $ceilings = array();  //"weapon object:criticals:combineMax" => its modes by combineCeiling, best first (combineRate)
+
 
     //Where TacGamedata::hideStealthShipMovement puts a unit this viewer may not see.
     const HIDDEN_Q = -10000;
@@ -1109,13 +1124,33 @@ class AIView
             }
             return;
         }
+        /* W3: a COMBINING weapon's class calculateHitBase IS the combining - it looks for the other orders of the group, marks them
+           technical and drops a lone order to mode 1 (and leaves alreadyConsidered set on the weapon). A shot of one mount is priced as the
+           page prices it - the routine the class overrides, a plain shot of its mode; a combined shot by the engine's own pass over its
+           members' orders (groupShot -> simulateGroup). */
+        if (self::combines($weapon) !== null) {
+            if ($this->group !== null && $this->inGroup($weapon)) $this->simulateGroup($weapon, $order);
+            else $this->overriddenHitBase($weapon, $order);
+            return;
+        }
         if (!$auto) {
             $weapon->calculateHitBase($this->gamedata, $order);
             return;
         }
-        $declaring = (new ReflectionMethod($weapon, 'calculateHitBase'))->getDeclaringClass()->getName();
-        (new ReflectionMethod(get_parent_class($declaring), 'calculateHitBase'))->invoke($weapon, $this->gamedata, $order);
+        $this->overriddenHitBase($weapon, $order);
         $order->needed = 100;
+    }
+
+    //The calculateHitBase $weapon's class overrides - its parent's (W2: the sustained weapons' auto-hit; W3: a combining weapon's plain shot).
+    private static $overridden = array(); //class => that routine (W3: asked for every estimate of a combining weapon - found once)
+    private function overriddenHitBase(Weapon $weapon, FireOrder $order)
+    {
+        $class = get_class($weapon);
+        if (!isset(self::$overridden[$class])) {
+            $declaring = (new ReflectionMethod($weapon, 'calculateHitBase'))->getDeclaringClass()->getName();
+            self::$overridden[$class] = new ReflectionMethod(get_parent_class($declaring), 'calculateHitBase');
+        }
+        self::$overridden[$class]->invoke($weapon, $this->gamedata, $order);
     }
 
     /* The entries of the target's section table the engine would ROLL between for this shot: those
@@ -1814,11 +1849,24 @@ class AIView
     /* A cheap two-way estimate with no order behind it: range, the real hit formula in the weapon's
        current mode, and - unless $needArc is false - the weapon's arc as the units stand. Without
        the arc it answers "what could this gun do to that unit once both have moved", which is the
-       question Initial Orders asks (EWDecider): a facing changes in Movement, a distance much less. */
+       question Initial Orders asks (EWDecider): a facing changes in Movement, a distance much less.
+       W3: a COMBINING weapon (COMBINING - the skill 'combine' not 'none') answers per mount-turn over its modes instead (combineRate). */
     public function estimate($shooter, Weapon $weapon, $target, $needArc = true)
     {
+        if (self::combines($weapon) !== null && $this->skill('combine') !== 'none') return $this->combineRate($shooter, $weapon, $target, $needArc);
+        return $this->plainEstimate($shooter, $weapon, $target, $needArc);
+    }
+
+    //estimate() in the weapon's current mode, whatever the weapon.
+    private function plainEstimate($shooter, Weapon $weapon, $target, $needArc)
+    {
         $found = $this->hitAnswers($shooter, $weapon, $target, $needArc);
-        if ($found === null) return 0;
+        return ($found === null) ? 0 : $this->answersValue($shooter, $weapon, $target, $found);
+    }
+
+    //What hitAnswers' answers (array(answers, distance)) say the weapon's shot should do: each entry of the hit table by its weight.
+    private function answersValue($shooter, Weapon $weapon, $target, array $found)
+    {
         list($answers, $distance) = $found;
 
         $total = 0;
@@ -2057,6 +2105,340 @@ class AIView
             if ((int)$id === (int)$system->id) $points++;
         }
         return $points;
+    }
+
+    // ------------------------------------------------------------------ W3: combining weapons
+
+    /* PLAN 10.10 W3 - COMBINING WEAPONS (built 2026-11-28; the user's rulings that day - AIConfig skill 'combine'). Several mounts of one
+       class fire as ONE shot whose mode is how many combine ("Single", "2combined", ...). A player gives every mount its own order, all
+       at one unit in the same mode N; at resolution the first such order the server reaches (Firing::prepareFiring: units as the game
+       lists them, a unit's orders system by system - getAllFireOrders) takes the next N-1 that match as TECHNICAL orders (no shot, no
+       chance, never intercepted) and fires the combined shot; orders too few to fill a group are fired SINGLY (their mode set back to 1).
+       The page prices each order as a plain shot of its mode - its classes are plain Weapons - and so does shot() now (engineHitBase: the
+       class's override is the combining, asked only of groupShot); until W3 the bot priced every combined mode as the lone order the
+       server would fire singly - the fire pair's 567 (Surge Cannon) + 61 (Particle Concentrator) differences. Per class (instanceof):
+         'reach'     'ship' - the mounts of ONE unit (the Ipsha Surge Cannon); 'near' - mounts of units within 1 hex of each other that hit
+                     the same side of the target too (the Gaim Particle Concentrator: the closest ship's order fires, the hit chances
+                     averaged - ParticleConcentrator::calculateHitBase);
+         'cooldown'  every mount of a combined shot of N goes offline for the N-1 turns after it (the Surge Cannon's ForcedOfflineForTurns).
+       "Per cannon-turn" (the user's ruling): a combined shot is worth its damage over the mount-turns it ties up - combineCost(). */
+    const COMBINING = array(
+        'SurgeCannon' => array('reach' => 'ship', 'cooldown' => true),
+        'ParticleConcentrator' => array('reach' => 'near', 'cooldown' => false)
+    );
+
+    //$weapon's COMBINING rule, or null (remembered by class: every estimate asks it).
+    private static $rules = array();
+    public static function combines(Weapon $weapon)
+    {
+        $class = get_class($weapon);
+        if (!array_key_exists($class, self::$rules)) {
+            self::$rules[$class] = null;
+            foreach (self::COMBINING as $combining => $rule) {
+                if ($weapon instanceof $combining) { self::$rules[$class] = $rule; break; }
+            }
+        }
+        return self::$rules[$class];
+    }
+
+    //How many mounts a shot of $weapon in $mode combines: its mode, for a combining weapon; 1 for any other.
+    public static function combinedIn(Weapon $weapon, $mode)
+    {
+        return (self::combines($weapon) !== null) ? max(1, (int)$mode) : 1;
+    }
+
+    //The turns a shot of $n combined mounts of $weapon's class ties each of them up: its loading time - or, with a cooldown, this turn and the n - 1 after.
+    public static function turnsTied(Weapon $weapon, $n)
+    {
+        $rule = self::combines($weapon);
+        $load = max(1, (int)$weapon->getLoadingTime());
+        return ($rule !== null && $rule['cooldown']) ? max($load, (int)$n) : $load;
+    }
+
+    /* "PER CANNON-TURN" (the user, 2026-11-28): what a shot of $n combined mounts costs, in single shots of one mount - its mount-turns
+       ($n mounts for turnsTied) over a single shot's. A Surge Cannon's 3-combined shot ties 3 cannons for 3 turns: 9 single shots' worth;
+       a Particle Concentrator's 3 for the 2 turns any of its shots takes: 3. The user's tabletop pattern - "4-5 Surge Cannons combined at
+       long range, then 2-4 at medium, and 1-3 at short range" - is what this gives with the range penalties of the modes (2, 1, 0.5,
+       0.33, 0.25 a hex). */
+    public static function combineCost(Weapon $weapon, $n)
+    {
+        $n = max(1, (int)$n);
+        return $n * self::turnsTied($weapon, $n) / self::turnsTied($weapon, 1);
+    }
+
+    //The most of $weapon's class $unit could combine: its mounts of the class not destroyed, as many as the weapon has modes; 1 at 'none'.
+    public function combineMax($unit, Weapon $weapon)
+    {
+        if (self::combines($weapon) === null || $this->skill('combine') === 'none') return 1;
+        $key = (int)$unit->id . ':' . get_class($weapon);
+        if (!isset($this->combineCounts[$key])) {
+            $count = 0;
+            foreach ($this->mounts($unit) as $mount) {
+                if (get_class($mount['weapon']) === get_class($weapon) && !$mount['weapon']->isDestroyed()) $count++;
+            }
+            $this->combineCounts[$key] = $count;
+        }
+        return max(1, min(count($weapon->firingModes), $this->combineCounts[$key]));
+    }
+
+    /* estimate() for a combining weapon (W3 - "Teach movement too", the user, 2026-11-28): what one of its mounts can do to $target a turn,
+       for every decider that weighs fire before it is ordered (movement, EW, the threat measure, power): the best of its modes up to what
+       its unit can combine (combineMax), each mode's shot - priced as the page prices it, a combined shot from this mount - over its
+       combineCost. So an enemy far off is worth what combined shots do, a close one what single shots do; one of the class's units across
+       a hex (Hard, the Concentrator) is not counted here - it is the Fire phase's chance meeting. The weapon's mode is left as it was.
+       DECISION TIME (measured 2026-11-28, an Ipsha mirror, 10 a side: every mode priced made Initial Orders 0.65 -> 9.7 s, Movement 5.5 ->
+       12.9 s): the modes are asked best CEILING first (combineCeiling - what the mode could do at best over its cost) and stop once the
+       best rate found reaches the next ceiling; and once a mode has been priced, a mode whose best hit THROUGH THE ARMOUR of the sections
+       that shot found (the section a shot hits hangs on where the shooter stands, not on the mode - fireHarness holds this sweep to the
+       full one on every board) cannot beat the best rate is not priced either. The same answer, fewer calls of the hit formula. */
+    private function combineRate($shooter, Weapon $weapon, $target, $needArc)
+    {
+        $kept = (int)$weapon->firingMode;
+        /* MOVEMENT (combineMemo - MoveDecider sets it on the one view of a Movement decision): the mode found best for this shooter's
+           class at this unit at this distance is the only one priced again there - see $combineMemo. */
+        $memoKey = null;
+        if ($this->combineMemo) {
+            //(the arc is no part of it: it holds or not whatever the mode - the best mode in arc is the same asked with the arc or without)
+            $pair = (int)$shooter->id . ':' . self::combineKind($weapon) . ':' . (int)$target->id;
+            $distance = $shooter->getHexPos()->distanceTo($target->getHexPos());
+            $memoKey = $pair . ':' . $distance;
+            $n = null;
+            foreach (array(0, -1, 1, -2, 2) as $step) { //a full sweep's best mode at this distance, else within COMBINE_MEMO_REACH hexes of it
+                if (abs($step) > AIConfig::COMBINE_MEMO_REACH) break;
+                if (isset($this->bestModes[$pair . ':' . ($distance + $step)])) { $n = $this->bestModes[$pair . ':' . ($distance + $step)]; break; }
+            }
+            if ($n !== null) {
+                try {
+                    if ((int)$weapon->firingMode !== $n) $weapon->changeFiringMode($n);
+                    return $this->plainEstimate($shooter, $weapon, $target, $needArc) / self::combineCost($weapon, $n);
+                } finally {
+                    if ((int)$weapon->firingMode !== $kept) $weapon->changeFiringMode($kept);
+                }
+            }
+        }
+        //the modes by ceiling, best first (stable: equal ceilings keep the fewer first) - remembered per mount and what its unit can combine
+        $ceilingKey = spl_object_id($weapon) . ':' . count($weapon->criticals) . ':' . $this->combineMax($shooter, $weapon);
+        if (!isset($this->ceilings[$ceilingKey])) {
+            $ceilings = array();
+            for ($n = 1; $n <= $this->combineMax($shooter, $weapon); $n++) {
+                if (isset($weapon->firingModes[$n])) $ceilings[$n] = self::combineCeiling($weapon, $n);
+            }
+            arsort($ceilings);
+            $this->ceilings[$ceilingKey] = $ceilings;
+        }
+        $ceilings = $this->ceilings[$ceilingKey];
+        $best = 0;
+        $bestMode = null;
+        $nearest = null; //array(need, mode): the mode closest to a hit, for the memo when no mode has a chance (a jinking flight far off)
+        $locs = null; //the sections the first mode priced found its hits on, and the distance
+        try {
+            foreach ($ceilings as $n => $ceiling) {
+                if ($ceiling <= $best) break; //no later mode can do better than what is found
+                if ((int)$weapon->firingMode !== $n) $weapon->changeFiringMode($n);
+                $cost = self::combineCost($weapon, $n);
+                if ($locs !== null) {
+                    $hit = 0;
+                    foreach ($locs[0] as $loc) $hit = max($hit, $this->damagePerHit($weapon, $shooter, $target, $loc, $locs[1]));
+                    if ($hit * max(1, (int)$weapon->defaultShots) * max(1, (int)$weapon->guns) / $cost <= $best) continue;
+                }
+                $found = $this->hitAnswers($shooter, $weapon, $target, $needArc);
+                if ($found === null) continue;
+                if ($locs === null) $locs = array(array_values(array_unique(array_map(function ($answer) { return (int)$answer['loc']; }, $found[0]))), $found[1]);
+                $rate = $this->answersValue($shooter, $weapon, $target, $found) / $cost;
+                if ($rate > $best) {
+                    $best = $rate;
+                    $bestMode = $n;
+                }
+                if ($memoKey !== null) {
+                    $need = max(array_map(function ($answer) { return $answer['needed']; }, $found[0]));
+                    if ($nearest === null || $need > $nearest[0]) $nearest = array($need, $n);
+                }
+            }
+        } finally {
+            if ((int)$weapon->firingMode !== $kept) $weapon->changeFiringMode($kept);
+        }
+        //(nothing with a chance: the mode nearest a hit stands for the distance - in Movement a flight far off is asked hundreds of times)
+        if ($memoKey !== null) {
+            if ($best > 0) $this->bestModes[$memoKey] = $bestMode;
+            else if ($nearest !== null) $this->bestModes[$memoKey] = $nearest[1];
+        }
+        return $best;
+    }
+
+    /* combineRate with every mode priced - no ceiling asked (fireHarness holds combineRate to it; nothing in a decision calls it). */
+    public function combineRateFull($shooter, Weapon $weapon, $target, $needArc = true)
+    {
+        $kept = (int)$weapon->firingMode;
+        $best = 0;
+        try {
+            for ($n = 1; $n <= $this->combineMax($shooter, $weapon); $n++) {
+                if (!isset($weapon->firingModes[$n])) continue;
+                if ((int)$weapon->firingMode !== $n) $weapon->changeFiringMode($n);
+                $best = max($best, $this->plainEstimate($shooter, $weapon, $target, $needArc) / self::combineCost($weapon, $n));
+            }
+        } finally {
+            if ((int)$weapon->firingMode !== $kept) $weapon->changeFiringMode($kept);
+        }
+        return $best;
+    }
+
+    /* The most a shot of $weapon in mode $n could be worth to combineRate: every shot of every gun hitting for the mode's average damage
+       (minDamageArray / maxDamageArray - a damage critical's cut included), over combineCost. No hit is priced higher (damagePerHit: the
+       average less armour, a shield, the range; at least 0.5), no chance over 100: plainEstimate never exceeds it. INF for a mode whose
+       tables are missing (then it is always priced). */
+    private static function combineCeiling(Weapon $weapon, $n)
+    {
+        if (!isset($weapon->minDamageArray[$n]) || !isset($weapon->maxDamageArray[$n])) return INF;
+        $shots = isset($weapon->defaultShotsArray[$n]) ? $weapon->defaultShotsArray[$n] : $weapon->defaultShots;
+        $guns = isset($weapon->gunsArray[$n]) ? $weapon->gunsArray[$n] : $weapon->guns;
+        return max(0.5, ($weapon->minDamageArray[$n] + $weapon->maxDamageArray[$n]) / 2) * max(1, (int)$shots) * max(1, (int)$guns) / self::combineCost($weapon, $n);
+    }
+
+    /* EWDecider prices each gun of a ship against each enemy for each split it tries, the arc left out: a key under which two mounts of a
+       combining class answer alike - the class and its criticals (W3: 24 Surge Cannons on a Warsphere are one question, not 24). Null for
+       any other weapon. */
+    public static function combineKind(Weapon $weapon)
+    {
+        if (self::combines($weapon) === null) return null;
+        if (count($weapon->criticals) == 0) return get_class($weapon); //(asked for every estimate in Movement: the common case built at once)
+        $crits = array();
+        foreach ($weapon->criticals as $critical) $crits[] = $critical->phpclass . '@' . (int)$critical->turn . '-' . (int)$critical->turnend;
+        sort($crits);
+        return get_class($weapon) . '|' . implode(',', $crits);
+    }
+
+    //$members (array('unit', 'weapon') each) in the order the server asks their orders: units as the game lists them, then mounts().
+    public function serverOrder(array $members)
+    {
+        if ($this->listedAt === null) {
+            $this->listedAt = array();
+            foreach (array_values($this->gamedata->ships) as $index => $unit) $this->listedAt[(int)$unit->id] = $index;
+        }
+        usort($members, function ($a, $b) {
+            $ua = isset($this->listedAt[(int)$a['unit']->id]) ? $this->listedAt[(int)$a['unit']->id] : PHP_INT_MAX;
+            $ub = isset($this->listedAt[(int)$b['unit']->id]) ? $this->listedAt[(int)$b['unit']->id] : PHP_INT_MAX;
+            if ($ua !== $ub) return $ua - $ub;
+            return $this->mountIndex($a['unit'], $a['weapon']) - $this->mountIndex($b['unit'], $b['weapon']);
+        });
+        return $members;
+    }
+
+    /* W3: the COMBINED shot of $members (array('unit', 'weapon') each - one class, $mode of them) at $target, priced by the engine's own
+       combining (simulateGroup: an order for every member, each asked of the class's calculateHitBase in the order the server asks them)
+       and otherwise as shot() prices a shot - the section entries, the damage of the combined mode, 'perHit' for interception. Null when a
+       member has no shot of its own in $mode (the page makes each member's order on its own - shot()), or the engine would not fire them
+       as one shot in $mode (a member on another side of the target, too far from the rest). Besides shot()'s keys: 'combined' => $mode,
+       'members' (in the server's order), 'primary' (the member whose order fires: the first, or - a Concentrator - the one closest to the
+       target), 'load' (turnsTied) and 'cost' (combineCost); 'orders' 1 - ONE shot. Remembered for the view's life. */
+    public function groupShot(array $members, $target, $mode)
+    {
+        $mode = (int)$mode;
+        if ($mode < 2 || count($members) !== $mode) return null;
+        $sorted = $this->serverOrder($members);
+        $key = 'group:' . $mode . ':' . $target->id . $this->jinkKey($target);
+        foreach ($sorted as $member) $key .= ':' . $member['unit']->id . '.' . $member['weapon']->id;
+        if (array_key_exists($key, $this->shots)) return $this->shots[$key];
+
+        $shot = null;
+        $class = get_class($sorted[0]['weapon']);
+        $legal = (self::combines($sorted[0]['weapon']) !== null);
+        foreach ($sorted as $member) {
+            if (!$legal) break;
+            $legal = (get_class($member['weapon']) === $class && $this->shot($member['unit'], $member['weapon'], $target, $mode) !== null);
+        }
+        if ($legal) {
+            $first = $sorted[0];
+            $this->group = array('members' => $sorted, 'mode' => $mode, 'primary' => null, 'failed' => false);
+            try {
+                $this->refusal = null;
+                $shot = $this->work($first['unit'], $first['weapon'], $target, $mode);
+                if ($shot !== null && ($this->group['failed'] || $this->group['primary'] === null)) $shot = null;
+                if ($shot !== null) {
+                    $shot['combined'] = $mode;
+                    $shot['members'] = $sorted;
+                    $shot['primary'] = $this->group['primary'];
+                    $shot['orders'] = 1;
+                    $shot['load'] = self::turnsTied($first['weapon'], $mode);
+                    $shot['cost'] = self::combineCost($first['weapon'], $mode);
+                }
+            } finally {
+                $this->group = null;
+            }
+        }
+        return $this->shots[$key] = $shot;
+    }
+
+    //Is $weapon a member of the combined shot being priced?
+    private function inGroup(Weapon $weapon)
+    {
+        foreach ($this->group['members'] as $member) {
+            if ($member['weapon'] === $weapon) return true;
+        }
+        return false;
+    }
+
+    /* W3: the engine's own combining for the group being priced (groupShot), as Firing::prepareFiring would run it: an order for every
+       member - $order, the one hitBase passed, for $weapon - put on its weapon, the class's flags cleared, then every member's
+       calculateHitBase in the server's order. The member left uncombined fires; its need and section go into $order. The group fails
+       (need 0) unless exactly one member fires, in $mode. Everything is put back as it was: each member's orders, flags and mode, and the
+       target's section bookkeeping for every member's unit but the shooter's (hitBase keeps that one). */
+    private function simulateGroup(Weapon $weapon, FireOrder $order)
+    {
+        $members = $this->group['members'];
+        $mode = (int)$this->group['mode'];
+        $target = $this->gamedata->getShipById($order->targetid);
+        $saved = array();
+        foreach ($members as $index => $member) {
+            $w = $member['weapon'];
+            $saved[$index] = array($w->fireOrders, $w->isCombined, $w->alreadyConsidered, $w->doNotIntercept, (int)$w->firingMode,
+                property_exists($w, 'presetSubordinates') ? $w->presetSubordinates : null, property_exists($w, 'testRun') ? $w->testRun : null);
+        }
+        $books = array();
+        foreach ($members as $member) {
+            $id = (int)$member['unit']->id;
+            if ($id !== (int)$order->shooterid && !isset($books[$id])) $books[$id] = self::bookkeeping($target, $id);
+        }
+
+        try {
+            $orders = array();
+            foreach ($members as $index => $member) {
+                $w = $member['weapon'];
+                $orders[$index] = ($w === $weapon) ? $order
+                    : new FireOrder(-1, 'normal', $member['unit']->id, $target->id, $w->id, -1, $this->turn, $mode, 0, 0, $w->defaultShots, 0, 0, null, null, null);
+                $w->isCombined = false;
+                $w->alreadyConsidered = false;
+                if (property_exists($w, 'presetSubordinates')) $w->presetSubordinates = null;
+                if (property_exists($w, 'testRun')) $w->testRun = false;
+                $w->fireOrders[] = $orders[$index];
+            }
+            foreach ($members as $index => $member) $member['weapon']->calculateHitBase($this->gamedata, $orders[$index]);
+
+            $firing = array();
+            foreach ($members as $index => $member) {
+                if (!$member['weapon']->isCombined) $firing[] = $index;
+            }
+            if (count($firing) === 1 && (int)$orders[$firing[0]]->firingMode === $mode) {
+                $real = $orders[$firing[0]];
+                if ($real !== $order) {
+                    $order->needed = $real->needed;
+                    $order->chosenLocation = $real->chosenLocation;
+                }
+                $order->firingMode = $mode;
+                $this->group['primary'] = $members[$firing[0]];
+            } else {
+                $order->needed = 0;
+                $this->group['failed'] = true;
+            }
+        } finally {
+            foreach ($members as $index => $member) {
+                $w = $member['weapon'];
+                list($w->fireOrders, $w->isCombined, $w->alreadyConsidered, $w->doNotIntercept, $was, $preset, $testRun) = $saved[$index];
+                if (property_exists($w, 'presetSubordinates')) $w->presetSubordinates = $preset;
+                if (property_exists($w, 'testRun')) $w->testRun = $testRun;
+                if ((int)$w->firingMode !== $was) $w->changeFiringMode($was);
+            }
+            foreach ($books as $id => $book) self::bookkeeping($target, $id, $book);
+        }
     }
 
     //estimate()'s and chanceOf()'s tests and the server's hit table for the pairing: array(answers, distance), or null for no shot.

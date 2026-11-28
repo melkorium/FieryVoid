@@ -32,6 +32,10 @@
  * with the follow-up it should bring next turn (modeRank picks the Lance's mode by it; the score adds it; nothing is booked for it), and
  * the follow-up - at last turn's target alone, an auto-hit after a hit - is held only under its floor, never for a closer turn.
  *
+ * COMBINING WEAPONS (plan 10.10 W3, 2026-11-28 - AIView "W3: combining weapons"): the Surge Cannon and the Particle Concentrator fire
+ * on their own in mode 1, and in COMBINED shots (combineOptions) - an order for each of N mounts in mode N, one shot fired - weighed per
+ * cannon-turn against single shots (the user: "Per cannon-turn"); Hard combines Concentrators across its units within 1 hex too.
+ *
  * THE ENEMY'S INTERCEPTION (InterceptModel). A shot is worth what it adds to its target's volley
  * once the target's interceptors have been given out as the server gives them - so the bot neither
  * pretends there is none nor assumes every shot is intercepted, and a slow gun's floor holds on the
@@ -140,6 +144,7 @@ class FireDecider
         $guns = array();
         $held = 0;
         $lastStand = Posture::lastStand($view); //stage T6g: a flight that must fire this turn keeps no gun back to intercept
+        $combinable = array(); //W3: the mounts that may join a combined shot (combineOptions) - array('unit', 'weapon') each
         foreach ($view->myUnits() as $unit) {
             $unitGuns = array();
             $mounts = $view->weapons($unit);
@@ -148,6 +153,11 @@ class FireDecider
                 $options = array();
                 $minimum = self::minimumChance($weapon, true, $view->skill('pulsePremium')); //the least it is ever fired at; holdSlow() asks for more
                 $modes = $view->modes($weapon);
+                /* W3: a combining weapon fires on its own only in its single mode - any other is a combined shot (combineOptions): an order
+                   of it the server finds no partners for is fired singly, after being priced as the page prices it, a combined shot. */
+                if (AIView::combines($weapon) !== null) {
+                    $modes = array_values(array_filter($modes, function ($mode) use ($weapon) { return AIView::combinedIn($weapon, $mode) === 1; }));
+                }
                 $shipsOnly = self::shipsOnly($mount, $mounts);
 
                 foreach ($enemies as $enemy) {
@@ -175,6 +185,10 @@ class FireDecider
             if (!($lastStand && isset(Posture::$mustShoot[(int)$unit->id]))) $held += self::holdBack($view, $unit, $unitGuns);
             foreach ($unitGuns as $gun) {
                 if (count($gun['options']) > 0) $guns[] = $gun;
+                //W3: a mount held back to intercept stays on defence; any other usable one may combine, a shot of its own or not
+                if ($view->skill('combine') !== 'none' && AIView::combines($gun['weapon']) !== null && empty($gun['held'])) {
+                    $combinable[spl_object_id($gun['weapon'])] = array('unit' => $unit, 'weapon' => $gun['weapon']);
+                }
             }
         }
 
@@ -201,11 +215,15 @@ class FireDecider
         //Greedy: take the best shot left, book it, judge the rest again.
         $added = array(); //"gun:target" => what the shot adds to its target's volley; forgotten when that volley changes
         $swallowed = array(); //slow guns turned away at some point because the interceptors would have taken too much
-        while (count($guns) > 0) {
+        $free = $combinable;  //W3: the mounts still free to combine
+        $taken = array();     //W3: "target:mode" => the units of the groups of a 'near' class planned there (combineOptions)
+        $combined = 0;        //W3: combined shots planned
+        while (count($guns) > 0 || count($free) > 1) {
             $bestScore = 0;
             $bestGun = null;
             $bestTarget = null;
             $bestAdds = 0;
+            $bestGroup = null;
 
             foreach ($guns as $index => $gun) {
                 foreach ($gun['options'] as $targetId => $shot) {
@@ -234,9 +252,65 @@ class FireDecider
                 }
             }
 
+            /* W3: the combined shots the free mounts could make (combineOptions), each weighed "PER CANNON-TURN" (the user, 2026-11-28): its
+               score over its combineCost - the single shots its mounts' turns would otherwise be - and held to its own floor on what the
+               interceptors leave of it, as a slow gun's shot is. */
+            if (count($free) > 1) {
+                foreach (self::combineOptions($view, $free, $enemies, $taken) as $option) {
+                    $targetId = $option['target'];
+                    $shot = $option['shot'];
+                    $key = 'g' . $option['key'] . ':' . $targetId;
+                    $entry = array('unit' => $shot['primary']['unit'], 'weapon' => $shot['primary']['weapon']);
+                    if (!isset($added[$key])) $added[$key] = self::adds($model, $view, $volleys[$targetId], $targetId, $entry, $shot);
+                    $adds = $added[$key];
+                    if ($shot['damage'] <= 0 || $shot['chance'] * $adds / $shot['damage'] < $shot['floor']) continue;
+                    $score = self::score(array('damage' => $adds) + $shot, $state[$targetId], $maxThreat, $option['heavy'], (float)$view->skill('focus')) / $shot['cost'];
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestGroup = $option;
+                        $bestTarget = $targetId;
+                        $bestAdds = $adds;
+                    }
+                }
+            }
+            if ($bestGroup !== null) {
+                //an order for every member, in its mode, at the target; the volley holds the ONE shot the server fires (its primary's)
+                $shot = $bestGroup['shot'];
+                $primary = $shot['primary'];
+                $volleys[$bestTarget]['entries'][] = array('unit' => $primary['unit'], 'weapon' => $primary['weapon'], 'shot' => $shot, 'ballistic' => false);
+                $volleys[$bestTarget]['value'] += $bestAdds;
+                $state[$bestTarget]['booked'] += $bestAdds;
+                foreach (array_keys($added) as $key) {
+                    if (substr($key, strpos($key, ':') + 1) == $bestTarget) unset($added[$key]);
+                }
+                $target = $view->gamedata->getShipById($bestTarget);
+                $n = count($shot['members']);
+                $units = array();
+                foreach ($shot['members'] as $member) {
+                    $plan[] = array(
+                        'unit' => $member['unit'], 'weapon' => $member['weapon'], 'fighter' => null, 'target' => $target,
+                        'mode' => (int)$shot['combined'], 'chance' => $shot['chance'], 'orders' => 1, 'shots' => (int)$member['weapon']->defaultShots,
+                        'damageclass' => $shot['damageclass'], 'damage' => $bestAdds / $n, 'score' => $bestScore * $shot['cost'] / $n,
+                        'combined' => array('key' => $bestGroup['key'], 'n' => $n, 'primary' => $member['weapon'] === $primary['weapon'], 'shot' => $shot)
+                    );
+                    unset($free[spl_object_id($member['weapon'])]);
+                    foreach ($guns as $index => $other) {
+                        if ($other['weapon'] === $member['weapon']) unset($guns[$index]);
+                    }
+                    $units[(int)$member['unit']->id] = $member['unit'];
+                }
+                $rule = AIView::combines($primary['weapon']);
+                if ($rule['reach'] === 'near') {
+                    foreach ($units as $unit) $taken[$bestTarget . ':' . $n][] = $unit;
+                }
+                $combined++;
+                continue;
+            }
+
             if ($bestGun === null) break; //nothing left is worth an order: everything in reach is already dead on paper
 
             $gun = $guns[$bestGun];
+            unset($free[spl_object_id($gun['weapon'])]); //(W3: a mount fired singly combines no more)
             $shot = $gun['options'][$bestTarget];
             $volleys[$bestTarget]['entries'][] = array('unit' => $gun['unit'], 'weapon' => $gun['weapon'], 'shot' => $shot, 'ballistic' => false);
             $volleys[$bestTarget]['value'] += $bestAdds;
@@ -363,7 +437,8 @@ class FireDecider
             . ($intercepted > 0 ? '; ' . $intercepted . ' slow weapons not fired into the interceptors' : '')
             . ($forced > 0 ? '; ' . $forced . ' fired by flights that must fire (the side down to its fighters)' : '')
             . ($rams > 0 ? '; ' . $rams . ' RAMMING (' . ($designedRams == $rams ? 'designed to ram' : 'last resort, Desperate rule') . ')' : '')
-            . (count($splitting) > 0 ? '; ' . count($splitting) . ' weapons splitting their shots' : '');
+            . (count($splitting) > 0 ? '; ' . count($splitting) . ' weapons splitting their shots' : '')
+            . ($combined > 0 ? '; ' . $combined . ' combined shots' : '');
 
         /* Hard's split is kept only where it pays (the user: "whether there's any advantage in damage potential by splitting"): the
            same decision is made again with every weapon whole, and the split plan stands only when it is worth more (planWorth). The
@@ -484,6 +559,118 @@ class FireDecider
             $count++;
         }
         return $count;
+    }
+
+    /* W3 - COMBINED SHOTS (AIView "W3: combining weapons"; the user's rulings of 2026-11-28 - the skill 'combine'). The candidates the
+       greedy pick may take this round, from the mounts still free ($free - weapon object id => array('unit', 'weapon'): the bot's usable
+       mounts of a combining class, none held back to intercept, none given an order yet). For every POOL - a unit's mounts of one class,
+       or at 'near' (Hard) a 'near' class's mounts on all the bot's units - every enemy and every mode N from 2 to what the pool holds:
+         - a unit's pool: the group the server would make of the FIRST N free mounts with a shot of their own in that mode, in the
+           server's order - so two groups of one unit at one target in one mode are exactly the pairs the server makes of their orders;
+         - Hard's pool: from each unit (closest to the target first), the units within 1 hex of it and of each other, closest first,
+           their mounts until there are N - none of the units on an edge of the target when there are several (each one's section is
+           then certain: the engine combines only those that hit the same side);
+       priced by AIView::groupShot (the engine's own combining), held to a slow gun's floor by the turns it ties its mounts up
+       (minimumChance - an edge shot to FIRE_MIN_CHANCE_EDGE at least). A group of a 'near' class is never planned within 1 hex of a group
+       of its class planned at the same target in the same mode ($taken: "target:mode" => units): the server would pair their orders
+       across the two. A list of array('key', 'target' => id, 'shot' (with 'floor'), 'heavy'). */
+    private static function combineOptions(AIView $view, array $free, array $enemies, array $taken)
+    {
+        $level = $view->skill('combine');
+        $pools = array();
+        foreach ($view->serverOrder(array_values($free)) as $mount) {
+            $rule = AIView::combines($mount['weapon']);
+            $across = ($rule['reach'] === 'near' && $level === 'near');
+            $pools[($across ? 'all' : (int)$mount['unit']->id) . '|' . get_class($mount['weapon'])][] = $mount;
+        }
+
+        $out = array();
+        $seen = array();
+        foreach ($pools as $poolKey => $pool) {
+            $weapon = $pool[0]['weapon'];
+            $rule = AIView::combines($weapon);
+            $across = (strpos($poolKey, 'all|') === 0);
+            $most = min(count($weapon->firingModes), count($pool));
+            foreach ($enemies as $enemy) {
+                for ($n = 2; $n <= $most; $n++) {
+                    $eligible = array();
+                    foreach ($pool as $mount) {
+                        if ($view->shot($mount['unit'], $mount['weapon'], $enemy, $n) !== null) $eligible[] = $mount;
+                    }
+                    if (count($eligible) < $n) continue;
+                    foreach ($across ? self::cliques($view, $eligible, $enemy, $n) : array(array_slice($eligible, 0, $n)) as $members) {
+                        if ($rule['reach'] === 'near' && !self::isolated($members, $taken, (int)$enemy->id . ':' . $n)) continue;
+                        $shot = $view->groupShot($members, $enemy, $n);
+                        if ($shot === null) continue;
+                        $key = $n . '.' . (int)$enemy->id;
+                        foreach ($shot['members'] as $member) $key .= '.' . (int)$member['unit']->id . '-' . (int)$member['weapon']->id;
+                        if (isset($seen[$key])) continue;
+                        $seen[$key] = true;
+                        $first = $shot['members'][0]['weapon'];
+                        $floor = self::minimumChance($first, false, $view->skill('pulsePremium'), $shot['load']);
+                        if ($shot['edge']) $floor = max($floor, AIConfig::FIRE_MIN_CHANCE_EDGE);
+                        if ($shot['chance'] < $floor) continue;
+                        $shot['floor'] = $floor;
+                        $lead = $shot['primary']['weapon'];
+                        if ((int)$lead->firingMode !== $n) $lead->changeFiringMode($n);
+                        $out[] = array('key' => $key, 'target' => (int)$enemy->id, 'shot' => $shot, 'heavy' => self::isHeavy($lead) && $view->skill('heavyFocus'));
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /* Hard's cross-unit groups (combineOptions) out of $eligible (mounts, in the server's order, with a shot of their own at $target in
+       mode $n): from each unit as the first, the other units within 1 hex of it and of every unit taken so far - the closest to the target
+       first, as the engine fills a group - their mounts in the server's order until $n are found. A unit on an edge of the target is left
+       out of a group of several units. Lists of $n mounts; one per first unit that finds them. */
+    private static function cliques(AIView $view, array $eligible, $target, $n)
+    {
+        $byUnit = array();
+        foreach ($eligible as $mount) {
+            $id = (int)$mount['unit']->id;
+            if (!isset($byUnit[$id])) $byUnit[$id] = array('unit' => $mount['unit'], 'mounts' => array(), 'distance' => $mount['unit']->getHexPos()->distanceTo($target->getHexPos()));
+            $byUnit[$id]['mounts'][] = $mount;
+        }
+        $units = array_values($byUnit);
+        usort($units, function ($a, $b) { return $a['distance'] - $b['distance']; }); //a stable sort: the server's order among equals
+        $groups = array();
+        foreach ($units as $first) {
+            $accepted = array($first);
+            $members = $first['mounts'];
+            foreach ($units as $other) {
+                if (count($members) >= $n) break;
+                if ($other['unit'] === $first['unit']) continue;
+                $fits = true;
+                foreach ($accepted as $unit) {
+                    if ($unit['unit']->getHexPos()->distanceTo($other['unit']->getHexPos()) > 1) { $fits = false; break; }
+                }
+                if (!$fits) continue;
+                $accepted[] = $other;
+                $members = array_merge($members, $other['mounts']);
+            }
+            if (count($members) < $n) continue;
+            if (count($accepted) > 1) {
+                $edge = false;
+                foreach ($accepted as $unit) $edge = $edge || $view->onEdge($unit['unit'], $target);
+                if ($edge) continue;
+            }
+            $groups[] = array_slice($members, 0, $n); //(groupShot puts them in the server's order)
+        }
+        return $groups;
+    }
+
+    //Are $members' units all more than 1 hex from every unit of the groups of their class planned at the same target in the same mode ($slot)?
+    private static function isolated(array $members, array $taken, $slot)
+    {
+        if (!isset($taken[$slot])) return true;
+        foreach ($members as $member) {
+            foreach ($taken[$slot] as $unit) {
+                if ($member['unit']->getHexPos()->distanceTo($unit->getHexPos()) <= 1) return false;
+            }
+        }
+        return true;
     }
 
     /* Hard's split weapons put back together (splitGuns): a weapon whose every gun went to ONE target is ordered in its plain mode,
@@ -993,6 +1180,7 @@ class FireDecider
             if (!self::cover($view, $weapon, $open)) continue; //nothing it could stop: it fires
             for ($gun = 1; $gun < max(1, (int)$weapon->guns) && count($open) > 0; $gun++) self::cover($view, $weapon, $open);
             $unitGuns[$index]['options'] = array();
+            $unitGuns[$index]['held'] = true; //(W3: nor does it join a combined shot)
             $held++;
         }
         return $held;
